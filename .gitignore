@@ -3,3 +3,4 @@ dist
 .env
 test-results
 playwright-report
+test-screenshots

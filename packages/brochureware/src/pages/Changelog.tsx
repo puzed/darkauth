@@ -42,11 +42,13 @@ function convertMarkdownToComponents(markdown: string, index: number) {
   const elements: JSX.Element[] = [];
   let currentUlItems: string[] = [];
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (line.startsWith("## ")) {
+    const raw = lines[i];
+    const line = raw.replace(/^\u00A0+/, "").trim();
+    const liMatch = line.match(/^(?:[-*\u2022\u2013\u2014])\s+(.*)$/);
+    if (!line) {
       if (currentUlItems.length > 0) {
         elements.push(
-          <ul key={`ul-${index}-${i}`}>
+          <ul key={`ul-${index}-${i}`} className="list-disc pl-6 space-y-1">
             {currentUlItems.map((item) => (
               <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
             ))}
@@ -54,17 +56,30 @@ function convertMarkdownToComponents(markdown: string, index: number) {
         );
         currentUlItems = [];
       }
-      const headerText = line.substring(3);
+      continue;
+    }
+    if (line.startsWith("## ") || line.startsWith("### ")) {
+      if (currentUlItems.length > 0) {
+        elements.push(
+          <ul key={`ul-${index}-${i}`} className="list-disc pl-6 space-y-1">
+            {currentUlItems.map((item) => (
+              <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
+            ))}
+          </ul>
+        );
+        currentUlItems = [];
+      }
+      const headerText = line.replace(/^###?\s+/, "");
       elements.push(<h3 key={`h3-${index}-${i}`} className="text-lg font-semibold">{parseInlineMarkdown(headerText)}</h3>);
-    } else if (line.startsWith("- ")) {
-      currentUlItems.push(line.substring(2));
+    } else if (liMatch) {
+      currentUlItems.push(liMatch[1]);
     } else if (line && currentUlItems.length === 0) {
       elements.push(<p key={`p-${index}-${i}`}>{parseInlineMarkdown(line)}</p>);
     }
   }
   if (currentUlItems.length > 0) {
     elements.push(
-      <ul key={`ul-${index}-final`}>
+      <ul key={`ul-${index}-final`} className="list-disc pl-6 space-y-1">
         {currentUlItems.map((item) => (
           <li key={`final-${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
         ))}
@@ -156,4 +171,3 @@ const Changelog = () => {
 };
 
 export default Changelog;
-
