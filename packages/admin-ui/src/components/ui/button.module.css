@@ -1,0 +1,94 @@
+.base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  white-space: nowrap;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.default {
+  background: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.default:hover {
+  background: hsl(var(--primary) / 0.92);
+}
+
+.outline {
+  background: transparent;
+  border-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+}
+.outline:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.secondary {
+  background: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+.secondary:hover {
+  filter: brightness(0.95);
+}
+
+.ghost {
+  background: transparent;
+  color: hsl(var(--foreground));
+}
+.ghost:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.destructive {
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+}
+.destructive:hover {
+  filter: brightness(0.95);
+}
+
+.link {
+  background: transparent;
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+.link:hover {
+  opacity: 0.9;
+}
+
+.sizeDefault {
+  height: 40px;
+  padding: 0 16px;
+}
+.sizeSm {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+}
+.sizeLg {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+}
+.sizeIcon {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+}
+
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

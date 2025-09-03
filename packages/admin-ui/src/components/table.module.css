@@ -1,0 +1,63 @@
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.header {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.head {
+  padding: 12px 16px;
+  text-align: left;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.head:first-child {
+  padding-left: 0;
+}
+.head:last-child {
+  padding-right: 0;
+}
+
+.row {
+  border-bottom: 1px solid hsl(var(--border) / 0.3);
+  transition: background-color 0.15s ease-in-out;
+}
+
+.row:hover {
+  background: hsl(var(--accent) / 0.3);
+}
+
+.cell {
+  padding: 16px;
+  vertical-align: middle;
+}
+
+.cell:first-child {
+  padding-left: 0;
+}
+.cell:last-child {
+  padding-right: 0;
+}
+
+.actionCell {
+  width: 70px;
+}
+
+.actionTrigger {
+  background: transparent;
+  border: none;
+  color: hsl(var(--foreground));
+  padding: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.actionTrigger:hover {
+  background: hsl(var(--accent));
+}

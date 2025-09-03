@@ -1,0 +1,55 @@
+{
+  "name": "DarkAuth",
+  "version": "1.0.0",
+  "license": "AGPL-3.0",
+  "description": "Zero-knowledge authentication system with OIDC compatibility",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:admin\" \"npm run dev:api\"",
+    "dev:api": "npm run dev -w @DarkAuth/api",
+    "dev:ui": "npm run dev -w @DarkAuth/user-ui",
+    "dev:admin": "npm run dev -w @DarkAuth/admin-ui",
+    "dev:brochureware": "npm run dev -w @DarkAuth/brochureware",
+    "build": "npm run build --workspaces",
+    "build:ui": "npm run build -w @DarkAuth/user-ui",
+    "build:admin": "npm run build -w @DarkAuth/admin-ui",
+    "build:api": "npm run build -w @DarkAuth/api",
+    "start": "npm run start -w @DarkAuth/api",
+    "test": "npm run test -w @DarkAuth/test-suite",
+    "test:report": "npm run test:report -w @DarkAuth/test-suite",
+    "test:install": "npm run install:playwright -w @DarkAuth/test-suite",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "format": "npm run format --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "check": "npm run check --workspaces --if-present",
+    "check:fix": "npm run check:fix --workspaces --if-present",
+    "tidy": "npm run tidy --workspaces --if-present",
+    "db:push": "npm run db:push -w @DarkAuth/api",
+    "db:generate": "npm run db:generate -w @DarkAuth/api",
+    "db:migrate": "npm run db:migrate -w @DarkAuth/api",
+    "db:wipe": "npm run db:wipe -w @DarkAuth/api",
+    "install:script": "npm run install:script -w @DarkAuth/api",
+    "generate-changelog-entries": "node generate-changelog-entries.js",
+    "demodb:wipe": "npm run demodb:wipe -w @DarkAuth/demo-app",
+    "demodb:push": "npm run demodb:push -w @DarkAuth/demo-app",
+    "demo:dev": "concurrently \"npm run dev -w @DarkAuth/demo-app\" \"npm run server -w @DarkAuth/demo-app\""
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.2.2",
+    "crypto-browserify": "^3.12.1",
+    "concurrently": "^9.2.1",
+    "lightningcss": "^1.30.1",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "overrides": {
+    "esbuild": "^0.25.9",
+    "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
+  }
+}

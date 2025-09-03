@@ -1,0 +1,148 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+@source "../index.html";
+@source "../**/*.{js,ts,jsx,tsx}";
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 220 9% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 9% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 9% 15%;
+
+    /* Simplified Color Scheme - Purple & Grayscale */
+    --primary: 270 100% 40%; /* Purple #6600cc */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%; /* Light Grey */
+    --secondary-foreground: 0 0% 9%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 270 100% 40%; /* Same Purple */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 270 100% 40%;
+
+    --radius: 0.75rem;
+
+    /* Custom Design Tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(270 100% 60%));
+    --gradient-hero: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(270 100% 50%) 100%);
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(0 0% 98%));
+    
+    --shadow-elegant: 0 10px 30px -10px hsl(var(--primary) / 0.2);
+    --shadow-glow: 0 0 40px hsl(var(--primary) / 0.15);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 15% / 0.1);
+    
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --footer: 0 0% 96%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 270 100% 70%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 14%; /* Dark Grey */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 63%;
+
+    --accent: 270 100% 70%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
+    --ring: 270 100% 70%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+
+    --gradient-subtle: linear-gradient(180deg, hsl(var(--background)), hsl(var(--background) / 0%));
+    --gradient-hero: linear-gradient(135deg, hsl(270 100% 70%) 0%, hsl(270 100% 78%) 100%);
+
+    --footer: 222.2 84% 3%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+.legal-content {
+  @apply max-w-3xl mx-auto text-base leading-7;
+}
+.legal-content h1 {
+  @apply text-3xl md:text-4xl font-bold mb-6 tracking-tight;
+}
+.legal-content h2 {
+  @apply text-xl md:text-2xl font-semibold mt-10 mb-3;
+}
+.legal-content p {
+  @apply mb-4 text-muted-foreground;
+}
+.legal-content ul {
+  @apply list-disc pl-6 mb-4 space-y-2 text-muted-foreground;
+}
+.legal-content li p {
+  @apply mb-2;
+}
+.legal-content a {
+  @apply text-primary underline hover:no-underline;
+}

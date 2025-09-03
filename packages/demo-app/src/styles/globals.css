@@ -1,0 +1,101 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+@source "../../index.html";
+@source "../**/*.{js,ts,jsx,tsx}";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+  }
+
+  body {
+    @apply bg-white text-gray-900 dark:bg-dark-900 dark:text-gray-100;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 font-medium shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 dark:bg-dark-700 dark:text-gray-100 dark:hover:bg-dark-600 font-medium;
+  }
+
+  .card {
+    @apply bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-gray-200 dark:border-dark-700 p-6;
+  }
+
+  .input {
+    @apply w-full px-3 py-2 border border-gray-300 dark:border-dark-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-dark-800 dark:text-gray-100;
+  }
+}
+
+/* Rich text editor styles */
+.ProseMirror {
+  @apply min-h-[400px] p-4 focus:outline-none;
+}
+
+.ProseMirror h1 {
+  @apply text-3xl font-bold mb-4;
+}
+
+.ProseMirror h2 {
+  @apply text-2xl font-bold mb-3;
+}
+
+.ProseMirror h3 {
+  @apply text-xl font-bold mb-2;
+}
+
+.ProseMirror p {
+  @apply mb-3;
+}
+
+.ProseMirror ul {
+  @apply list-disc list-inside mb-3;
+}
+
+.ProseMirror ol {
+  @apply list-decimal list-inside mb-3;
+}
+
+.ProseMirror code {
+  @apply bg-gray-100 dark:bg-dark-700 px-1 py-0.5 rounded text-sm;
+}
+
+.ProseMirror pre {
+  @apply bg-gray-100 dark:bg-dark-700 p-3 rounded-lg mb-3 overflow-x-auto;
+}
+
+.ProseMirror pre code {
+  @apply bg-transparent p-0;
+}
+
+.ProseMirror blockquote {
+  @apply border-l-4 border-gray-300 dark:border-dark-600 pl-4 italic mb-3;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-gray-100 dark:bg-dark-800;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-400 dark:bg-dark-600 rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-500 dark:bg-dark-500;
+}

@@ -1,0 +1,188 @@
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+
+  --primary: 270 100% 40%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 43 90% 50%;
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 45 25% 96%;
+  --muted-foreground: 220 8% 46%;
+
+  --accent: 270 100% 96%;
+  --accent-foreground: 38 45% 25%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 48 96% 53%;
+  --warning-foreground: 38 45% 25%;
+
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 38 85% 65%;
+
+  /* Brand gradients */
+  --gradient-primary: hsl(var(--primary));
+  --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(45 25% 98%));
+  --gradient-card: linear-gradient(145deg, hsl(0 0% 100%) 0%, hsl(41 20% 97%) 100%);
+
+  /* Shadows */
+  --shadow-soft: 0 2px 8px -2px hsl(38 85% 65% / 0.1);
+  --shadow-elevated: 0 8px 30px -12px hsl(38 85% 65% / 0.25);
+  --shadow-glow: 0 0 20px hsl(38 85% 65% / 0.3);
+
+  --radius: 0.5rem;
+
+  /* Transitions */
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --sidebar-background: 0 0% 98%;
+
+  --sidebar-foreground: 240 5.3% 26.1%;
+
+  --sidebar-primary: 240 5.9% 10%;
+
+  --sidebar-primary-foreground: 0 0% 98%;
+
+  --sidebar-accent: 240 4.8% 95.9%;
+
+  --sidebar-accent-foreground: 240 5.9% 10%;
+
+  --sidebar-border: 220 13% 91%;
+
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+.dark {
+  --background: 0 0% 10%;
+  --foreground: 210 40% 98%;
+
+  --card: 0 0% 8%;
+  --card-foreground: 210 40% 98%;
+
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+
+  --primary: 270deg 100% 40%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 43 70% 45%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
+  --warning: 48 96% 53%;
+  --warning-foreground: 38 45% 25%;
+
+  --destructive: 0 75% 50%;
+  --destructive-foreground: 210 40% 98%;
+
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 38 85% 65%;
+
+  /* Brand gradients - dark mode */
+  --gradient-primary: hsl(var(--primary));
+  --gradient-surface: linear-gradient(180deg, hsl(222.2 84% 4.9%), hsl(220 30% 8%));
+  --gradient-card: linear-gradient(145deg, hsl(222.2 84% 4.9%) 0%, hsl(220 20% 10%) 100%);
+
+  /* Shadows - dark mode */
+  --shadow-soft: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+  --shadow-elevated: 0 8px 30px -12px hsl(0 0% 0% / 0.5);
+  --shadow-glow: 0 0 20px hsl(38 85% 65% / 0.2);
+  --sidebar-background: 240 5.9% 10%;
+  --sidebar-foreground: 240 4.8% 95.9%;
+  --sidebar-primary: 224.3 76.3% 48%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 240 3.7% 15.9%;
+  --sidebar-accent-foreground: 240 4.8% 95.9%;
+  --sidebar-border: 240 3.7% 15.9%;
+  --sidebar-ring: 217.2 91.2% 59.8%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family:
+    "Verdana", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+#root {
+  height: 100%;
+}
+
+/* Ensure native controls inherit the page typography */
+input,
+textarea,
+select,
+button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.page-container {
+  max-width: 920px;
+  margin: 48px auto;
+  padding: 0 16px 32px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 34px;
+  font-weight: 800;
+  margin: 0;
+}
+
+.page-subtitle {
+  margin: 4px 0 0 0;
+  color: hsl(var(--muted-foreground));
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

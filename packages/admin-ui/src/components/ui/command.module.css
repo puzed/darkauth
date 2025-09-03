@@ -1,0 +1,90 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 8px;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+
+.inputWrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.inputIcon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.6;
+}
+
+.input {
+  flex: 1;
+  height: 44px;
+  background: transparent;
+  border: 0;
+  outline: none;
+  font: inherit;
+  color: inherit;
+}
+
+.list {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.empty {
+  padding: 16px 12px;
+  text-align: center;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+}
+
+.group {
+  padding: 4px;
+}
+
+.groupHeading {
+  padding: 6px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 0;
+  background: hsl(var(--muted));
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: default;
+  user-select: none;
+}
+
+.item[aria-selected="true"],
+.item:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.shortcut {
+  margin-left: auto;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: hsl(var(--muted-foreground));
+}

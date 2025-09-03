@@ -1,0 +1,49 @@
+.wrapper {
+  position: relative;
+  width: 100%;
+  overflow: auto;
+}
+
+.table {
+  width: 100%;
+  font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.header {
+  border-bottom: 1px solid hsl(var(--border));
+}
+
+.body tr:last-child {
+  border-bottom: 0;
+}
+
+.row {
+  border-bottom: 1px solid hsl(var(--border));
+  transition: background-color 0.2s ease;
+}
+
+.row:hover {
+  background: hsl(var(--muted) / 0.5);
+}
+
+.head {
+  height: 48px;
+  padding: 0 16px;
+  text-align: left;
+  vertical-align: middle;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.cell {
+  padding: 16px;
+  vertical-align: middle;
+}
+
+.caption {
+  margin-top: 16px;
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+}

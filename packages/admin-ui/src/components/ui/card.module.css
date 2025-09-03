@@ -1,0 +1,33 @@
+.card {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border-radius: 12px;
+}
+
+.header {
+  padding: 16px;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+
+.title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.description {
+  font-size: 14px;
+  color: hsl(var(--muted-foreground));
+  margin: 4px 0 0 0;
+}
+
+.content {
+  padding: 16px;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+}

@@ -1,0 +1,146 @@
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: hsl(var(--background));
+}
+
+.card {
+  width: 100%;
+  max-width: 520px;
+  background: hsl(var(--card, 0 0% 100%));
+  color: hsl(var(--foreground));
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+}
+
+.header {
+  padding: 24px 24px 8px 24px;
+  text-align: center;
+}
+
+.brandWrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.brand {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+:global(.dark) .brand img {
+  filter: brightness(100);
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 4px 0;
+  color: hsl(var(--primary));
+}
+
+:global(.dark) .title {
+  color: hsl(var(--foreground));
+}
+
+.description {
+  margin: 0;
+  color: hsl(var(--muted-foreground, 220 8% 46%));
+  font-size: 14px;
+}
+
+.content {
+  padding: 16px 24px 8px 24px;
+}
+
+.formGroup {
+  margin-bottom: 14px;
+}
+
+.label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.input {
+  width: 100%;
+  border: 1px solid hsl(var(--input));
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  background: hsl(var(--background));
+}
+
+.input.error {
+  border-color: hsl(var(--destructive, 0 84.2% 60.2%));
+}
+
+.errorText {
+  margin-top: 6px;
+  font-size: 12px;
+  color: hsl(var(--destructive, 0 84.2% 60.2%));
+}
+
+.alert {
+  border: 1px solid hsl(var(--destructive, 0 84.2% 60.2%));
+  background: hsl(var(--destructive) / 0.12);
+  color: hsl(var(--destructive));
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+:global(.dark) .alert {
+  background: hsl(var(--destructive) / 0.2);
+  border-color: hsl(var(--destructive) / 0.6);
+}
+
+.actions {
+  margin-top: 12px;
+}
+
+.footer {
+  padding: 8px 24px 20px 24px;
+  text-align: center;
+  color: hsl(var(--muted-foreground, 220 8% 46%));
+}
+
+.footerSmall {
+  font-size: 12px;
+}
+
+.themeToggle {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.themeToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  cursor: pointer;
+  transition: var(--transition-smooth);
+}
+
+.themeToggleBtn:hover {
+  background: hsl(var(--accent, 270 100% 96%));
+  color: hsl(var(--foreground));
+}

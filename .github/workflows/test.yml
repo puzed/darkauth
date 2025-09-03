@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: DarkAuth
+          POSTGRES_PASSWORD: DarkAuth_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U DarkAuth" --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: DarkAuth
+      POSTGRES_PASSWORD: DarkAuth_password
+      NODE_ENV: test
+      CI: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: npx playwright install
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: packages/test-suite/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: packages/test-suite/playwright-report
+          retention-days: 7
+
+  deploy-brochureware:
+    name: Deploy Brochureware
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-brochureware
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-results
+          path: packages/test-suite/test-results
+      - run: npm install
+      - run: |
+          cd packages/brochureware
+          npm run build
+      - run: |
+          cd packages/brochureware
+          node deploy.js
+        env:
+          BROCHUREWARE_DEPLOY_STORAGE_ZONE: ${{ vars.BROCHUREWARE_DEPLOY_STORAGE_ZONE }}
+          BROCHUREWARE_DEPLOY_ACCESS_KEY: ${{ secrets.BROCHUREWARE_DEPLOY_ACCESS_KEY }}
+      - run: |
+          cd packages/brochureware
+          node clearCache.js ${{ vars.BROCHUREWARE_DOMAIN }}
+        env:
+          PURGE_BUNNY_SECRET: ${{ secrets.PURGE_BUNNY_SECRET }}
