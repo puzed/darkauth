@@ -1,0 +1,89 @@
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 8px;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-size: inherit;
+  font-family: inherit;
+  outline: none;
+}
+
+.trigger:focus {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2);
+}
+
+.content {
+  z-index: 50;
+  min-width: 8rem;
+  max-height: 384px;
+  overflow: auto;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 30px -12px hsl(38 85% 65% / 0.25);
+}
+
+.viewport {
+  padding: 4px;
+}
+
+.item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px 8px 28px;
+  border-radius: 6px;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.itemIndicator {
+  position: absolute;
+  left: 8px;
+  display: flex;
+  width: 14px;
+  height: 14px;
+  align-items: center;
+  justify-content: center;
+}
+
+.item:hover,
+.item:focus {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  outline: none;
+}
+
+.label {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 0;
+  background: hsl(var(--muted));
+}
+
+.scrollButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+}

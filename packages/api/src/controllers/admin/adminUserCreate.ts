@@ -1,0 +1,84 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
+import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod";
+import { genericErrors } from "../../http/openapi-helpers.js";
+
+extendZodWithOpenApi(z);
+
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { createAdminUser } from "../../models/adminUsers.js";
+export const AdminRoleSchema = z.enum(["read", "write"]);
+export const AdminUserSchema = z.object({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  role: AdminRoleSchema,
+  passwordResetRequired: z.boolean().optional(),
+  createdAt: z.date().or(z.string()),
+});
+
+export const CreateAdminUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(100),
+  role: AdminRoleSchema,
+});
+
+import { requireSession } from "../../services/sessions.js";
+import type { Context } from "../../types.js";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+
+export async function createAdminUserController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse
+) {
+  const sessionData = await requireSession(context, request, true);
+  if (!sessionData.adminRole || sessionData.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
+  }
+
+  const body = await readBody(request);
+  const raw = parseJsonSafely(body);
+  const parsed = CreateAdminUserSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new ValidationError("Validation error", parsed.error.issues);
+  }
+
+  const adminUser = await createAdminUser(context, {
+    email: parsed.data.email.trim().toLowerCase(),
+    name: parsed.data.name.trim(),
+    role: parsed.data.role,
+  });
+
+  sendJson(response, 201, adminUser);
+}
+
+export function registerOpenApi(registry: OpenAPIRegistry) {
+  registry.registerPath({
+    method: "post",
+    path: "/admin/admin-users",
+    tags: ["Admin Users"],
+    summary: "Create admin user",
+    request: {
+      body: {
+        content: {
+          "application/json": {
+            schema: CreateAdminUserSchema,
+          },
+        },
+      },
+    },
+    responses: {
+      201: {
+        description: "Created",
+        content: {
+          "application/json": {
+            schema: AdminUserSchema,
+          },
+        },
+      },
+      ...genericErrors,
+    },
+  });
+}

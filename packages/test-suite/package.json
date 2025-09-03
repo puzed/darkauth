@@ -1,0 +1,25 @@
+{
+  "name": "@DarkAuth/test-suite",
+  "version": "1.0.0",
+  "license": "AGPL-3.0",
+  "private": true,
+  "description": "End-to-end test suite for DarkAuth",
+  "type": "module",
+  "scripts": {
+    "pretest": "npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build",
+    "test": "npm run pretest && npx playwright test --reporter=html",
+    "test:report": "npx playwright show-report",
+    "install:playwright": "npx playwright install"
+  },
+  "dependencies": {
+    "@DarkAuth/api": "*"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^24.3.0",
+    "drizzle-orm": "^0.44.5",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
+  }
+}

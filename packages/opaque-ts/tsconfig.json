@@ -1,0 +1,32 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ES2022",
+        "lib": [
+            "dom"
+        ],
+        "composite": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "isolatedModules": true,
+        "strict": true,
+        "noEmitOnError": true,
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "noImplicitReturns": true,
+        "noFallthroughCasesInSwitch": true,
+        "moduleResolution": "node",
+        "esModuleInterop": true,
+        "verbatimModuleSyntax": true,
+        "rootDir": ".",
+        "outDir": "./lib",
+        "skipLibCheck": true
+    },
+    "files": [],
+    "include": [],
+    "references": [
+        {
+            "path": "./src"
+        }
+    ]
+}

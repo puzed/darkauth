@@ -1,0 +1,63 @@
+.content {
+  z-index: 50;
+  min-width: 8rem;
+  background: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  box-shadow: 0 8px 30px -12px hsl(38 85% 65% / 0.25);
+  padding: 4px 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 6px;
+}
+
+.item:hover,
+.item:focus {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+  outline: none;
+}
+
+.label {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.separator {
+  height: 1px;
+  margin: 4px 0;
+  background: hsl(var(--muted));
+}
+
+.subTrigger {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.subTrigger:hover,
+.subTrigger[data-state="open"] {
+  background: hsl(var(--accent));
+}
+
+.shortcut {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.6;
+  letter-spacing: 0.08em;
+}

@@ -1,0 +1,86 @@
+.card {
+  background: linear-gradient(180deg, hsl(var(--card)), hsl(var(--card) / 0.95));
+  border: 1px solid hsl(var(--border) / 0.5);
+  border-radius: 12px;
+  margin-top: 16px;
+}
+
+.cardHeader {
+  padding: 24px 24px 8px 24px;
+}
+
+.cardHeaderContent {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .cardHeaderContent {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titleWrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.cardTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.cardDescription {
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+  margin: 0;
+}
+
+.searchContainer {
+  position: relative;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: hsl(var(--muted-foreground));
+}
+
+.searchInput {
+  padding-left: 36px;
+  width: 300px;
+  border: 1px solid hsl(var(--input));
+  border-radius: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  padding-right: 12px;
+  font-size: 14px;
+  outline: none;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.searchInput:focus {
+  border-color: hsl(var(--primary));
+}
+.searchInput::placeholder {
+  color: hsl(var(--muted-foreground));
+}
+
+.rightActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.cardContent {
+  padding: 16px 24px 24px 24px;
+}

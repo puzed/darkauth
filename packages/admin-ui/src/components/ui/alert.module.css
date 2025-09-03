@@ -1,0 +1,44 @@
+.alert {
+  position: relative;
+  width: 100%;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.default {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+.destructive {
+  background: hsl(var(--destructive) / 0.05);
+  color: hsl(var(--destructive));
+  border-color: hsl(var(--destructive) / 0.5);
+}
+
+.title {
+  margin: 0;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.description {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.warning {
+  background: hsl(var(--warning) / 0.1);
+  color: hsl(var(--warning-foreground));
+  border-color: hsl(var(--warning) / 0.5);
+}
+
+.warning .title {
+  color: hsl(var(--warning-foreground));
+  font-weight: 700;
+}
+
+.warning .description {
+  color: hsl(var(--foreground));
+}

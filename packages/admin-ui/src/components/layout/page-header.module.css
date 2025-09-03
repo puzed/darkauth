@@ -1,0 +1,31 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (min-width: 640px) {
+  .header {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.titleBlock h1 {
+  font-size: 30px;
+  font-weight: 700;
+  margin: 0;
+  margin-bottom: 12px;
+}
+
+.titleBlock p {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+}
