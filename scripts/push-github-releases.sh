@@ -9,7 +9,18 @@ for file in changelog/*.md; do
   else
     body=$(cat "$file")
   fi
-  remote=$(gh release view "$tag" --json body --jq '.body // ""' || echo "")
+  remote=""
+  if ! remote_output=$(gh release view "$tag" --json body --jq '.body // ""' 2>&1); then
+    if printf "%s" "$remote_output" | grep -qi "release not found"; then
+      remote=""
+    else
+      printf "%s\n" "Error running gh release view for tag '$tag':" 1>&2
+      printf "%s\n" "$remote_output" 1>&2
+      exit 1
+    fi
+  else
+    remote="$remote_output"
+  fi
   local_norm=$(printf "%s" "$body" | tr -d '\r')
   remote_norm=$(printf "%s" "$remote" | tr -d '\r')
   if [ "${local_norm}" != "${remote_norm}" ]; then

@@ -11,7 +11,11 @@ gh api repos/:owner/:repo/releases --paginate --jq '.[].tag_name' | while read -
     name=$(gh release view "$tag" --json name --jq '.name // ""' || echo "")
     fallback_title=${tag#v}
     [ -n "$name" ] && title="$name" || title="$fallback_title"
-    sha=$(gh api repos/:owner/:repo/commits/"$tag" -q .sha 2>/dev/null | cut -c1-7 || echo "")
+    sha=$(gh api repos/:owner/:repo/commits/"$tag" -q .sha 2>/dev/null | cut -c1-7)
+    if [ -z "$sha" ]; then
+      printf "%s\n" "Warning: Commit lookup failed for tag '$tag'" 1>&2
+      sha="commit lookup failed"
+    fi
     {
       printf "date: %s\n" "$date"
       printf "title: %s\n" "$title"
@@ -24,20 +28,24 @@ gh api repos/:owner/:repo/releases --paginate --jq '.[].tag_name' | while read -
     name=$(gh release view "$tag" --json name --jq '.name // ""' || echo "")
     fallback_title=${tag#v}
     [ -n "$name" ] && title="$name" || title="$fallback_title"
-    tmp=$(mktemp)
-    awk -v t="$title" '
-      BEGIN{hdr=1; seen_title=0}
-      hdr && /^title:[[:space:]]*/ {seen_title=1; print; next}
-      hdr && /^version:[[:space:]]*/ {
-        if(!seen_title){ sub(/^version:[[:space:]]*/,"title: "); seen_title=1; print }
-        next
-      }
-      hdr && /^---[[:space:]]*$/ { if(!seen_title){ print "title: " t } ; print; hdr=0; next }
-      hdr { print; next }
-      { print }
-    ' "$file" > "$tmp"
-    mv "$tmp" "$file"
-    awk 'BEGIN{hdr=1} hdr && /^version:[[:space:]]*/{next} /^---[[:space:]]*$/ {hdr=0} {print}' "$file" > "$tmp"
-    mv "$tmp" "$file"
+    tmp_hdr=$(mktemp)
+    tmp_body=$(mktemp)
+    awk 'BEGIN{hdr=1} hdr{print} /^---[[:space:]]*$/ {hdr=0; print; exit}' "$file" > "$tmp_hdr"
+    awk 'p{print} /^---[[:space:]]*$/{p=1}' "$file" > "$tmp_body"
+    if grep -q '^title:[[:space:]]*' "$tmp_hdr"; then
+      :
+    else
+      if grep -q '^version:[[:space:]]*' "$tmp_hdr"; then
+        sed '0,/^version:[[:space:]]*/s//title: /' "$tmp_hdr" > "${tmp_hdr}.1"
+        mv "${tmp_hdr}.1" "$tmp_hdr"
+      else
+        awk -v t="$title" '/^---[[:space:]]*$/ { print "title: " t; } { print }' "$tmp_hdr" > "${tmp_hdr}.1"
+        mv "${tmp_hdr}.1" "$tmp_hdr"
+      fi
+    fi
+    awk 'BEGIN{hdr=1} hdr && /^version:[[:space:]]*/{next} /^---[[:space:]]*$/ {hdr=0} {print}' "$tmp_hdr" > "${tmp_hdr}.2"
+    mv "${tmp_hdr}.2" "$tmp_hdr"
+    cat "$tmp_hdr" "$tmp_body" > "$file"
+    rm -f "$tmp_hdr" "$tmp_body"
   fi
 done
