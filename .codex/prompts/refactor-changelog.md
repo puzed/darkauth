@@ -1,6 +1,12 @@
-go through all changelog's where in the meta has `reviewed: false`.
+The files in the changelog folder have all been created for each release in github.
 
-go through the false files and refactor them to read like a public exposed, informative changelog. if something doesn't make sense you can do a git diff to see what that commit actually did.
+You have access to the github cli tool `gh`.
+
+Go through all changelog's where in the meta has `reviewed: false`.
+
+Look up the corresponding tag/commit using the gh cli tool, and work out all the commits that were in that release.
+
+go through those commits and add them to the changelog file to read like a public exposed, informative changelog. if something doesn't make sense you can do a git diff to see what that commit actually did.
 
 rewrite each changelog where `reviewed: false` to contain a good detailed changelog information.
 
