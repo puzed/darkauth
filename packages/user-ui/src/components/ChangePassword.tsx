@@ -138,69 +138,104 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
   };
 
   return (
-    <div className="login-form">
-      <h2>Change Password</h2>
+    <div className="auth-container">
+      <h2 className="form-title">Change your password</h2>
+
       <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label htmlFor={`${uid}-old`}>Current Password</label>
+          <label htmlFor={`${uid}-old`}>Current password</label>
           <input
             type="password"
             id={`${uid}-old`}
             value={oldPassword}
             onChange={(e) => setOldPassword(e.target.value)}
             placeholder="Enter your current password"
+            className={error?.includes("Current password") ? "error" : ""}
             disabled={loading}
             autoComplete="current-password"
             required
           />
         </div>
+
         <div className="form-group">
-          <label htmlFor={`${uid}-new`}>New Password</label>
+          <label htmlFor={`${uid}-new`}>New password</label>
           <input
             type="password"
             id={`${uid}-new`}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter a new password"
+            placeholder="Create a new password"
+            className={error?.includes("Password must") ? "error" : ""}
             disabled={loading}
             autoComplete="new-password"
             required
           />
+          <div className="help-text">Must be at least 12 characters</div>
         </div>
+
         <div className="form-group">
-          <label htmlFor={`${uid}-confirm`}>Confirm Password</label>
+          <label htmlFor={`${uid}-confirm`}>Confirm new password</label>
           <input
             type="password"
             id={`${uid}-confirm`}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Re-enter your new password"
+            className={error?.includes("match") ? "error" : ""}
             disabled={loading}
             autoComplete="new-password"
             required
           />
-          {error && <div className="error-text">{error}</div>}
-          {info && !needsKeyRegen && <div className="help-text">{info}</div>}
         </div>
+
+        {error && <div className="error-message">{error}</div>}
+        {info && !needsKeyRegen && (
+          <div
+            style={{
+              padding: "0.875rem",
+              background: "var(--success-50)",
+              border: "1px solid var(--success-500)",
+              borderRadius: "var(--radius-md)",
+              marginBottom: "1.25rem",
+              fontSize: "0.875rem",
+              color: "var(--success-700)",
+            }}
+          >
+            {info}
+          </div>
+        )}
+
         <button type="submit" className="primary-button" disabled={loading}>
           {loading ? (
             <>
               <span className="loading-spinner" />
-              Updating...
+              Updating password...
             </>
           ) : (
-            "Update Password"
+            "Update password"
           )}
         </button>
       </form>
+
       {needsKeyRegen && (
-        <div className="form-footer">
-          <p>Your old password could not recover your encryption key. Generate a new keypair?</p>
-          <div className="actions" style={{ marginTop: "1rem" }}>
-            <button type="button" className="deny-button" onClick={() => setNeedsKeyRegen(false)}>
+        <div className="form-footer" style={{ borderTop: "1px solid var(--gray-200)" }}>
+          <p style={{ marginBottom: "1rem" }}>
+            Your encryption key could not be recovered. You can generate new keys to continue.
+          </p>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setNeedsKeyRegen(false)}
+            >
               Try Again
             </button>
-            <button type="button" className="approve-button" onClick={handleGenerateNew}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleGenerateNew}
+              style={{ background: "var(--success-600)" }}
+            >
               Generate New Keys
             </button>
           </div>

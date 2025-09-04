@@ -287,22 +287,39 @@ function App() {
             </div>
           </div>
           <div className="authenticated-state">
-            <div className="success-icon">✅</div>
-            <h2>Successfully Authenticated</h2>
+            <div className="success-icon">
+              <svg
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <title>Successfully authenticated</title>
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <h2>Successfully authenticated</h2>
             <div className="user-details">
               <p>
-                <strong>Name:</strong> {sessionData.name || "Not provided"}
+                <strong>Name</strong>
+                <span>{sessionData.name || "Not provided"}</span>
               </p>
               <p>
-                <strong>Email:</strong> {sessionData.email}
+                <strong>Email</strong>
+                <span>{sessionData.email}</span>
               </p>
               <p>
-                <strong>Subject:</strong> <code>{sessionData.sub}</code>
+                <strong>User ID</strong>
+                <code>{sessionData.sub}</code>
               </p>
             </div>
             <p className="info-text">
-              You are now logged in to DarkAuth. If you arrived here through an application's login
-              flow, you can now return to that application.
+              You are securely logged in to DarkAuth. If you accessed this page through an
+              application's login flow, you can now return to that application.
             </p>
           </div>
         </div>
