@@ -28,13 +28,13 @@ test.describe('Authentication - User Login', () => {
   test.beforeEach(async ({ page, context }) => {
     user = createTestUser();
     await page.goto(`${servers.userUrl}/`);
-    await page.click('button:has-text("Create one")');
+    await page.click('button:has-text("Sign up")');
     await page.fill('input[name="name"]', user.name);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.fill('input[name="confirmPassword"]', user.password);
-    await page.click('button:has-text("Create Account")');
-    await page.getByText('Successfully Authenticated').waitFor({ state: 'visible', timeout: 5000 });
+    await page.click('button[type="submit"], button:has-text("Continue")');
+    await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
     await context.clearCookies();
   });
 
@@ -58,7 +58,7 @@ test.describe('Authentication - User Login', () => {
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.click('button[type="submit"], button:has-text("Sign In")');
-    await page.getByText('Successfully Authenticated').waitFor({ state: 'visible', timeout: 5000 });
+    await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
   });
 
   test('user cannot login with wrong password', async ({ page }) => {
