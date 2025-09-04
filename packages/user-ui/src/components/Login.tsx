@@ -177,19 +177,19 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   };
 
   return (
-    <div className="login-form">
-      <h2>Sign In</h2>
+    <div className="auth-container">
+      <h2 className="form-title">Welcome back</h2>
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label htmlFor={`${uid}-email`}>Email Address</label>
+          <label htmlFor={`${uid}-email`}>Email</label>
           <input
             type="email"
             id={`${uid}-email`}
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="your@email.com"
+            placeholder="Enter your email"
             className={errors.email ? "error" : ""}
             disabled={loading}
             autoComplete="email"
@@ -206,7 +206,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
             name="password"
             value={formData.password}
             onChange={handleInputChange}
-            placeholder="Your password"
+            placeholder="Enter your password"
             className={errors.password ? "error" : ""}
             disabled={loading}
             autoComplete="current-password"
@@ -221,10 +221,10 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
           {loading ? (
             <>
               <span className="loading-spinner" />
-              Signing In...
+              Signing in...
             </>
           ) : (
-            "Sign In"
+            "Continue"
           )}
         </button>
       </form>
@@ -238,7 +238,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
             onClick={onSwitchToRegister}
             disabled={loading}
           >
-            Create one
+            Sign up
           </button>
         </p>
       </div>
