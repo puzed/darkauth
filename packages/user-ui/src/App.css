@@ -443,6 +443,16 @@ body {
   opacity: 0.9;
 }
 
+/* Ensure dark theme never renders a light logout button */
+[data-da-theme="dark"] .logout-button {
+  background: var(--gray-900);
+  color: #fff;
+  border: 0;
+}
+[data-da-theme="dark"] .logout-button:hover {
+  opacity: 0.92;
+}
+
 .authenticated-state {
   padding: 3rem 2rem;
   text-align: center;
