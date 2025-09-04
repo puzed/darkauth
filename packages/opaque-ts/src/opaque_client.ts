@@ -189,7 +189,7 @@ export class OpaqueClient implements RegistrationClient, AuthClient {
 
     private clean(): void {
         this.status = OpaqueClient.States.NEW
-        this.password = undefined // eslint-disable-line no-undefined
-        this.blind = undefined // eslint-disable-line no-undefined
+        this.password = undefined
+        this.blind = undefined
     }
 }

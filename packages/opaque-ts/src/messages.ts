@@ -352,7 +352,7 @@ export class CredentialFile extends Serializable {
 
         start = end
         const { payload } = decode_vector_16(u8array.slice(start))
-        const client_identity = payload.length === 0 ? undefined : td.decode(payload) // eslint-disable-line no-undefined
+        const client_identity = payload.length === 0 ? undefined : td.decode(payload)
 
         return new CredentialFile(credential_identifier, record, client_identity)
     }
@@ -581,7 +581,7 @@ export class KE3 extends Serializable {
         this.checked_bytes_to_uint8array(cfg, bytes)
 
         const start = 0
-        const end = Number(AuthFinish.sizeSerialized(cfg))
+        const end = AuthFinish.sizeSerialized(cfg)
         const auth_finish = AuthFinish.deserialize(cfg, bytes.slice(start, end))
 
         return new KE3(auth_finish)

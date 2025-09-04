@@ -14,7 +14,9 @@ export default eslintTS.config(
             'rollup.config.js',
             'coverage/*',
             'dist/*',
-            'lib/*'
+            'lib/*',
+            'test/*',
+            'test/**/*'
         ]
     },
     {
@@ -38,7 +40,8 @@ export default eslintTS.config(
             ],
             '@typescript-eslint/consistent-type-imports': 'error',
             '@typescript-eslint/consistent-type-exports': 'error',
-            '@typescript-eslint/restrict-template-expressions': 'off'
+            '@typescript-eslint/restrict-template-expressions': 'off',
+            'security/detect-object-injection': 'off'
         }
     },
     pluginPrettier
