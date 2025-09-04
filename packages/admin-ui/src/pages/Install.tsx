@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useId, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { FormGrid, FormField as GridField } from "@/components/layout/form-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
 import adminOpaqueService, { type AdminOpaqueRegistrationState } from "@/services/opaque";
 
 interface InstallData {
@@ -12,21 +14,12 @@ interface InstallData {
   adminPassword: string;
 }
 
-interface InstallResultData {
-  success: boolean;
-  message: string;
-  adminId?: string;
-  clients?: Array<{ id: string; name: string; type: string; secret?: string }>;
-}
-
 export default function Install() {
   const uid = useId();
-  const [stage, setStage] = useState<"checking" | "form" | "installing" | "success" | "error">(
-    "checking"
-  );
+  const [stage, setStage] = useState<"checking" | "form" | "installing" | "error">("checking");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<InstallResultData | null>(null);
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<InstallData>({
     adminEmail: "",
     adminName: "",
@@ -125,8 +118,9 @@ export default function Install() {
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      setResult(data);
-      setStage("success");
+      toast({ title: "Admin account created", description: "You can now login" });
+      navigate("/");
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Installation failed");
     } finally {
@@ -162,28 +156,6 @@ export default function Install() {
             server console and try again.
           </p>
         </div>
-      </div>
-    );
-  }
-
-  if (stage === "success" && result) {
-    return (
-      <div className="page-container">
-        <div className="page-header">
-          <div style={{ fontSize: 48 }}>✅</div>
-          <h1>Installation Complete</h1>
-          <p>{result.message}</p>
-        </div>
-        <Card>
-          <CardHeader>
-            <CardTitle>Next steps</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol style={{ margin: 0, paddingLeft: 18 }}>
-              <li>Open the admin panel at http://localhost:9081</li>
-            </ol>
-          </CardContent>
-        </Card>
       </div>
     );
   }
