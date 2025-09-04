@@ -1,8 +1,10 @@
 import { useId, useState } from "react";
+import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import styles from "./Login.module.css";
 
 interface LoginProps {
   onLogin: (sessionData: {
@@ -27,6 +29,7 @@ interface FormErrors {
 
 export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const uid = useId();
+  const branding = useBranding();
   const [formData, setFormData] = useState<FormData>({
     email: "",
     password: "",
@@ -177,68 +180,72 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   };
 
   return (
-    <div className="auth-container">
-      <h2 className="form-title">Welcome back</h2>
+    <div className={styles.authContainer}>
+      <h2 className={styles.formTitle}>{branding.getText("welcomeBack", "Welcome back")}</h2>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="form-group">
-          <label htmlFor={`${uid}-email`}>Email</label>
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-email`}>
+            {branding.getText("email", "Email")}
+          </label>
           <input
             type="email"
             id={`${uid}-email`}
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="Enter your email"
-            className={errors.email ? "error" : ""}
+            placeholder={branding.getText("emailPlaceholder", "Enter your email")}
+            className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
             disabled={loading}
             autoComplete="email"
             required
           />
-          {errors.email && <div className="error-text">{errors.email}</div>}
+          {errors.email && <div className={styles.errorText}>{errors.email}</div>}
         </div>
 
-        <div className="form-group">
-          <label htmlFor={`${uid}-password`}>Password</label>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-password`}>
+            {branding.getText("password", "Password")}
+          </label>
           <input
             type="password"
             id={`${uid}-password`}
             name="password"
             value={formData.password}
             onChange={handleInputChange}
-            placeholder="Enter your password"
-            className={errors.password ? "error" : ""}
+            placeholder={branding.getText("passwordPlaceholder", "Enter your password")}
+            className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
             disabled={loading}
             autoComplete="current-password"
             required
           />
-          {errors.password && <div className="error-text">{errors.password}</div>}
+          {errors.password && <div className={styles.errorText}>{errors.password}</div>}
         </div>
 
-        {errors.general && <div className="error-message">{errors.general}</div>}
+        {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
 
-        <button type="submit" className="primary-button" disabled={loading}>
+        <button type="submit" className={styles.primaryButton} disabled={loading}>
           {loading ? (
             <>
-              <span className="loading-spinner" />
-              Signing in...
+              <span className={styles.loadingSpinner} />
+              {branding.getText("signingIn", "Signing in...")}
             </>
           ) : (
-            "Continue"
+            branding.getText("signin", "Continue")
           )}
         </button>
       </form>
 
-      <div className="form-footer">
+      <div className={styles.formFooter}>
         <p>
-          Don't have an account?{" "}
+          {branding.getText("noAccount", "Don't have an account?")}{" "}
           <button
             type="button"
-            className="link-button"
+            className={styles.linkButton}
             onClick={onSwitchToRegister}
             disabled={loading}
           >
-            Sign up
+            {branding.getText("signup", "Sign up")}
           </button>
         </p>
       </div>
