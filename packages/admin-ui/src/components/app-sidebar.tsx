@@ -23,6 +23,7 @@ const mainItems = [
   { title: "Users", url: "/users", icon: Users },
   { title: "Groups", url: "/groups", icon: Shield },
   { title: "Clients", url: "/clients", icon: Lock },
+  { title: "Branding", url: "/branding", icon: Monitor },
 ];
 
 const securityItems = [

@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import path, { join } from "node:path";
+import path, { join, resolve } from "node:path";
 import react from "@vitejs/plugin-react-swc";
 import { defineConfig } from "vite";
 
@@ -33,6 +33,10 @@ export default defineConfig({
             res.end(payload);
             return;
           }
+          if (req.url?.startsWith("/preview")) {
+            const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
+            req.url = `/branding/preview.html${qs}`;
+          }
           next();
         });
       },
@@ -48,7 +52,14 @@ export default defineConfig({
       crypto: path.resolve(__dirname, "./src/shims/empty.ts"),
     },
   },
-  build: {},
+  build: {
+    rollupOptions: {
+      input: {
+        main: resolve(__dirname, "index.html"),
+        brandingPreview: resolve(__dirname, "branding/preview.html"),
+      },
+    },
+  },
   define: {
     "import.meta.env.VITE_COMMIT_HASH": JSON.stringify(COMMIT_HASH || ""),
   },
