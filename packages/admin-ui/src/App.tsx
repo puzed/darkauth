@@ -12,6 +12,7 @@ import AdminUsers from "./pages/AdminUsers";
 import Analytics from "./pages/Analytics";
 import AuditLogDetail from "./pages/AuditLogDetail";
 import AuditLogs from "./pages/AuditLogs";
+import Branding from "./pages/Branding";
 import Changelog from "./pages/Changelog";
 import ClientCreate from "./pages/ClientCreate";
 import ClientEdit from "./pages/ClientEdit";
@@ -328,6 +329,14 @@ const App = () => {
             element={
               <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                 <Settings />
+              </DashboardLayout>
+            }
+          />
+          <Route
+            path="/branding"
+            element={
+              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                <Branding />
               </DashboardLayout>
             }
           />
