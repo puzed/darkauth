@@ -52,7 +52,7 @@ export default defineConfig(({ mode }) => ({
               res.setHeader("Content-Type", file.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream");
               res.end(svg);
               return;
-            } catch {}
+            } catch (e) { void e }
           }
           next();
         });
@@ -62,7 +62,7 @@ export default defineConfig(({ mode }) => ({
           const logosDir = join(process.cwd(), "../../logos");
           const svg = readFileSync(join(logosDir, "icon.svg"), "utf8");
           this.emitFile({ type: "asset", fileName: "logos/icon.svg", source: svg });
-        } catch {}
+        } catch (e) { void e }
       },
     },
   ],
