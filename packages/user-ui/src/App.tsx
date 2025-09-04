@@ -134,13 +134,6 @@ function App() {
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <ThemeToggle />
-              <button
-                type="button"
-                className="logout-button da-button da-button-secondary"
-                onClick={handleLogout}
-              >
-                {branding.getText("signout", "Sign Out")}
-              </button>
             </div>
           </div>
           <ChangePassword
@@ -156,6 +149,11 @@ function App() {
               });
             }}
           />
+          <div className="actions" style={{ justifyContent: "flex-end" }}>
+            <button type="button" className="logout-button" onClick={handleLogout}>
+              {branding.getText("signout", "Sign Out")}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -177,25 +175,8 @@ function App() {
                 </span>
                 <h1 className="da-brand-title">{branding.getTitle()}</h1>
               </div>
-              <div
-                className="user-info da-user-info"
-                style={{ display: "flex", alignItems: "center", gap: 12 }}
-              >
+              <div className="user-info da-user-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <ThemeToggle />
-                <button
-                  type="button"
-                  className="link-button da-button-link"
-                  onClick={() => setChangingPassword(false)}
-                >
-                  {branding.getText("cancel", "Cancel")}
-                </button>
-                <button
-                  type="button"
-                  className="logout-button da-button da-button-secondary"
-                  onClick={handleLogout}
-                >
-                  {branding.getText("signout", "Sign Out")}
-                </button>
               </div>
             </div>
             <ChangePassword
@@ -229,22 +210,8 @@ function App() {
               </span>
               <h1 className="da-brand-title">{branding.getTitle()}</h1>
             </div>
-            <div
-              className="user-info da-user-info"
-              style={{ display: "flex", alignItems: "center", gap: 12 }}
-            >
+            <div className="user-info da-user-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <ThemeToggle />
-              <span>
-                {branding.getText("signedInAs", "Signed in as")}{" "}
-                {sessionData.name || sessionData.email}
-              </span>
-              <button
-                type="button"
-                className="logout-button da-button da-button-secondary"
-                onClick={handleLogout}
-              >
-                {branding.getText("signout", "Sign Out")}
-              </button>
             </div>
           </div>
           <Authorize authRequest={authRequest} sessionData={sessionData} />
@@ -266,22 +233,7 @@ function App() {
                 </span>
                 <h1 className="da-brand-title">{branding.getTitle()}</h1>
               </div>
-              <div className="user-info da-user-info">
-                <button
-                  type="button"
-                  className="link-button da-button-link"
-                  onClick={() => setChangingPassword(false)}
-                >
-                  {branding.getText("cancel", "Cancel")}
-                </button>
-                <button
-                  type="button"
-                  className="logout-button da-button da-button-secondary"
-                  onClick={handleLogout}
-                >
-                  {branding.getText("signout", "Sign Out")}
-                </button>
-              </div>
+              <div className="user-info da-user-info"></div>
             </div>
             <ChangePassword
               sub={sessionData.sub}
@@ -372,6 +324,18 @@ function App() {
               You are securely logged in to {branding.getTitle()}. If you accessed this page through
               an application's login flow, you can now return to that application.
             </p>
+            <div className="actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setChangingPassword(true)}
+              >
+                {branding.getText("changePassword", "Change Password")}
+              </button>
+              <button type="button" className="logout-button" onClick={handleLogout}>
+                {branding.getText("signout", "Sign Out")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
