@@ -175,7 +175,10 @@ function App() {
                 </span>
                 <h1 className="da-brand-title">{branding.getTitle()}</h1>
               </div>
-              <div className="user-info da-user-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                className="user-info da-user-info"
+                style={{ display: "flex", alignItems: "center", gap: 12 }}
+              >
                 <ThemeToggle />
               </div>
             </div>
@@ -210,7 +213,10 @@ function App() {
               </span>
               <h1 className="da-brand-title">{branding.getTitle()}</h1>
             </div>
-            <div className="user-info da-user-info" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              className="user-info da-user-info"
+              style={{ display: "flex", alignItems: "center", gap: 12 }}
+            >
               <ThemeToggle />
             </div>
           </div>
