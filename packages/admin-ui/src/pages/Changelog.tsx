@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
+import changelogStyles from "@/components/changelog.module.css";
 import PageHeader from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -48,7 +49,7 @@ function convertMarkdownToComponents(markdown: string, index: number): JSX.Eleme
     if (!line) {
       if (currentUlItems.length > 0) {
         elements.push(
-          <ul key={`ul-${index}-${i}`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+          <ul key={`ul-${index}-${i}`}>
             {currentUlItems.map((item) => (
               <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
             ))}
@@ -61,7 +62,7 @@ function convertMarkdownToComponents(markdown: string, index: number): JSX.Eleme
     if (line.startsWith("## ") || line.startsWith("### ")) {
       if (currentUlItems.length > 0) {
         elements.push(
-          <ul key={`ul-${index}-${i}`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+          <ul key={`ul-${index}-${i}`}>
             {currentUlItems.map((item) => (
               <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
             ))}
@@ -79,14 +80,14 @@ function convertMarkdownToComponents(markdown: string, index: number): JSX.Eleme
   }
   if (currentUlItems.length > 0) {
     elements.push(
-      <ul key={`ul-${index}-final`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+      <ul key={`ul-${index}-final`}>
         {currentUlItems.map((item) => (
           <li key={`final-${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
         ))}
       </ul>
     );
   }
-  return <div>{elements}</div>;
+  return <div className={changelogStyles.changelog}>{elements}</div>;
 }
 
 const Changelog: React.FC = () => {
@@ -165,7 +166,7 @@ const Changelog: React.FC = () => {
                 </CardHeader>
                 {!isCollapsed && (
                   <CardContent>
-                    <div style={{ display: "grid", gap: 8 }}>
+                    <div className={changelogStyles.changelog} style={{ display: "grid", gap: 8 }}>
                       {entry.changes.map((change, idx) => (
                         <div key={`${entry.filename}-${idx}`}>
                           {convertMarkdownToComponents(change, idx)}

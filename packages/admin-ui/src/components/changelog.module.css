@@ -1,0 +1,50 @@
+.changelog {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.changelog h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 12px 0 6px 0;
+  line-height: 1.3;
+}
+
+.changelog p {
+  margin: 4px 0 6px 0;
+}
+
+.changelog ul {
+  margin: 6px 0 8px 0;
+  padding-left: 22px;
+  list-style: disc;
+}
+
+.changelog li {
+  margin: 4px 0;
+}
+
+.changelog code {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 0.95em;
+  background: hsl(var(--muted) / 0.25);
+  border: 1px solid hsl(var(--border));
+  padding: 0 4px;
+  border-radius: 6px;
+}
+
+.changelog pre {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  background: hsl(var(--muted) / 0.2);
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 12px;
+  overflow-x: auto;
+  margin: 8px 0;
+}

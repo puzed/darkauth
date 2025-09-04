@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import changelogStyles from "@/components/changelog.module.css";
 import PageHeader from "@/components/layout/page-header";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
 import { Badge } from "@/components/ui/badge";
@@ -128,7 +129,7 @@ export default function Dashboard() {
       if (!line) {
         if (currentUlItems.length > 0) {
           elements.push(
-            <ul key={`ul-${index}-${i}`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+            <ul key={`ul-${index}-${i}`}>
               {currentUlItems.map((item) => (
                 <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
               ))}
@@ -141,7 +142,7 @@ export default function Dashboard() {
       if (line.startsWith("## ") || line.startsWith("### ")) {
         if (currentUlItems.length > 0) {
           elements.push(
-            <ul key={`ul-${index}-${i}`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+            <ul key={`ul-${index}-${i}`}>
               {currentUlItems.map((item) => (
                 <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
               ))}
@@ -159,14 +160,14 @@ export default function Dashboard() {
     }
     if (currentUlItems.length > 0) {
       elements.push(
-        <ul key={`ul-${index}-final`} style={{ listStyleType: "disc", paddingLeft: 22 }}>
+        <ul key={`ul-${index}-final`}>
           {currentUlItems.map((item) => (
             <li key={`final-${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
           ))}
         </ul>
       );
     }
-    return <div>{elements}</div>;
+    return <div className={changelogStyles.changelog}>{elements}</div>;
   }
 
   return (
@@ -229,11 +230,13 @@ export default function Dashboard() {
                     {latestChangelog.date}
                   </div>
                 </div>
-                {latestChangelog.changes.map((change) => (
-                  <div key={`cl-${change.substring(0, 40)}`}>
-                    {convertMarkdownToComponents(change, 0)}
-                  </div>
-                ))}
+                <div className={changelogStyles.changelog}>
+                  {latestChangelog.changes.map((change) => (
+                    <div key={`cl-${change.substring(0, 40)}`}>
+                      {convertMarkdownToComponents(change, 0)}
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div style={{ color: "hsl(var(--muted-foreground))" }}>No changelog entries</div>
