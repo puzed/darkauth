@@ -12,7 +12,6 @@ export interface PrngFn {
 }
 
 export class Prng implements PrngFn {
-    /* eslint-disable-next-line class-methods-use-this */
     random(numBytes: number): number[] {
         return Array.from(crypto.getRandomValues(new Uint8Array(numBytes)))
     }
@@ -81,9 +80,13 @@ export class Hmac implements MACFn {
 
     async with_key(key: Uint8Array): Promise<MACOps> {
         return new Hmac.Macops(
-            await crypto.subtle.importKey('raw', key.buffer as ArrayBuffer, { name: 'HMAC', hash: this.hash }, false, [
-                'sign'
-            ])
+            await crypto.subtle.importKey(
+                'raw',
+                key.buffer as ArrayBuffer,
+                { name: 'HMAC', hash: this.hash },
+                false,
+                ['sign']
+            )
         )
     }
 
@@ -92,7 +95,11 @@ export class Hmac implements MACFn {
 
         async sign(msg: Uint8Array): Promise<Uint8Array> {
             return new Uint8Array(
-                await crypto.subtle.sign(this.crypto_key.algorithm.name, this.crypto_key, msg.buffer as ArrayBuffer)
+                await crypto.subtle.sign(
+                    this.crypto_key.algorithm.name,
+                    this.crypto_key,
+                    msg.buffer as ArrayBuffer
+                )
             )
         }
 
@@ -130,7 +137,7 @@ export class Hkdf implements KDFFn {
         let Ti = new Uint8Array()
         let offset = 0
         for (let i = 0; i < N; i++) {
-            Ti = new Uint8Array(await hm.sign(joinAll([Ti, info, Uint8Array.of(i + 1)]))) // eslint-disable-line no-await-in-loop
+            Ti = new Uint8Array(await hm.sign(joinAll([Ti, info, Uint8Array.of(i + 1)])))
             T.set(Ti, offset)
             offset += hashLen
         }

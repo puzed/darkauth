@@ -94,7 +94,6 @@ export class OpaqueServer implements RegistrationServer, AuthServer {
             credential_identifier_u8array
         )
         const te = new TextEncoder()
-        // eslint-disable-next-line no-undefined
         const client_identity_u8array = client_identity ? te.encode(client_identity) : undefined
         const context_u8array = context ? te.encode(context) : new Uint8Array(0)
         const auth_response = await this.ake.response(
