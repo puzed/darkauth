@@ -150,7 +150,7 @@ function App() {
             }}
           />
           <div className="actions" style={{ justifyContent: "flex-end" }}>
-            <button type="button" className="logout-button" onClick={handleLogout}>
+            <button type="button" className="primary-button" onClick={handleLogout}>
               {branding.getText("signout", "Sign Out")}
             </button>
           </div>
@@ -318,7 +318,7 @@ function App() {
               >
                 {branding.getText("changePassword", "Change Password")}
               </button>
-              <button type="button" className="logout-button" onClick={handleLogout}>
+              <button type="button" className="primary-button" onClick={handleLogout}>
                 {branding.getText("signout", "Sign Out")}
               </button>
             </div>
