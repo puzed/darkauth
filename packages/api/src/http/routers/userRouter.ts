@@ -26,6 +26,8 @@ import { putWrappedDrk } from "../../controllers/user/wrappedDrkPut.js";
 import { getWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivGet.js";
 import { putWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivPut.js";
 import { NotFoundError } from "../../errors.js";
+import { sanitizeCSS } from "../../services/branding.js";
+import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
 import { sendError } from "../../utils/http.js";
 
@@ -36,6 +38,155 @@ export function createUserRouter(context: Context) {
     const pathname = url.pathname;
 
     try {
+      if (method === "GET" && pathname === "/branding/logo") {
+        const url = new URL(request.url || "", `http://${request.headers.host}`);
+        const useDark = url.searchParams.get("dark") === "1";
+        const key = useDark ? "branding.logo_dark" : "branding.logo";
+        const logo = (await getSetting(context, key)) as
+          | { data?: string | null; mimeType?: string | null }
+          | undefined;
+        if (!logo?.data || !logo.mimeType) {
+          response.statusCode = 404;
+          response.end();
+          return;
+        }
+        const buf = Buffer.from(logo.data, "base64");
+        response.statusCode = 200;
+        response.setHeader("Content-Type", logo.mimeType);
+        response.setHeader("Cache-Control", "public, max-age=86400");
+        response.end(buf);
+        return;
+      }
+
+      if (method === "GET" && pathname === "/branding/favicon") {
+        const url = new URL(request.url || "", `http://${request.headers.host}`);
+        const useDark = url.searchParams.get("dark") === "1";
+        const key = useDark ? "branding.favicon_dark" : "branding.favicon";
+        const fav = (await getSetting(context, key)) as
+          | { data?: string | null; mimeType?: string | null }
+          | undefined;
+        if (!fav?.data || !fav.mimeType) {
+          response.statusCode = 302;
+          response.setHeader("Location", "/favicon.svg");
+          response.end();
+          return;
+        }
+        const buf = Buffer.from(fav.data, "base64");
+        response.statusCode = 200;
+        response.setHeader("Content-Type", fav.mimeType);
+        response.setHeader("Cache-Control", "public, max-age=86400");
+        response.end(buf);
+        return;
+      }
+
+      if (method === "GET" && pathname === "/branding/custom.css") {
+        const [colors, colorsDark, font, custom] = await Promise.all([
+          getSetting(context, "branding.colors"),
+          getSetting(context, "branding.colors_dark"),
+          getSetting(context, "branding.font"),
+          getSetting(context, "branding.custom_css"),
+        ]);
+        const c = (colors as Record<string, string>) || {};
+        const cd = (colorsDark as Record<string, string>) || {};
+        const f =
+          (font as { family?: string; size?: string; weight?: Record<string, string> }) || {};
+        const cssVarsLight: Record<string, string> = {
+          "--da-bg-gradient-start": String(c.backgroundGradientStart || "#f3f4f6"),
+          "--da-bg-gradient-end": String(c.backgroundGradientEnd || "#eff6ff"),
+          "--da-bg-angle": String(c.backgroundAngle || "135deg"),
+          "--da-primary": String(c.primary || "#3b82f6"),
+          "--da-primary-hover": String(c.primaryHover || "#2563eb"),
+          "--da-primary-light": String(c.primaryLight || "#dbeafe"),
+          "--primary-50": String(c.primaryLight || "#eef2ff"),
+          "--da-primary-dark": String(c.primaryDark || "#1d4ed8"),
+          "--da-secondary": String(c.secondary || "#6b7280"),
+          "--da-secondary-hover": String(c.secondaryHover || "#4b5563"),
+          "--da-success": String(c.success || "#10b981"),
+          "--da-error": String(c.error || "#ef4444"),
+          "--da-warning": String(c.warning || "#f59e0b"),
+          "--da-info": String(c.info || "#3b82f6"),
+          "--da-text": String(c.text || "#111827"),
+          "--da-text-secondary": String(c.textSecondary || "#6b7280"),
+          "--da-text-muted": String(c.textMuted || "#9ca3af"),
+          "--da-border": String(c.border || "#e5e7eb"),
+          "--da-card-bg": String(c.cardBackground || "#ffffff"),
+          "--da-card-shadow": String(c.cardShadow || "rgba(0,0,0,0.1)"),
+          "--da-input-bg": String(c.inputBackground || "#ffffff"),
+          "--da-input-border": String(c.inputBorder || "#d1d5db"),
+          "--da-input-focus": String(c.inputFocus || "#3b82f6"),
+          "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
+          "--da-font-size": String(f.size || "16px"),
+          "--da-font-weight-normal": String(f.weight?.normal || "400"),
+          "--da-font-weight-medium": String(f.weight?.medium || "500"),
+          "--da-font-weight-bold": String(f.weight?.bold || "700"),
+          "--primary-600": String(c.primary || "#3b82f6"),
+          "--primary-700": String(c.primaryHover || "#2563eb"),
+          "--primary-100": String(c.primaryLight || "#dbeafe"),
+          "--gray-900": String(c.text || "#111827"),
+          "--gray-700": String(c.textSecondary || "#374151"),
+          "--gray-600": String(c.textSecondary || "#6b7280"),
+          "--gray-300": String(c.border || "#d1d5db"),
+          "--gray-50": String(c.backgroundGradientStart || "#f9fafb"),
+        };
+        const cssVarsDark: Record<string, string> = {
+          "--da-bg-gradient-start": String(
+            cd.backgroundGradientStart || c.backgroundGradientStart || "#0b1220"
+          ),
+          "--da-bg-gradient-end": String(
+            cd.backgroundGradientEnd || c.backgroundGradientEnd || "#111827"
+          ),
+          "--da-bg-angle": String(cd.backgroundAngle || c.backgroundAngle || "135deg"),
+          "--da-primary": String(cd.primary || c.primary || "#3b82f6"),
+          "--da-primary-hover": String(cd.primaryHover || c.primaryHover || "#2563eb"),
+          "--da-primary-light": String(cd.primaryLight || c.primaryLight || "#1f2937"),
+          "--primary-50": String(cd.primaryLight || c.primaryLight || "#111827"),
+          "--da-text": String(cd.text || c.text || "#e5e7eb"),
+          "--da-text-secondary": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
+          "--da-text-muted": String(cd.textMuted || c.textMuted || "#6b7280"),
+          "--da-border": String(cd.border || c.border || "#374151"),
+          "--da-card-bg": String(cd.cardBackground || c.cardBackground || "#0b1220"),
+          "--da-card-shadow": String(cd.cardShadow || c.cardShadow || "rgba(0,0,0,0.6)"),
+          "--da-input-bg": String(cd.inputBackground || c.inputBackground || "#0f172a"),
+          "--da-input-border": String(cd.inputBorder || c.inputBorder || "#334155"),
+          "--da-input-focus": String(cd.inputFocus || c.inputFocus || "#3b82f6"),
+          "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
+          "--da-font-size": String(f.size || "16px"),
+          "--da-font-weight-normal": String(f.weight?.normal || "400"),
+          "--da-font-weight-medium": String(f.weight?.medium || "500"),
+          "--da-font-weight-bold": String(f.weight?.bold || "700"),
+          "--primary-600": String(cd.primary || c.primary || "#3b82f6"),
+          "--primary-700": String(cd.primaryHover || c.primaryHover || "#2563eb"),
+          "--primary-100": String(cd.primaryLight || c.primaryLight || "#1f2937"),
+          "--gray-900": String(cd.text || c.text || "#e5e7eb"),
+          "--gray-700": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
+          "--gray-600": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
+          "--gray-300": String(cd.border || c.border || "#374151"),
+          "--gray-50": String(cd.backgroundGradientStart || c.backgroundGradientStart || "#0b1220"),
+        };
+        const varBlock = `:root{${Object.entries(cssVarsLight)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(";")}}\n:root[data-da-theme='light']{${Object.entries(cssVarsLight)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(";")}}\n:root[data-da-theme='dark']{${Object.entries(cssVarsDark)
+          .map(([k, v]) => `${k}:${v}`)
+          .join(
+            ";"
+          )}}\n@media (prefers-color-scheme: dark){:root:not([data-da-theme]){${Object.entries(
+          cssVarsDark
+        )
+          .map(([k, v]) => `${k}:${v}`)
+          .join(";")}}\n`;
+        const bodyBlock =
+          "body{background:linear-gradient(var(--da-bg-angle), var(--da-bg-gradient-start) 0%, var(--da-bg-gradient-end) 100%) !important;color:var(--da-text) !important;font-family:var(--da-font-family) !important;font-size:var(--da-font-size) !important;} .container{background:var(--da-card-bg) !important; box-shadow: 0 20px 40px var(--da-card-shadow) !important;} .da-form-input, .form-group input{background:var(--da-input-bg) !important; border-color:var(--da-input-border) !important; color:var(--da-text) !important;} .da-button-primary, .primary-button{background-color:var(--da-primary) !important;} .da-button-primary:hover, .primary-button:hover{background-color:var(--da-primary-hover) !important;}\n";
+        const sanitized = sanitizeCSS((custom as string) || "");
+        const out = varBlock + bodyBlock + sanitized;
+        response.statusCode = 200;
+        response.setHeader("Content-Type", "text/css; charset=utf-8");
+        response.setHeader("Cache-Control", "public, max-age=300");
+        response.end(out);
+        return;
+      }
+
       if (method === "GET" && pathname === "/.well-known/openid-configuration") {
         return await getWellKnownOpenidConfiguration(context, request, response);
       }
