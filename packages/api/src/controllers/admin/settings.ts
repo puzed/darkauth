@@ -8,6 +8,7 @@ extendZodWithOpenApi(z);
 
 import { settings } from "../../db/schema.js";
 import { ForbiddenError } from "../../errors.js";
+import { ensureBrandingDefaults } from "../../services/branding.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -96,6 +97,7 @@ export async function getSettings(
   }
 
   // Get all settings
+  await ensureBrandingDefaults(context);
   const settingsData = await context.db
     .select({
       key: settings.key,

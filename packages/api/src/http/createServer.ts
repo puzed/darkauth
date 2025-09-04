@@ -6,6 +6,7 @@ import {
 } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getBrandingConfig, sanitizeCSS } from "../services/branding.js";
 // Temporarily disabled OpenAPI imports
 // import { OpenAPIGenerator } from "@asteasolutions/zod-to-openapi";
 // import { openApiSchema as adminCreateUserSchema } from "../controllers/admin/adminUserCreate.js";
@@ -44,12 +45,38 @@ export async function createUserServer(context: Context) {
             | undefined) || {};
         const issuer = ((await getSetting(context, "issuer")) as string) || "http://localhost:9080";
         const publicOrigin = ((await getSetting(context, "public_origin")) as string) || issuer;
+        const branding = await getBrandingConfig(context);
         const payload = {
           issuer,
           clientId: ui.clientId || "app-web",
           redirectUri: ui.redirectUri || `${publicOrigin}/callback`,
+          branding: {
+            identity: branding.identity,
+            colors: branding.colors,
+            colorsDark: branding.colorsDark || undefined,
+            wording: branding.wording,
+            font: branding.font,
+            customCSS: sanitizeCSS(branding.customCSS || ""),
+            logoUrl: branding.logo?.data ? "/api/branding/logo" : null,
+            logoUrlDark: branding.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            faviconUrl: branding.favicon?.data ? "/api/branding/favicon" : null,
+            faviconUrlDark: branding.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
+            customCssUrl: "/api/branding/custom.css",
+          },
         };
-        const js = `window.__APP_CONFIG__=${JSON.stringify(payload)};`;
+        const js = `
+          (function(){
+            window.__APP_CONFIG__=${JSON.stringify(payload)};
+            try {
+              var root=document.documentElement;
+              var stored=localStorage.getItem('daTheme');
+              var prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+              var theme = stored==='light'||stored==='dark'? stored : (prefersDark?'dark':'light');
+              root.setAttribute('data-da-theme', theme);
+              window.__setDaTheme = function(t){ if(t==='light'||t==='dark'){ localStorage.setItem('daTheme', t); root.setAttribute('data-da-theme', t);} };
+              window.addEventListener('storage', function(e){ if(e.key==='daTheme'){ var v=e.newValue; if(v==='light'||v==='dark'){ root.setAttribute('data-da-theme', v);} }});
+            } catch(e) {}
+          })();`;
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/javascript; charset=utf-8");
         response.end(js);
@@ -136,12 +163,38 @@ export async function createAdminServer(context: Context) {
             | undefined) || {};
         const issuer = ((await getSetting(context, "issuer")) as string) || "http://localhost:9080";
         const adminOrigin = `http://localhost:${context.config.adminPort}`;
+        const branding = await getBrandingConfig(context);
         const payload = {
           issuer,
           clientId: ui.clientId || "admin-web",
           redirectUri: ui.redirectUri || `${adminOrigin}/`,
+          branding: {
+            identity: branding.identity,
+            colors: branding.colors,
+            colorsDark: branding.colorsDark || undefined,
+            wording: branding.wording,
+            font: branding.font,
+            customCSS: sanitizeCSS(branding.customCSS || ""),
+            logoUrl: branding.logo?.data ? "/api/branding/logo" : null,
+            logoUrlDark: branding.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            faviconUrl: branding.favicon?.data ? "/api/branding/favicon" : null,
+            faviconUrlDark: branding.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
+            customCssUrl: "/api/branding/custom.css",
+          },
         };
-        const js = `window.__APP_CONFIG__=${JSON.stringify(payload)};`;
+        const js = `
+          (function(){
+            window.__APP_CONFIG__=${JSON.stringify(payload)};
+            try {
+              var root=document.documentElement;
+              var stored=localStorage.getItem('daTheme');
+              var prefersDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+              var theme = stored==='light'||stored==='dark'? stored : (prefersDark?'dark':'light');
+              root.setAttribute('data-da-theme', theme);
+              window.__setDaTheme = function(t){ if(t==='light'||t==='dark'){ localStorage.setItem('daTheme', t); root.setAttribute('data-da-theme', t);} };
+              window.addEventListener('storage', function(e){ if(e.key==='daTheme'){ var v=e.newValue; if(v==='light'||v==='dark'){ root.setAttribute('data-da-theme', v);} }});
+            } catch(e) {}
+          })();`;
         response.statusCode = 200;
         response.setHeader("Content-Type", "application/javascript; charset=utf-8");
         response.end(js);
