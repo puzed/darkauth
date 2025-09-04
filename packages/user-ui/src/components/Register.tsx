@@ -197,10 +197,8 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
     }
   };
 
-  const getPasswordStrength = (
-    password: string
-  ): { strength: number; text: string; color: string } => {
-    if (!password) return { strength: 0, text: "", color: "" };
+  const getPasswordStrength = (password: string): { level: string; text: string } => {
+    if (!password) return { level: "", text: "" };
 
     let score = 0;
     if (password.length >= 12) score += 25;
@@ -210,38 +208,28 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
     if (/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) score += 25;
     score = Math.min(100, score);
 
-    let text = "Weak";
-    let color = "#dc2626";
-    if (score >= 75) {
-      text = "Strong";
-      color = "#16a34a";
-    } else if (score >= 50) {
-      text = "Good";
-      color = "#65a30d";
-    } else if (score >= 25) {
-      text = "Fair";
-      color = "#ea580c";
-    }
-
-    return { strength: score, text, color };
+    if (score >= 75) return { level: "strong", text: "Strong" };
+    if (score >= 50) return { level: "good", text: "Good" };
+    if (score >= 25) return { level: "fair", text: "Fair" };
+    return { level: "weak", text: "Weak" };
   };
 
   const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <div className="register-form">
-      <h2>Create Account</h2>
+    <div className="auth-container">
+      <h2 className="form-title">Create your account</h2>
 
       <form onSubmit={handleSubmit} noValidate>
         <div className="form-group">
-          <label htmlFor={`${uid}-name`}>Full Name</label>
+          <label htmlFor={`${uid}-name`}>Name</label>
           <input
             type="text"
             id={`${uid}-name`}
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="John Doe"
+            placeholder="Enter your full name"
             className={errors.name ? "error" : ""}
             disabled={loading}
             autoComplete="name"
@@ -251,14 +239,14 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         </div>
 
         <div className="form-group">
-          <label htmlFor={`${uid}-email`}>Email Address</label>
+          <label htmlFor={`${uid}-email`}>Email</label>
           <input
             type="email"
             id={`${uid}-email`}
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="your@email.com"
+            placeholder="Enter your email"
             className={errors.email ? "error" : ""}
             disabled={loading}
             autoComplete="email"
@@ -284,30 +272,26 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
           {formData.password && (
             <div className="password-strength">
               <div className="strength-bar">
-                <div
-                  className="strength-fill"
-                  style={{
-                    width: `${passwordStrength.strength}%`,
-                    backgroundColor: passwordStrength.color,
-                  }}
-                />
+                <div className={`strength-fill ${passwordStrength.level}`} />
               </div>
-              <span style={{ color: passwordStrength.color }}>{passwordStrength.text}</span>
+              <span className={`strength-text ${passwordStrength.level}`}>
+                {passwordStrength.text}
+              </span>
             </div>
           )}
           {errors.password && <div className="error-text">{errors.password}</div>}
-          <div className="help-text">Must be at least 12 characters</div>
+          {!errors.password && <div className="help-text">Must be at least 12 characters</div>}
         </div>
 
         <div className="form-group">
-          <label htmlFor={`${uid}-confirmPassword`}>Confirm Password</label>
+          <label htmlFor={`${uid}-confirmPassword`}>Confirm password</label>
           <input
             type="password"
             id={`${uid}-confirmPassword`}
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleInputChange}
-            placeholder="Confirm your password"
+            placeholder="Re-enter your password"
             className={errors.confirmPassword ? "error" : ""}
             disabled={loading}
             autoComplete="new-password"
@@ -322,10 +306,10 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
           {loading ? (
             <>
               <span className="loading-spinner" />
-              Creating Account...
+              Creating account...
             </>
           ) : (
-            "Create Account"
+            "Continue"
           )}
         </button>
       </form>
