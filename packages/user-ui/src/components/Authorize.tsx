@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from "react";
+import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
 import opaqueService from "../services/opaque";
@@ -51,6 +52,7 @@ export default function Authorize({
   sessionData,
   onRecoverWithOldPassword: _onRecoverWithOldPassword,
 }: AuthorizeProps) {
+  const branding = useBranding();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
@@ -315,13 +317,16 @@ export default function Authorize({
   };
 
   return (
-    <div className="authorize-container">
-      <div className="authorize-card">
+    <div className="authorize-container da-authorize-container">
+      <div className="authorize-card da-container">
         <div className="client-info">
           <div className="client-icon">🏢</div>
-          <h2>Authorization Request</h2>
+          <h2 className="da-auth-title">
+            {branding.getText("authorizeTitle", "Authorize Application")}
+          </h2>
           <p className="client-name">
-            <strong>{authRequest.clientName}</strong> wants to access your account
+            <strong>{authRequest.clientName}</strong>{" "}
+            {branding.getText("authorizeDescription", "would like to:")}
           </p>
         </div>
 
@@ -335,13 +340,13 @@ export default function Authorize({
           </div>
         </div>
 
-        <div className="permissions-section">
+        <div className="permissions-section da-authorize-scopes">
           <h3>Requested Permissions</h3>
           <div className="permissions-list">
             {authRequest.scopes.map((scope) => {
               const scopeInfo = getScopeInfo(scope);
               return (
-                <div key={scope} className="permission-item">
+                <div key={scope} className="permission-item da-authorize-scope">
                   <span className="permission-icon">{scopeInfo.icon}</span>
                   <div className="permission-details">
                     <span className="permission-name">{scopeInfo.scope}</span>
@@ -368,7 +373,7 @@ export default function Authorize({
         )}
 
         {error && (
-          <div className="error-message">
+          <div className="error-message da-error-message">
             <span className="error-icon">⚠️</span>
             {error}
           </div>
@@ -392,10 +397,10 @@ export default function Authorize({
                 autoComplete="current-password"
               />
             </div>
-            <div className="actions">
+            <div className="actions da-authorize-actions">
               <button
                 type="button"
-                className="deny-button"
+                className="deny-button da-button da-button-secondary"
                 onClick={recoverWithOldPassword}
                 disabled={recoveryLoading}
               >
@@ -403,7 +408,7 @@ export default function Authorize({
               </button>
               <button
                 type="button"
-                className="approve-button"
+                className="approve-button da-button da-button-primary"
                 onClick={generateNewKeys}
                 disabled={recoveryLoading}
               >
@@ -420,29 +425,31 @@ export default function Authorize({
           </div>
         )}
 
-        <div className="actions">
+        <div className="actions da-authorize-actions">
           <button
             type="button"
-            className="deny-button"
+            className="deny-button da-button da-button-secondary"
             onClick={() => handleAuthorize(false)}
             disabled={loading}
           >
-            {loading ? "Processing..." : "Deny"}
+            {loading
+              ? branding.getText("processing", "Processing...")
+              : branding.getText("deny", "Deny")}
           </button>
 
           <button
             type="button"
-            className="approve-button"
+            className="approve-button da-button da-button-primary"
             onClick={() => handleAuthorize(true)}
             disabled={loading}
           >
             {loading ? (
               <>
                 <span className="loading-spinner" />
-                Authorizing...
+                {branding.getText("authorizing", "Authorizing...")}
               </>
             ) : (
-              "Authorize"
+              branding.getText("authorize", "Authorize")
             )}
           </button>
         </div>

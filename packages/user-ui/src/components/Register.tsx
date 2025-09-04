@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
@@ -31,6 +32,7 @@ interface FormErrors {
 
 export default function Register({ onRegister, onSwitchToLogin }: RegisterProps) {
   const uid = useId();
+  const branding = useBranding();
   const [formData, setFormData] = useState<FormData>({
     name: "",
     email: "",
@@ -217,12 +219,16 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
   const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <div className="auth-container">
-      <h2 className="form-title">Create your account</h2>
+    <div className="auth-container da-auth-container">
+      <h2 className="form-title da-auth-title">
+        {branding.getText("createAccount", "Create your account")}
+      </h2>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="form-group">
-          <label htmlFor={`${uid}-name`}>Name</label>
+      <form className="form da-form" onSubmit={handleSubmit} noValidate>
+        <div className="form-group da-form-group">
+          <label className="da-form-label" htmlFor={`${uid}-name`}>
+            Name
+          </label>
           <input
             type="text"
             id={`${uid}-name`}
@@ -230,33 +236,37 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             value={formData.name}
             onChange={handleInputChange}
             placeholder="Enter your full name"
-            className={errors.name ? "error" : ""}
+            className={`da-form-input ${errors.name ? "error da-form-input-error" : ""}`}
             disabled={loading}
             autoComplete="name"
             required
           />
-          {errors.name && <div className="error-text">{errors.name}</div>}
+          {errors.name && <div className="error-text da-form-error">{errors.name}</div>}
         </div>
 
-        <div className="form-group">
-          <label htmlFor={`${uid}-email`}>Email</label>
+        <div className="form-group da-form-group">
+          <label className="da-form-label" htmlFor={`${uid}-email`}>
+            {branding.getText("email", "Email")}
+          </label>
           <input
             type="email"
             id={`${uid}-email`}
             name="email"
             value={formData.email}
             onChange={handleInputChange}
-            placeholder="Enter your email"
-            className={errors.email ? "error" : ""}
+            placeholder={branding.getText("emailPlaceholder", "Enter your email")}
+            className={`da-form-input ${errors.email ? "error da-form-input-error" : ""}`}
             disabled={loading}
             autoComplete="email"
             required
           />
-          {errors.email && <div className="error-text">{errors.email}</div>}
+          {errors.email && <div className="error-text da-form-error">{errors.email}</div>}
         </div>
 
-        <div className="form-group">
-          <label htmlFor={`${uid}-password`}>Password</label>
+        <div className="form-group da-form-group">
+          <label className="da-form-label" htmlFor={`${uid}-password`}>
+            {branding.getText("password", "Password")}
+          </label>
           <input
             type="password"
             id={`${uid}-password`}
@@ -264,7 +274,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             value={formData.password}
             onChange={handleInputChange}
             placeholder="Create a strong password"
-            className={errors.password ? "error" : ""}
+            className={`da-form-input ${errors.password ? "error da-form-input-error" : ""}`}
             disabled={loading}
             autoComplete="new-password"
             required
@@ -279,51 +289,61 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
               </span>
             </div>
           )}
-          {errors.password && <div className="error-text">{errors.password}</div>}
-          {!errors.password && <div className="help-text">Must be at least 12 characters</div>}
+          {errors.password && <div className="error-text da-form-error">{errors.password}</div>}
+          {!errors.password && (
+            <div className="help-text da-form-helper">Must be at least 12 characters</div>
+          )}
         </div>
 
-        <div className="form-group">
-          <label htmlFor={`${uid}-confirmPassword`}>Confirm password</label>
+        <div className="form-group da-form-group">
+          <label className="da-form-label" htmlFor={`${uid}-confirmPassword`}>
+            {branding.getText("confirmPassword", "Confirm Password")}
+          </label>
           <input
             type="password"
             id={`${uid}-confirmPassword`}
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleInputChange}
-            placeholder="Re-enter your password"
-            className={errors.confirmPassword ? "error" : ""}
+            placeholder={branding.getText("confirmPasswordPlaceholder", "Re-enter your password")}
+            className={`da-form-input ${errors.confirmPassword ? "error da-form-input-error" : ""}`}
             disabled={loading}
             autoComplete="new-password"
             required
           />
-          {errors.confirmPassword && <div className="error-text">{errors.confirmPassword}</div>}
+          {errors.confirmPassword && (
+            <div className="error-text da-form-error">{errors.confirmPassword}</div>
+          )}
         </div>
 
-        {errors.general && <div className="error-message">{errors.general}</div>}
+        {errors.general && <div className="error-message da-error-message">{errors.general}</div>}
 
-        <button type="submit" className="primary-button" disabled={loading}>
+        <button
+          type="submit"
+          className="primary-button da-button da-button-primary da-form-submit"
+          disabled={loading}
+        >
           {loading ? (
             <>
               <span className="loading-spinner" />
-              Creating account...
+              {branding.getText("signingUp", "Creating account...")}
             </>
           ) : (
-            "Continue"
+            branding.getText("signin", "Continue")
           )}
         </button>
       </form>
 
-      <div className="form-footer">
+      <div className="form-footer da-form-footer">
         <p>
-          Already have an account?{" "}
+          {branding.getText("hasAccount", "Already have an account?")}{" "}
           <button
             type="button"
-            className="link-button"
+            className="link-button da-button-link da-form-link"
             onClick={onSwitchToLogin}
             disabled={loading}
           >
-            Sign in
+            {branding.getText("signin", "Sign in")}
           </button>
         </p>
       </div>
