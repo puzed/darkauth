@@ -2,11 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import Authorize from "./components/Authorize";
 import ChangePassword from "./components/ChangePassword";
-import Login from "./components/Login";
+import LoginView from "./components/LoginView";
 import Register from "./components/Register";
 import apiService from "./services/api";
 import { clearExportKey } from "./services/sessionKey";
 import "./App.css";
+import ThemeToggle from "./components/ThemeToggle";
+import { useBranding } from "./hooks/useBranding";
 
 declare global {
   interface Window {
@@ -29,6 +31,7 @@ interface AuthRequest {
 }
 
 function App() {
+  const branding = useBranding();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [authRequest, setAuthRequest] = useState<AuthRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,10 +81,6 @@ function App() {
     initializeApp();
   }, [initializeApp, sessionData?.sub]);
 
-  const handleLogin = (userData: SessionData) => {
-    setSessionData(userData);
-  };
-
   const handleRegister = (userData: SessionData) => {
     setSessionData(userData);
   };
@@ -107,8 +106,8 @@ function App() {
 
   if (loading) {
     return (
-      <div className="app">
-        <div className="container">
+      <div className="app da-app">
+        <div className="container da-container">
           <div className="loading-container">
             <div className="loading-spinner" />
             <p>Loading...</p>
@@ -121,18 +120,28 @@ function App() {
   // Force password reset before anything else
   if (sessionData?.passwordResetRequired) {
     return (
-      <div className="app">
-        <div className="container">
-          <div className="header">
-            <div className="brand">
-              <span className="brand-icon">
-                <img src="/favicon.svg" alt="DarkAuth" />
+      <div className="app da-app">
+        <div className="container da-container">
+          <div
+            className="header da-header"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          >
+            <div className="brand da-brand">
+              <span className="brand-icon da-brand-icon">
+                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
               </span>
-              <h1>DarkAuth</h1>
+              <h1 className="da-brand-title">{branding.getTitle()}</h1>
             </div>
-            <button type="button" className="logout-button" onClick={handleLogout}>
-              Sign Out
-            </button>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <ThemeToggle />
+              <button
+                type="button"
+                className="logout-button da-button da-button-secondary"
+                onClick={handleLogout}
+              >
+                {branding.getText("signout", "Sign Out")}
+              </button>
+            </div>
           </div>
           <ChangePassword
             sub={sessionData.sub}
@@ -156,25 +165,36 @@ function App() {
   if (sessionData && authRequest) {
     if (changingPassword) {
       return (
-        <div className="app">
-          <div className="container">
-            <div className="header">
-              <div className="brand">
-                <span className="brand-icon">
-                  <img src="/favicon.svg" alt="DarkAuth" />
+        <div className="app da-app">
+          <div className="container da-container">
+            <div
+              className="header da-header"
+              style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+            >
+              <div className="brand da-brand">
+                <span className="brand-icon da-brand-icon">
+                  <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
                 </span>
-                <h1>DarkAuth</h1>
+                <h1 className="da-brand-title">{branding.getTitle()}</h1>
               </div>
-              <div className="user-info">
+              <div
+                className="user-info da-user-info"
+                style={{ display: "flex", alignItems: "center", gap: 12 }}
+              >
+                <ThemeToggle />
                 <button
                   type="button"
-                  className="link-button"
+                  className="link-button da-button-link"
                   onClick={() => setChangingPassword(false)}
                 >
-                  Cancel
+                  {branding.getText("cancel", "Cancel")}
                 </button>
-                <button type="button" className="logout-button" onClick={handleLogout}>
-                  Sign Out
+                <button
+                  type="button"
+                  className="logout-button da-button da-button-secondary"
+                  onClick={handleLogout}
+                >
+                  {branding.getText("signout", "Sign Out")}
                 </button>
               </div>
             </div>
@@ -197,19 +217,33 @@ function App() {
       );
     }
     return (
-      <div className="app">
-        <div className="container">
-          <div className="header">
-            <div className="brand">
-              <span className="brand-icon">
-                <img src="/favicon.svg" alt="DarkAuth" />
+      <div className="app da-app">
+        <div className="container da-container">
+          <div
+            className="header da-header"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          >
+            <div className="brand da-brand">
+              <span className="brand-icon da-brand-icon">
+                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
               </span>
-              <h1>DarkAuth</h1>
+              <h1 className="da-brand-title">{branding.getTitle()}</h1>
             </div>
-            <div className="user-info">
-              <span>Signed in as {sessionData.name || sessionData.email}</span>
-              <button type="button" className="logout-button" onClick={handleLogout}>
-                Sign Out
+            <div
+              className="user-info da-user-info"
+              style={{ display: "flex", alignItems: "center", gap: 12 }}
+            >
+              <ThemeToggle />
+              <span>
+                {branding.getText("signedInAs", "Signed in as")}{" "}
+                {sessionData.name || sessionData.email}
+              </span>
+              <button
+                type="button"
+                className="logout-button da-button da-button-secondary"
+                onClick={handleLogout}
+              >
+                {branding.getText("signout", "Sign Out")}
               </button>
             </div>
           </div>
@@ -223,25 +257,29 @@ function App() {
   if (sessionData) {
     if (changingPassword) {
       return (
-        <div className="app">
-          <div className="container">
-            <div className="header">
-              <div className="brand">
-                <span className="brand-icon">
-                  <img src="/favicon.svg" alt="DarkAuth" />
+        <div className="app da-app">
+          <div className="container da-container">
+            <div className="header da-header">
+              <div className="brand da-brand">
+                <span className="brand-icon da-brand-icon">
+                  <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
                 </span>
-                <h1>DarkAuth</h1>
+                <h1 className="da-brand-title">{branding.getTitle()}</h1>
               </div>
-              <div className="user-info">
+              <div className="user-info da-user-info">
                 <button
                   type="button"
-                  className="link-button"
+                  className="link-button da-button-link"
                   onClick={() => setChangingPassword(false)}
                 >
-                  Cancel
+                  {branding.getText("cancel", "Cancel")}
                 </button>
-                <button type="button" className="logout-button" onClick={handleLogout}>
-                  Sign Out
+                <button
+                  type="button"
+                  className="logout-button da-button da-button-secondary"
+                  onClick={handleLogout}
+                >
+                  {branding.getText("signout", "Sign Out")}
                 </button>
               </div>
             </div>
@@ -264,25 +302,36 @@ function App() {
       );
     }
     return (
-      <div className="app">
-        <div className="container">
-          <div className="header">
-            <div className="brand">
-              <span className="brand-icon">
-                <img src="/favicon.svg" alt="DarkAuth" />
+      <div className="app da-app">
+        <div className="container da-container">
+          <div
+            className="header da-header"
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+          >
+            <div className="brand da-brand">
+              <span className="brand-icon da-brand-icon">
+                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
               </span>
-              <h1>DarkAuth</h1>
+              <h1 className="da-brand-title">{branding.getTitle()}</h1>
             </div>
-            <div className="user-info">
+            <div
+              className="user-info da-user-info"
+              style={{ display: "flex", alignItems: "center", gap: 12 }}
+            >
+              <ThemeToggle />
               <button
                 type="button"
-                className="link-button"
+                className="link-button da-button-link"
                 onClick={() => setChangingPassword(true)}
               >
-                Change Password
+                {branding.getText("changePassword", "Change Password")}
               </button>
-              <button type="button" className="logout-button" onClick={handleLogout}>
-                Sign Out
+              <button
+                type="button"
+                className="logout-button da-button da-button-secondary"
+                onClick={handleLogout}
+              >
+                {branding.getText("signout", "Sign Out")}
               </button>
             </div>
           </div>
@@ -302,7 +351,9 @@ function App() {
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             </div>
-            <h2>Successfully authenticated</h2>
+            <h2 className="da-success-title">
+              {branding.getText("successAuth", "Successfully authenticated")}
+            </h2>
             <div className="user-details">
               <p>
                 <strong>Name</strong>
@@ -318,8 +369,8 @@ function App() {
               </p>
             </div>
             <p className="info-text">
-              You are securely logged in to DarkAuth. If you accessed this page through an
-              application's login flow, you can now return to that application.
+              You are securely logged in to {branding.getTitle()}. If you accessed this page through
+              an application's login flow, you can now return to that application.
             </p>
           </div>
         </div>
@@ -327,39 +378,25 @@ function App() {
     );
   }
 
-  // User not authenticated, show login/register forms
+  // User not authenticated, show unified LoginView used by admin preview
   return (
     <Router>
-      <div className="app">
-        <div className="container">
-          <div className="auth-header">
-            <div className="brand">
-              <span className="brand-icon">
-                <img src="/favicon.svg" alt="DarkAuth" />
-              </span>
-              <h1>DarkAuth</h1>
-            </div>
-            <p className="tagline">Secure Zero-Knowledge Authentication</p>
-          </div>
-
-          <Routes>
-            <Route
-              path="/"
-              element={
-                page === "login" ? (
-                  <Login onLogin={handleLogin} onSwitchToRegister={() => switchPage("register")} />
-                ) : (
-                  <Register
-                    onRegister={handleRegister}
-                    onSwitchToLogin={() => switchPage("login")}
-                  />
-                )
-              }
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </div>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            page === "login" ? (
+              <LoginView
+                onLogin={setSessionData}
+                onSwitchToRegister={() => switchPage("register")}
+              />
+            ) : (
+              <Register onRegister={handleRegister} onSwitchToLogin={() => switchPage("login")} />
+            )
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }
