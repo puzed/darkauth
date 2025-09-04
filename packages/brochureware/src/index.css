@@ -126,7 +126,7 @@ All colors MUST be HSL.
 }
 
 .legal-content {
-  @apply max-w-3xl mx-auto text-base leading-7;
+  @apply max-w-5xl mx-auto text-base leading-7;
 }
 .legal-content h1 {
   @apply text-3xl md:text-4xl font-bold mb-6 tracking-tight;

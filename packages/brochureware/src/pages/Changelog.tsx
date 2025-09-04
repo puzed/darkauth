@@ -125,7 +125,7 @@ const Changelog = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      <main className="container max-w-5xl py-12 space-y-6">
+      <main className="container max-w-6xl lg:max-w-7xl px-4 md:px-6 py-12 space-y-6">
         <div className="space-y-2">
           <h1 className="text-3xl font-bold">Changelog</h1>
           <p className="text-muted-foreground">Recent changes and improvements</p>

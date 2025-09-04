@@ -5,7 +5,7 @@ const Privacy = () => {
   return (
     <div className="min-h-screen">
       <Header />
-      <main className="container mx-auto px-6 pt-28 pb-16">
+      <main className="container max-w-6xl lg:max-w-7xl px-4 md:px-6 pt-24 md:pt-28 pb-16">
         <section className="legal-content">
           <h1>Privacy Policy</h1>
 
