@@ -271,20 +271,6 @@ function App() {
               style={{ display: "flex", alignItems: "center", gap: 12 }}
             >
               <ThemeToggle />
-              <button
-                type="button"
-                className="link-button da-button-link"
-                onClick={() => setChangingPassword(true)}
-              >
-                {branding.getText("changePassword", "Change Password")}
-              </button>
-              <button
-                type="button"
-                className="logout-button da-button da-button-secondary"
-                onClick={handleLogout}
-              >
-                {branding.getText("signout", "Sign Out")}
-              </button>
             </div>
           </div>
           <div className="authenticated-state">
