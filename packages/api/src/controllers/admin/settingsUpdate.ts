@@ -29,6 +29,7 @@ const ALLOWED_SETTINGS = [
   "zk_delivery",
   "opaque",
   "security_headers",
+  "branding",
   "issuer",
   "public_origin",
   "rp_id",
