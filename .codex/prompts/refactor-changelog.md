@@ -17,3 +17,5 @@ ensure every changelog file has a headline title. the title should be the bigges
 order the information in terms of impact with the biggest, more impactful items being to the top, with the smallest, least likely people care about to the. bottom.
 
 try and keep your new changelog consisten with the other ones.
+
+DO NOT TOUCH a changelog where the `reviewed: true` is set. Only touch the false.
