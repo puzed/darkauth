@@ -20,7 +20,7 @@ gh api repos/:owner/:repo/releases --paginate --jq '.[].tag_name' | while read -
     printf "date: %s\n" "$date"
     printf "title: %s\n" "$title"
     printf "commits: %s\n" "$sha"
-    printf "reviewed: true\n"
+    printf "reviewed: false\n"
     printf "%s\n\n" "---"
     printf "%s" "$body"
   } > "$file"
