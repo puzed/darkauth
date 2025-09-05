@@ -7,8 +7,8 @@
   "type": "module",
   "scripts": {
     "pretest": "npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build",
-    "test": "npm run pretest && npx playwright test --reporter=html",
-    "test:report": "npx playwright show-report",
+    "test": "npm run pretest && npx playwright test --reporter=dot",
+    "test:report": "npm run pretest && npx playwright test && npx playwright show-report",
     "install:playwright": "npx playwright install"
   },
   "dependencies": {
