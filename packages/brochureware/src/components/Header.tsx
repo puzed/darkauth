@@ -20,7 +20,7 @@ const Header = () => {
           <a href="#how-it-works" className="transition-smooth hover:text-primary">How It Works</a>
           <a href="#security" className="transition-smooth hover:text-primary">Security</a>
           <a href="#docs" className="transition-smooth hover:text-primary">Documentation</a>
-          <a href="#pricing" className="transition-smooth hover:text-primary">Pricing</a>
+          
           <a href="/screenshots" className="transition-smooth hover:text-primary">Screenshots</a>
           <a href="/changelog" className="transition-smooth hover:text-primary">Changelog</a>
         </nav>
@@ -30,9 +30,11 @@ const Header = () => {
           <Button variant="ghost" size="sm" className="hidden md:inline-flex">
             GitHub
           </Button>
-          <Button variant="hero" size="sm" className="hidden md:inline-flex">
-            Start Free
-          </Button>
+          <a href="#docs">
+            <Button variant="hero" size="sm" className="hidden md:inline-flex">
+              Run with Docker
+            </Button>
+          </a>
           <Sheet>
             <SheetTrigger asChild>
               <Button variant="outline" size="icon" className="md:hidden" aria-label="Open menu">
@@ -45,12 +47,13 @@ const Header = () => {
                 <a href="#how-it-works" className="block px-2 py-2 rounded-md hover:bg-muted">How It Works</a>
                 <a href="#security" className="block px-2 py-2 rounded-md hover:bg-muted">Security</a>
                 <a href="#docs" className="block px-2 py-2 rounded-md hover:bg-muted">Documentation</a>
-                <a href="#pricing" className="block px-2 py-2 rounded-md hover:bg-muted">Pricing</a>
                 <a href="/screenshots" className="block px-2 py-2 rounded-md hover:bg-muted">Screenshots</a>
                 <a href="/changelog" className="block px-2 py-2 rounded-md hover:bg-muted">Changelog</a>
                 <div className="pt-3 flex gap-2">
                   <Button variant="ghost" className="flex-1">GitHub</Button>
-                  <Button variant="hero" className="flex-1">Start Free</Button>
+                  <a href="#docs" className="flex-1">
+                    <Button variant="hero" className="w-full">Run with Docker</Button>
+                  </a>
                 </div>
               </div>
             </SheetContent>
