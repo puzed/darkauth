@@ -1,17 +1,14 @@
 import { test, expect } from '@playwright/test';
-import { createTestDatabase, destroyTestDatabase } from '../../../setup/database.js';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth, injectInstallToken } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
 
 test.describe('Authentication - Login', () => {
-  let dbName: string;
   let servers: TestServers;
   
   test.beforeAll(async () => {
-    dbName = await createTestDatabase();
-    servers = await createTestServers({ dbName });
+    servers = await createTestServers({ testName: 'admin-auth-login' });
     const installToken = generateRandomString(32);
     injectInstallToken(servers.context, installToken);
     await installDarkAuth({
@@ -19,7 +16,6 @@ test.describe('Authentication - Login', () => {
       adminEmail: FIXED_TEST_ADMIN.email,
       adminName: FIXED_TEST_ADMIN.name,
       adminPassword: FIXED_TEST_ADMIN.password,
-      secureMode: false,
       installToken
     });
   });
@@ -27,9 +23,6 @@ test.describe('Authentication - Login', () => {
   test.afterAll(async () => {
     if (servers) {
       await destroyTestServers(servers);
-    }
-    if (dbName) {
-      await destroyTestDatabase(dbName);
     }
   });
   

@@ -2,10 +2,10 @@ import { createServer } from 'node:http';
 import { createContext } from '@DarkAuth/api/src/context/createContext.ts';
 import { createAdminServer, createUserServer } from '@DarkAuth/api/src/http/createServer.ts';
 import type { Context, Config } from '@DarkAuth/api/src/types.ts';
-import { getTestDatabaseUri } from './database.js';
+import { randomBytes } from 'node:crypto';
 
 export interface TestServerConfig {
-  dbName: string;
+  testName: string;
   adminPort?: number;
   userPort?: number;
 }
@@ -35,7 +35,8 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
   const userPort = config.userPort || await getRandomPort();
   
   const contextConfig: Config = {
-    postgresUri: getTestDatabaseUri(config.dbName),
+    dbMode: 'pglite',
+    pgliteDir: `./test-data/${config.testName}-${randomBytes(4).toString('hex')}`,
     adminPort,
     userPort,
     proxyUi: false,
