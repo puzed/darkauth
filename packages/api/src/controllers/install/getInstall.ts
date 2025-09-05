@@ -17,6 +17,8 @@ import { parseQueryParams, sendJson } from "../../utils/http.js";
 
 const InstallResponseSchema = z.object({
   ok: z.boolean(),
+  hasKek: z.boolean(),
+  dbReady: z.boolean(),
 });
 
 export async function getInstall(
@@ -34,19 +36,20 @@ export async function getInstall(
   const token = params.get("token");
 
   if (!token || token !== context.services.install?.token) {
-    if (!context.config.isDevelopment) {
-      throw new ForbiddenInstallTokenError();
-    }
+    throw new ForbiddenInstallTokenError();
   }
 
   if (context.services.install?.createdAt) {
     const tokenAge = Date.now() - (context.services.install.createdAt || 0);
-    if (tokenAge > 10 * 60 * 1000 && !context.config.isDevelopment) {
+    if (tokenAge > 10 * 60 * 1000) {
       throw new ExpiredInstallTokenError();
     }
   }
 
-  sendJson(response, 200, { ok: true });
+  const hasKek =
+    typeof context.config.kekPassphrase === "string" && context.config.kekPassphrase.length > 0;
+  const dbReady = Boolean(context.services.install?.tempDb);
+  sendJson(response, 200, { ok: true, hasKek, dbReady });
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

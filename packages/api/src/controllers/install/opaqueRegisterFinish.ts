@@ -8,6 +8,7 @@ import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { eq } from "drizzle-orm";
 import { adminOpaqueRecords, adminUsers } from "../../db/schema.js";
 import { ConflictError, ValidationError } from "../../errors.js";
+import { createOpaqueService } from "../../services/opaque.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
@@ -28,10 +29,16 @@ export async function postInstallOpaqueRegisterFinish(
   try {
     context.logger.info("[install:opaque:finish] Beginning OPAQUE registration finish");
 
-    if (!context.services.opaque) {
-      context.logger.error("[install:opaque:finish] OPAQUE service not available");
-      throw new ValidationError("OPAQUE service not available");
+    let svc = context.services.opaque;
+    if (context.services.install?.tempDb) {
+      const tempContext = { ...context, db: context.services.install.tempDb } as Context;
+      try {
+        svc = await createOpaqueService(tempContext);
+      } catch {
+        svc = undefined;
+      }
     }
+    if (!svc) throw new ValidationError("Database not prepared");
 
     const body = await readBody(request);
     context.logger.debug({ bodyLen: body.length }, "[install:opaque:finish] Read request body");
@@ -53,13 +60,14 @@ export async function postInstallOpaqueRegisterFinish(
       "[install:opaque:finish] Decoded OPAQUE record"
     );
 
-    const opaque = await context.services.opaque.finishRegistration(recordBuf, data.email);
+    const opaque = await svc.finishRegistration(recordBuf, data.email);
     context.logger.info(
       { envelopeLen: opaque.envelope.length, serverPubKeyLen: opaque.serverPublicKey.length },
       "[install:opaque:finish] OPAQUE registration completed"
     );
 
-    await context.db.transaction(async (trx) => {
+    const db = context.services.install?.tempDb || context.db;
+    await db.transaction(async (trx) => {
       context.logger.debug("[install:opaque:finish] Starting database transaction");
 
       let adm = await trx.query.adminUsers.findFirst({ where: eq(adminUsers.email, data.email) });

@@ -9,11 +9,40 @@ import {
 	markSystemInitialized,
 	seedDefaultSettings,
 } from "../src/services/settings.js";
-import type { Config } from "../src/types.js";
+import type { Config, KdfParams } from "../src/types.js";
 import { generateRandomString } from "../src/utils/crypto.js";
 import fs from "node:fs";
 import path from "node:path";
-import { parse } from "yaml";
+import { parse, stringify } from "yaml";
+import readline from "node:readline";
+
+function resolveConfigPath(): string {
+  const candidates = [
+    path.resolve(process.cwd(), "config.yaml"),
+    path.resolve(process.cwd(), "..", "..", "config.yaml"),
+  ];
+  for (const p of candidates) if (fs.existsSync(p)) return p;
+  return path.resolve(process.cwd(), "config.yaml");
+}
+
+function readConfigFile(): any | null {
+  const p = resolveConfigPath();
+  if (!fs.existsSync(p)) return null;
+  return parse(fs.readFileSync(p, "utf8")) as any;
+}
+
+function writeConfigFile(cfg: Record<string, unknown>): void {
+  const p = resolveConfigPath();
+  const out = stringify(cfg);
+  fs.writeFileSync(p, out, "utf8");
+}
+
+function createPrompt() {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const ask = (q: string) => new Promise<string>((resolve) => rl.question(q, (a) => resolve(a)));
+  const close = () => rl.close();
+  return { ask, close };
+}
 
 async function install() {
 	console.log(
@@ -26,24 +55,50 @@ async function install() {
 		"╚══════════════════════════════════════════════════════════════════╝",
 	);
 
-	function loadRoot() {
-		const candidates = [
-			path.resolve(process.cwd(), "config.yaml"),
-			path.resolve(process.cwd(), "..", "..", "config.yaml"),
-		];
-		for (const p of candidates) if (fs.existsSync(p)) return parse(fs.readFileSync(p, "utf8")) as any;
-		return null;
+	const root = readConfigFile();
+
+	const nextConfig: Record<string, unknown> = {
+		...(root || {}),
+		userPort: typeof root?.userPort === "number" ? root.userPort : 9080,
+		adminPort: typeof root?.adminPort === "number" ? root.adminPort : 9081,
+		proxyUi: typeof root?.proxyUi === "boolean" ? root.proxyUi : true,
+	};
+
+	if (!root || !root.kekPassphrase) {
+		const p = createPrompt();
+		const pass = await p.ask("Enter KEK passphrase: ");
+		p.close();
+		nextConfig.kekPassphrase = pass;
 	}
-	const root = loadRoot();
+
+	console.log("Select database option:");
+	console.log("1) Remote Postgres (URI)");
+	console.log("2) Embedded PGLite (directory)");
+	const pDb = createPrompt();
+	const dbChoice = await pDb.ask("Choice [1/2]: ");
+	if (dbChoice.trim() === "2") {
+		const dir = await pDb.ask("Enter PGLite data directory [./data/pglite]: ");
+		nextConfig.dbMode = "pglite";
+		nextConfig.pgliteDir = dir && dir.trim().length > 0 ? dir.trim() : "./data/pglite";
+	} else {
+		const uri = await pDb.ask("Enter Postgres URI: ");
+		nextConfig.dbMode = "remote";
+		nextConfig.postgresUri = uri;
+	}
+	pDb.close();
+
+	writeConfigFile(nextConfig);
 	const config: Config = {
-		postgresUri: root?.postgresUri || "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
-		userPort: root?.userPort || 9090,
-		adminPort: root?.adminPort || 9081,
-		proxyUi: !!root?.proxyUi,
-		kekPassphrase: root?.kekPassphrase || "",
+		dbMode: (nextConfig.dbMode as any) || 'remote',
+		pgliteDir: (nextConfig.pgliteDir as any) || undefined,
+		postgresUri: (nextConfig.postgresUri as string) || "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
+		userPort: (nextConfig.userPort as number) || 9080,
+		adminPort: (nextConfig.adminPort as number) || 9081,
+		proxyUi: Boolean(nextConfig.proxyUi),
+		kekPassphrase: (nextConfig.kekPassphrase as string) || "",
 		isDevelopment: process.env.NODE_ENV !== "production",
-		publicOrigin: `http://localhost:${root?.userPort || 9090}`,
-		issuer: `http://localhost:${root?.userPort || 9090}`,
+		publicOrigin: `http://localhost:${(nextConfig.userPort as number) || 9080}`,
+		issuer: `http://localhost:${(nextConfig.userPort as number) || 9080}`,
 		rpId: "localhost",
 	};
 
@@ -59,15 +114,12 @@ async function install() {
 		console.log("\n1. Setting up database...");
 
 		let kekService = context.services.kek;
-		let kdfParams = null;
+		let kdfParams: KdfParams;
 
-		if (!config.kekPassphrase) {
-			console.error("ERROR: KEK passphrase is required for secure operation.");
-			console.error(
-				"Please provide ZKAUTH_KEK_PASSPHRASE or KEK_PASSPHRASE environment variable",
-			);
-			process.exit(1);
-		}
+        if (!config.kekPassphrase) {
+          console.error("ERROR: KEK passphrase is required");
+          process.exit(1);
+        }
 
 		console.log("2. Setting up key encryption...");
 		kdfParams = generateKdfParams();
@@ -232,7 +284,7 @@ async function install() {
 
 		console.log("5. Creating default clients...");
 		const supportDeskClientSecret = generateRandomString(32);
-		let supportDeskSecretEnc = null;
+		let supportDeskSecretEnc: Buffer | null = null;
 
 		if (kekService?.isAvailable()) {
 			supportDeskSecretEnc = await kekService.encrypt(

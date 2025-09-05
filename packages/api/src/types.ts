@@ -1,10 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
+import type { PgliteDatabase } from "drizzle-orm/pglite";
+// Use a flexible type to support both node-postgres and pglite drizzle databases
 import type { JWTPayload as JoseJWTPayload } from "jose";
 import type * as schema from "./db/schema.js";
 
+export type Database = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
+
 export interface Context {
-  db: NodePgDatabase<typeof schema>;
+  db: Database;
   config: Config;
   services: Services;
   logger: Logger;
@@ -90,6 +94,12 @@ export interface Services {
   install?: {
     token?: string;
     createdAt?: number;
+    tempDb?: Database;
+    tempPool?: import("pg").Pool;
+    tempDbClose?: () => Promise<void> | void;
+    chosenPostgresUri?: string;
+    chosenDbMode?: "remote" | "pglite";
+    chosenPgliteDir?: string;
   };
   audit?: {
     logEvent: (event: AuditEvent) => Promise<void>;
@@ -98,6 +108,8 @@ export interface Services {
 }
 
 export interface Config {
+  dbMode?: "remote" | "pglite";
+  pgliteDir?: string;
   postgresUri: string;
   userPort: number;
   adminPort: number;
@@ -109,6 +121,7 @@ export interface Config {
   rpId: string;
   insecureKeys?: boolean; // Allow insecure keys for testing
   logLevel?: string; // Pino log level (error, warn, info, debug, trace, silent)
+  inInstallMode?: boolean;
 }
 
 export interface OpaqueServerSetup {
@@ -241,6 +254,7 @@ export interface InstallRequest {
   adminEmail: string;
   adminName: string;
   token?: string;
+  kekPassphrase?: string;
 }
 
 export type HttpHandler = (
