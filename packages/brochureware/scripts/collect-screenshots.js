@@ -29,7 +29,13 @@ async function collect() {
   const outDir = path.resolve(__dirname, "../public/test-screenshots");
   await emptyDir(outDir);
 
-  const entries = await fs.readdir(testResultsDir, { withFileTypes: true });
+  let entries = [];
+  try {
+    entries = await fs.readdir(testResultsDir, { withFileTypes: true });
+  } catch {
+    await fs.writeFile(path.join(outDir, "index.json"), JSON.stringify([], null, 2));
+    return;
+  }
   const manifest = [];
 
   for (const entry of entries) {
