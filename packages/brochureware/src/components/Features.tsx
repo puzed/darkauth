@@ -59,7 +59,7 @@ const Features = () => {
     {
       icon: Lock,
       title: "Admin/User Separation",
-      description: "Separate admin (9081) and user (9090) interfaces with different access controls",
+      description: "Separate admin (9081) and user (9080) interfaces with different access controls",
       badge: "Secure by Design",
       color: "text-primary"
     },
@@ -138,8 +138,8 @@ const Features = () => {
               <div className="text-sm text-muted-foreground">Authentication Latency</div>
             </div>
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-accent">99.99%</div>
-              <div className="text-sm text-muted-foreground">Uptime SLA</div>
+              <div className="text-2xl font-bold text-accent">Open Source</div>
+              <div className="text-sm text-muted-foreground">AGPL-3.0 Licensed</div>
             </div>
           </div>
         </div>
