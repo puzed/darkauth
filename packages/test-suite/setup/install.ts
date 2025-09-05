@@ -71,6 +71,7 @@ export async function installDarkAuth(config: InstallConfig | InstallConfigWithT
     token: installToken,
     adminEmail: config.adminEmail,
     adminName: config.adminName,
+    kekPassphrase: 'test-passphrase-for-testing-only',
   };
 
   const response = await fetch(`${config.adminUrl}/api/install/complete`, {
