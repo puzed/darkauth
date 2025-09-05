@@ -129,7 +129,7 @@ export async function getAuditLogs(
     const rows = await context.db
       .select({ id: adminUsers.id, email: adminUsers.email, name: adminUsers.name })
       .from(adminUsers)
-      .where(inArray(adminUsers.id, adminIds));
+      .where(inArray(adminUsers.id, adminIds as string[]));
     for (const admin of rows) adminMap.set(admin.id, { email: admin.email, name: admin.name });
   }
 
@@ -137,7 +137,7 @@ export async function getAuditLogs(
     const rows = await context.db
       .select({ sub: users.sub, email: users.email, name: users.name })
       .from(users)
-      .where(inArray(users.sub, userIds));
+      .where(inArray(users.sub, userIds as string[]));
     for (const user of rows)
       userMap.set(user.sub, { email: user.email || null, name: user.name || null });
   }

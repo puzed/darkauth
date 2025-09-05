@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "@/components/ui/use-toast";
+// no toast; we'll show a persistent banner on login screen instead
 import adminOpaqueService, { type AdminOpaqueRegistrationState } from "@/services/opaque";
 
 interface InstallData {
   adminEmail: string;
   adminName: string;
   adminPassword: string;
+  kekPassphrase?: string;
 }
 
 export default function Install() {
@@ -25,7 +26,11 @@ export default function Install() {
     adminName: "",
     adminPassword: "",
   });
+  const [hasKek, setHasKek] = useState<boolean>(true);
   const [opaqueState, setOpaqueState] = useState<AdminOpaqueRegistrationState | null>(null);
+  const [dbMode, setDbMode] = useState<"remote" | "pglite">("remote");
+  const [postgresUri, setPostgresUri] = useState<string>("");
+  const [pgliteDir, setPgliteDir] = useState<string>("./data/pglite");
 
   const check = useCallback(async () => {
     try {
@@ -43,6 +48,8 @@ export default function Install() {
         return;
       }
       if (r.ok) {
+        const data = (await r.json()) as { ok: boolean; hasKek?: boolean };
+        setHasKek(Boolean(data?.hasKek));
         setStage("form");
       } else setStage("error");
     } catch {
@@ -71,6 +78,7 @@ export default function Install() {
         throw new Error("Name, email and password are required");
       }
 
+      if (dbMode === "remote" && !postgresUri) throw new Error("Enter Postgres URI");
       const regStart = await adminOpaqueService.startRegistration(formData.adminPassword);
       setOpaqueState(regStart.state);
 
@@ -82,6 +90,9 @@ export default function Install() {
           email: formData.adminEmail,
           name: formData.adminName,
           request: regStart.request,
+          dbMode,
+          postgresUri: dbMode === "remote" ? postgresUri : undefined,
+          pgliteDir: dbMode === "pglite" ? pgliteDir : undefined,
         }),
       });
       const startJson = await startRes.json();
@@ -114,12 +125,43 @@ export default function Install() {
           adminEmail: formData.adminEmail,
           adminName: formData.adminName,
           token,
+          ...(hasKek ? {} : { kekPassphrase: formData.kekPassphrase }),
         }),
       });
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
-      toast({ title: "Admin account created", description: "You can now login" });
-      navigate("/");
+
+      // Store success flag
+      try {
+        localStorage.setItem("da_install_success", "1");
+      } catch {}
+
+      // Show success message and handle server restart
+      if (data.serverWillRestart) {
+        setStage("restarting");
+
+        // Wait a bit then start polling for server to come back online
+        setTimeout(() => {
+          const checkServer = async () => {
+            try {
+              const healthRes = await fetch("/api/health", { method: "HEAD" });
+              if (healthRes.ok) {
+                // Server is back online
+                navigate("/");
+              } else {
+                // Keep checking
+                setTimeout(checkServer, 1000);
+              }
+            } catch {
+              // Server not ready yet, keep checking
+              setTimeout(checkServer, 1000);
+            }
+          };
+          checkServer();
+        }, 3000); // Wait 3 seconds before starting to check
+      } else {
+        navigate("/");
+      }
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Installation failed");
@@ -142,6 +184,25 @@ export default function Install() {
         }}
       >
         <div>Checking installation status…</div>
+      </div>
+    );
+  }
+
+  if (stage === "restarting") {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <h2>Installation Complete!</h2>
+          <p>Server is restarting with new configuration...</p>
+          <p>You will be redirected automatically.</p>
+        </div>
       </div>
     );
   }
@@ -232,6 +293,85 @@ export default function Install() {
             </FormGrid>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Database</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormGrid columns={1}>
+              <GridField label={<Label htmlFor={`${uid}-dbmode`}>Choose</Label>}>
+                <div style={{ display: "flex", gap: 12 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="radio"
+                      name="dbMode"
+                      checked={dbMode === "remote"}
+                      onChange={() => setDbMode("remote")}
+                    />
+                    Remote Postgres
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="radio"
+                      name="dbMode"
+                      checked={dbMode === "pglite"}
+                      onChange={() => setDbMode("pglite")}
+                    />
+                    Embedded PGLite
+                  </label>
+                </div>
+              </GridField>
+              {dbMode === "remote" && (
+                <GridField label={<Label htmlFor={`${uid}-pg`}>Postgres URI</Label>}>
+                  <Input
+                    id={`${uid}-pg`}
+                    value={postgresUri}
+                    onChange={(e) => setPostgresUri(e.target.value)}
+                    placeholder="postgresql://user:pass@host:5432/dbname"
+                    disabled={loading}
+                  />
+                </GridField>
+              )}
+              {dbMode === "pglite" && (
+                <GridField label={<Label htmlFor={`${uid}-pglite`}>PGLite Directory</Label>}>
+                  <Input
+                    id={`${uid}-pglite`}
+                    value={pgliteDir}
+                    onChange={(e) => setPgliteDir(e.target.value)}
+                    placeholder="./data/pglite"
+                    disabled={loading}
+                  />
+                </GridField>
+              )}
+            </FormGrid>
+          </CardContent>
+        </Card>
+
+        {!hasKek && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Key Encryption</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormGrid columns={1}>
+                <GridField label={<Label htmlFor={`${uid}-kek`}>KEK Passphrase</Label>}>
+                  <Input
+                    id={`${uid}-kek`}
+                    name="kekPassphrase"
+                    type="password"
+                    value={formData.kekPassphrase || ""}
+                    onChange={onChange}
+                    placeholder="Enter a strong passphrase"
+                    minLength={8}
+                    disabled={loading}
+                    required
+                  />
+                </GridField>
+              </FormGrid>
+            </CardContent>
+          </Card>
+        )}
 
         <Button size="lg" disabled={loading} style={{ width: "100%" }}>
           {loading ? "Installing…" : "Complete Installation"}

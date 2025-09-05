@@ -37,30 +37,58 @@ export async function createUserServer(context: Context) {
     try {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
+      if (pathname === "/api/health") {
+        response.statusCode = 200;
+        response.setHeader("Content-Type", "text/plain");
+        response.end("ok");
+        return;
+      }
 
       if (request.method === "GET" && pathname === "/config.js") {
-        const ui =
-          ((await getSetting(context, "ui_user")) as
-            | { clientId?: string; redirectUri?: string }
-            | undefined) || {};
-        const issuer = ((await getSetting(context, "issuer")) as string) || "http://localhost:9080";
-        const publicOrigin = ((await getSetting(context, "public_origin")) as string) || issuer;
-        const branding = await getBrandingConfig(context);
+        let ui: { clientId?: string; redirectUri?: string } = {};
+        let issuer = "http://localhost:9080";
+        let publicOrigin = issuer;
+        let branding: Awaited<ReturnType<typeof getBrandingConfig>> | null = null;
+        try {
+          ui =
+            ((await getSetting(context, "ui_user")) as
+              | { clientId?: string; redirectUri?: string }
+              | undefined) || {};
+          issuer = ((await getSetting(context, "issuer")) as string) || issuer;
+          publicOrigin = ((await getSetting(context, "public_origin")) as string) || issuer;
+          branding = await getBrandingConfig(context);
+        } catch {
+          branding = {
+            identity: { title: "DarkAuth", tagline: "DarkAuth" },
+            logo: { data: null, mimeType: null },
+            logoDark: { data: null, mimeType: null },
+            favicon: { data: null, mimeType: null },
+            faviconDark: { data: null, mimeType: null },
+            colors: {},
+            colorsDark: undefined,
+            wording: {},
+            font: { family: "Inter", size: "16px", weight: {} },
+            customCSS: "",
+          };
+        }
         const payload = {
           issuer,
           clientId: ui.clientId || "app-web",
           redirectUri: ui.redirectUri || `${publicOrigin}/callback`,
           branding: {
-            identity: branding.identity,
-            colors: branding.colors,
-            colorsDark: branding.colorsDark || undefined,
-            wording: branding.wording,
-            font: branding.font,
-            customCSS: sanitizeCSS(branding.customCSS || ""),
-            logoUrl: branding.logo?.data ? "/api/branding/logo" : null,
-            logoUrlDark: branding.logoDark?.data ? "/api/branding/logo?dark=1" : null,
-            faviconUrl: branding.favicon?.data ? "/api/branding/favicon" : null,
-            faviconUrlDark: branding.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
+            identity: branding?.identity || {
+              name: "DarkAuth",
+              shortName: "DarkAuth",
+            },
+            colors: branding?.colors || {},
+            colorsDark: branding?.colorsDark || undefined,
+            wording: branding?.wording || {},
+            font: branding?.font || { family: "Inter", url: null },
+            customCSS: sanitizeCSS(branding?.customCSS || ""),
+            logoUrl: branding?.logo?.data ? "/api/branding/logo" : null,
+            logoUrlDark: branding?.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            faviconUrl: branding?.favicon?.data ? "/api/branding/favicon" : null,
+            faviconUrlDark: branding?.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
             customCssUrl: "/api/branding/custom.css",
           },
         };
@@ -155,30 +183,57 @@ export async function createAdminServer(context: Context) {
     try {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
+      if (pathname === "/api/health") {
+        response.statusCode = 200;
+        response.setHeader("Content-Type", "text/plain");
+        response.end("ok");
+        return;
+      }
 
       if (request.method === "GET" && pathname === "/config.js") {
-        const ui =
-          ((await getSetting(context, "ui_admin")) as
-            | { clientId?: string; redirectUri?: string }
-            | undefined) || {};
-        const issuer = ((await getSetting(context, "issuer")) as string) || "http://localhost:9080";
+        let ui: { clientId?: string; redirectUri?: string } = {};
+        let issuer = "http://localhost:9080";
         const adminOrigin = `http://localhost:${context.config.adminPort}`;
-        const branding = await getBrandingConfig(context);
+        let branding: Awaited<ReturnType<typeof getBrandingConfig>> | null = null;
+        try {
+          ui =
+            ((await getSetting(context, "ui_admin")) as
+              | { clientId?: string; redirectUri?: string }
+              | undefined) || {};
+          issuer = ((await getSetting(context, "issuer")) as string) || issuer;
+          branding = await getBrandingConfig(context);
+        } catch {
+          branding = {
+            identity: { title: "DarkAuth", tagline: "DarkAuth" },
+            logo: { data: null, mimeType: null },
+            logoDark: { data: null, mimeType: null },
+            favicon: { data: null, mimeType: null },
+            faviconDark: { data: null, mimeType: null },
+            colors: {},
+            colorsDark: undefined,
+            wording: {},
+            font: { family: "Inter", size: "16px", weight: {} },
+            customCSS: "",
+          };
+        }
         const payload = {
           issuer,
           clientId: ui.clientId || "admin-web",
           redirectUri: ui.redirectUri || `${adminOrigin}/`,
           branding: {
-            identity: branding.identity,
-            colors: branding.colors,
-            colorsDark: branding.colorsDark || undefined,
-            wording: branding.wording,
-            font: branding.font,
-            customCSS: sanitizeCSS(branding.customCSS || ""),
-            logoUrl: branding.logo?.data ? "/api/branding/logo" : null,
-            logoUrlDark: branding.logoDark?.data ? "/api/branding/logo?dark=1" : null,
-            faviconUrl: branding.favicon?.data ? "/api/branding/favicon" : null,
-            faviconUrlDark: branding.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
+            identity: branding?.identity || {
+              name: "DarkAuth",
+              shortName: "DarkAuth",
+            },
+            colors: branding?.colors || {},
+            colorsDark: branding?.colorsDark || undefined,
+            wording: branding?.wording || {},
+            font: branding?.font || { family: "Inter", url: null },
+            customCSS: sanitizeCSS(branding?.customCSS || ""),
+            logoUrl: branding?.logo?.data ? "/api/branding/logo" : null,
+            logoUrlDark: branding?.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            faviconUrl: branding?.favicon?.data ? "/api/branding/favicon" : null,
+            faviconUrlDark: branding?.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
             customCssUrl: "/api/branding/custom.css",
           },
         };

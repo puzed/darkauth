@@ -7,6 +7,52 @@
   background: hsl(var(--background));
 }
 
+.noticeWrap {
+  position: fixed;
+  top: 16px;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.notice {
+  pointer-events: auto;
+  max-width: 720px;
+  width: 100%;
+  border: 1px solid hsl(var(--border));
+  background: linear-gradient(180deg, hsl(var(--accent) / 0.18), hsl(var(--accent) / 0.1));
+  color: hsl(var(--foreground));
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 6px 24px hsl(0 0% 0% / 0.15);
+}
+
+.noticeTitle {
+  font-weight: 600;
+}
+
+.noticeDesc {
+  opacity: 0.9;
+}
+
+.noticeClose {
+  margin-left: auto;
+  background: transparent;
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  cursor: pointer;
+}
+
 .card {
   width: 100%;
   max-width: 520px;

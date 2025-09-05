@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import { and, desc, eq, gte, ilike, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
 import { auditLogs } from "../db/schema.js";
 import type { Context } from "../types.js";
 
@@ -140,7 +140,7 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
 
 // Query audit logs with filters
 export async function queryAuditLogs(context: Context, filters: AuditFilters) {
-  const conditions = [];
+  const conditions: SQL<unknown>[] = [];
 
   if (filters.startDate) {
     conditions.push(gte(auditLogs.timestamp, filters.startDate));
@@ -179,14 +179,15 @@ export async function queryAuditLogs(context: Context, filters: AuditFilters) {
   }
 
   if (filters.search) {
-    conditions.push(
-      or(
-        ilike(auditLogs.eventType, `%${filters.search}%`),
-        ilike(auditLogs.path, `%${filters.search}%`),
-        ilike(auditLogs.resourceId, `%${filters.search}%`),
-        ilike(auditLogs.errorMessage, `%${filters.search}%`)
-      )
+    const searchCondition = or(
+      ilike(auditLogs.eventType, `%${filters.search}%`),
+      ilike(auditLogs.path, `%${filters.search}%`),
+      ilike(auditLogs.resourceId, `%${filters.search}%`),
+      ilike(auditLogs.errorMessage, `%${filters.search}%`)
     );
+    if (searchCondition) {
+      conditions.push(searchCondition);
+    }
   }
 
   const query = context.db

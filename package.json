@@ -39,7 +39,7 @@
     "demo:dev": "concurrently \"npm run dev -w @DarkAuth/demo-app\" \"npm run server -w @DarkAuth/demo-app\""
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.2.2",
+    "@biomejs/biome": "^2.2.3",
     "crypto-browserify": "^3.12.1",
     "concurrently": "^9.2.1",
     "lightningcss": "^1.30.1",
