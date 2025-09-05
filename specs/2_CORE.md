@@ -317,7 +317,7 @@ Bootstrap: initial admin identity and OPAQUE record are created during installat
 When the database is uninitialized (no `settings.initialized=true` row):
 
 * The admin port (`9081`) serves the installation UI and exposes install APIs under `/api/install/*`.
-* The user port (`9080/9090`) returns a maintenance page and `503` for user APIs.
+* The user port (`9080`) returns a maintenance page and `503` for user APIs.
 
 Endpoints:
 

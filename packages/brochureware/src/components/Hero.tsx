@@ -47,21 +47,34 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* CTAs */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
-            <Button variant="hero" size="lg" className="text-lg px-8 py-4">
-              Start Free Trial
-            </Button>
-            <Button variant="outline" size="lg" className="text-lg px-8 py-4">
-              View Documentation
-            </Button>
+          <div className="mt-6 mx-auto max-w-3xl">
+            <div className="bg-secondary/20 rounded-lg border border-border/30 overflow-hidden">
+              <div className="px-4 py-2 border-b border-border/30 text-xs text-muted-foreground">BASH</div>
+              <pre className="text-xs sm:text-sm font-mono text-foreground whitespace-pre overflow-x-auto p-4">
+                <code className="nohighlight">
+                  <span className="text-primary">docker</span>
+                  <span>{" "}</span>
+                  <span className="text-foreground">run</span>
+                  <span>{" "}</span>
+                  <span className="text-primary">-d</span>
+                  <span>{"  "}</span>
+                  <span className="text-primary">-p</span>
+                  <span>{" "}</span>
+                  <span className="text-foreground">9080:9080</span>
+                  <span>{"  "}</span>
+                  <span className="text-primary">-p</span>
+                  <span>{" "}</span>
+                  <span className="text-foreground">9081:9081</span>
+                  <span>{"  "}</span>
+                  <span className="text-foreground">ghcr.io/puzed/darkauth:latest</span>
+                </code>
+              </pre>
+            </div>
           </div>
 
           {/* Trust indicators */}
           <p className="mt-8 text-sm text-muted-foreground">
-            Trusted by security-conscious organizations • 
-            <span className="font-medium text-foreground"> 99.99% uptime SLA</span> • 
-            Open source
+            Open source • Self-hosted • Docker image available
           </p>
         </div>
       </div>

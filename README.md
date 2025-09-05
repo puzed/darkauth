@@ -2,24 +2,34 @@
 
 A zero-knowledge authentication system with OIDC compatibility. DarkAuth implements OPAQUE (RFC 9380) for password authentication where the server never learns the password, and provides optional zero-knowledge delivery of Data Root Keys (DRK) to trusted clients.
 
+DarkAuth is open source and self-hosted. There is no paid plan, subscription, or cloud service. A ready-to-run Docker image is available at `ghcr.io/puzed/darkauth:latest`.
+
 ## Features
 
 - **Zero-Knowledge Password Auth**: OPAQUE protocol ensures passwords never reach the server
 - **OIDC Compatible**: Standard OAuth 2.0/OpenID Connect for universal compatibility
 - **Zero-Knowledge DRK Delivery**: Optional fragment-based JWE delivery for trusted clients
 - **Database-Driven Configuration**: All settings stored in PostgreSQL (no config files)
-- **Two-Port Architecture**: Separate ports for user (9090) and admin (9081). First-run installer is served on the admin port until setup completes.
+- **Two-Port Architecture**: Separate ports for user (9080) and admin (9081). First-run installer is served on the admin port until setup completes.
 - **Secure Key Storage**: Optional encryption of private keys at rest using Argon2id-derived KEK
 - **RBAC Support**: Fine-grained permissions and groups for users
 - **Production Ready**: CSP headers, rate limiting, session management
 
 ## Quick Start
 
+### Run with Docker
+
+```bash
+docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
+```
+
+Then visit `http://localhost:9081` to complete installation.
+
 ### Prerequisites
 
 - Node.js 20+
 - PostgreSQL 15+
-- Docker & Docker Compose (optional, for PostgreSQL)
+- Docker & Docker Compose (optional, for PostgreSQL or non-Docker setups)
 
 ### 1. Start PostgreSQL
 
@@ -48,7 +58,7 @@ Create a `config.yaml` file in the project root:
 
 ```yaml
 postgresUri: postgresql://username:password@localhost:5432/darkauth
-userPort: 9090
+userPort: 9080
 adminPort: 9081
 proxyUi: false  # Set to true for development
 kekPassphrase: "your-strong-passphrase"
@@ -78,9 +88,9 @@ npm start
 
 ### 7. Access the System
 
-- **User/OIDC**: http://localhost:9090 (or configured `userPort`)
+- **User/OIDC**: http://localhost:9080 (or configured `userPort`)
 - **Admin Panel**: http://localhost:9081 (or configured `adminPort`)
-- **OIDC Discovery**: http://localhost:9090/api/.well-known/openid-configuration
+- **OIDC Discovery**: http://localhost:9080/api/.well-known/openid-configuration
 
 ## Development Mode
 
@@ -100,7 +110,7 @@ This runs all three services concurrently:
 
 ### Port Allocation
 
-- **9090**: User-facing OIDC/Auth endpoints and UI
+- **9080**: User-facing OIDC/Auth endpoints and UI
 - **9081**: Admin interface and API (also serves the installation wizard until setup completes)
 
 ### Project Structure
@@ -170,11 +180,11 @@ postgresUri: postgresql://username:password@localhost:5432/darkauth
 kekPassphrase: "your-strong-passphrase"
 
 # Optional (with defaults)
-userPort: 9090            # User/OIDC server port
+userPort: 9080            # User/OIDC server port
 adminPort: 9081           # Admin server port  
 proxyUi: false            # Proxy to Vite dev servers (development only)
-publicOrigin: "http://localhost:9090"  # Public-facing origin
-issuer: "http://localhost:9090"        # OIDC issuer URL
+publicOrigin: "http://localhost:9080"  # Public-facing origin
+issuer: "http://localhost:9080"        # OIDC issuer URL
 rpId: "localhost"         # Relying party identifier
 ```
 

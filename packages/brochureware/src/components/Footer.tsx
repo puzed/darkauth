@@ -10,7 +10,6 @@ const Footer = () => {
       { name: "Features", href: "#features" },
       { name: "How It Works", href: "#how-it-works" },
       { name: "Security", href: "#security" },
-      { name: "Pricing", href: "#pricing" },
       { name: "Changelog", href: "/changelog" }
     ],
     developers: [
@@ -146,23 +145,15 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Security Certifications */}
+        
         <div className="border-t border-secondary-foreground/20 pt-8 mb-8">
           <div className="text-center">
-            <p className="text-sm text-secondary-foreground/60 mb-4">Security & Compliance</p>
+            <p className="text-sm text-secondary-foreground/60 mb-4">Project Info</p>
             <div className="flex flex-wrap justify-center gap-4">
-              <Badge variant="outline" className="border-primary/30 text-primary/80">
-                RFC 9380 Compliant
-              </Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">
-                Security Audited
-              </Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">
-                SOC 2 Ready
-              </Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">
-                GDPR Compatible
-              </Badge>
+              <Badge variant="outline" className="border-primary/30 text-primary/80">Open Source</Badge>
+              <Badge variant="outline" className="border-primary/30 text-primary/80">AGPL-3.0</Badge>
+              <Badge variant="outline" className="border-primary/30 text-primary/80">Self-hosted</Badge>
+              <Badge variant="outline" className="border-primary/30 text-primary/80">Docker Image</Badge>
             </div>
           </div>
         </div>
@@ -177,8 +168,8 @@ const Footer = () => {
             
             <div className="flex items-center space-x-6 text-sm text-secondary-foreground/60">
               <span>🔐 Zero-Knowledge Security</span>
-              <span>⚡ 99.99% Uptime SLA</span>
-              <span>🚀 Production Ready</span>
+              <span>🧩 Open Source</span>
+              <span>🐳 Docker Available</span>
             </div>
           </div>
         </div>

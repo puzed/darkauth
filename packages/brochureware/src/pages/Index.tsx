@@ -6,7 +6,6 @@ import HowItWorks from "@/components/HowItWorks";
 import Security from "@/components/Security";
 import UseCases from "@/components/UseCases";
 import Documentation from "@/components/Documentation";
-import Pricing from "@/components/Pricing";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -20,7 +19,6 @@ const Index = () => {
       <Security />
       <UseCases />
       <Documentation />
-      <Pricing />
       <Footer />
     </div>
   );

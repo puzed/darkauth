@@ -193,12 +193,12 @@ const UseCases = () => {
               Get started in minutes with our production-ready solution.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button className="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-white/90 transition-smooth">
-                Schedule Enterprise Demo
-              </button>
-              <button className="border-2 border-white/20 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-smooth">
-                Start Free Trial
-              </button>
+              <a href="#docs" className="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-white/90 transition-smooth text-center">
+                Run with Docker
+              </a>
+              <a href="#docs" className="border-2 border-white/20 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-smooth text-center">
+                Read Docs
+              </a>
             </div>
           </div>
         </div>
