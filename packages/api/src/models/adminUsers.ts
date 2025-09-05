@@ -128,13 +128,7 @@ export async function createAdminUser(
       name: data.name,
       role: data.role,
     })
-    .returning({
-      id: adminUsers.id,
-      email: adminUsers.email,
-      name: adminUsers.name,
-      role: adminUsers.role,
-      createdAt: adminUsers.createdAt,
-    });
+    .returning();
 
   return result[0];
 }
@@ -174,14 +168,7 @@ export async function updateAdminUser(
     .update(adminUsers)
     .set(data)
     .where(eq(adminUsers.id, adminId))
-    .returning({
-      id: adminUsers.id,
-      email: adminUsers.email,
-      name: adminUsers.name,
-      role: adminUsers.role,
-      passwordResetRequired: adminUsers.passwordResetRequired,
-      createdAt: adminUsers.createdAt,
-    });
+    .returning();
 
   return result[0];
 }
@@ -193,10 +180,7 @@ export async function deleteAdminUser(context: Context, adminId: string) {
     throw new ConflictError("Cannot delete the last admin user");
   }
 
-  const result = await context.db
-    .delete(adminUsers)
-    .where(eq(adminUsers.id, adminId))
-    .returning({ id: adminUsers.id });
+  const result = await context.db.delete(adminUsers).where(eq(adminUsers.id, adminId)).returning();
 
   if (!result[0]) {
     throw new NotFoundError("Admin user not found");

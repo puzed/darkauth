@@ -352,7 +352,7 @@ export const postToken = withRateLimit("token")(
       });
 
       // Get permissions from groups
-      const allGroupPermissions = [];
+      const allGroupPermissions: Array<{ permission: { key: string } }> = [];
       for (const userGroup of userGroupsData) {
         const permissions = await context.db.query.groupPermissions.findMany({
           where: eq(groupPermissions.groupKey, userGroup.groupKey),

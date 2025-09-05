@@ -1,4 +1,5 @@
-import { loadRootConfig } from "./config/loadConfig.js";
+import { hasConfigFile, loadRootConfig } from "./config/loadConfig.js";
+import "./reload.js";
 import { createContext } from "./context/createContext.js";
 import { createAdminServer, createUserServer } from "./http/createServer.js";
 import { getLatestSigningKey } from "./services/jwks.js";
@@ -10,6 +11,8 @@ import { printBox, printInfoTable } from "./utils/terminal.js";
 async function main() {
   const root = loadRootConfig();
   const config: Config = {
+    dbMode: root.dbMode || "remote",
+    pgliteDir: root.pgliteDir,
     postgresUri: root.postgresUri,
     userPort: root.userPort,
     adminPort: root.adminPort,
@@ -19,6 +22,7 @@ async function main() {
     publicOrigin: `http://localhost:${root.userPort}`,
     issuer: `http://localhost:${root.userPort}`,
     rpId: "localhost",
+    inInstallMode: !hasConfigFile(),
   };
 
   const context = await createContext(config);

@@ -29,6 +29,7 @@ const InstallCompleteRequestSchema = z.object({
   token: z.string(),
   adminEmail: z.string().email(),
   adminName: z.string(),
+  kekPassphrase: z.string().optional(),
 });
 
 const InstallCompleteResponseSchema = z.object({
@@ -80,7 +81,10 @@ async function _postInstallComplete(
   }
 
   if (!context.config.kekPassphrase) {
-    throw new ValidationError("KEK passphrase must be set in config.yaml");
+    if (!data.kekPassphrase || data.kekPassphrase.length === 0) {
+      throw new ValidationError("KEK passphrase must be provided");
+    }
+    context.config.kekPassphrase = data.kekPassphrase;
   }
 
   try {
@@ -89,13 +93,31 @@ async function _postInstallComplete(
     const passphrase = context.config.kekPassphrase;
     const kdfParams = generateKdfParams();
     const kekService = await createKekService(passphrase, kdfParams);
+
+    context.logger.info(
+      {
+        hasTempDb: !!context.services.install?.tempDb,
+        hasContextDb: !!context.db,
+      },
+      "[install:post] Selecting database"
+    );
+
+    const db = context.services.install?.tempDb || context.db;
+
+    if (!db) {
+      context.logger.error("[install:post] No database available!");
+      throw new Error("No database available for installation");
+    }
+
+    context.logger.info("[install:post] Seeding default settings");
+    const tempContextDb = { ...context, db } as Context;
     await seedDefaultSettings(
-      context,
+      tempContextDb,
       context.config.issuer,
       context.config.publicOrigin,
       context.config.rpId
     );
-    await context.db.insert(settings).values({
+    await db.insert(settings).values({
       key: "kek_kdf",
       value: kdfParams,
       secure: true,
@@ -105,15 +127,16 @@ async function _postInstallComplete(
     context.logger.debug("[install:post] generating signing keys");
     const { publicJwk, privateJwk, kid } = await generateEdDSAKeyPair();
 
-    const tempContext = {
+    const tempContextForKeys = {
       ...context,
+      db,
       services: {
         ...context.services,
         kek: kekService,
       },
-    };
+    } as Context;
 
-    await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
+    await storeKeyPair(tempContextForKeys, kid, publicJwk, privateJwk);
 
     context.logger.debug("[install:post] creating default clients");
     const _appWebClientSecret = generateRandomString(32);
@@ -121,7 +144,7 @@ async function _postInstallComplete(
 
     const supportDeskSecretEnc = await kekService.encrypt(Buffer.from(supportDeskClientSecret));
 
-    await context.db.insert(clients).values([
+    await db.insert(clients).values([
       {
         clientId: "app-web",
         name: "Web Application",
@@ -180,7 +203,7 @@ async function _postInstallComplete(
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"
     );
-    const existingAdmin = await context.db.query.adminUsers.findFirst({
+    const existingAdmin = await db.query.adminUsers.findFirst({
       where: (tbl, { eq }) => eq(tbl.email, data.adminEmail),
     });
 
@@ -193,7 +216,7 @@ async function _postInstallComplete(
     context.logger.info({ adminId, email: data.adminEmail }, "[install:post] Admin user verified");
 
     // Verify OPAQUE record exists
-    const opaqueRecord = await context.db.query.adminOpaqueRecords.findFirst({
+    const opaqueRecord = await db.query.adminOpaqueRecords.findFirst({
       where: (tbl, { eq }) => eq(tbl.adminId, adminId),
     });
 
@@ -211,13 +234,13 @@ async function _postInstallComplete(
       "[install:post] OPAQUE record verified"
     );
 
-    await markSystemInitialized(context);
+    await markSystemInitialized(tempContextDb);
 
     context.logger.info("[install:post] installation complete");
 
     sendJson(response, 200, {
       success: true,
-      message: "Installation completed successfully",
+      message: "Installation completed successfully. Server will restart in 2 seconds.",
       adminId,
       clients: [
         { id: "app-web", name: "Web Application", type: "public" },
@@ -228,13 +251,53 @@ async function _postInstallComplete(
           secret: "[encrypted]",
         },
       ],
+      serverWillRestart: true,
     });
 
     context.services.kek = kekService;
 
+    try {
+      const { upsertConfig } = await import("../../config/saveConfig.js");
+      upsertConfig({
+        kekPassphrase: context.config.kekPassphrase,
+        dbMode: context.services.install?.chosenDbMode || context.config.dbMode || "remote",
+        postgresUri: context.services.install?.chosenPostgresUri || context.config.postgresUri,
+        pgliteDir: context.services.install?.chosenPgliteDir || context.config.pgliteDir,
+        userPort: context.config.userPort,
+        adminPort: context.config.adminPort,
+        proxyUi: context.config.proxyUi,
+      });
+
+      context.logger.info("[install:post] Configuration saved, server will restart in 2 seconds");
+
+      // Schedule trigger for tsx watch restart by updating reload.ts content
+      setTimeout(async () => {
+        context.logger.info("[install:post] Triggering restart via reload token");
+        const fs = await import("node:fs");
+        const path = await import("node:path");
+        try {
+          const reloadPath = path.resolve(process.cwd(), "src", "reload.ts");
+          const stamp = Date.now();
+          fs.writeFileSync(reloadPath, `export const reloadToken = ${stamp};\n`, "utf8");
+          context.logger.info({ reloadPath }, "[install:post] Wrote reload token");
+        } catch (touchErr) {
+          context.logger.warn(
+            { err: touchErr },
+            "[install:post] Failed to write reload token, falling back to exit"
+          );
+          process.exit(0);
+        }
+      }, 2000);
+    } catch (err) {
+      context.logger.error({ err }, "[install:post] Failed to save configuration");
+    }
+
     if (context.services.install) {
       context.services.install.token = undefined;
       context.services.install.createdAt = undefined;
+      try {
+        await context.services.install.tempDbClose?.();
+      } catch {}
     }
   } catch (error) {
     context.logger.error({ err: error }, "Installation failed");
