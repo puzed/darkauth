@@ -1,6 +1,0 @@
-userPort: 9080
-adminPort: 9081
-proxyUi: true
-
-postgresUri: postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth
-kekPassphrase: "testtest"
