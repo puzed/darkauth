@@ -607,7 +607,7 @@ async function demonstrateProductionLoginFlow() {
   
   const loginResult = await context.services.opaque.finishLogin(finishBuffer, sessionId);
   
-  // Create admin session
+  // Create admin session and return tokens
   const sessionId = await createSession(context, "admin", {
     adminId: adminUser.id,
     email: adminUser.email,
@@ -615,7 +615,7 @@ async function demonstrateProductionLoginFlow() {
     adminRole: adminUser.role,
   });
   
-  setSessionCookie(response, sessionId, true);
+  // Respond with accessToken (sessionId) and refreshToken in JSON
   `);
   
   console.log('\n✅ CRITICAL LOGIN FACTS:');
