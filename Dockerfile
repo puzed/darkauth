@@ -5,7 +5,7 @@ COPY package.json package-lock.json ./
 COPY packages ./packages
 COPY changelog ./changelog
 RUN npm ci
-RUN npm run build:admin && npm run build:ui && npm run build:api
+RUN npm run build
 RUN npm prune --omit=dev
 
 FROM node:20-alpine
