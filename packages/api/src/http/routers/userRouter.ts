@@ -30,6 +30,7 @@ import { sanitizeCSS } from "../../services/branding.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
 import { sendError } from "../../utils/http.js";
+import { assertSameOrigin } from "../../utils/csrf.js";
 
 export function createUserRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {
@@ -38,6 +39,8 @@ export function createUserRouter(context: Context) {
     const pathname = url.pathname;
 
     try {
+      const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token";
+      if (needsCsrf) assertSameOrigin(request);
       if (method === "GET" && pathname === "/branding/logo") {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
         const useDark = url.searchParams.get("dark") === "1";

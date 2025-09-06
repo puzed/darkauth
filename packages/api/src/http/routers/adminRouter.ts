@@ -47,6 +47,7 @@ import { updateUser } from "../../controllers/admin/userUpdate.js";
 import { NotFoundError } from "../../errors.js";
 import type { Context } from "../../types.js";
 import { sendError } from "../../utils/http.js";
+import { assertSameOrigin } from "../../utils/csrf.js";
 
 export function createAdminRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {
@@ -55,6 +56,8 @@ export function createAdminRouter(context: Context) {
     const pathname = url.pathname;
 
     try {
+      const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
+      if (needsCsrf) assertSameOrigin(request);
       if (method === "GET" && pathname === "/admin/session") {
         return await getAdminSession(context, request, response);
       }
