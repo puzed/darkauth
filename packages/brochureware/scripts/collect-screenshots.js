@@ -24,11 +24,8 @@ function isTestFinished(name) {
   return /^test-finished-\d+\.png$/i.test(name);
 }
 
-async function collect() {
-  const testResultsDir = path.resolve(__dirname, "../../test-suite/test-results");
-  const outDir = path.resolve(__dirname, "../public/test-screenshots");
+async function collectDir(testResultsDir, outDir) {
   await emptyDir(outDir);
-
   let entries = [];
   try {
     entries = await fs.readdir(testResultsDir, { withFileTypes: true });
@@ -72,6 +69,37 @@ async function collect() {
 
   manifest.sort((a, b) => a.scenario.localeCompare(b.scenario) || a.step - b.step);
   await fs.writeFile(path.join(outDir, "index.json"), JSON.stringify(manifest, null, 2));
+}
+
+async function exists(p) {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function collect() {
+  const baseResults = path.resolve(__dirname, "../../test-suite");
+  const lightIn = path.join(baseResults, "test-results-light");
+  const darkIn = path.join(baseResults, "test-results-dark");
+  const defaultIn = path.join(baseResults, "test-results");
+
+  const baseOut = path.resolve(__dirname, "../public/test-screenshots");
+  const outLight = path.join(baseOut, "light");
+  const outDark = path.join(baseOut, "dark");
+
+  const hasLight = await exists(lightIn);
+  const hasDark = await exists(darkIn);
+  const hasDefault = await exists(defaultIn);
+
+  if (hasLight || hasDark) {
+    if (hasLight) await collectDir(lightIn, outLight);
+    if (hasDark) await collectDir(darkIn, outDark);
+    return;
+  }
+  await collectDir(defaultIn, baseOut);
 }
 
 collect().catch((err) => {

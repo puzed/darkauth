@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { useTheme } from "next-themes";
 
 type Shot = {
   file: string;
@@ -16,19 +17,30 @@ const Screenshots = () => {
   const [shots, setShots] = useState<Shot[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<{ src: string; alt: string } | null>(null);
+  const { theme, resolvedTheme } = useTheme();
+  const effective = useMemo(() => (theme === "system" ? resolvedTheme : theme) || "light", [theme, resolvedTheme]);
+  const basePath = useMemo(() => `/test-screenshots/${effective}`, [effective]);
 
   useEffect(() => {
-    fetch("/test-screenshots/index.json", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : []))
-      .then((data) => {
+    let cancelled = false;
+    const load = async () => {
+      const themed = await fetch(`${basePath}/index.json`, { cache: "no-store" });
+      let data = [];
+      if (themed.ok) data = await themed.json();
+      if (!themed.ok || !Array.isArray(data) || data.length === 0) {
+        const legacy = await fetch(`/test-screenshots/index.json`, { cache: "no-store" });
+        data = legacy.ok ? await legacy.json() : [];
+      }
+      if (!cancelled) {
         setShots(Array.isArray(data) ? data : []);
         setLoaded(true);
-      })
-      .catch(() => {
-        setShots([]);
-        setLoaded(true);
-      });
-  }, []);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [basePath]);
 
   useEffect(() => {
     if (!selected) return;
@@ -51,7 +63,7 @@ const Screenshots = () => {
           <div className="text-muted-foreground">No screenshots found.</div>
         )}
         {shots.length > 0 && (
-          <Groups shots={shots} onSelect={(src, alt) => setSelected({ src, alt })} />
+          <Groups basePath={basePath} shots={shots} onSelect={(src, alt) => setSelected({ src, alt })} />
         )}
       </main>
       {selected && (
@@ -89,7 +101,7 @@ const Screenshots = () => {
 
 export default Screenshots;
 
-function Groups({ shots, onSelect }: { shots: Shot[]; onSelect: (src: string, alt: string) => void }) {
+function Groups({ basePath, shots, onSelect }: { basePath: string; shots: Shot[]; onSelect: (src: string, alt: string) => void }) {
   const [sectionStates, setSectionStates] = useState<Record<string, number>>({});
   const groups = new Map<string, Map<string, Shot[]>>();
   for (const s of shots) {
@@ -136,10 +148,10 @@ function Groups({ shots, onSelect }: { shots: Shot[]; onSelect: (src: string, al
                     {visible.map((s) => (
                       <figure key={`${s.scenario}-${s.step}`} className="rounded-lg bg-card">
                         <BrowserThumb
-                          src={`/test-screenshots/${s.file}`}
+                          src={`${basePath}/${s.file}`}
                           alt={s.title}
                           titleText={s.title.replace(/\s#\d+$/, "")}
-                          onClick={() => onSelect(`/test-screenshots/${s.file}`, s.title)}
+                          onClick={() => onSelect(`${basePath}/${s.file}`, s.title)}
                         />
                       </figure>
                     ))}
