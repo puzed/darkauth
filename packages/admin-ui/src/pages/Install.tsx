@@ -148,6 +148,7 @@ export default function Install() {
               const healthRes = await fetch("/api/health", { method: "HEAD" });
               if (healthRes.ok) {
                 // Server is back online
+                await new Promise((r) => setTimeout(r, 1000));
                 navigate("/");
               } else {
                 // Keep checking
