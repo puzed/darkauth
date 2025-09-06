@@ -1,7 +1,11 @@
 node_modules
 dist
 .env
+test-results-light
+test-results-dark
 test-results
 playwright-report
 test-screenshots
 .serena
+config.yaml
+test-data
