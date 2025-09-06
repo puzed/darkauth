@@ -9,7 +9,7 @@ extendZodWithOpenApi(z);
 import { eq } from "drizzle-orm";
 import { opaqueRecords, users } from "../../db/schema.js";
 import { ConflictError, ValidationError } from "../../errors.js";
-import { createSession, getSessionTtlSeconds, setSessionCookie } from "../../services/sessions.js";
+import { createSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, generateRandomString } from "../../utils/crypto.js";
@@ -121,13 +121,12 @@ export const postOpaqueRegisterFinish = withAudit({
           email: email as string,
           name: name,
         });
-        const ttl = await getSessionTtlSeconds(context, "user");
-        setSessionCookie(response, sessionInfo.sessionId, false, context.config.isDevelopment, ttl);
 
-        // Return success response with user subject
+        // Return success response with tokens
         sendJson(response, 201, {
           sub,
-          sessionId: sessionInfo.sessionId,
+          accessToken: sessionInfo.sessionId, // Use sessionId as bearer token
+          refreshToken: sessionInfo.refreshToken,
           message: "User registered successfully",
         });
       } catch (dbError) {

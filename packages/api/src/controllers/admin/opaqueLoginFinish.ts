@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { eq } from "drizzle-orm";
 import { adminUsers } from "../../db/schema.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
-import { createSession, getSessionTtlSeconds, setSessionCookie } from "../../services/sessions.js";
+import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -106,20 +106,11 @@ async function postAdminOpaqueLoginFinishHandler(
       adminRole: adminUser.role,
     });
 
-    // Set admin session cookie
-    const ttl = await getSessionTtlSeconds(context, "admin");
-    setSessionCookie(response, sessionId, true, context.config.isDevelopment, ttl);
-    try {
-      context.logger.info(
-        { event: "admin.setCookie", sessionId, cookie: response.getHeader("Set-Cookie") },
-        "admin session cookie set"
-      );
-    } catch {}
-
-    
+    // Return session token as Bearer token
     const responseData = {
       success: true,
       sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
+      accessToken: sessionId, // Use sessionId as bearer token
       refreshToken,
       admin: {
         id: adminUser.id,

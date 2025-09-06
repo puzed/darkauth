@@ -28,13 +28,11 @@ export async function getAdminSession(
   response: ServerResponse,
   ..._params: string[]
 ): Promise<void> {
-  const rawCookie = request.headers.cookie || "";
   const sessionData = await requireSession(context, request, true);
   try {
     context.logger.info(
       {
         event: "admin.session.read",
-        cookie: rawCookie,
         adminId: sessionData.adminId,
         role: sessionData.adminRole,
       },

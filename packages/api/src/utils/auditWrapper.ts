@@ -4,7 +4,7 @@ import {
   getActorFromRefreshToken,
   getActorFromSessionId,
   getSession,
-  getSessionIdFromCookie,
+  getSessionId,
 } from "../services/sessions.js";
 import type { Context, ControllerFunction } from "../types.js";
 
@@ -151,11 +151,11 @@ export function withAudit(config: AuditConfig | string) {
           }
         }
 
-        // Try to get session info (read cookie, then fetch session id)
+        // Try to get session info from Authorization header
         try {
           const urlPath = request.url || "/";
           const isAdmin = urlPath.startsWith("/admin/") || urlPath.startsWith("/api/admin/");
-          const sid = getSessionIdFromCookie(request, isAdmin);
+          const sid = getSessionId(request, isAdmin);
           if (sid) {
             const session = await getSession(context, sid);
             if (session) {

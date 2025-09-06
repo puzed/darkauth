@@ -46,59 +46,6 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
 }
 
 /**
- * Set secure session cookie with proper flags
- * Cookie name: __Host-DarkAuth (as per spec)
- * Flags: Secure, HttpOnly, SameSite=Lax
- */
-export function setSecureSessionCookie(
-  response: ServerResponse,
-  sessionId: string,
-  maxAge: number,
-  isDevelopment = false
-): void {
-  const name = isDevelopment ? "DarkAuth" : "__Host-DarkAuth";
-  const cookieOptions = [
-    `${name}=${sessionId}`,
-    `Max-Age=${maxAge}`,
-    "HttpOnly",
-    "SameSite=Lax",
-    "Path=/",
-  ];
-
-  if (!isDevelopment) {
-    cookieOptions.push("Secure");
-  }
-
-  response.setHeader("Set-Cookie", cookieOptions.join("; "));
-}
-
-/**
- * Clear session cookie securely
- */
-export function clearSessionCookie(response: ServerResponse, isDevelopment = false): void {
-  const names = isDevelopment ? ["DarkAuth"] : ["__Host-DarkAuth"];
-  const headers = names.map((n) =>
-    [`${n}=`, "Max-Age=0", "HttpOnly", "SameSite=Lax", "Path=/", !isDevelopment ? "Secure" : ""]
-      .filter(Boolean)
-      .join("; ")
-  );
-  response.setHeader("Set-Cookie", headers);
-}
-
-/**
- * Extract session ID from __Host-DarkAuth cookie
- */
-export function getSessionIdFromSecureCookie(request: IncomingMessage): string | null {
-  const cookies = request.headers.cookie;
-  if (!cookies) return null;
-
-  const match =
-    cookies.match(/(?:^|;\s*)__Host-DarkAuth=([^;]+)/) ||
-    cookies.match(/(?:^|;\s*)DarkAuth=([^;]+)/);
-  return match ? match[1] || null : null;
-}
-
-/**
  * Rate limiting with tiered limits and suspicious activity detection
  * In production, use Redis or similar for distributed rate limiting
  */
