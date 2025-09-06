@@ -148,17 +148,17 @@ export default function Branding() {
 
       // Only extract the primary field
       const lightPrimary =
-        typeof loadedColors === "object" && loadedColors.primary ? loadedColors.primary : "#3b82f6";
+        typeof loadedColors === "object" && loadedColors.primary ? loadedColors.primary : "#6600cc";
       const darkPrimary =
-        typeof loadedColorsDark === "object" && loadedColorsDark.primary
+        typeof loadedColorsDark === "object" && loadedColorsDark && loadedColorsDark.primary
           ? loadedColorsDark.primary
-          : null;
+          : "#aec1e0";
 
       console.log("SETTING LIGHT PRIMARY:", lightPrimary);
       console.log("SETTING DARK PRIMARY:", darkPrimary);
 
       setColors({ primary: lightPrimary });
-      setColorsDark(darkPrimary ? { primary: darkPrimary } : {});
+      setColorsDark({ primary: darkPrimary });
       setCustomCss((css?.value as string) || "");
       setWording((w?.value as Record<string, string>) || {});
       setFont(
@@ -326,13 +326,13 @@ export default function Branding() {
                   <Label>Brand color</Label>
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                     <ColorInput
-                      value={String(colors?.primary || "#3b82f6")}
+                      value={String(colors?.primary || "#6600cc")}
                       onChange={(v) => {
                         setColors({ primary: v });
                       }}
                     />
                     <Input
-                      value={String(colors?.primary || "#3b82f6")}
+                      value={String(colors?.primary || "#6600cc")}
                       onChange={(e) => {
                         setColors({ primary: e.target.value });
                       }}
@@ -344,13 +344,13 @@ export default function Branding() {
                   <Label>Brand color (Dark)</Label>
                   <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                     <ColorInput
-                      value={String(colorsDark?.primary || colors?.primary || "#3b82f6")}
+                      value={String(colorsDark?.primary || "#aec1e0")}
                       onChange={(v) => {
                         setColorsDark({ primary: v });
                       }}
                     />
                     <Input
-                      value={String(colorsDark?.primary || colors?.primary || "#3b82f6")}
+                      value={String(colorsDark?.primary || "#aec1e0")}
                       onChange={(e) => {
                         setColorsDark({ primary: e.target.value });
                       }}

@@ -1,3 +1,4 @@
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormGrid, FormField as GridField } from "@/components/layout/form-grid";
@@ -199,6 +200,9 @@ export default function Install() {
         }}
       >
         <div style={{ textAlign: "center" }}>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+            <Loader2 size={28} style={{ animation: "spin 1s linear infinite" }} />
+          </div>
           <h2>Installation Complete!</h2>
           <p>Server is restarting with new configuration...</p>
           <p>You will be redirected automatically.</p>
