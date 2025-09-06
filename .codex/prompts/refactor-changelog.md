@@ -19,3 +19,5 @@ order the information in terms of impact with the biggest, more impactful items 
 try and keep your new changelog consisten with the other ones.
 
 DO NOT TOUCH a changelog where the `reviewed: true` is set. Only touch the false.
+
+Be consistent with the other changelogs. For examplel, do not put a level 1 heading in. It's not in any of the other ones.
