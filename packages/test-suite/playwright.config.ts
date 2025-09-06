@@ -11,11 +11,12 @@ export default defineConfig({
     trace: 'on',
     screenshot: 'on',
     video: 'on',
+    viewport: { width: 1400, height: 800 },
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 800 } },
     },
   ],
   globalSetup: undefined,
