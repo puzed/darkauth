@@ -1,6 +1,7 @@
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -47,10 +48,12 @@ async function collectDir(testResultsDir, outDir) {
     });
     for (const file of pngs) {
       const num = parseInt(file.match(/test-finished-(\d+)\.png/i)?.[1] || "0", 10);
-      const base = `${entry.name}-${num}.png`;
       const src = path.join(scenarioDir, file);
+      const buf = await fs.readFile(src);
+      const hash = crypto.createHash("sha256").update(buf).digest("hex").slice(0, 10);
+      const base = `${entry.name}-${num}-${hash}.png`;
       const dst = path.join(outDir, base);
-      await fs.copyFile(src, dst);
+      await fs.writeFile(dst, buf);
       const parsed = parseScenario(entry.name);
       const testSlug = (entry.name.replace(/-(chromium|firefox|webkit)$/i, "").split("--")[1] || "");
       const slugOrHints = testSlug || parsed.hints?.join(" ") || "";
