@@ -46,8 +46,8 @@ import { getUsers } from "../../controllers/admin/users.js";
 import { updateUser } from "../../controllers/admin/userUpdate.js";
 import { NotFoundError } from "../../errors.js";
 import type { Context } from "../../types.js";
-import { sendError } from "../../utils/http.js";
 import { assertSameOrigin } from "../../utils/csrf.js";
+import { sendError } from "../../utils/http.js";
 
 export function createAdminRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {

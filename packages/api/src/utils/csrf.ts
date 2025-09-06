@@ -6,7 +6,10 @@ export function isSameOrigin(request: IncomingMessage): boolean {
   if (["GET", "HEAD", "OPTIONS"].includes(method)) return true;
 
   const host = typeof request.headers.host === "string" ? request.headers.host : "";
-  const sfs = typeof request.headers["sec-fetch-site"] === "string" ? request.headers["sec-fetch-site"] : undefined;
+  const sfs =
+    typeof request.headers["sec-fetch-site"] === "string"
+      ? request.headers["sec-fetch-site"]
+      : undefined;
   const origin = typeof request.headers.origin === "string" ? request.headers.origin : undefined;
   const referer = typeof request.headers.referer === "string" ? request.headers.referer : undefined;
 
@@ -30,4 +33,3 @@ export function isSameOrigin(request: IncomingMessage): boolean {
 export function assertSameOrigin(request: IncomingMessage): void {
   if (!isSameOrigin(request)) throw new ForbiddenError("Cross-site request blocked");
 }
-
