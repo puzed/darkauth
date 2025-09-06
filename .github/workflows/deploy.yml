@@ -19,6 +19,14 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: npx playwright install
+      - run: npm run test:screenshots
       - run: |
           cd packages/brochureware
           npm run build
