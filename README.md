@@ -223,7 +223,7 @@ rpId: "localhost"         # Relying party identifier
 
 - Markdown entries live in `changelog/` as `YYYY-MM-DD.md`
 - Generate new entries from git: `npm run generate-changelog-entries`
-- The admin UI exposes `/changelog.json` and a page at `/changelog`
+- Brochureware publishes `/changelog.json`; Admin UI fetches from `https://darkauth.com/changelog.json`
 
 ## Zero-Knowledge Flow
 
