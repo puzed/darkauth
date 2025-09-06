@@ -17,6 +17,6 @@ COPY --from=builder /app/packages/api/dist ./packages/api/dist
 COPY --from=builder /app/packages/api/drizzle ./packages/api/dist/drizzle
 COPY --from=builder /app/packages/user-ui/dist ./packages/user-ui/dist
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
-COPY packages/opaque-ts ./packages/opaque-ts
+COPY --from=builder /app/packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
 CMD ["pm2-runtime","packages/api/dist/src/main.js","--name","darkauth"]
