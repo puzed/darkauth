@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2025-09-06T11:29:48.759Z",
+  "entries": [
+    {
+      "date": "2025-09-06",
+      "title": "v1.0.4",
+      "changes": [
+        "# Static Serving & Proxy Host Improvements\n\n## 🚀 Server & Config\n\n**Static file serving**\n- Serve Admin and User UIs directly from the API in production with safe path resolution and correct content types\n\n**Proxy and origins**\n- More robust proxy host resolution, CORS handling, and dev vs. production behavior for both Admin and User servers\n\n**Theme bootstrap in config**\n- Inject light/dark theme bootstrap via `/config.js` for consistent initial render across UIs\n\n**OpenAPI dependency**\n- Moved `zod-to-openapi` to runtime dependencies for stable OpenAPI document generation\n\n## 📰 Changelog Delivery\n\n**Admin UI**\n- Fetches changelog from `darkauth.com`; removed local dev/build changelog route\n\n**Brochure Site**\n- Dropped changelog plugin; generate changelog JSON via a dedicated script\n\n**Docs**\n- Clarified how changelog hosting works and where the Admin UI reads from\n\n## 🖼️ Brochure Site\n\n**Theme‑aware screenshots**\n- Added light/dark theme screenshots and an in‑site viewer\n\n## 🛠️ Docker & CI\n\n**Docker image**\n- Included changelog in image; run API with pm2; copy Drizzle directory into the container\n\n**CI/CD**\n- Added screenshot build step and pipeline tweaks\n\n## 🧪 Test Suite\n\n**Visual runs**\n- Added light/dark screenshot runs with configurable color scheme\n\n**Stability**\n- Bumped reload token and refined screenshot scripts; ignored generated artifacts\n\n## 🧹 Maintenance\n\n**Changelog tooling**\n- Fixes to changelog generation and formatting scripts"
+      ],
+      "filename": "v1.0.4.md"
+    },
+    {
+      "date": "2025-09-06",
+      "title": "v1.0.3",
+      "changes": [
+        "## 🗄️ Embedded Storage & Install\n\n**API: Embedded PGlite option**\n- Added embedded PGlite storage with updated install flow to simplify local and lightweight deployments\n- Keeps external Postgres support; choose embedded for quick starts or constrained environments\n\n**Install Experience**\n- Streamlined steps and copy where relevant to reflect new storage option\n\n## 📱 Brochureware Improvements\n\n**Mobile Navigation**\n- Added burger menu to the brochure site header using a sheet for improved mobile navigation\n\n**Layout Polish**\n- Widened changelog and legal content areas and adjusted page padding for better responsiveness\n\n## 🛠️ Fixes\n\n**Docker & Config**\n- Fixed Dockerfile and updated example configuration to align with current setup\n\n**Content Cleanup**\n- Removed pricing and commercial wording from public-facing copy\n\n## 🧱 Build & CI\n\n**Release Synchronization**\n- Pull GitHub releases before building the Docker admin-ui image to ensure synced metadata\n\n## 🧪 Test Suite\n\n**Generated Data**\n- Removed generated test data and ignored the directory in version control\n\n**Flow Alignment**\n- Updated tests to match revised install and audit flows\n\n## 📚 Documentation\n\n**Embedded Storage Notes**\n- Added notes for using embedded PGlite and removed an obsolete refactor plan\n\n**Client README**\n- Expanded client README with usage and setup guidance\n\n**Agent Guidance**\n- Refreshed internal agent guidance docs\n\n## 🧹 Maintenance\n\n**Tooling**\n- Updated tooling configs and lockfile; minor tidy-ups"
+      ],
+      "filename": "v1.0.3.md"
+    },
+    {
+      "date": "2025-09-04",
+      "title": "v1.0.2",
+      "changes": [
+        "## 🎨 Branding System\n\n**Admin Branding Page**\n- New Branding page with live preview, logo upload, color, font, wording and custom CSS controls\n- Multi-entry Vite preview route to validate changes before publishing\n\n**API Branding Service**\n- Branding service with seeded defaults and endpoints to read/update settings\n- Branding injected into `__APP_CONFIG__` for Admin and User UIs\n- Serves logo, favicon and custom CSS with sanitization\n\n**User UI Integration**\n- Auth screens read branding via hooks for texts and styles\n- Consistent CSS variables applied across components\n\n## 🧑‍💻 User UI Refinements\n\n**Login and Shell**\n- Unified `LoginView` into a functional `Login` component within a brandable application shell\n\n**Auth Flow Polish**\n- Refreshed styles for login/register/change password and layouts\n- Improved actions placement and sign-out controls; dark theme consistency\n\n## 🛠️ Admin UI Enhancements\n\n**Install Flow**\n- Streamlined install experience with clearer steps and copy\n\n**Changelog View**\n- Improved changelog rendering with clearer headers and spacing\n\n## 🧱 Build & CI\n\n**Docker/NPM CI Fix**\n- Replaced workspace protocol with a file link for `@DarkAuth/user-ui` to make `npm ci` succeed in Docker\n\n**Configuration**\n- Enabled proxy UI in configuration where applicable\n\n## 📚 Docs & Maintenance\n\n**Changelog and Scripts**\n- Added v1.0.1 changelog and normalized v1.0.0 formatting\n- Default new release entries to `reviewed: false`\n\n**Code Hygiene**\n- Relaxed lint rules in `opaque-ts` and removed inline disables\n- Ignored local `.serena` workspace directory and minor formatting tweaks"
+      ],
+      "filename": "v1.0.2.md"
+    },
+    {
+      "date": "2025-09-03",
+      "title": "v1.0.1",
+      "changes": [
+        "## ✨ Changelog Rendering & Release Automation\n\n**Improved Changelog Display**\n- Refined Admin UI and brochure site changelog rendering for clearer headers, bullets, and spacing\n- Ensures consistent, readable formatting across entries in the app\n\n**Release Sync Scripts**\n- Added `scripts/pull-github-releases.sh` and `scripts/push-github-releases.sh` to pull/push releases\n- Better `gh` error handling and simpler header normalization\n- Pull script now always overwrites from GitHub and strips stray front‑matter separators\n\n**CI Image Retagging**\n- New workflow to retag Docker images on GitHub release\n- Skips prereleases and updates `latest` for stable releases\n\n## 🧹 Housekeeping\n\n**Repository Hygiene**\n- Ignored Playwright test screenshots; removed previously tracked artifacts\n\n**Changelog Consistency**\n- Normalized `v1.0.0` changelog metadata and formatting for consistency"
+      ],
+      "filename": "v1.0.1.md"
+    },
+    {
+      "date": "2025-09-03",
+      "title": "v1.0.0",
+      "changes": [
+        "## ⚡ Major Features\r\n\r\n**🌐 Public Runtime Configuration**\r\n- Added public runtime configuration for Admin UI and User UI with shims and Vite optimizations\r\n- Enabled environment-specific configuration without requiring rebuilds\r\n- Significantly improved deployment flexibility across different environments\r\n\r\n**🎭 Playwright Test Suite Migration**\r\n- Migrated entire test suite to Playwright with cleaner, more maintainable structure\r\n- Added comprehensive environment setup helpers and dedicated admin/user test specifications\r\n- Removed obsolete unit/integration tests in favor of robust end-to-end coverage\r\n\r\n**🔧 Developer Experience Improvements**\r\n- Aligned workspace scripts and `.gitignore` configurations across the entire project\r\n- Standardized on `config.yaml` throughout the workspace for simplified local development and CI flows\r\n\r\n## 🛠️ Supporting Updates\r\n\r\n**API Enhancements**\r\n- Added migration `0002` with updated Drizzle metadata\r\n- Minor refinements in controllers, context creation, OPAQUE wrapper, and service wiring\r\n\r\n**📚 Documentation Restructure**\r\n- Moved and restructured development guides under `specs/` directory\r\n  - Code Guide, Core documentation, Testing Architecture\r\n- Enhanced `config.yaml` workflow documentation  \r\n- Simplified development scripts and refined changelog refactor instructions"
+      ],
+      "filename": "v1.0.0.md"
+    }
+  ]
+}

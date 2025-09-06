@@ -37,11 +37,10 @@ function buildChangelog() {
 }
 
 async function main() {
-  const outDir = resolve(process.cwd(), "packages/brochureware/public");
+  const outDir = resolve(process.cwd(), "public");
   await ensureDir(outDir);
   const payload = buildChangelog();
   await writeFile(join(outDir, "changelog.json"), payload, "utf8");
 }
 
 main().catch(() => process.exit(1));
-
