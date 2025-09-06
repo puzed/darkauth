@@ -29,8 +29,8 @@ import { NotFoundError } from "../../errors.js";
 import { sanitizeCSS } from "../../services/branding.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
-import { sendError } from "../../utils/http.js";
 import { assertSameOrigin } from "../../utils/csrf.js";
+import { sendError } from "../../utils/http.js";
 
 export function createUserRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {

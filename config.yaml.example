@@ -1,7 +1,0 @@
-dbMode: pglite
-postgresUri: postgresql://DarkAuth:DarkAuth_password@localhost:5432/darkauth_test_1757113455463_r2e5tb
-userPort: 65202
-adminPort: 65201
-proxyUi: false
-kekPassphrase: test-passphrase-for-testing-only
-pgliteDir: ./test-data/user-auth-login-73ff6f74

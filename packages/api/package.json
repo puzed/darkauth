@@ -25,7 +25,6 @@
 	"dependencies": {
 		"@peculiar/webcrypto": "^1.5.0",
 		"argon2": "^0.44.0",
-		"dotenv": "^17.2.2",
 		"drizzle-orm": "^0.44.5",
 		"drizzle-zod": "^0.8.3",
 		"@asteasolutions/zod-to-openapi": "^8.1.0",
@@ -33,7 +32,7 @@
 		"opaque-ts": "file:../opaque-ts",
     "pg": "^8.16.3",
     "pino": "^9.9.4",
-    "@electric-sql/pglite": "^0.2.12",
+    "@electric-sql/pglite": "^0.3.7",
 		"tsx": "^4.20.5",
 		"yaml": "^2.8.1",
 		"zod": "^4.1.5"

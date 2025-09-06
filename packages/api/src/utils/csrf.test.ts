@@ -1,10 +1,13 @@
-import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { IncomingMessage } from "node:http";
-import { isSameOrigin, assertSameOrigin } from "./csrf.js";
+import { test } from "node:test";
+import { assertSameOrigin, isSameOrigin } from "./csrf.js";
 
 function mkReq(headers: Record<string, string | undefined>, method = "POST"): IncomingMessage {
-  return { method, headers: headers as Record<string, string | string[] | undefined> } as unknown as IncomingMessage;
+  return {
+    method,
+    headers: headers as Record<string, string | string[] | undefined>,
+  } as unknown as IncomingMessage;
 }
 
 test("isSameOrigin allows safe methods without headers", () => {
