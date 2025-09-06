@@ -65,15 +65,13 @@ export async function establishUserSession(
   if (!finishRes.ok) throw new Error(`login finish failed: ${finishRes.status}`);
   const finishJson = await finishRes.json();
 
-  await context.addCookies([
-    {
-      name: 'DarkAuth',
-      value: finishJson.sessionId,
-      domain: 'localhost',
-      path: '/',
-      httpOnly: true,
-      sameSite: 'Lax'
-    }
-  ]);
+  const page = await context.newPage();
+  await page.goto(servers.userUrl);
+  await page.evaluate(([accessToken, refreshToken]) => {
+    try {
+      localStorage.setItem('userAccessToken', accessToken);
+      if (refreshToken) localStorage.setItem('userRefreshToken', refreshToken);
+    } catch {}
+  }, [finishJson.accessToken, finishJson.refreshToken]);
+  await page.close();
 }
-

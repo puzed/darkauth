@@ -31,7 +31,7 @@ test.describe('Authentication - User Login', () => {
     await page.fill('input[name="confirmPassword"]', user.password);
     await page.click('button[type="submit"], button:has-text("Continue")');
     await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
-    await context.clearCookies();
+    await page.evaluate(() => localStorage.clear());
   });
 
   test.afterAll(async () => {
