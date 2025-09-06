@@ -19,21 +19,7 @@ export default defineConfig({
       },
     },
   },
-  plugins: [
-    react(),
-    {
-      name: "preview-route",
-      configureServer(server) {
-        server.middlewares.use((req, _res, next) => {
-          if (req.url?.startsWith("/preview")) {
-            const qs = req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : "";
-            req.url = `/branding/preview.html${qs}`;
-          }
-          next();
-        });
-      },
-    },
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -44,7 +30,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(__dirname, "index.html"),
-        brandingPreview: resolve(__dirname, "branding/preview.html"),
+        preview: resolve(__dirname, "branding/preview.html"),
       },
     },
   },
