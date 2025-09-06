@@ -125,9 +125,3 @@ main().catch((error) => {
   console.error("Fatal error:", error);
   process.exit(1);
 });
-
-import path from "node:path";
-import * as dotenv from "dotenv";
-
-dotenv.config({ path: path.resolve(process.cwd(), ".env") });
-dotenv.config({ path: path.resolve(process.cwd(), "..", "..", ".env") });
