@@ -8,9 +8,6 @@ import type { Context } from "../types.js";
  *      object-src 'none'; require-trusted-types-for 'script'
  */
 export function setSecurityHeaders(response: ServerResponse, isDevelopment = false): void {
-  // Check if we're running in test mode (Playwright tests set this header)
-  const isTestMode = process.env.NODE_ENV === "test" || process.env.DARKAUTH_TEST_MODE === "true";
-
   // Content Security Policy - strict CSP as specified
   const csp = [
     "default-src 'self'",
@@ -18,8 +15,7 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
     "style-src 'self'",
     "img-src 'self' data:",
     "connect-src 'self' https://darkauth.com",
-    // Allow iframe embedding in test mode for preview functionality
-    isTestMode ? "frame-ancestors *" : "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "base-uri 'none'",
     "form-action 'self'",
     "object-src 'none'",
@@ -32,9 +28,7 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
 
   response.setHeader("Content-Security-Policy", csp.join("; "));
 
-  // Additional security headers
-  // Allow framing in test mode
-  response.setHeader("X-Frame-Options", isTestMode ? "ALLOWALL" : "DENY");
+  response.setHeader("X-Frame-Options", "SAMEORIGIN");
   response.setHeader("X-Content-Type-Options", "nosniff");
   response.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
   response.setHeader("X-XSS-Protection", "1; mode=block");
