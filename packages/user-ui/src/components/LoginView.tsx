@@ -19,7 +19,11 @@ export default function LoginView(props?: {
           <div className={styles.headerTop}>
             <div className={styles.brand}>
               <span className={styles.brandIcon}>
-                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
+                <img
+                  src={branding.getLogoUrl()}
+                  alt={branding.getTitle()}
+                  className={branding.getLogoUrl() === "/favicon.svg" ? styles.defaultLogo : ""}
+                />
               </span>
               <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>
             </div>

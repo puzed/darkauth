@@ -71,19 +71,27 @@ function applyColorVariables(
     textSecondary: ["--gray-700", "--gray-600"],
     textMuted: ["--gray-600"],
     border: ["--gray-300"],
-    cardBackground: ["--gray-50"],
-    inputBackground: ["--gray-50"],
+    cardBackground: ["--da-card-bg"],
+    inputBackground: ["--da-input-bg"],
     inputBorder: ["--gray-300"],
     inputFocus: ["--primary-500"],
   };
 
+  // Reset theme-scoped variables so defaults take effect unless overridden
+  if (isDark) {
+    root.style.removeProperty("--da-input-bg");
+    root.style.removeProperty("--da-card-bg");
+  }
+
   // Apply mapped CSS variables
   Object.entries(colorMap).forEach(([brandingKey, cssVars]) => {
-    if (activeColors[brandingKey]) {
-      cssVars.forEach((cssVar) => {
-        root.style.setProperty(cssVar, activeColors[brandingKey]);
-      });
+    if (!activeColors[brandingKey]) return;
+    if (isDark && (brandingKey === "inputBackground" || brandingKey === "cardBackground")) {
+      if (!darkColors[brandingKey]) return;
     }
+    cssVars.forEach((cssVar) => {
+      root.style.setProperty(cssVar, activeColors[brandingKey]);
+    });
   });
 
   // Apply background using gradient when available
