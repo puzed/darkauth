@@ -1,0 +1,36 @@
+name: Deploy Brochureware
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: deploy-brochureware
+  cancel-in-progress: true
+
+jobs:
+  deploy-brochureware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: |
+          cd packages/brochureware
+          npm run build
+      - run: |
+          cd packages/brochureware
+          node deploy.js
+        env:
+          BROCHUREWARE_DEPLOY_STORAGE_ZONE: ${{ vars.BROCHUREWARE_DEPLOY_STORAGE_ZONE }}
+          BROCHUREWARE_DEPLOY_ACCESS_KEY: ${{ secrets.BROCHUREWARE_DEPLOY_ACCESS_KEY }}
+      - run: |
+          cd packages/brochureware
+          node clearCache.js ${{ vars.BROCHUREWARE_DOMAIN }}
+        env:
+          PURGE_BUNNY_SECRET: ${{ secrets.PURGE_BUNNY_SECRET }}
+

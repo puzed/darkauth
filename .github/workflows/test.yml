@@ -44,7 +44,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - run: npx playwright install
-      - run: npm run test:screenshots
+      - run: npm test
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -57,13 +57,6 @@ jobs:
         with:
           name: test-results-dark
           path: packages/test-suite/test-results-dark
-          if-no-files-found: ignore
-          retention-days: 7
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: test-results
-          path: packages/test-suite/test-results
           if-no-files-found: ignore
           retention-days: 7
       - uses: actions/upload-artifact@v4
@@ -73,44 +66,26 @@ jobs:
           path: packages/test-suite/playwright-report
           retention-days: 7
 
-  deploy-brochureware:
-    name: Deploy Brochureware
-    if: github.ref == 'refs/heads/main'
-    needs: test
+
+  test-brochureware:
+    name: Test Brochureware
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    concurrency:
-      group: deploy-brochureware
-      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: 'npm'
-      - uses: actions/download-artifact@v4
+      - run: npm ci
+      - uses: actions/cache@v4
         with:
-          name: test-results-light
-          path: packages/test-suite/test-results-light
-      - uses: actions/download-artifact@v4
-        with:
-          name: test-results-dark
-          path: packages/test-suite/test-results-dark
-      - uses: actions/download-artifact@v4
-        with:
-          name: test-results
-          path: packages/test-suite/test-results
-      - run: npm install
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: npx playwright install
+      - run: npm run test:screenshots
       - run: |
           cd packages/brochureware
           npm run build
-      - run: |
-          cd packages/brochureware
-          node deploy.js
-        env:
-          BROCHUREWARE_DEPLOY_STORAGE_ZONE: ${{ vars.BROCHUREWARE_DEPLOY_STORAGE_ZONE }}
-          BROCHUREWARE_DEPLOY_ACCESS_KEY: ${{ secrets.BROCHUREWARE_DEPLOY_ACCESS_KEY }}
-      - run: |
-          cd packages/brochureware
-          node clearCache.js ${{ vars.BROCHUREWARE_DOMAIN }}
-        env:
-          PURGE_BUNNY_SECRET: ${{ secrets.PURGE_BUNNY_SECRET }}
