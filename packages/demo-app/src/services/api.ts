@@ -94,8 +94,7 @@ class ApiClient {
   async searchUsers(query: string): Promise<UserProfile[]> {
     const url = `${darkauthApi}/users/search?q=${encodeURIComponent(query)}`;
     const idToken = sessionStorage.getItem("id_token");
-    const resp = await fetch(url, { 
-      credentials: "include",
+    const resp = await fetch(url, {
       headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -194,7 +193,6 @@ class ApiClient {
     if (!idToken) throw new Error("No authentication token");
     const url = `${darkauthApi}/crypto/wrapped-enc-priv`;
     const resp = await fetch(url, {
-      credentials: "include",
       headers: { Authorization: `Bearer ${idToken}` },
     });
     if (!resp.ok) {
