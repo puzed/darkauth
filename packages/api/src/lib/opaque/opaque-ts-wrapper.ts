@@ -411,7 +411,6 @@ export class OpaqueServer {
 
     const out = {
       sessionKey: new Uint8Array(result.session_key),
-      exportKey: new Uint8Array(),
     };
     this.activeSessions.delete(sid);
     return out;
@@ -580,7 +579,6 @@ export interface OpaqueLoginResponse {
 
 export interface OpaqueLoginResult {
   sessionKey: Uint8Array;
-  exportKey: Uint8Array;
 }
 
 export interface OpaqueClientRegistrationStart {

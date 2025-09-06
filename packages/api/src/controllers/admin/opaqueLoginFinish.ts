@@ -81,7 +81,6 @@ async function postAdminOpaqueLoginFinishHandler(
         {
           sessionId: data.sessionId,
           sessionKeyLen: loginResult.sessionKey.length,
-          exportKeyLen: loginResult.exportKey.length,
         },
         "[admin:login:finish] OPAQUE login successful"
       );
@@ -117,11 +116,10 @@ async function postAdminOpaqueLoginFinishHandler(
       );
     } catch {}
 
-    // Return success response with export key and refresh token
+    
     const responseData = {
       success: true,
       sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
-      exportKey: toBase64Url(Buffer.from(loginResult.exportKey)),
       refreshToken,
       admin: {
         id: adminUser.id,

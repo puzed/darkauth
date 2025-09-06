@@ -124,11 +124,10 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
           );
         } catch {}
 
-        // Return success response with export key and refresh token
+        
         const responseData = {
           success: true,
           sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
-          exportKey: toBase64Url(Buffer.from(loginResult.exportKey)),
           sub: user.sub,
           user: { sub: user.sub, email: user.email, name: user.name },
           sessionId: createdSessionId,

@@ -146,7 +146,6 @@ export interface OpaqueLoginResponse {
 
 export interface OpaqueLoginResult {
   sessionKey: Uint8Array;
-  exportKey: Uint8Array;
 }
 
 export interface JWK {

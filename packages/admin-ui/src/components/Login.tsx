@@ -167,7 +167,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
         role,
         passwordResetRequired,
         sessionKey: loginFinishResponse.sessionKey,
-        exportKey: loginFinishResponse.exportKey,
+        exportKey: loginFinish.exportKey,
       });
 
       // Best-effort hydrate session details
@@ -180,7 +180,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
           role: sessionData.role || ("read" as const),
           passwordResetRequired: !!sessionData.passwordResetRequired,
           sessionKey: loginFinishResponse.sessionKey,
-          exportKey: loginFinishResponse.exportKey,
+          exportKey: loginFinish.exportKey,
         });
       } catch {}
     } catch (error) {
