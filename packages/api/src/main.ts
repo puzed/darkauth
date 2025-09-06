@@ -18,7 +18,7 @@ async function main() {
     adminPort: root.adminPort,
     proxyUi: root.proxyUi,
     kekPassphrase: root.kekPassphrase || "",
-    isDevelopment: process.env.NODE_ENV !== "production",
+    isDevelopment: false,
     publicOrigin: `http://localhost:${root.userPort}`,
     issuer: `http://localhost:${root.userPort}`,
     rpId: "localhost",
@@ -60,8 +60,7 @@ async function main() {
             "DarkAuth - Secure Mode",
             "",
             "KEK passphrase is required for secure operation.",
-            "Please provide KEK passphrase via:",
-            "- ZKAUTH_KEK_PASSPHRASE or KEK_PASSPHRASE environment variable",
+            "Please set `kekPassphrase` in config.yaml.",
           ]);
           process.exit(1);
         }
@@ -72,7 +71,7 @@ async function main() {
             "DarkAuth - Invalid KEK",
             "",
             "Failed to decrypt signing key with provided KEK.",
-            "Ensure ZKAUTH_KEK_PASSPHRASE matches the one used at install.",
+            "Ensure config.yaml kekPassphrase matches the one used at install.",
           ]);
           process.exit(1);
         }

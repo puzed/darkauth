@@ -389,7 +389,7 @@ async function serveStaticFiles(
     return;
   }
 
-  // Check if the file exists first
+  // Check if the target exists and is a file; otherwise handle SPA fallback or 404
   if (!fs.existsSync(fullPath)) {
     // For SPA routing, serve index.html for client-side routes
     // But only if the request doesn't have a file extension (to avoid serving index.html for missing assets)
@@ -405,15 +405,26 @@ async function serveStaticFiles(
   }
 
   try {
-    const stream = createReadStream(fullPath);
-    stream.on("error", () => {
+    const stat = fs.statSync(fullPath);
+    const hasFileExtension = /\.[^/]+$/.test(filePath);
+    if (stat.isDirectory()) {
+      if (!hasFileExtension) {
+        serveIndex(response, basePath);
+        return;
+      }
       response.statusCode = 404;
       response.end("Not Found");
-    });
+      return;
+    }
+    const stream = createReadStream(fullPath);
     const ext = fullPath.split(".").pop();
     const contentType = getContentType(ext || "");
     response.setHeader("Content-Type", contentType);
     stream.pipe(response);
+    stream.on("error", () => {
+      response.statusCode = 404;
+      response.end("Not Found");
+    });
   } catch {
     response.statusCode = 500;
     response.end("Internal Server Error");
@@ -450,19 +461,13 @@ function resolveStaticBase(candidates: string[]): string {
 function serveIndex(response: ServerResponse, basePath: string) {
   try {
     const indexPath = join(basePath, "index.html");
-    const indexStream = createReadStream(indexPath);
-    response.setHeader("Content-Type", "text/html");
-    indexStream.on("error", () => {
-      response.statusCode = 200;
-      response.setHeader("Content-Type", "text/html");
-      response.end(
-        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>DarkAuth</title></head><body>Not Found</body></html>'
-      );
-    });
-    indexStream.pipe(response);
+    const html = fs.readFileSync(indexPath, "utf8");
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html; charset=utf-8");
+    response.end(html);
   } catch {
     response.statusCode = 200;
-    response.setHeader("Content-Type", "text/html");
+    response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(
       '<!DOCTYPE html><html><head><meta charset="utf-8"><title>DarkAuth</title></head><body>Not Found</body></html>'
     );

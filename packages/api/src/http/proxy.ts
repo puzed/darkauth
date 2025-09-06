@@ -8,9 +8,8 @@ export async function proxyToVite(
   res: ServerResponse,
   vitePort: number
 ): Promise<void> {
-  const explicitHost = process.env.VITE_HOST || process.env.PROXY_HOST;
   const inDocker = fs.existsSync("/.dockerenv");
-  const hostname = explicitHost || (inDocker ? "host.docker.internal" : "localhost");
+  const hostname = inDocker ? "host.docker.internal" : "localhost";
   const options = {
     hostname,
     port: vitePort,
@@ -39,9 +38,8 @@ export function proxyWebSocketToVite(
   head: Buffer,
   vitePort: number
 ): void {
-  const explicitHost = process.env.VITE_HOST || process.env.PROXY_HOST;
   const inDocker = fs.existsSync("/.dockerenv");
-  const hostname = explicitHost || (inDocker ? "host.docker.internal" : "localhost");
+  const hostname = inDocker ? "host.docker.internal" : "localhost";
   const headers = { ...req.headers } as Record<string, string | string[] | undefined>;
   headers.host = `${hostname}:${vitePort}`;
   const options = {

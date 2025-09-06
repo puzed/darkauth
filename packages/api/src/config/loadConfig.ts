@@ -36,9 +36,6 @@ export function hasConfigFile(configFile?: string): boolean {
 }
 
 export function loadRootConfig(configFile?: string): RootConfig {
-  const envProxy = process.env.PROXY_UI ?? process.env.ZKAUTH_PROXY_UI;
-  const envProxyBool =
-    typeof envProxy === "string" ? /^(1|true|yes|on)$/i.test(envProxy) : undefined;
   const p = findConfigPath(configFile);
   if (!p) {
     return {
@@ -46,7 +43,7 @@ export function loadRootConfig(configFile?: string): RootConfig {
       postgresUri: "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
       userPort: 9080,
       adminPort: 9081,
-      proxyUi: envProxyBool ?? false,
+      proxyUi: false,
     } as RootConfig;
   }
   const raw = fs.readFileSync(p, "utf8");
@@ -57,7 +54,7 @@ export function loadRootConfig(configFile?: string): RootConfig {
       postgresUri: "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
       userPort: 9080,
       adminPort: 9081,
-      proxyUi: envProxyBool ?? false,
+      proxyUi: false,
     } as RootConfig;
   }
   return {
@@ -69,7 +66,7 @@ export function loadRootConfig(configFile?: string): RootConfig {
         : "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
     userPort: typeof parsed.userPort === "number" ? parsed.userPort : 9080,
     adminPort: typeof parsed.adminPort === "number" ? parsed.adminPort : 9081,
-    proxyUi: envProxyBool ?? (typeof parsed.proxyUi === "boolean" ? parsed.proxyUi : false),
+    proxyUi: typeof parsed.proxyUi === "boolean" ? parsed.proxyUi : false,
     kekPassphrase:
       typeof parsed.kekPassphrase === "string" && parsed.kekPassphrase.length > 0
         ? parsed.kekPassphrase
