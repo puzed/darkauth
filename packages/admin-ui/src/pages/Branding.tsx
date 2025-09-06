@@ -31,7 +31,8 @@ function buildPreviewUrl(
     customCss: string;
     logo: { data: string | null; mimeType: string | null } | null;
     logoDark?: { data: string | null; mimeType: string | null } | null;
-    theme?: "light" | "dark";
+    defaultTheme?: "light" | "dark";
+    themeMode?: "inherit" | "light" | "dark";
   }
 ) {
   const branding = {
@@ -56,7 +57,8 @@ function buildPreviewUrl(
   };
   const options = {
     branding,
-    theme: args.theme || "light",
+    defaultTheme: args.defaultTheme || "light",
+    themeMode: args.themeMode || "inherit",
   };
   const o = toB64Url(JSON.stringify(options));
   const u = encodeURIComponent(issuer);
@@ -113,9 +115,11 @@ export default function Branding() {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const issuer = window.__APP_CONFIG__?.issuer || "http://localhost:9080";
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [previewTheme, _setPreviewTheme] = useState<"light" | "dark">(
-    typeof window !== "undefined" && localStorage.getItem("daTheme") === "dark" ? "dark" : "light"
-  );
+  const [previewTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+    const root = document.documentElement;
+    return root.classList.contains("dark") ? "dark" : "light";
+  });
 
   const load = useCallback(async () => {
     try {
@@ -215,7 +219,8 @@ export default function Branding() {
       customCss,
       logo,
       logoDark,
-      theme: previewTheme,
+      defaultTheme: previewTheme,
+      themeMode: "inherit",
     });
     setPreviewUrl(url);
   }, [
@@ -263,6 +268,22 @@ export default function Branding() {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    const sendTheme = () => {
+      const theme = document.documentElement.classList.contains("dark") ? "dark" : "light";
+      try {
+        iframeRef.current?.contentWindow?.postMessage(
+          { type: "da:theme", theme },
+          window.location.origin
+        );
+      } catch {}
+    };
+    sendTheme();
+    const mo = new MutationObserver(sendTheme);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
 
   const onPickImage = async (
     file: File,

@@ -25,11 +25,20 @@ type AppConfig = {
 type Overrides = {
   branding?: Partial<BrandingConfig>;
   theme?: "light" | "dark" | null;
+  themeMode?: "inherit" | "light" | "dark" | null;
+  defaultTheme?: "light" | "dark" | null;
 } | null;
 
 type ThemedWindow = Window & {
   __APP_CONFIG__?: AppConfig;
   __setDaTheme?: (theme: "light" | "dark") => void;
+};
+
+type ThemeMessage = { type: "da:theme"; theme: "light" | "dark" };
+const isThemeMessage = (v: unknown): v is ThemeMessage => {
+  if (typeof v !== "object" || v === null) return false;
+  const obj = v as { type?: unknown; theme?: unknown };
+  return obj.type === "da:theme" && (obj.theme === "light" || obj.theme === "dark");
 };
 
 function parseOptions() {
@@ -55,6 +64,38 @@ function applyOverrides(overrides: Overrides, issuer: string | null) {
   const cfg: AppConfig = w.__APP_CONFIG__ || {};
   const branding: BrandingConfig = { ...(cfg.branding || {}), ...(overrides.branding || {}) };
   w.__APP_CONFIG__ = { ...cfg, branding };
+  const stored = localStorage.getItem("daTheme");
+  const hasStored = stored === "light" || stored === "dark";
+  const mode =
+    overrides.themeMode === "inherit" ||
+    overrides.themeMode === "light" ||
+    overrides.themeMode === "dark"
+      ? overrides.themeMode
+      : "inherit";
+  const defaultTheme =
+    overrides.defaultTheme === "dark" || overrides.defaultTheme === "light"
+      ? overrides.defaultTheme
+      : null;
+  let followParent = !hasStored && mode === "inherit";
+  const setAttr = (t: "light" | "dark") => {
+    document.documentElement.setAttribute("data-da-theme", t);
+  };
+  if (followParent && defaultTheme) setAttr(defaultTheme);
+  const originalSet = localStorage.setItem.bind(localStorage);
+  localStorage.setItem = ((key: string, value: string) => {
+    if (key === "daTheme" && (value === "light" || value === "dark")) followParent = false;
+    return originalSet(key, value);
+  }) as typeof localStorage.setItem;
+  const orig = w.__setDaTheme;
+  w.__setDaTheme = (t: "light" | "dark") => {
+    followParent = false;
+    if (orig) orig(t);
+  };
+  window.addEventListener("message", (e: MessageEvent) => {
+    const d: unknown = e.data;
+    if (!isThemeMessage(d)) return;
+    if (followParent && (d.theme === "light" || d.theme === "dark")) setAttr(d.theme);
+  });
   const theme = overrides.theme === "dark" || overrides.theme === "light" ? overrides.theme : null;
   if (theme && w.__setDaTheme) w.__setDaTheme(theme);
   if (issuer) {

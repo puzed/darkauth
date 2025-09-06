@@ -10,6 +10,15 @@ function getPreferredTheme(): Theme {
   return prefersDark ? "dark" : "light";
 }
 
+function getEffectiveTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  const stored = localStorage.getItem("daTheme");
+  if (stored === "light" || stored === "dark") return stored;
+  const attr = document.documentElement.getAttribute("data-da-theme");
+  if (attr === "light" || attr === "dark") return attr;
+  return getPreferredTheme();
+}
+
 function applyTheme(theme: Theme | null) {
   const root = document.documentElement;
   if (!theme) {
@@ -61,8 +70,10 @@ const MoonIcon = () => (
   </svg>
 );
 
+type ThemedWindow = Window & { __setDaTheme?: (theme: Theme) => void };
+
 export default function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>(() => getPreferredTheme());
+  const [theme, setTheme] = useState<Theme>(() => getEffectiveTheme());
 
   useEffect(() => {
     const stored = localStorage.getItem("daTheme");
@@ -70,18 +81,42 @@ export default function ThemeToggle() {
       applyTheme(stored as Theme);
       setTheme(stored as Theme);
     } else {
-      // Apply preferred theme
-      const preferred = getPreferredTheme();
-      applyTheme(preferred);
-      setTheme(preferred);
+      const current = getEffectiveTheme();
+      applyTheme(current);
+      setTheme(current);
     }
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "daTheme") return;
+      const v = e.newValue;
+      if (v === "light" || v === "dark") {
+        setTheme(v);
+        applyTheme(v);
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    const mo = new MutationObserver(() => {
+      const storedNow = localStorage.getItem("daTheme");
+      if (storedNow === "light" || storedNow === "dark") return;
+      const attr = document.documentElement.getAttribute("data-da-theme");
+      if (attr === "light" || attr === "dark") setTheme(attr);
+    });
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-da-theme"] });
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      mo.disconnect();
+    };
   }, []);
 
   const toggle = () => {
     const next: Theme = theme === "light" ? "dark" : "light";
     setTheme(next);
-    localStorage.setItem("daTheme", next);
-    applyTheme(next);
+    const w = window as ThemedWindow;
+    if (w && typeof w.__setDaTheme === "function") {
+      w.__setDaTheme(next);
+    } else {
+      localStorage.setItem("daTheme", next);
+      applyTheme(next);
+    }
   };
 
   return (
