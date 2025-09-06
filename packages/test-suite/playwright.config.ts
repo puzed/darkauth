@@ -12,6 +12,7 @@ export default defineConfig({
     screenshot: 'on',
     video: 'on',
     viewport: { width: 1400, height: 800 },
+    colorScheme: process.env.COLOR_SCHEME === 'dark' ? 'dark' : process.env.COLOR_SCHEME === 'light' ? 'light' : undefined,
   },
   projects: [
     {
