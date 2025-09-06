@@ -9,3 +9,4 @@ test-screenshots
 .serena
 config.yaml
 test-data
+packages/api/data
