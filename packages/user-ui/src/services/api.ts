@@ -24,11 +24,10 @@ export interface OpaqueLoginFinishRequest {
 }
 
 export interface OpaqueLoginFinishResponse {
-  sessionId: string;
+  accessToken: string;
   sub: string;
   refreshToken?: string;
   sessionKey?: string;
-  exportKey?: string;
   user?: {
     sub: string;
     email: string | null;
@@ -55,7 +54,8 @@ export interface OpaqueRegisterFinishRequest {
 
 export interface OpaqueRegisterFinishResponse {
   sub: string;
-  sessionId: string;
+  accessToken: string;
+  refreshToken: string;
 }
 
 export interface AuthorizeRequest {
@@ -83,6 +83,7 @@ export interface WrappedDrkResponse {
 
 class ApiService {
   private baseUrl: string;
+  private accessToken: string | null = null;
   private refreshToken: string | null = null;
   private isRefreshing = false;
   private refreshPromise: Promise<void> | null = null;
@@ -90,7 +91,8 @@ class ApiService {
 
   constructor() {
     this.baseUrl = "/api/user";
-    // Load refresh token from localStorage if available
+    // Load tokens from localStorage if available
+    this.accessToken = localStorage.getItem("userAccessToken");
     this.refreshToken = localStorage.getItem("userRefreshToken");
   }
 
@@ -98,13 +100,28 @@ class ApiService {
     this.onSessionExpired = callback;
   }
 
-  setRefreshToken(token: string | null): void {
-    this.refreshToken = token;
-    if (token) {
-      localStorage.setItem("userRefreshToken", token);
+  setTokens(accessToken: string | null, refreshToken: string | null): void {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+
+    if (accessToken) {
+      localStorage.setItem("userAccessToken", accessToken);
+    } else {
+      localStorage.removeItem("userAccessToken");
+    }
+
+    if (refreshToken) {
+      localStorage.setItem("userRefreshToken", refreshToken);
     } else {
       localStorage.removeItem("userRefreshToken");
     }
+  }
+
+  clearTokens(): void {
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem("userAccessToken");
+    localStorage.removeItem("userRefreshToken");
   }
 
   private async refreshSession(): Promise<void> {
@@ -121,7 +138,6 @@ class ApiService {
       try {
         const response = await fetch("/api/user/refresh-token", {
           method: "POST",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -133,8 +149,8 @@ class ApiService {
         }
 
         const data = await response.json();
-        if (data.refreshToken) {
-          this.setRefreshToken(data.refreshToken);
+        if (data.accessToken && data.refreshToken) {
+          this.setTokens(data.accessToken, data.refreshToken);
         }
       } finally {
         this.isRefreshing = false;
@@ -152,12 +168,21 @@ class ApiService {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (options.headers) {
+      const incoming = new Headers(options.headers as HeadersInit);
+      incoming.forEach((v, k) => {
+        headers.set(k, v);
+      });
+    }
+
+    // Add Bearer token if available
+    if (this.accessToken) {
+      headers.set("Authorization", `Bearer ${this.accessToken}`);
+    }
+
     const config: RequestInit = {
-      credentials: "include", // Include cookies for session management
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -179,7 +204,7 @@ class ApiService {
             return this.request<T>(endpoint, options, retryCount + 1);
           } catch (_refreshError) {
             // Refresh failed, clear everything and notify
-            this.setRefreshToken(null);
+            this.clearTokens();
             if (this.onSessionExpired) {
               this.onSessionExpired();
             }
@@ -220,9 +245,9 @@ class ApiService {
       body: JSON.stringify(request),
     });
 
-    // Store refresh token if provided
-    if (response.refreshToken) {
-      this.setRefreshToken(response.refreshToken);
+    // Store tokens if provided
+    if (response.accessToken && response.refreshToken) {
+      this.setTokens(response.accessToken, response.refreshToken);
     }
 
     return response;
@@ -262,10 +287,17 @@ class ApiService {
   async opaqueRegisterFinish(
     request: OpaqueRegisterFinishRequest
   ): Promise<OpaqueRegisterFinishResponse> {
-    return this.request("/opaque/register/finish", {
+    const response = await this.request<OpaqueRegisterFinishResponse>("/opaque/register/finish", {
       method: "POST",
       body: JSON.stringify(request),
     });
+
+    // Store tokens if provided
+    if (response.accessToken && response.refreshToken) {
+      this.setTokens(response.accessToken, response.refreshToken);
+    }
+
+    return response;
   }
 
   // Session Management
@@ -277,8 +309,8 @@ class ApiService {
     await this.request("/logout", {
       method: "POST",
     });
-    // Clear refresh token on logout
-    this.setRefreshToken(null);
+    // Clear all tokens on logout
+    this.clearTokens();
   }
 
   // Password change (self)
@@ -334,25 +366,14 @@ class ApiService {
     if (request.drkHash) params.set("drk_hash", request.drkHash);
     if (request.drkJwe) params.set("drk_jwe", request.drkJwe);
 
-    const response = await fetch(`${this.baseUrl}/authorize/finalize`, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: params.toString(),
-    });
-
-    const data = await response.json();
-    console.log("[api] finalize authorize response", {
-      ok: response.ok,
-      status: response.status,
-      data,
-    });
-    if (!response.ok) {
-      const message =
-        (data && (data.error_description || data.error)) ||
-        `HTTP ${response.status}: ${response.statusText}`;
-      throw new Error(message);
-    }
+    const data = await this.request<{ redirect_uri: string; code: string; state?: string }>(
+      "/authorize/finalize",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: params.toString(),
+      }
+    );
 
     const redirectUri: string = data.redirect_uri;
     const code: string = data.code;
