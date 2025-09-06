@@ -27,7 +27,14 @@
   justify-content: center;
 }
 
-:global(.dark) .logo {
+.logoIcon {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Apply brightness filter to logo in dark mode */
+:global(.dark) .logoIcon {
   filter: brightness(100);
 }
 

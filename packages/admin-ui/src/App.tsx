@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { AdminLayout } from "@/components/AdminLayout";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import AdminLogin from "@/components/Login";
 import { Toaster } from "@/components/ui/toaster";
@@ -25,6 +26,7 @@ import Groups from "./pages/Groups";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
+import Preview from "./pages/Preview";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import UserCreate from "./pages/UserCreate";
@@ -156,12 +158,43 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
-            <Route path="/install" element={<Install />} />
-            <Route path="/error" element={<ErrorPage />} />
-            <Route path="/" element={<AdminLogin onLogin={handleLogin} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/preview" element={<Preview />} />
+            <Route
+              path="/install"
+              element={
+                <AdminLayout>
+                  <Install />
+                </AdminLayout>
+              }
+            />
+            <Route
+              path="/error"
+              element={
+                <AdminLayout>
+                  <ErrorPage />
+                </AdminLayout>
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <AdminLayout>
+                  <AdminLogin onLogin={handleLogin} />
+                </AdminLayout>
+              }
+            />
+            <Route
+              path="*"
+              element={
+                <AdminLayout>
+                  <Navigate to="/" replace />
+                </AdminLayout>
+              }
+            />
           </Routes>
-          <Toaster />
+          <AdminLayout>
+            <Toaster />
+          </AdminLayout>
         </BrowserRouter>
       </QueryClientProvider>
     );
@@ -171,12 +204,14 @@ const App = () => {
     return (
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          <Routes>
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/error" element={<ErrorPage />} />
-            <Route path="*" element={<Navigate to="/reset-password" replace />} />
-          </Routes>
-          <Toaster />
+          <AdminLayout>
+            <Routes>
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/error" element={<ErrorPage />} />
+              <Route path="*" element={<Navigate to="/reset-password" replace />} />
+            </Routes>
+            <Toaster />
+          </AdminLayout>
         </BrowserRouter>
       </QueryClientProvider>
     );
@@ -185,188 +220,191 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Dashboard />
-              </DashboardLayout>
-            }
-          />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/error" element={<ErrorPage />} />
-          <Route
-            path="/users"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Users />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/users/new"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <UserCreate />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/users/:sub"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <UserEdit />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/groups"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Groups />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/groups/new"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <GroupCreate />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/groups/:key"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <GroupEdit />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/clients"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Clients />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/clients/new"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <ClientCreate />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/clients/:clientId"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <ClientEdit />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/analytics"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Analytics />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/keys"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Keys />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/changelog"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Changelog />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/audit"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <AuditLogs />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/audit/:id"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <AuditLogDetail />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/notifications"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <div
-                  style={{
-                    padding: 32,
-                    textAlign: "center",
-                    color: "hsl(var(--muted-foreground, 220 8% 46%))",
-                  }}
-                >
-                  Notifications page coming soon...
-                </div>
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Settings />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/branding"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <Branding />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/settings/admin-users"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <AdminUsers />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/settings/admin-users/new"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <AdminUserCreate />
-              </DashboardLayout>
-            }
-          />
-          <Route
-            path="/settings/admin-users/:id/edit"
-            element={
-              <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                <AdminUserEdit />
-              </DashboardLayout>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-        <Toaster />
+        <AdminLayout>
+          <Routes>
+            <Route path="/preview" element={<Preview />} />
+            <Route
+              path="/"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Dashboard />
+                </DashboardLayout>
+              }
+            />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/error" element={<ErrorPage />} />
+            <Route
+              path="/users"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Users />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/users/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <UserCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/users/:sub"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <UserEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/groups"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Groups />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/groups/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <GroupCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/groups/:key"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <GroupEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/clients"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Clients />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/clients/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <ClientCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/clients/:clientId"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <ClientEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Analytics />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/keys"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Keys />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/changelog"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Changelog />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/audit"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AuditLogs />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/audit/:id"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AuditLogDetail />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/notifications"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <div
+                    style={{
+                      padding: 32,
+                      textAlign: "center",
+                      color: "hsl(var(--muted-foreground, 220 8% 46%))",
+                    }}
+                  >
+                    Notifications page coming soon...
+                  </div>
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Settings />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/branding"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Branding />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/settings/admin-users"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AdminUsers />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/settings/admin-users/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AdminUserCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/settings/admin-users/:id/edit"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AdminUserEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+        </AdminLayout>
       </BrowserRouter>
     </QueryClientProvider>
   );
