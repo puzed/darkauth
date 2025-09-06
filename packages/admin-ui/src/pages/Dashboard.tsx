@@ -56,7 +56,7 @@ export default function Dashboard() {
       setAuditLogs(a.auditLogs || []);
 
       try {
-        const res = await fetch("/changelog.json");
+        const res = await fetch("https://darkauth.com/changelog.json");
         if (res.ok) {
           const data = await res.json();
           const entries = data.entries || [];
