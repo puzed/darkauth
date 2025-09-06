@@ -3,6 +3,7 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ git
 COPY package.json package-lock.json ./
 COPY packages ./packages
+COPY changelog ./changelog
 RUN npm ci
 RUN npm run build:admin && npm run build:ui && npm run build:api
 RUN npm prune --omit=dev
@@ -10,11 +11,12 @@ RUN npm prune --omit=dev
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache libstdc++
+RUN apk add --no-cache libstdc++ && npm install -g pm2@5
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/api/dist ./packages/api/dist
+COPY --from=builder /app/packages/api/drizzle ./packages/api/dist/drizzle
 COPY --from=builder /app/packages/user-ui/dist ./packages/user-ui/dist
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
 COPY packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
-CMD ["node","packages/api/dist/main.js"]
+CMD ["pm2-runtime","packages/api/dist/src/main.js","--name","darkauth"]
