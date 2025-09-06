@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { request as httpRequest } from "node:http";
 
@@ -6,8 +7,11 @@ export async function proxyToVite(
   res: ServerResponse,
   vitePort: number
 ): Promise<void> {
+  const explicitHost = process.env.VITE_HOST || process.env.PROXY_HOST;
+  const inDocker = fs.existsSync("/.dockerenv");
+  const hostname = explicitHost || (inDocker ? "host.docker.internal" : "localhost");
   const options = {
-    hostname: "localhost",
+    hostname,
     port: vitePort,
     path: req.url,
     method: req.method,

@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs";
+import fs, { createReadStream } from "node:fs";
 import {
   createServer as createHttpServer,
   type IncomingMessage,
@@ -167,7 +167,11 @@ export async function createUserServer(context: Context) {
         await proxyToVite(request, response, 5173);
       } else {
         setSecurityHeaders(response, context.config.isDevelopment);
-        await serveStaticFiles(request, response, join(__dirname, "../../../user-ui/dist"));
+        const userCandidates = [
+          join(__dirname, "../../../../user-ui/dist"),
+          join(__dirname, "../../../user-ui/dist"),
+        ];
+        await serveStaticFiles(request, response, resolveStaticBase(userCandidates));
       }
     } catch (error) {
       sendError(response, error as Error);
@@ -337,7 +341,11 @@ export async function createAdminServer(context: Context) {
             return;
           }
         }
-        await serveStaticFiles(request, response, join(__dirname, "../../../admin-ui/dist"));
+        const adminCandidates = [
+          join(__dirname, "../../../../admin-ui/dist"),
+          join(__dirname, "../../../admin-ui/dist"),
+        ];
+        await serveStaticFiles(request, response, resolveStaticBase(adminCandidates));
       }
     } catch (error) {
       sendError(response, error as Error);
@@ -352,13 +360,9 @@ async function serveStaticFiles(
 ) {
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   let filePath = url.pathname;
-
-  if (filePath === "/") {
-    filePath = "/index.html";
-  }
-
-  const fullPath = join(basePath, filePath);
-
+  if (filePath === "/") filePath = "/index.html";
+  const relPath = filePath.replace(/^\/+/, "");
+  const fullPath = join(basePath, relPath);
   if (!fullPath.startsWith(basePath)) {
     response.statusCode = 403;
     response.end("Forbidden");
@@ -367,27 +371,13 @@ async function serveStaticFiles(
 
   try {
     const stream = createReadStream(fullPath);
-
-    stream.on("error", () => {
-      const indexPath = join(basePath, "index.html");
-      const indexStream = createReadStream(indexPath);
-
-      indexStream.on("error", () => {
-        response.statusCode = 404;
-        response.end("Not Found");
-      });
-      response.setHeader("Content-Type", "text/html");
-      indexStream.pipe(response);
-    });
-
+    stream.on("error", () => serveIndex(response, basePath));
     const ext = fullPath.split(".").pop();
     const contentType = getContentType(ext || "");
     response.setHeader("Content-Type", contentType);
-
     stream.pipe(response);
-  } catch (_error) {
-    response.statusCode = 500;
-    response.end("Internal Server Error");
+  } catch {
+    serveIndex(response, basePath);
   }
 }
 
@@ -406,4 +396,36 @@ function getContentType(ext: string): string {
   };
 
   return types[ext] || "application/octet-stream";
+}
+
+function resolveStaticBase(candidates: string[]): string {
+  for (const dir of candidates) {
+    try {
+      const p = join(dir, "index.html");
+      if (fs.existsSync(p)) return dir;
+    } catch {}
+  }
+  return candidates[0] || "";
+}
+
+function serveIndex(response: ServerResponse, basePath: string) {
+  try {
+    const indexPath = join(basePath, "index.html");
+    const indexStream = createReadStream(indexPath);
+    response.setHeader("Content-Type", "text/html");
+    indexStream.on("error", () => {
+      response.statusCode = 200;
+      response.setHeader("Content-Type", "text/html");
+      response.end(
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>DarkAuth</title></head><body>Not Found</body></html>'
+      );
+    });
+    indexStream.pipe(response);
+  } catch {
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "text/html");
+    response.end(
+      '<!DOCTYPE html><html><head><meta charset="utf-8"><title>DarkAuth</title></head><body>Not Found</body></html>'
+    );
+  }
 }
