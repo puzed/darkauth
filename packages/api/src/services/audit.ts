@@ -103,6 +103,7 @@ export function getClientIp(request: IncomingMessage): string {
 // Log audit event to database
 export async function logAuditEvent(context: Context, event: AuditEvent): Promise<void> {
   try {
+    if (!context?.db) return;
     const isUuid = (v: string | undefined) =>
       !!v &&
       /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(
