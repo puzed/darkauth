@@ -276,13 +276,11 @@ export async function createOpaqueService(context?: Context) {
         context?.logger?.info({
           event: "opaque.finishLogin.success",
           sessionKeyLen: result.sessionKey.length,
-          exportKeyLen: result.exportKey?.length || 0,
         });
       } catch {}
 
       return {
         sessionKey: result.sessionKey,
-        exportKey: new Uint8Array(32), // Export key is derived client-side
       };
     },
   };
