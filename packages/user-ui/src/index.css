@@ -31,3 +31,47 @@ body {
   margin: 0 auto;
   text-align: center;
 }
+
+.theme-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.theme-toggle-btn:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  color: #374151;
+}
+
+.theme-toggle-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  border-color: #60a5fa;
+}
+
+.theme-toggle-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+[data-da-theme="dark"] .theme-toggle-btn {
+  background: transparent;
+  border-color: #475569;
+  color: #9ca3af;
+}
+
+[data-da-theme="dark"] .theme-toggle-btn:hover {
+  background: #1e293b;
+  border-color: #64748b;
+  color: #e5e7eb;
+}
