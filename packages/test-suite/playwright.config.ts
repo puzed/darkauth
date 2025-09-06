@@ -13,7 +13,6 @@ export default defineConfig({
     video: 'on',
     viewport: { width: 1400, height: 800 },
     colorScheme: process.env.COLOR_SCHEME === 'dark' ? 'dark' : process.env.COLOR_SCHEME === 'light' ? 'light' : undefined,
-    bypassCSP: true,
   },
   projects: [
     {
