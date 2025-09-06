@@ -528,8 +528,8 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 * **Reauth for sensitive ops**: password change requires OPAQUE verification and a short‑lived JWT (`purpose="password_change"`, 10m) bound to the same subject.
 * **Password reuse prevention**: server tracks `export_key_hash` per user and rejects reuse during `/password/change/finish`.
 * **CSP** on all UIs: no inline scripts; self only.
-* **CSP details**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'` (trusted-types disabled in dev for tooling compatibility). Admin and Install UIs use the same policy.
-* **Security Headers**: X-Frame-Options: DENY, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-XSS-Protection: 1; mode=block
+* **CSP details**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'` (trusted-types disabled in dev for tooling compatibility). Admin and Install UIs use the same policy.
+* **Security Headers**: X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-XSS-Protection: 1; mode=block
 * **HSTS**: Strict-Transport-Security header set in production (max-age=31536000; includeSubDomains; preload)
 * **Cookies**: `__Host-DarkAuth` (Secure, HttpOnly, SameSite=Lax).
 * **Client-side key storage**: 
