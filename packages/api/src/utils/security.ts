@@ -17,7 +17,7 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
-    "connect-src 'self'",
+    "connect-src 'self' https://darkauth.com",
     // Allow iframe embedding in test mode for preview functionality
     isTestMode ? "frame-ancestors *" : "frame-ancestors 'none'",
     "base-uri 'none'",
