@@ -5,11 +5,12 @@
 	"description": "DarkAuth API server with OPAQUE authentication and OIDC compatibility",
 	"type": "module",
 	"main": "src/main.ts",
-	"scripts": {
-		"dev": "PROXY_UI=true tsx watch src/main.ts",
-		"build": "tsc",
-		"start": "tsx src/main.ts",
-		"db:push": "drizzle-kit push",
+  "scripts": {
+    "dev": "PROXY_UI=true tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "tsx src/main.ts",
+    "test": "tsx --test src/**/*.test.ts",
+    "db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "tsx src/db/migrate.ts",
 		"db:wipe": "tsx scripts/wipe.ts",
