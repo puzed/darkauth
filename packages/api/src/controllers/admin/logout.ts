@@ -6,11 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import {
-  clearSessionCookieLocal,
-  deleteSession,
-  getSessionIdFromCookie,
-} from "../../services/sessions.js";
+import { deleteSession, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
@@ -21,16 +17,13 @@ async function postAdminLogoutHandler(
   response: ServerResponse,
   ..._params: unknown[]
 ): Promise<void> {
-  // Get admin session ID from cookie
-  const sessionId = getSessionIdFromCookie(request, true);
+  // Get admin session ID from Authorization header
+  const sessionId = getSessionId(request, true);
 
   if (sessionId) {
     // Delete session from database
     await deleteSession(context, sessionId);
   }
-
-  // Clear admin session cookie
-  clearSessionCookieLocal(response, true, context.config.isDevelopment);
 
   sendJson(response, 200, {
     success: true,

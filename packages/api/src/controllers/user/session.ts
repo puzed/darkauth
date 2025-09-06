@@ -9,7 +9,7 @@ extendZodWithOpenApi(z);
 import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { UnauthorizedError } from "../../errors.js";
-import { getSession as getSessionData, getSessionIdFromCookie } from "../../services/sessions.js";
+import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -19,17 +19,16 @@ export async function getSession(
   response: ServerResponse,
   ..._params: string[]
 ): Promise<void> {
-  const rawCookie = request.headers.cookie || "";
-  const sessionId = getSessionIdFromCookie(request);
+  const sessionId = getSessionId(request);
 
   if (!sessionId) {
-    throw new UnauthorizedError("No session cookie found");
+    throw new UnauthorizedError("No session token found");
   }
 
   const sessionData = await getSessionData(context, sessionId);
   try {
     context.logger.info(
-      { event: "user.session.read", cookie: rawCookie, sessionId, found: !!sessionData },
+      { event: "user.session.read", sessionId, found: !!sessionData },
       "user session read"
     );
   } catch {}
