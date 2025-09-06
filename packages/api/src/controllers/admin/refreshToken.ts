@@ -7,11 +7,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 extendZodWithOpenApi(z);
 
 import { ValidationError } from "../../errors.js";
-import {
-  getSessionTtlSeconds,
-  refreshSessionWithToken,
-  setSessionCookie,
-} from "../../services/sessions.js";
+import { refreshSessionWithToken } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -38,14 +34,10 @@ async function postAdminRefreshTokenHandler(
     throw new ValidationError("Invalid or expired refresh token");
   }
 
-  // Set new session cookie
-  const ttl = await getSessionTtlSeconds(context, "admin");
-  setSessionCookie(response, result.sessionId, true, context.config.isDevelopment, ttl);
-
   // Return new tokens
   sendJson(response, 200, {
     success: true,
-    sessionId: result.sessionId,
+    accessToken: result.sessionId,
     refreshToken: result.refreshToken,
   });
 }
@@ -72,7 +64,7 @@ export function registerOpenApi(registry: OpenAPIRegistry) {
           "application/json": {
             schema: z.object({
               success: z.boolean(),
-              sessionId: z.string(),
+              accessToken: z.string(),
               refreshToken: z.string(),
             }),
           },

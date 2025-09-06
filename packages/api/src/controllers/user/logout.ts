@@ -9,11 +9,7 @@ extendZodWithOpenApi(z);
 import { eq } from "drizzle-orm";
 import { clients } from "../../db/schema.js";
 import { InvalidRequestError } from "../../errors.js";
-import {
-  clearSessionCookieLocal,
-  deleteSession,
-  getSessionIdFromCookie,
-} from "../../services/sessions.js";
+import { deleteSession, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseFormBody, readBody, redirect, sendJson } from "../../utils/http.js";
@@ -40,13 +36,10 @@ export const postLogout = withAudit({
     const state = formData.get("state");
 
     // Clear session if it exists
-    const sessionId = getSessionIdFromCookie(request);
+    const sessionId = getSessionId(request);
     if (sessionId) {
       await deleteSession(context, sessionId);
     }
-
-    // Clear session cookie
-    clearSessionCookieLocal(response, false, context.config.isDevelopment);
 
     // Validate post_logout_redirect_uri if provided
     if (postLogoutRedirectUri) {

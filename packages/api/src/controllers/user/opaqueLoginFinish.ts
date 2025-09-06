@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { users } from "../../db/schema.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { createSession, getSessionTtlSeconds, setSessionCookie } from "../../services/sessions.js";
+import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -111,26 +111,13 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
           name: user.name || undefined,
         });
 
-        const ttl = await getSessionTtlSeconds(context, "user");
-        setSessionCookie(response, createdSessionId, false, context.config.isDevelopment, ttl);
-        try {
-          context.logger.info(
-            {
-              event: "user.setCookie",
-              sessionId: createdSessionId,
-              cookie: response.getHeader("Set-Cookie"),
-            },
-            "user session cookie set"
-          );
-        } catch {}
-
-        
+        // Return session token as Bearer token
         const responseData = {
           success: true,
           sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
           sub: user.sub,
           user: { sub: user.sub, email: user.email, name: user.name },
-          sessionId: createdSessionId,
+          accessToken: createdSessionId, // Use sessionId as bearer token
           refreshToken,
         };
 

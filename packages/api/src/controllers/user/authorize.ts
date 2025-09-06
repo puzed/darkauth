@@ -10,7 +10,7 @@ import { eq } from "drizzle-orm";
 import { clients, pendingAuth } from "../../db/schema.js";
 import { InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
-import { getSession, getSessionIdFromCookie } from "../../services/sessions.js";
+import { getSession, getSessionId } from "../../services/sessions.js";
 import type { AuthorizationRequest, Context } from "../../types.js";
 import { generateRandomString, sha256Base64Url } from "../../utils/crypto.js";
 import { parseQueryParams } from "../../utils/http.js";
@@ -96,7 +96,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   const requestId = generateRandomString(32);
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-  const sessionId = getSessionIdFromCookie(request);
+  const sessionId = getSessionId(request);
   let userSub: string | undefined;
 
   if (sessionId) {

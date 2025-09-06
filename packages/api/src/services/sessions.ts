@@ -1,17 +1,10 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
+import type { IncomingMessage } from "node:http";
 import { eq, lt } from "drizzle-orm";
 import { sessions } from "../db/schema.js";
 import { UnauthorizedError } from "../errors.js";
 import type { Context, SessionData } from "../types.js";
 import { generateRandomString } from "../utils/crypto.js";
-import {
-  clearSessionCookie,
-  getSessionIdFromSecureCookie,
-  setSecureSessionCookie,
-} from "../utils/security.js";
 import { getSetting } from "./settings.js";
-
-const _SESSION_COOKIE_NAME = "__Host-DarkAuth";
 
 async function getDurations(context: Context, cohort: "user" | "admin") {
   if (cohort === "admin") {
@@ -127,7 +120,6 @@ export async function deleteSession(context: Context, sessionId: string): Promis
   } catch (error) {
     console.error("Error deleting session:", error);
     // Don't throw the error to prevent logout from failing
-    // The session cookie will still be cleared
   }
 }
 
@@ -140,69 +132,21 @@ export async function refreshSession(context: Context, sessionId: string): Promi
   await context.db.update(sessions).set({ expiresAt }).where(eq(sessions.id, sessionId));
 }
 
-export function setSessionCookie(
-  response: ServerResponse,
-  sessionId: string,
-  isAdmin = false,
-  isDevelopment = false,
-  maxAgeSeconds?: number
-): void {
-  if (!isAdmin) {
-    setSecureSessionCookie(
-      response,
-      sessionId,
-      typeof maxAgeSeconds === "number" ? maxAgeSeconds : 15 * 60,
-      isDevelopment
-    );
-  } else {
-    const name = isDevelopment ? "DarkAuth-admin" : "__Host-DarkAuth-admin";
-    const cookieOptions = [
-      `${name}=${sessionId}`,
-      `Max-Age=${typeof maxAgeSeconds === "number" ? maxAgeSeconds : 15 * 60}`,
-      "HttpOnly",
-      "SameSite=Lax",
-      "Path=/",
-    ];
+export function getSessionIdFromAuthHeader(request: IncomingMessage): string | null {
+  const authHeader = request.headers.authorization;
+  if (!authHeader) return null;
 
-    if (!isDevelopment) {
-      cookieOptions.push("Secure");
-    }
-
-    response.setHeader("Set-Cookie", cookieOptions.join("; "));
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0]?.toLowerCase() !== "bearer") {
+    return null;
   }
+
+  return parts[1] || null;
 }
 
-export function clearSessionCookieLocal(
-  response: ServerResponse,
-  isAdmin = false,
-  isDevelopment = false
-): void {
-  if (!isAdmin) {
-    clearSessionCookie(response, isDevelopment);
-  } else {
-    const names = isDevelopment ? ["DarkAuth-admin"] : ["__Host-DarkAuth-admin"];
-
-    const headers = names.map((n) =>
-      [`${n}=`, "Max-Age=0", "HttpOnly", "SameSite=Lax", "Path=/", !isDevelopment ? "Secure" : ""]
-        .filter(Boolean)
-        .join("; ")
-    );
-
-    response.setHeader("Set-Cookie", headers);
-  }
-}
-
-export function getSessionIdFromCookie(request: IncomingMessage, isAdmin = false): string | null {
-  if (!isAdmin) {
-    return getSessionIdFromSecureCookie(request);
-  }
-  const cookies = request.headers.cookie;
-  if (!cookies) return null;
-
-  const adminMatch =
-    cookies.match(/(?:^|;\s*)__Host-DarkAuth-admin=([^;]+)/) ||
-    cookies.match(/(?:^|;\s*)DarkAuth-admin=([^;]+)/);
-  return adminMatch ? adminMatch[1] || null : null;
+export function getSessionId(request: IncomingMessage, _isAdmin = false): string | null {
+  // Only use Authorization header
+  return getSessionIdFromAuthHeader(request);
 }
 
 export async function requireSession(
@@ -210,10 +154,10 @@ export async function requireSession(
   request: IncomingMessage,
   isAdmin = false
 ): Promise<SessionData> {
-  const sessionId = getSessionIdFromCookie(request, isAdmin);
+  const sessionId = getSessionId(request, isAdmin);
 
   if (!sessionId) {
-    throw new UnauthorizedError("No session cookie");
+    throw new UnauthorizedError("No session token");
   }
 
   const sessionData = await getSession(context, sessionId);

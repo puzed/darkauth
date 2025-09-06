@@ -7,11 +7,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 extendZodWithOpenApi(z);
 
 import { ValidationError } from "../../errors.js";
-import {
-  getSessionTtlSeconds,
-  refreshSessionWithToken,
-  setSessionCookie,
-} from "../../services/sessions.js";
+import { refreshSessionWithToken } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -33,11 +29,9 @@ async function postUserRefreshTokenHandler(
   if (!result) {
     throw new ValidationError("Invalid or expired refresh token");
   }
-  const ttl = await getSessionTtlSeconds(context, "user");
-  setSessionCookie(response, result.sessionId, false, context.config.isDevelopment, ttl);
   sendJson(response, 200, {
     success: true,
-    sessionId: result.sessionId,
+    accessToken: result.sessionId,
     refreshToken: result.refreshToken,
   });
 }
@@ -49,7 +43,11 @@ export const postUserRefreshToken = withAudit({
 
 export function registerOpenApi(registry: OpenAPIRegistry) {
   const Req = z.object({ refreshToken: z.string() });
-  const Resp = z.object({ success: z.boolean(), sessionId: z.string(), refreshToken: z.string() });
+  const Resp = z.object({
+    success: z.boolean(),
+    accessToken: z.string(),
+    refreshToken: z.string(),
+  });
   registry.registerPath({
     method: "post",
     path: "/refresh-token",
