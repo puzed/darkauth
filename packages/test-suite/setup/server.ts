@@ -31,8 +31,14 @@ async function getRandomPort(): Promise<number> {
 }
 
 export async function createTestServers(config: TestServerConfig): Promise<TestServers> {
+  // Set test mode environment variable to allow iframe embedding
+  process.env.DARKAUTH_TEST_MODE = 'true';
+  
   const adminPort = config.adminPort || await getRandomPort();
   const userPort = config.userPort || await getRandomPort();
+  
+  // Use a unique config file for each test to avoid conflicts
+  const configFile = `./test-data/${config.testName}-${randomBytes(4).toString('hex')}/config.yaml`;
   
   const contextConfig: Config = {
     dbMode: 'pglite',
@@ -46,6 +52,7 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
     issuer: `http://localhost:${userPort}`,
     rpId: 'localhost',
     insecureKeys: true,
+    configFile,
     // logLevel: 'silent'
   };
 
@@ -97,6 +104,9 @@ export async function destroyTestServers(servers: TestServers): Promise<void> {
   await new Promise<void>((resolve) => {
     servers.adminServer.close(() => resolve());
   });
+  
+  // Clean up test mode environment variable
+  delete process.env.DARKAUTH_TEST_MODE;
   
   await new Promise<void>((resolve) => {
     servers.userServer.close(() => resolve());
