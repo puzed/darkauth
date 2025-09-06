@@ -11,7 +11,13 @@
     "type": "module",
     "main": "./lib/src/index.js",
     "module": "./lib/src/index.js",
-    "types": "./lib/src/index.d.ts",
+  "types": "./lib/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/src/index.d.ts",
+      "default": "./lib/src/index.js"
+    }
+  },
     "files": [
         "lib/src/**/*.!(tsbuildinfo)"
     ],
