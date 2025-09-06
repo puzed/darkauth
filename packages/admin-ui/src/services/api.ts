@@ -28,7 +28,7 @@ export interface AdminOpaqueLoginFinishRequest {
 export interface AdminOpaqueLoginFinishResponse {
   success: boolean;
   sessionKey: string;
-  exportKey: string;
+  accessToken: string;
   refreshToken?: string;
   admin: {
     id: string;
@@ -265,6 +265,7 @@ export interface AdminSetting {
 
 class AdminApiService {
   private baseUrl: string;
+  private accessToken: string | null = null;
   private onSessionExpired?: () => void;
   private onServerError?: () => void;
   private refreshToken: string | null = null;
@@ -273,17 +274,33 @@ class AdminApiService {
 
   constructor() {
     this.baseUrl = "/api/admin";
-    // Load refresh token from localStorage if available
+    // Load tokens from localStorage if available
+    this.accessToken = localStorage.getItem("adminAccessToken");
     this.refreshToken = localStorage.getItem("adminRefreshToken");
   }
 
-  setRefreshToken(token: string | null): void {
-    this.refreshToken = token;
-    if (token) {
-      localStorage.setItem("adminRefreshToken", token);
+  setTokens(accessToken: string | null, refreshToken: string | null): void {
+    this.accessToken = accessToken;
+    this.refreshToken = refreshToken;
+
+    if (accessToken) {
+      localStorage.setItem("adminAccessToken", accessToken);
+    } else {
+      localStorage.removeItem("adminAccessToken");
+    }
+
+    if (refreshToken) {
+      localStorage.setItem("adminRefreshToken", refreshToken);
     } else {
       localStorage.removeItem("adminRefreshToken");
     }
+  }
+
+  clearTokens(): void {
+    this.accessToken = null;
+    this.refreshToken = null;
+    localStorage.removeItem("adminAccessToken");
+    localStorage.removeItem("adminRefreshToken");
   }
 
   private async refreshSession(): Promise<void> {
@@ -300,7 +317,6 @@ class AdminApiService {
       try {
         const response = await fetch("/api/admin/refresh-token", {
           method: "POST",
-          credentials: "include",
           headers: {
             "Content-Type": "application/json",
           },
@@ -312,8 +328,8 @@ class AdminApiService {
         }
 
         const data = await response.json();
-        if (data.refreshToken) {
-          this.setRefreshToken(data.refreshToken);
+        if (data.accessToken && data.refreshToken) {
+          this.setTokens(data.accessToken, data.refreshToken);
         }
       } finally {
         this.isRefreshing = false;
@@ -339,12 +355,21 @@ class AdminApiService {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
+    const headers = new Headers({ "Content-Type": "application/json" });
+    if (options.headers) {
+      const incoming = new Headers(options.headers as HeadersInit);
+      incoming.forEach((v, k) => {
+        headers.set(k, v);
+      });
+    }
+
+    // Add Bearer token if available
+    if (this.accessToken) {
+      headers.set("Authorization", `Bearer ${this.accessToken}`);
+    }
+
     const config: RequestInit = {
-      credentials: "include", // Include cookies for session management
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers,
       ...options,
     };
 
@@ -366,7 +391,7 @@ class AdminApiService {
             return this.request<T>(endpoint, options, retryCount + 1);
           } catch (_refreshError) {
             // Refresh failed, clear everything and notify
-            this.setRefreshToken(null);
+            this.clearTokens();
             authService.clearSession();
             if (this.onSessionExpired) {
               this.onSessionExpired();
@@ -422,9 +447,9 @@ class AdminApiService {
       body: JSON.stringify(request),
     });
 
-    // Store refresh token if provided
-    if (response.refreshToken) {
-      this.setRefreshToken(response.refreshToken);
+    // Store tokens if provided
+    if (response.accessToken && response.refreshToken) {
+      this.setTokens(response.accessToken, response.refreshToken);
     }
 
     return response;
@@ -455,8 +480,8 @@ class AdminApiService {
     await this.request("/logout", {
       method: "POST",
     });
-    // Clear refresh token on logout
-    this.setRefreshToken(null);
+    // Clear all tokens on logout
+    this.clearTokens();
   }
 
   // Password change (self)
@@ -791,12 +816,11 @@ class AdminApiService {
     const endpoint = queryString ? `/audit-logs/export?${queryString}` : "/audit-logs/export";
 
     const url = `${this.baseUrl}${endpoint}`;
-    const response = await fetch(url, {
-      credentials: "include",
-      headers: {
-        Accept: "text/csv",
-      },
-    });
+    const headers: Record<string, string> = { Accept: "text/csv" };
+    if (this.accessToken) {
+      headers.Authorization = `Bearer ${this.accessToken}`;
+    }
+    const response = await fetch(url, { headers });
 
     if (!response.ok) {
       if (response.status >= 500) {
