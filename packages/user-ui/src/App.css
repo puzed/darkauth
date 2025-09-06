@@ -1,14 +1,14 @@
 :root {
-  --primary-50: #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-200: #bfdbfe;
-  --primary-300: #93bbfc;
-  --primary-400: #60a5fa;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;
-  --primary-700: #1d4ed8;
-  --primary-800: #1e40af;
-  --primary-900: #1e3a8a;
+  --primary-50: #f3e6ff;
+  --primary-100: #e6ccff;
+  --primary-200: #cc99ff;
+  --primary-300: #b366ff;
+  --primary-400: #8c00ff;
+  --primary-500: #6600cc;
+  --primary-600: #5500aa;
+  --primary-700: #440088;
+  --primary-800: #330066;
+  --primary-900: #220044;
 
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
@@ -51,6 +51,29 @@
     "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+  --da-input-bg: #ffffff;
+  --da-card-bg: #ffffff;
+
+  /* Calculate button text color based on primary color luminance */
+  /* For light mode purple (#6600cc), use white text */
+  --primary-button-text: #ffffff;
+}
+
+/* Dark mode primary color overrides */
+[data-da-theme="dark"] {
+  --primary-50: #2a3548;
+  --primary-100: #3a4558;
+  --primary-200: #5a6578;
+  --primary-300: #7a8598;
+  --primary-400: #9ea5b8;
+  --primary-500: #aec1e0;
+  --primary-600: #bed1f0;
+  --primary-700: #cee1ff;
+  --primary-800: #def1ff;
+  --primary-900: #eeffff;
+
+  /* For dark mode light blue (#aec1e0), use dark text */
+  --primary-button-text: #1f2937;
 }
 
 * {
@@ -173,7 +196,7 @@ body {
   border: 1px solid var(--gray-300);
   border-radius: var(--radius-md);
   color: var(--gray-900);
-  background: white;
+  background: var(--da-input-bg);
   transition: border-color 0.2s ease;
   outline: none;
 }
@@ -767,7 +790,7 @@ body {
   --primary-100: #1e3a8a;
   --primary-200: #1e40af;
   --primary-300: #2563eb;
-  --primary-400: #3b82f6;
+  --primary-400: #6600cc;
   --primary-500: #60a5fa;
   --primary-600: #93bbfc;
   --primary-700: #bfdbfe;
@@ -806,6 +829,11 @@ body {
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 }
 
+[data-da-theme="dark"] {
+  --da-input-bg: #0f172a;
+  --da-card-bg: #1e293b;
+}
+
 [data-da-theme="dark"] body {
   background: #0f172a;
   color: var(--gray-900);
@@ -841,11 +869,11 @@ body {
 }
 
 [data-da-theme="dark"] .form-group label {
-  color: var(--gray-700);
+  color: #ffffff;
 }
 
 [data-da-theme="dark"] .form-group input {
-  background: var(--gray-50);
+  background: #0f172a;
   border-color: var(--gray-300);
   color: var(--gray-900);
 }
