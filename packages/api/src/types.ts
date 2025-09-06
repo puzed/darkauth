@@ -122,6 +122,7 @@ export interface Config {
   insecureKeys?: boolean; // Allow insecure keys for testing
   logLevel?: string; // Pino log level (error, warn, info, debug, trace, silent)
   inInstallMode?: boolean;
+  configFile?: string; // Path to config file (defaults to config.yaml)
 }
 
 export interface OpaqueServerSetup {

@@ -12,7 +12,13 @@ type UpdatableFields = {
   kekPassphrase?: string;
 };
 
-function resolveConfigPath(): string {
+function resolveConfigPath(configFile?: string): string {
+  // If a specific config file is provided, use it
+  if (configFile) {
+    return path.resolve(configFile);
+  }
+
+  // Otherwise look for config.yaml in default locations
   const candidates = [
     path.resolve(process.cwd(), "config.yaml"),
     path.resolve(process.cwd(), "..", "config.yaml"),
@@ -24,8 +30,8 @@ function resolveConfigPath(): string {
   return path.resolve(process.cwd(), "..", "..", "config.yaml");
 }
 
-export function upsertConfig(updates: UpdatableFields): void {
-  const p = resolveConfigPath();
+export function upsertConfig(updates: UpdatableFields, configFile?: string): void {
+  const p = resolveConfigPath(configFile);
   let current: Record<string, unknown> = {};
   if (fs.existsSync(p)) {
     const raw = fs.readFileSync(p, "utf8");
@@ -42,5 +48,10 @@ export function upsertConfig(updates: UpdatableFields): void {
   if (typeof updates.kekPassphrase === "string" && updates.kekPassphrase.length > 0)
     next.kekPassphrase = updates.kekPassphrase;
   const out = stringify(next);
+  // Ensure directory exists before writing
+  const dir = path.dirname(p);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
   fs.writeFileSync(p, out, "utf8");
 }

@@ -258,15 +258,18 @@ async function _postInstallComplete(
 
     try {
       const { upsertConfig } = await import("../../config/saveConfig.js");
-      upsertConfig({
-        kekPassphrase: context.config.kekPassphrase,
-        dbMode: context.services.install?.chosenDbMode || context.config.dbMode || "remote",
-        postgresUri: context.services.install?.chosenPostgresUri || context.config.postgresUri,
-        pgliteDir: context.services.install?.chosenPgliteDir || context.config.pgliteDir,
-        userPort: context.config.userPort,
-        adminPort: context.config.adminPort,
-        proxyUi: context.config.proxyUi,
-      });
+      upsertConfig(
+        {
+          kekPassphrase: context.config.kekPassphrase,
+          dbMode: context.services.install?.chosenDbMode || context.config.dbMode || "remote",
+          postgresUri: context.services.install?.chosenPostgresUri || context.config.postgresUri,
+          pgliteDir: context.services.install?.chosenPgliteDir || context.config.pgliteDir,
+          userPort: context.config.userPort,
+          adminPort: context.config.adminPort,
+          proxyUi: context.config.proxyUi,
+        },
+        context.config.configFile
+      );
 
       context.logger.info("[install:post] Configuration saved, server will restart in 2 seconds");
 

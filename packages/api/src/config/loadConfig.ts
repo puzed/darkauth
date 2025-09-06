@@ -12,7 +12,14 @@ export type RootConfig = {
   kekPassphrase?: string;
 };
 
-function findConfigPath(): string | null {
+function findConfigPath(configFile?: string): string | null {
+  // If a specific config file is provided, use it
+  if (configFile) {
+    const resolvedPath = path.resolve(configFile);
+    return fs.existsSync(resolvedPath) ? resolvedPath : null;
+  }
+
+  // Otherwise look for config.yaml in default locations
   const candidates = [
     path.resolve(process.cwd(), "config.yaml"),
     path.resolve(process.cwd(), "..", "config.yaml"),
@@ -24,15 +31,15 @@ function findConfigPath(): string | null {
   return null;
 }
 
-export function hasConfigFile(): boolean {
-  return findConfigPath() !== null;
+export function hasConfigFile(configFile?: string): boolean {
+  return findConfigPath(configFile) !== null;
 }
 
-export function loadRootConfig(): RootConfig {
+export function loadRootConfig(configFile?: string): RootConfig {
   const envProxy = process.env.PROXY_UI ?? process.env.ZKAUTH_PROXY_UI;
   const envProxyBool =
     typeof envProxy === "string" ? /^(1|true|yes|on)$/i.test(envProxy) : undefined;
-  const p = findConfigPath();
+  const p = findConfigPath(configFile);
   if (!p) {
     return {
       dbMode: "remote",

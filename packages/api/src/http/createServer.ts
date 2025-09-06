@@ -22,7 +22,7 @@ import type { Context } from "../types.js";
 import { sendError } from "../utils/http.js";
 import { setSecurityHeaders } from "../utils/security.js";
 import { generateOpenApiDocument } from "./openapi.js";
-import { proxyToVite } from "./proxy.js";
+import { proxyToVite, proxyWebSocketToVite } from "./proxy.js";
 import { createAdminRouter } from "./routers/adminRouter.js";
 import { createInstallRouter } from "./routers/installRouter.js";
 import { createUserRouter } from "./routers/userRouter.js";
@@ -32,8 +32,7 @@ const __dirname = dirname(__filename);
 
 export async function createUserServer(context: Context) {
   const router = createUserRouter(context);
-
-  return createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
+  const server = createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
@@ -46,7 +45,10 @@ export async function createUserServer(context: Context) {
 
       if (request.method === "GET" && pathname === "/config.js") {
         let ui: { clientId?: string; redirectUri?: string } = {};
-        let issuer = "http://localhost:9080";
+        // Use the actual user port if configured
+        let issuer = context.config.userPort
+          ? `http://localhost:${context.config.userPort}`
+          : "http://localhost:9080";
         let publicOrigin = issuer;
         let branding: Awaited<ReturnType<typeof getBrandingConfig>> | null = null;
         try {
@@ -133,7 +135,7 @@ export async function createUserServer(context: Context) {
 
       const initialized = await isSystemInitialized(context);
 
-      if (!initialized && !pathname.startsWith("/api/")) {
+      if (!initialized && !context.config.proxyUi && !pathname.startsWith("/api/")) {
         setSecurityHeaders(response, context.config.isDevelopment);
         response.statusCode = 503;
         response.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -177,13 +179,20 @@ export async function createUserServer(context: Context) {
       sendError(response, error as Error);
     }
   });
+  server.on("upgrade", (req, socket, head) => {
+    if (context.config.proxyUi) {
+      proxyWebSocketToVite(req, socket, head, 5173);
+    } else {
+      socket.destroy();
+    }
+  });
+  return server;
 }
 
 export async function createAdminServer(context: Context) {
   const adminRouter = createAdminRouter(context);
   const installRouter = createInstallRouter(context);
-
-  return createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
+  const server = createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
@@ -196,7 +205,10 @@ export async function createAdminServer(context: Context) {
 
       if (request.method === "GET" && pathname === "/config.js") {
         let ui: { clientId?: string; redirectUri?: string } = {};
-        let issuer = "http://localhost:9080";
+        // In test/development mode, use the actual user port for the issuer
+        let issuer = context.config.userPort
+          ? `http://localhost:${context.config.userPort}`
+          : "http://localhost:9080";
         const adminOrigin = `http://localhost:${context.config.adminPort}`;
         let branding: Awaited<ReturnType<typeof getBrandingConfig>> | null = null;
         try {
@@ -351,6 +363,14 @@ export async function createAdminServer(context: Context) {
       sendError(response, error as Error);
     }
   });
+  server.on("upgrade", (req, socket, head) => {
+    if (context.config.proxyUi) {
+      proxyWebSocketToVite(req, socket, head, 5174);
+    } else {
+      socket.destroy();
+    }
+  });
+  return server;
 }
 
 async function serveStaticFiles(
@@ -369,15 +389,34 @@ async function serveStaticFiles(
     return;
   }
 
+  // Check if the file exists first
+  if (!fs.existsSync(fullPath)) {
+    // For SPA routing, serve index.html for client-side routes
+    // But only if the request doesn't have a file extension (to avoid serving index.html for missing assets)
+    const hasFileExtension = /\.[^/]+$/.test(filePath);
+    if (!hasFileExtension) {
+      serveIndex(response, basePath);
+      return;
+    }
+    // If it's a missing asset, return 404
+    response.statusCode = 404;
+    response.end("Not Found");
+    return;
+  }
+
   try {
     const stream = createReadStream(fullPath);
-    stream.on("error", () => serveIndex(response, basePath));
+    stream.on("error", () => {
+      response.statusCode = 404;
+      response.end("Not Found");
+    });
     const ext = fullPath.split(".").pop();
     const contentType = getContentType(ext || "");
     response.setHeader("Content-Type", contentType);
     stream.pipe(response);
   } catch {
-    serveIndex(response, basePath);
+    response.statusCode = 500;
+    response.end("Internal Server Error");
   }
 }
 
