@@ -7,7 +7,6 @@ node_modules
 **/*.log
 docs
 specs
-changelog
 packages/test-suite
 packages/demo-app
 packages/brochureware
