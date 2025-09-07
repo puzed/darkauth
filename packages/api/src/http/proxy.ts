@@ -10,12 +10,14 @@ export async function proxyToVite(
 ): Promise<void> {
   const inDocker = fs.existsSync("/.dockerenv");
   const hostname = inDocker ? "host.docker.internal" : "localhost";
+  const headers = { ...req.headers } as Record<string, string | string[] | undefined>;
+  headers.host = `${hostname}:${vitePort}`;
   const options = {
     hostname,
     port: vitePort,
     path: req.url,
     method: req.method,
-    headers: req.headers,
+    headers,
   };
 
   const proxyReq = httpRequest(options, (proxyRes) => {
