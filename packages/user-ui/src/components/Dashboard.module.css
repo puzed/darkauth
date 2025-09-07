@@ -134,6 +134,13 @@
   border: 1px solid rgba(229, 231, 235, 0.5);
 }
 
+.successHeading {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #16a34a;
+}
+
 .welcomeSection h2 {
   font-size: 2.25rem;
   font-weight: 700;

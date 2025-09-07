@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import apiService from "../services/api";
 import styles from "./Dashboard.module.css";
 import UserLayout from "./UserLayout";
+import { useBranding } from "../hooks/useBranding";
 
 interface SessionData {
   sub: string;
@@ -25,6 +26,7 @@ interface DashboardProps {
 
 export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
   const navigate = useNavigate();
+  const branding = useBranding();
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,6 +56,9 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
       <div className={styles.container}>
         <div className={styles.mainGrid}>
           <section className={styles.welcomeSection}>
+            <h2 className={styles.successHeading}>
+              {branding.getText("successAuth", "Successfully authenticated")}
+            </h2>
             <h2>Welcome back, {sessionData.name || "User"}</h2>
             <p className={styles.subtitle}>Access your applications and manage your account</p>
           </section>
