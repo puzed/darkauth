@@ -33,6 +33,7 @@ import {
   RegistrationResponse,
 } from "opaque-ts";
 import type { Logger } from "../../types.js";
+import { createSecureLogger } from "../secureLogger.js";
 
 export function fromBase64Url(str: string): Uint8Array {
   str = str.replace(/-/g, "+").replace(/_/g, "/");
@@ -70,17 +71,21 @@ export class OpaqueServer {
   private serverKeypair: AKEExportKeyPair | null = null;
   private serverIdentity: string;
   private activeSessions: Map<string, CloudflareOpaqueServer>;
-  private logger?: Logger;
+  private secureLogger: ReturnType<typeof createSecureLogger>;
 
   constructor() {
     this.config = new OpaqueConfig(OpaqueID.OPAQUE_P256);
     this.serverIdentity = "DarkAuth";
     this.activeSessions = new Map();
     this.oprfSeed = [];
+    this.secureLogger = createSecureLogger();
   }
 
   setLogger(logger?: Logger): void {
-    this.logger = logger;
+    this.secureLogger = createSecureLogger({
+      logger,
+      isDevelopment: process.env.NODE_ENV === "development",
+    });
   }
 
   async initialize(): Promise<void> {
@@ -134,12 +139,7 @@ export class OpaqueServer {
 
   async startRegistration(request: Uint8Array, _identityS: string, identityU: string) {
     // Validate request data
-    try {
-      this.logger?.debug(
-        { len: request?.length || 0, identityU },
-        "[opaque] server.startRegistration"
-      );
-    } catch {}
+    this.secureLogger.logDebugInfo("server.startRegistration called", { hasRequest: !!request });
     if (!request || request.length === 0) {
       throw new Error("Registration request is empty");
     }
@@ -152,13 +152,7 @@ export class OpaqueServer {
     try {
       req = RegistrationRequest.deserialize(this.config, requestArray);
     } catch (error) {
-      try {
-        const head = Buffer.from(request).subarray(0, 16).toString("hex");
-        console.error(
-          "[opaque] deserialize RegistrationRequest failed",
-          JSON.stringify({ len: request.length, head })
-        );
-      } catch {}
+      this.secureLogger.logSecureError("Failed to deserialize registration request", error);
       throw new Error(
         `Failed to deserialize registration request: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -170,8 +164,19 @@ export class OpaqueServer {
 
     const response = await this.server.registerInit(req, identityU);
     if (response instanceof Error) {
+      this.secureLogger.logOpaqueOperation("registration_start", {
+        identityU,
+        success: false,
+        error: response.message,
+      });
       throw new Error(`Registration failed: ${response.message}`);
     }
+
+    this.secureLogger.logOpaqueOperation("registration_start", {
+      identityU,
+      success: true,
+    });
+
     return {
       response: new Uint8Array(response.serialize()),
     };
@@ -201,6 +206,11 @@ export class OpaqueServer {
     if (!this.serverKeypair) {
       throw new Error("Server not initialized. Call initialize() first.");
     }
+
+    this.secureLogger.logOpaqueOperation("registration_finish", {
+      identityU: _identityU,
+      success: true,
+    });
 
     return {
       envelope: new Uint8Array(record.serialize()),
@@ -303,16 +313,15 @@ export class OpaqueServer {
     const sid = toBase64Url(randomBytes(16));
     this.activeSessions.set(sid, perServer);
 
-    this.logger?.info(
-      {
-        sessionId: sid,
-        activeSessionsCount: this.activeSessions.size,
-        identityU: identityU,
-        responseLen: ke2.serialize().length,
-        stateLen: Buffer.from(sid).length,
-      },
-      "[opaque-wrapper] Login session created"
-    );
+    this.secureLogger.logOpaqueOperation("login_start", {
+      identityU,
+      sessionId: sid,
+      success: true,
+    });
+
+    this.secureLogger.logSessionEvent("created", sid, {
+      count: this.activeSessions.size,
+    });
 
     return {
       response: new Uint8Array(ke2.serialize()),
@@ -326,88 +335,64 @@ export class OpaqueServer {
     _identityS: string,
     _identityU: string
   ) {
-    this.logger?.info(
-      {
-        clientFinishLen: clientFinish?.length || 0,
-        serverStateLen: _serverState?.length || 0,
-        identityS: _identityS,
-        identityU: _identityU,
-      },
-      "[opaque-wrapper] finishLogin called"
-    );
+    this.secureLogger.logDebugInfo("finishLogin called");
 
     // Validate clientFinish data
     if (!clientFinish || clientFinish.length === 0) {
-      this.logger?.error("[opaque-wrapper] Client finish data is empty");
+      this.secureLogger.logSecureError("Client finish data is empty");
       throw new Error("Client finish data is empty");
     }
 
     const finishArray = Array.from(clientFinish);
     if (!finishArray.every((b) => Number.isInteger(b) && b >= 0 && b <= 255)) {
-      this.logger?.error("[opaque-wrapper] Invalid byte values in client finish data");
+      this.secureLogger.logSecureError("Invalid byte values in client finish data");
       throw new Error("Invalid byte values in client finish data");
     }
 
     let ke3: KE3;
     try {
       ke3 = KE3.deserialize(this.config, finishArray);
-      this.logger?.info("[opaque-wrapper] Successfully deserialized KE3");
+      this.secureLogger.logDebugInfo("Successfully deserialized KE3");
     } catch (error) {
-      this.logger?.error(
-        {
-          error: error instanceof Error ? error.message : String(error),
-        },
-        "[opaque-wrapper] Failed to deserialize KE3"
-      );
+      this.secureLogger.logSecureError("Failed to deserialize KE3", error);
       throw new Error(
         `Failed to deserialize KE3: ${error instanceof Error ? error.message : String(error)}`
       );
     }
 
     const sid = Buffer.from(_serverState || []).toString();
-    this.logger?.info(
-      {
-        sessionId: sid,
-        activeSessionsCount: this.activeSessions.size,
-        hasSession: this.activeSessions.has(sid),
-      },
-      "[opaque-wrapper] Looking up session"
-    );
+    this.secureLogger.logDebugInfo("Looking up session", {
+      hasSession: this.activeSessions.has(sid),
+    });
 
     const perServer = this.activeSessions.get(sid);
     if (!perServer) {
-      this.logger?.error(
-        {
-          sessionId: sid,
-          availableSessions: Array.from(this.activeSessions.keys()),
-        },
-        "[opaque-wrapper] Session not found"
-      );
+      this.secureLogger.logSecureError("Session not found");
       throw new Error("Invalid or expired login session");
     }
 
-    this.logger?.info("[opaque-wrapper] Calling authFinish on server");
+    this.secureLogger.logDebugInfo("Calling authFinish on server");
     const result = perServer.authFinish(ke3);
 
     if (result instanceof Error) {
-      this.logger?.error(
-        {
-          error: result.message,
-          stack: result.stack,
-          name: result.name,
-          details: JSON.stringify(result),
-        },
-        "[opaque-wrapper] authFinish failed"
-      );
+      this.secureLogger.logOpaqueOperation("login_finish", {
+        identityU: _identityU,
+        sessionId: sid,
+        success: false,
+        error: result.message,
+      });
       throw new Error(`Auth finish failed: ${result.message}`);
     }
 
-    this.logger?.info(
-      {
-        sessionKeyLen: result.session_key?.length || 0,
-      },
-      "[opaque-wrapper] authFinish succeeded"
-    );
+    this.secureLogger.logOpaqueOperation("login_finish", {
+      identityU: _identityU,
+      sessionId: sid,
+      success: true,
+    });
+
+    this.secureLogger.logSessionEvent("deleted", sid, {
+      count: this.activeSessions.size - 1,
+    });
 
     const out = {
       sessionKey: new Uint8Array(result.session_key),
