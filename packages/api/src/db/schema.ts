@@ -63,6 +63,10 @@ export const jwks = pgTable("jwks", {
 export const clients = pgTable("clients", {
   clientId: text("client_id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
+  appUrl: text("app_url"),
+  logoUrl: text("logo_url"),
+  showOnUserDashboard: boolean("show_on_user_dashboard").default(false).notNull(),
   type: clientTypeEnum("type").notNull(),
   tokenEndpointAuthMethod: tokenEndpointAuthMethodEnum("token_endpoint_auth_method").notNull(),
   clientSecretEnc: bytea("client_secret_enc"),
