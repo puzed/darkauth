@@ -418,6 +418,20 @@ class ApiService {
     const body = JSON.stringify({ wrapped_enc_private_jwk: wrappedBase64Url });
     await this.request("/crypto/wrapped-enc-priv", { method: "PUT", body });
   }
+
+  async getUserApps(): Promise<{
+    apps: Array<{ id: string; name: string; description?: string; url?: string; logoUrl?: string }>;
+  }> {
+    try {
+      return await this.request("/apps", {
+        method: "GET",
+      });
+    } catch (error) {
+      // Return empty array if endpoint doesn't exist yet
+      console.warn("Failed to fetch user apps:", error);
+      return { apps: [] };
+    }
+  }
 }
 
 export const apiService = new ApiService();

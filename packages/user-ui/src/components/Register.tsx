@@ -4,6 +4,7 @@ import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import styles from "./Register.module.css";
 
 interface RegisterProps {
   onRegister: (sessionData: {
@@ -219,15 +220,15 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
   const passwordStrength = getPasswordStrength(formData.password);
 
   return (
-    <div className="auth-container da-auth-container">
-      <h2 className="form-title da-auth-title">
+    <div className={styles.authContainer}>
+      <h2 className={styles.formTitle}>
         {branding.getText("createAccount", "Create your account")}
       </h2>
 
-      <form className="form da-form" onSubmit={handleSubmit} noValidate>
-        <div className="form-group da-form-group">
-          <label className="da-form-label" htmlFor={`${uid}-name`}>
-            Name
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-name`}>
+            {branding.getText("name", "Name")}
           </label>
           <input
             type="text"
@@ -235,17 +236,17 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             name="name"
             value={formData.name}
             onChange={handleInputChange}
-            placeholder="Enter your full name"
-            className={`da-form-input ${errors.name ? "error da-form-input-error" : ""}`}
+            placeholder={branding.getText("namePlaceholder", "Enter your full name")}
+            className={`${styles.formInput} ${errors.name ? styles.error : ""}`}
             disabled={loading}
             autoComplete="name"
             required
           />
-          {errors.name && <div className="error-text da-form-error">{errors.name}</div>}
+          {errors.name && <div className={styles.errorText}>{errors.name}</div>}
         </div>
 
-        <div className="form-group da-form-group">
-          <label className="da-form-label" htmlFor={`${uid}-email`}>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-email`}>
             {branding.getText("email", "Email")}
           </label>
           <input
@@ -255,16 +256,16 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             value={formData.email}
             onChange={handleInputChange}
             placeholder={branding.getText("emailPlaceholder", "Enter your email")}
-            className={`da-form-input ${errors.email ? "error da-form-input-error" : ""}`}
+            className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
             disabled={loading}
             autoComplete="email"
             required
           />
-          {errors.email && <div className="error-text da-form-error">{errors.email}</div>}
+          {errors.email && <div className={styles.errorText}>{errors.email}</div>}
         </div>
 
-        <div className="form-group da-form-group">
-          <label className="da-form-label" htmlFor={`${uid}-password`}>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-password`}>
             {branding.getText("password", "Password")}
           </label>
           <input
@@ -273,30 +274,32 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             name="password"
             value={formData.password}
             onChange={handleInputChange}
-            placeholder="Create a strong password"
-            className={`da-form-input ${errors.password ? "error da-form-input-error" : ""}`}
+            placeholder={branding.getText("createPasswordPlaceholder", "Create a strong password")}
+            className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
             disabled={loading}
             autoComplete="new-password"
             required
           />
           {formData.password && (
-            <div className="password-strength">
-              <div className="strength-bar">
-                <div className={`strength-fill ${passwordStrength.level}`} />
+            <div className={styles.passwordStrength}>
+              <div className={styles.strengthBar}>
+                <div className={`${styles.strengthFill} ${styles[passwordStrength.level]}`} />
               </div>
-              <span className={`strength-text ${passwordStrength.level}`}>
+              <span className={`${styles.strengthText} ${styles[passwordStrength.level]}`}>
                 {passwordStrength.text}
               </span>
             </div>
           )}
-          {errors.password && <div className="error-text da-form-error">{errors.password}</div>}
-          {!errors.password && (
-            <div className="help-text da-form-helper">Must be at least 12 characters</div>
+          {errors.password && <div className={styles.errorText}>{errors.password}</div>}
+          {!errors.password && formData.password && (
+            <div className={styles.helpText}>
+              {branding.getText("passwordRequirement", "Must be at least 12 characters")}
+            </div>
           )}
         </div>
 
-        <div className="form-group da-form-group">
-          <label className="da-form-label" htmlFor={`${uid}-confirmPassword`}>
+        <div className={styles.formGroup}>
+          <label className={styles.formLabel} htmlFor={`${uid}-confirmPassword`}>
             {branding.getText("confirmPassword", "Confirm Password")}
           </label>
           <input
@@ -305,45 +308,41 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
             name="confirmPassword"
             value={formData.confirmPassword}
             onChange={handleInputChange}
-            placeholder={branding.getText("confirmPasswordPlaceholder", "Re-enter your password")}
-            className={`da-form-input ${errors.confirmPassword ? "error da-form-input-error" : ""}`}
+            placeholder={branding.getText("confirmPasswordPlaceholder", "Confirm your password")}
+            className={`${styles.formInput} ${errors.confirmPassword ? styles.error : ""}`}
             disabled={loading}
             autoComplete="new-password"
             required
           />
           {errors.confirmPassword && (
-            <div className="error-text da-form-error">{errors.confirmPassword}</div>
+            <div className={styles.errorText}>{errors.confirmPassword}</div>
           )}
         </div>
 
-        {errors.general && <div className="error-message da-error-message">{errors.general}</div>}
+        {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
 
-        <button
-          type="submit"
-          className="primary-button da-button da-button-primary da-form-submit"
-          disabled={loading}
-        >
+        <button type="submit" className={styles.primaryButton} disabled={loading}>
           {loading ? (
             <>
-              <span className="loading-spinner" />
+              <span className={styles.loadingSpinner} />
               {branding.getText("signingUp", "Creating account...")}
             </>
           ) : (
-            branding.getText("signin", "Continue")
+            branding.getText("signup", "Continue")
           )}
         </button>
       </form>
 
-      <div className="form-footer da-form-footer">
+      <div className={styles.formFooter}>
         <p>
           {branding.getText("hasAccount", "Already have an account?")}{" "}
           <button
             type="button"
-            className="link-button da-button-link da-form-link"
+            className={styles.linkButton}
             onClick={onSwitchToLogin}
             disabled={loading}
           >
-            {branding.getText("signin", "Sign in")}
+            {branding.getText("signin", "Continue")}
           </button>
         </p>
       </div>

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import { Navigate, Route, BrowserRouter as Router, Routes, useNavigate } from "react-router-dom";
 import Authorize from "./components/Authorize";
-import ChangePassword from "./components/ChangePassword";
+import ChangePasswordView from "./components/ChangePasswordView";
+import Dashboard from "./components/Dashboard";
 import LoginView from "./components/LoginView";
-import Register from "./components/Register";
+import RegisterView from "./components/RegisterView";
 import apiService from "./services/api";
 import { clearExportKey } from "./services/sessionKey";
 import "./App.css";
@@ -30,13 +31,12 @@ interface AuthRequest {
   hasZk: boolean;
 }
 
-function App() {
+function AppContent() {
   const branding = useBranding();
+  const navigate = useNavigate();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [authRequest, setAuthRequest] = useState<AuthRequest | null>(null);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState<"login" | "register">("login");
-  const [changingPassword, setChangingPassword] = useState(false);
 
   const initializeApp = useCallback(async () => {
     try {
@@ -81,8 +81,22 @@ function App() {
     initializeApp();
   }, [initializeApp, sessionData?.sub]);
 
+  const handleLogin = (userData: SessionData) => {
+    setSessionData(userData);
+    if (authRequest) {
+      // Stay on current page to handle auth request
+    } else {
+      navigate("/dashboard");
+    }
+  };
+
   const handleRegister = (userData: SessionData) => {
     setSessionData(userData);
+    if (authRequest) {
+      // Stay on current page to handle auth request
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   const handleLogout = async () => {
@@ -95,264 +109,126 @@ function App() {
       if (window.authRequest) {
         window.authRequest = undefined;
       }
+      navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
 
-  const switchPage = (newPage: "login" | "register") => {
-    setPage(newPage);
-  };
-
-  if (loading) {
-    return (
-      <div className="app da-app">
-        <div className="container da-container">
-          <div className="loading-container">
-            <div className="loading-spinner" />
-            <p>Loading...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Force password reset before anything else
-  if (sessionData?.passwordResetRequired) {
-    return (
-      <div className="app da-app">
-        <div className="container da-container">
-          <div
-            className="header da-header"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <div className="brand da-brand">
-              <span className="brand-icon da-brand-icon">
-                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-              </span>
-              <h1 className="da-brand-title">{branding.getTitle()}</h1>
-            </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <ThemeToggle />
-            </div>
-          </div>
-          <ChangePassword
-            sub={sessionData.sub}
-            email={sessionData.email}
-            onSuccess={async () => {
-              const s = await apiService.getSession();
-              setSessionData({
-                sub: s.sub as string,
-                name: s.name,
-                email: s.email,
-                passwordResetRequired: !!s.passwordResetRequired,
-              });
-            }}
-          />
-          <div className="actions" style={{ justifyContent: "flex-end" }}>
-            <button type="button" className="primary-button" onClick={handleLogout}>
-              {branding.getText("signout", "Sign Out")}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // If user is authenticated and there's an auth request, show either change-password or authorize
-  if (sessionData && authRequest) {
-    if (changingPassword) {
-      return (
-        <div className="app da-app">
-          <div className="container da-container">
-            <div
-              className="header da-header"
-              style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-            >
-              <div className="brand da-brand">
-                <span className="brand-icon da-brand-icon">
-                  <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-                </span>
-                <h1 className="da-brand-title">{branding.getTitle()}</h1>
-              </div>
-              <div
-                className="user-info da-user-info"
-                style={{ display: "flex", alignItems: "center", gap: 12 }}
-              >
-                <ThemeToggle />
+  // Handle routing
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
               </div>
             </div>
-            <ChangePassword
-              sub={sessionData.sub}
-              email={sessionData.email}
-              onSuccess={async () => {
-                const s = await apiService.getSession();
-                setSessionData({
-                  sub: s.sub as string,
-                  name: s.name,
-                  email: s.email,
-                  passwordResetRequired: !!s.passwordResetRequired,
-                });
-                setChangingPassword(false);
-              }}
-            />
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="app da-app">
-        <div className="container da-container">
-          <div
-            className="header da-header"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <div className="brand da-brand">
-              <span className="brand-icon da-brand-icon">
-                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-              </span>
-              <h1 className="da-brand-title">{branding.getTitle()}</h1>
-            </div>
-            <div
-              className="user-info da-user-info"
-              style={{ display: "flex", alignItems: "center", gap: 12 }}
-            >
-              <ThemeToggle />
-            </div>
-          </div>
-          <Authorize authRequest={authRequest} sessionData={sessionData} />
-        </div>
-      </div>
-    );
-  }
-
-  // If user is authenticated but no auth request, show success message
-  if (sessionData) {
-    if (changingPassword) {
-      return (
-        <div className="app da-app">
-          <div className="container da-container">
-            <div className="header da-header">
-              <div className="brand da-brand">
-                <span className="brand-icon da-brand-icon">
-                  <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-                </span>
-                <h1 className="da-brand-title">{branding.getTitle()}</h1>
+          ) : sessionData ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+      <Route
+        path="/login"
+        element={
+          sessionData && !authRequest ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <LoginView onLogin={handleLogin} onSwitchToRegister={() => navigate("/signup")} />
+          )
+        }
+      />
+      <Route
+        path="/signup"
+        element={
+          sessionData && !authRequest ? (
+            <Navigate to="/dashboard" replace />
+          ) : (
+            <RegisterView onRegister={handleRegister} onSwitchToLogin={() => navigate("/login")} />
+          )
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
               </div>
-              <div className="user-info da-user-info"></div>
             </div>
-            <ChangePassword
-              sub={sessionData.sub}
-              email={sessionData.email}
-              onSuccess={async () => {
-                const s = await apiService.getSession();
-                setSessionData({
-                  sub: s.sub as string,
-                  name: s.name,
-                  email: s.email,
-                  passwordResetRequired: !!s.passwordResetRequired,
-                });
-                setChangingPassword(false);
-              }}
-            />
-          </div>
-        </div>
-      );
-    }
-    return (
-      <div className="app da-app">
-        <div className="container da-container">
-          <div
-            className="header da-header"
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-          >
-            <div className="brand da-brand">
-              <span className="brand-icon da-brand-icon">
-                <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-              </span>
-              <h1 className="da-brand-title">{branding.getTitle()}</h1>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : sessionData.passwordResetRequired ? (
+            <Navigate to="/change-password" replace />
+          ) : authRequest ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div
+                  className="header da-header"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <div className="brand da-brand">
+                    <span className="brand-icon da-brand-icon">
+                      <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
+                    </span>
+                    <h1 className="da-brand-title">{branding.getTitle()}</h1>
+                  </div>
+                  <div
+                    className="user-info da-user-info"
+                    style={{ display: "flex", alignItems: "center", gap: 12 }}
+                  >
+                    <ThemeToggle />
+                  </div>
+                </div>
+                <Authorize authRequest={authRequest} sessionData={sessionData} />
+              </div>
             </div>
-            <div
-              className="user-info da-user-info"
-              style={{ display: "flex", alignItems: "center", gap: 12 }}
-            >
-              <ThemeToggle />
+          ) : (
+            <Dashboard sessionData={sessionData} onLogout={handleLogout} />
+          )
+        }
+      />
+      <Route
+        path="/change-password"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="authenticated-state">
-            <div className="success-icon">
-              <svg
-                width="32"
-                height="32"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <title>Successfully authenticated</title>
-                <polyline points="20 6 9 17 4 12"></polyline>
-              </svg>
-            </div>
-            <h2 className="da-success-title">
-              {branding.getText("successAuth", "Successfully authenticated")}
-            </h2>
-            <div className="user-details">
-              <p>
-                <strong>Name</strong>
-                <span>{sessionData.name || "Not provided"}</span>
-              </p>
-              <p>
-                <strong>Email</strong>
-                <span>{sessionData.email}</span>
-              </p>
-              <p>
-                <strong>User ID</strong>
-                <code>{sessionData.sub}</code>
-              </p>
-            </div>
-            <p className="info-text">
-              You are securely logged in to {branding.getTitle()}. If you accessed this page through
-              an application's login flow, you can now return to that application.
-            </p>
-            <div className="actions">
-              <button
-                type="button"
-                className="secondary-button"
-                onClick={() => setChangingPassword(true)}
-              >
-                {branding.getText("changePassword", "Change Password")}
-              </button>
-              <button type="button" className="primary-button" onClick={handleLogout}>
-                {branding.getText("signout", "Sign Out")}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <ChangePasswordView sessionData={sessionData} onLogout={handleLogout} />
+          )
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
 
-  // User not authenticated, show unified LoginView used by admin preview
+function App() {
   return (
     <Router>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            page === "login" ? (
-              <LoginView
-                onLogin={setSessionData}
-                onSwitchToRegister={() => switchPage("register")}
-              />
-            ) : (
-              <Register onRegister={handleRegister} onSwitchToLogin={() => switchPage("login")} />
-            )
-          }
-        />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <AppContent />
     </Router>
   );
 }

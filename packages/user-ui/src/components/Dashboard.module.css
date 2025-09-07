@@ -1,0 +1,508 @@
+.dashboard {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.header {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(229, 231, 235, 0.5);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
+}
+
+.headerContent {
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand img {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.brand h1 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.userMenu {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.userName {
+  color: #374151;
+  font-weight: 500;
+}
+
+.changePasswordBtn,
+.logoutBtn {
+  padding: 0.625rem 1.25rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  font-size: 0.9375rem;
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.changePasswordBtn {
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.changePasswordBtn:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.logoutBtn {
+  background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+  border: none;
+  color: white;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+.logoutBtn:hover {
+  background: linear-gradient(135deg, var(--primary-700) 0%, var(--primary-800) 100%);
+  box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.1);
+  transform: translateY(-1px);
+}
+
+.main {
+  padding: 3rem 2rem;
+}
+
+.container {
+  width: 100%;
+  margin: 0 auto;
+}
+
+.mainGrid {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "welcome"
+    "apps"
+    "account";
+}
+
+@media (min-width: 1280px) {
+  .mainGrid {
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+      "welcome welcome"
+      "apps account";
+  }
+}
+
+.welcomeSection {
+  grid-area: welcome;
+  background: white;
+  padding: 3rem;
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 1px 2px -1px rgb(0 0 0 / 0.05);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.welcomeSection h2 {
+  font-size: 2.25rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.75rem 0;
+  letter-spacing: -0.025em;
+}
+
+.subtitle {
+  color: #64748b;
+  font-size: 1.125rem;
+  margin: 0;
+  font-weight: 400;
+}
+
+.appsSection {
+  grid-area: apps;
+  background: white;
+  padding: 3rem;
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 1px 2px -1px rgb(0 0 0 / 0.05);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.appsSection h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 2rem 0;
+  letter-spacing: -0.015em;
+}
+
+.appsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1.5rem;
+}
+
+.appCard {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.75rem;
+  background: #fafbfc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.appCard:hover {
+  background: white;
+  border-color: var(--primary-400);
+  box-shadow:
+    0 10px 25px -5px rgb(0 0 0 / 0.08),
+    0 4px 6px -2px rgb(0 0 0 / 0.05);
+  transform: translateY(-3px);
+}
+
+.appIcon {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.appIcon img {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.appInitial {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-600);
+}
+
+.appInfo {
+  flex: 1;
+}
+
+.appInfo h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 0.25rem 0;
+}
+
+.appInfo p {
+  font-size: 0.875rem;
+  color: #6b7280;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.appArrow {
+  color: #9ca3af;
+  transition: all 0.2s;
+}
+
+.appCard:hover .appArrow {
+  color: var(--primary-600);
+  transform: translate(2px, -2px);
+}
+
+.loadingState,
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.spinner {
+  width: 2rem;
+  height: 2rem;
+  border: 3px solid #e5e7eb;
+  border-top-color: var(--primary-600);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.loadingState p,
+.emptyState p {
+  font-size: 1.125rem;
+  color: #374151;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.emptyState span {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.emptyState svg {
+  color: #d1d5db;
+  margin-bottom: 1rem;
+}
+
+.accountSection {
+  grid-area: account;
+  background: white;
+  padding: 3rem;
+  border-radius: 1rem;
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.05),
+    0 1px 2px -1px rgb(0 0 0 / 0.05);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+}
+
+.accountSection h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #0f172a;
+  margin: 0 0 2rem 0;
+  letter-spacing: -0.015em;
+}
+
+.accountInfo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.infoRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: #fafbfc;
+  border-radius: 0.5rem;
+  border: 1px solid #f1f5f9;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.value {
+  color: #0f172a;
+  font-weight: 500;
+  font-size: 1.125rem;
+}
+
+.userId {
+  font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
+  font-size: 0.9rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dark mode styles */
+[data-da-theme="dark"] .dashboard {
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+}
+
+[data-da-theme="dark"] .header {
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom-color: rgba(51, 65, 85, 0.5);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.2);
+}
+
+[data-da-theme="dark"] .defaultLogo {
+  filter: brightness(100);
+}
+
+[data-da-theme="dark"] .brand h1 {
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .userName {
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .changePasswordBtn {
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .changePasswordBtn:hover {
+  background: #334155;
+  border-color: #64748b;
+}
+
+[data-da-theme="dark"] .logoutBtn {
+  background: var(--primary-500);
+}
+
+[data-da-theme="dark"] .logoutBtn:hover {
+  background: var(--primary-600);
+}
+
+[data-da-theme="dark"] .welcomeSection,
+[data-da-theme="dark"] .appsSection,
+[data-da-theme="dark"] .accountSection {
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    0 1px 3px 0 rgb(0 0 0 / 0.2),
+    0 1px 2px -1px rgb(0 0 0 / 0.2);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+}
+
+[data-da-theme="dark"] .welcomeSection h2,
+[data-da-theme="dark"] .appsSection h3,
+[data-da-theme="dark"] .accountSection h3 {
+  color: #f1f5f9;
+}
+
+[data-da-theme="dark"] .subtitle {
+  color: #94a3b8;
+}
+
+[data-da-theme="dark"] .appCard {
+  background: #0f172a;
+  border-color: #334155;
+}
+
+[data-da-theme="dark"] .appCard:hover {
+  background: #1e293b;
+  border-color: var(--primary-500);
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+}
+
+[data-da-theme="dark"] .appIcon {
+  background: #1e293b;
+}
+
+[data-da-theme="dark"] .appInfo h4 {
+  color: #f1f5f9;
+}
+
+[data-da-theme="dark"] .appInfo p {
+  color: #94a3b8;
+}
+
+[data-da-theme="dark"] .appArrow {
+  color: #64748b;
+}
+
+[data-da-theme="dark"] .appCard:hover .appArrow {
+  color: var(--primary-500);
+}
+
+[data-da-theme="dark"] .loadingState p,
+[data-da-theme="dark"] .emptyState p {
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .emptyState span {
+  color: #94a3b8;
+}
+
+[data-da-theme="dark"] .emptyState svg {
+  color: #475569;
+}
+
+[data-da-theme="dark"] .spinner {
+  border-color: #334155;
+  border-top-color: var(--primary-500);
+}
+
+[data-da-theme="dark"] .infoRow {
+  background: rgba(15, 23, 42, 0.5);
+  border-color: rgba(51, 65, 85, 0.5);
+}
+
+[data-da-theme="dark"] .label {
+  color: #94a3b8;
+}
+
+[data-da-theme="dark"] .value {
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .userId {
+  background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .headerContent {
+    padding: 1rem;
+  }
+
+  .brand h1 {
+    display: none;
+  }
+
+  .userName {
+    display: none;
+  }
+
+  .main {
+    padding: 1rem;
+  }
+
+  .appsGrid {
+    grid-template-columns: 1fr;
+  }
+}

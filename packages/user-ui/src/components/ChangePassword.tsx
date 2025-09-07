@@ -3,6 +3,7 @@ import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
 import opaqueService from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import Button from "./Button";
 
 interface ChangePasswordProps {
   sub: string;
@@ -205,7 +206,7 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
           </div>
         )}
 
-        <button type="submit" className="primary-button" disabled={loading}>
+        <Button type="submit" variant="primary" fullWidth disabled={loading}>
           {loading ? (
             <>
               <span className="loading-spinner" />
@@ -214,7 +215,7 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
           ) : (
             "Update password"
           )}
-        </button>
+        </Button>
       </form>
 
       {needsKeyRegen && (
