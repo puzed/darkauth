@@ -163,7 +163,9 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
 
       // Clear sensitive data
       opaqueService.clearState(registrationStart.state);
-      saveExportKey(registrationFinishResponse.sub, registrationFinish.passwordKey);
+
+      // Store export key securely and clear immediately from memory
+      await saveExportKey(registrationFinishResponse.sub, registrationFinish.passwordKey);
       cryptoService.clearSensitiveData(registrationFinish.passwordKey, drk);
 
       onRegister({

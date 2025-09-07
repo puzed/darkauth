@@ -106,11 +106,20 @@ export default function Authorize({
             const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
             const wrappedDrkB64 = await apiService.getWrappedDrk();
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
-            const exportKey = loadExportKey(sessionData.sub);
+            const exportKey = await loadExportKey(sessionData.sub);
             if (!exportKey) throw new Error("Missing export key");
             const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
             const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
             const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
+
+            // Clear sensitive data immediately
+            cryptoService.clearSensitiveData(
+              exportKey,
+              keys.masterKey,
+              keys.wrapKey,
+              keys.deriveKey,
+              drk
+            );
             const drkHash = await sha256Base64Url(jwe);
 
             const authResponse = await apiService.authorize({
@@ -173,11 +182,14 @@ export default function Authorize({
     setError(null);
     try {
       console.log("[Authorize] generateNewKeys deriving keys");
-      const exportKey = loadExportKey(sessionData.sub);
+      const exportKey = await loadExportKey(sessionData.sub);
       if (!exportKey) {
         throw new Error("Missing export key. Please sign out and sign back in to initialize keys.");
       }
       const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
+
+      // Clear export key from memory immediately after deriving other keys
+      cryptoService.clearSensitiveData(exportKey);
       console.log("[Authorize] generateNewKeys keys derived");
       const drk = await cryptoService.generateDRK();
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
@@ -247,7 +259,7 @@ export default function Authorize({
       console.log("[Authorize] recoverWithOldPassword OPAQUE finish");
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
       opaqueService.clearState(oldStart.state);
-      const currentExportKey = loadExportKey(sessionData.sub);
+      const currentExportKey = await loadExportKey(sessionData.sub);
       if (!currentExportKey) {
         throw new Error(
           "Current key material is not loaded. Please sign out and sign in to load your key, then retry recovery."
