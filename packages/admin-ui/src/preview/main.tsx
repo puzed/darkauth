@@ -1,5 +1,6 @@
 import { LoginView } from "@DarkAuth/user-ui/src/exports";
 import { createRoot } from "react-dom/client";
+import { MemoryRouter } from "react-router-dom";
 import "@DarkAuth/user-ui/src/index.css";
 import "@DarkAuth/user-ui/src/App.css";
 
@@ -119,4 +120,8 @@ if (!container) throw new Error("Root container not found");
 const root = createRoot(container);
 const { issuer, overrides } = parseOptions();
 applyOverrides(overrides, issuer);
-root.render(<LoginView />);
+root.render(
+  <MemoryRouter>
+    <LoginView />
+  </MemoryRouter>
+);
