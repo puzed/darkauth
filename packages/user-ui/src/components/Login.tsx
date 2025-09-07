@@ -143,8 +143,10 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       } catch {}
 
       opaqueService.clearState(loginStart.state);
-      saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
-      cryptoService.clearSensitiveData(loginFinish.sessionKey);
+
+      // Store export key securely and clear immediately from memory
+      await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
+      cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
 
       onLogin({
         sub: loginFinishResponse.sub,

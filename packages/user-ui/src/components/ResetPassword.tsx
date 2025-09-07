@@ -40,16 +40,20 @@ export default function ResetPassword({ onSuccess, title, description }: ResetPa
       );
       const exportKeyHash = await sha256Base64Url(finish.passwordKey);
       await apiService.passwordChangeFinish(finish.request, exportKeyHash);
-      saveExportKey((await apiService.getSession()).sub as string, finish.passwordKey);
+      const sessionData = await apiService.getSession();
+      const userSub = sessionData.sub as string;
+
+      // Store export key securely and clear from memory
+      await saveExportKey(userSub, finish.passwordKey);
+
       try {
-        const s = await apiService.getSession();
-        const keys = await cryptoService.deriveKeysFromExportKey(
-          finish.passwordKey,
-          s.sub as string
-        );
+        const keys = await cryptoService.deriveKeysFromExportKey(finish.passwordKey, userSub);
         const drk = await cryptoService.generateDRK();
-        const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, s.sub as string);
+        const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, userSub);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+
+        // Clear sensitive data immediately after use
+        cryptoService.clearSensitiveData(drk, keys.masterKey, keys.wrapKey, keys.deriveKey);
         try {
           const kp = await cryptoService.generateECDHKeyPair();
           const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
