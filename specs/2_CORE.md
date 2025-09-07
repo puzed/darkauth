@@ -158,8 +158,8 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
   1. Browser JS creates `drk_jwe = JWE_ECDH_ES_A256GCM(DRK, zk_pub)` with AAD `{sub, client_id}`.
   2. Browser JS calls `/authorize/finalize` (POST) with:
-     `{ request_id, /* ties to original /authorize */ }`
-     Server creates `code` and stores `has_zk=true`, `zk_pub_kid=SHA256(zk_pub)`, and `drk_hash=base64url(SHA256(drk_jwe))`.
+     `{ request_id, drk_hash }` where `drk_hash = base64url(SHA256(drk_jwe))`
+     Server creates `code` and stores `has_zk=true`, `zk_pub_kid=SHA256(zk_pub)`, and `drk_hash`.
   3. Browser redirects:
      `location.assign(`\${redirect\_uri}?code=...\&state=...#drk\_jwe=\${encodeURIComponent(drk\_jwe)}`)`
 
@@ -178,7 +178,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Mints `id_token` (and `access_token` if enabled by settings).
 - Returns a `refresh_token` bound to the session.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
-- If the code had `has_zk=true`, include `zk_drk_hash` (and optionally `zk_drk_jwe` for legacy fallback when stored).
+- If the code had `has_zk=true`, include `zk_drk_hash` (never include `zk_drk_jwe` - it's only in the fragment).
 - Consume the code.
 
 ### 5.4 App behavior (ZK vs Standard)
@@ -230,10 +230,9 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
   **Behavior**: validate request, record a pending-auth row bound to IdP session, serve login page with `request_id`. If `zk_pub` present, compute/store `zk_pub_kid = SHA256(zk_pub)` for that pending request (only if client `zk_delivery='fragment-jwe'`).
 
 * **POST `/authorize/finalize`** (Auth UI only; requires IdP session; Rate-limited: 10 req/15min per IP)
-  **Body**: `{ request_id }`
-  **Server**: look up pending auth, create authorization code with: `has_zk` (based on whether `zk_pub_kid` recorded), `zk_pub_kid`, and optionally `drk_hash` (if the JS sends it:
-  `{ drk_hash }` in same call or a separate call `/authorize/zk-bind` – choose one).
-  **Response**: `{ code, state }`.
+  **Body**: `{ request_id, drk_hash? }` (drk_hash only for ZK clients)
+  **Server**: look up pending auth, create authorization code with: `has_zk` (based on whether `zk_pub_kid` recorded), `zk_pub_kid`, and `drk_hash` if provided.
+  **Response**: `{ redirect_uri, code, state? }`.
 
 * **POST `/token`**
   Content‑Type: `application/x-www-form-urlencoded`
