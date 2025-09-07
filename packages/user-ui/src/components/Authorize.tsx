@@ -92,7 +92,6 @@ export default function Authorize({
   };
 
   const handleAuthorize = async (approve: boolean) => {
-    console.log("[Authorize] handleAuthorize called", { approve, hasZk: authRequest.hasZk });
     setLoading(true);
     setError(null);
 
@@ -104,35 +103,30 @@ export default function Authorize({
 
         if (zkPubParam && clientId) {
           try {
-            console.log("[Authorize] ZK flow start", {
-              requestId: authRequest.requestId,
-              clientId,
-            });
             const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
             const wrappedDrkB64 = await apiService.getWrappedDrk();
-            console.log("[Authorize] got wrapped DRK", { len: wrappedDrkB64?.length || 0 });
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
             const exportKey = loadExportKey(sessionData.sub);
             if (!exportKey) throw new Error("Missing export key");
             const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
             const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
             const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
-            console.log("[Authorize] created JWE", { size: jwe.length });
             const drkHash = await sha256Base64Url(jwe);
-            console.log("[Authorize] calling finalize");
+            
             const authResponse = await apiService.authorize({
               requestId: authRequest.requestId,
               approve,
               drkHash,
-              drkJwe: jwe,
             });
-            console.log("[Authorize] finalize ok, redirecting", authResponse);
-            window.location.href = authResponse.redirectUrl;
+            
+            // Add the JWE to the fragment (this is how it gets to the app without server seeing it)
+            const redirectUrl = new URL(authResponse.redirectUrl);
+            redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+            window.location.href = redirectUrl.toString();
             return;
           } catch (e) {
-            console.error("ZK delivery failed:", e);
             setError(
-              e instanceof Error ? e.message : "Zero‑knowledge delivery failed. Please retry."
+              e instanceof Error ? e.message : "Zero-knowledge delivery failed. Please retry."
             );
             setRecoveryVisible(true);
             return;
@@ -140,7 +134,6 @@ export default function Authorize({
         }
       }
 
-      console.log("[Authorize] calling finalize (non-ZK)");
       const authResponse = await apiService.authorize({
         requestId: authRequest.requestId,
         approve,

@@ -42,10 +42,16 @@ export function toBase64Url(buffer: ArrayBuffer | Uint8Array | number[]): string
 }
 
 export function fromBase64Url(base64url: string): Uint8Array {
-  const base64 = base64url
-    .replace(/-/g, "+")
-    .replace(/_/g, "/")
-    .padEnd(base64url.length + ((4 - (base64url.length % 4)) % 4), "=");
+  // Remove any whitespace first
+  const cleaned = base64url.trim();
+  
+  // Proper base64url to base64 conversion
+  let base64 = cleaned.replace(/-/g, "+").replace(/_/g, "/");
+  
+  // Add proper padding - base64 strings must be divisible by 4
+  while (base64.length % 4 !== 0) {
+    base64 += "=";
+  }
 
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);

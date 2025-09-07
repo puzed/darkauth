@@ -165,6 +165,7 @@ export async function handleCallback(): Promise<AuthSession | null> {
   const code = params.get("code");
   if (!code) return null;
   const tokenUrl = new URL("/token", cfg.issuer);
+  const verifier = sessionStorage.getItem("pkce_verifier") || "";
   const response = await fetch(tokenUrl.toString(), {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
@@ -173,10 +174,12 @@ export async function handleCallback(): Promise<AuthSession | null> {
       code,
       client_id: cfg.clientId,
       redirect_uri: cfg.redirectUri,
-      code_verifier: sessionStorage.getItem("pkce_verifier") || "",
+      code_verifier: verifier,
     }),
   });
-  if (!response.ok) throw new Error("Token exchange failed");
+  if (!response.ok) {
+    throw new Error("Token exchange failed");
+  }
   const tokenResponse = await response.json();
   const fragmentParams = parseFragmentParams(location.hash || "");
   const fragmentDrkJwe = fragmentParams.drk_jwe;

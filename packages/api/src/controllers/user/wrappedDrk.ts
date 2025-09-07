@@ -38,7 +38,13 @@ export async function getWrappedDrk(
     }
 
     // Return base64url encoded wrapped DRK
-    const wrapped = wrappedRootKey.wrappedDrk || Buffer.alloc(0);
+    const wrappedRaw = wrappedRootKey.wrappedDrk || Buffer.alloc(0);
+    
+    // Ensure we have a proper Buffer (PGlite might return Uint8Array)
+    const wrapped = Buffer.isBuffer(wrappedRaw) 
+      ? wrappedRaw 
+      : Buffer.from(wrappedRaw);
+    
     const wrappedDrkBase64Url = toBase64Url(wrapped);
 
     sendJson(response, 200, {

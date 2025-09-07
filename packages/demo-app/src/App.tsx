@@ -35,7 +35,8 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     // Don't process callback here - let the /callback route handle it
     if (location.search.includes("code=")) {
       // We're on the wrong route with a code, redirect to callback
-      window.location.href = `/callback${location.search}`;
+      // IMPORTANT: Preserve the fragment (hash) which contains the JWE!
+      window.location.href = `/callback${location.search}${location.hash}`;
       return;
     }
 

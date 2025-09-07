@@ -166,6 +166,19 @@ class ApiService {
     options: RequestInit = {},
     retryCount = 0
   ): Promise<T> {
+    if (!this.accessToken) {
+      const storedAt = localStorage.getItem("userAccessToken");
+      if (storedAt) this.accessToken = storedAt;
+    }
+    if (!this.refreshToken) {
+      const storedRt = localStorage.getItem("userRefreshToken");
+      if (storedRt) this.refreshToken = storedRt;
+    }
+    if (!this.accessToken && this.refreshToken && retryCount === 0) {
+      try {
+        await this.refreshSession();
+      } catch {}
+    }
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers = new Headers({ "Content-Type": "application/json" });
@@ -182,8 +195,8 @@ class ApiService {
     }
 
     const config: RequestInit = {
-      headers,
       ...options,
+      headers,
     };
 
     try {
@@ -360,11 +373,11 @@ class ApiService {
 
   // Authorization Flow
   async authorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
-    console.log("[api] finalize authorize start", request);
     const params = new URLSearchParams();
     params.set("request_id", request.requestId);
-    if (request.drkHash) params.set("drk_hash", request.drkHash);
-    if (request.drkJwe) params.set("drk_jwe", request.drkJwe);
+    if (request.drkHash) {
+      params.set("drk_hash", request.drkHash);
+    }
 
     const data = await this.request<{ redirect_uri: string; code: string; state?: string }>(
       "/authorize/finalize",
