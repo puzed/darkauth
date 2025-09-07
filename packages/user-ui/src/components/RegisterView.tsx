@@ -1,15 +1,14 @@
-import { Link } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
-import Login from "./Login";
 import styles from "./LoginView.module.css";
+import Register from "./Register";
 import ThemeToggle from "./ThemeToggle";
 
 type SessionData = { sub: string; name?: string; email?: string; passwordResetRequired?: boolean };
 
-export default function LoginView(props?: {
+export default function RegisterView(props?: {
   options?: unknown;
-  onSwitchToRegister?: () => void;
-  onLogin?: (session: SessionData) => void;
+  onSwitchToLogin?: () => void;
+  onRegister?: (session: SessionData) => void;
 }) {
   const branding = useBranding();
 
@@ -18,7 +17,7 @@ export default function LoginView(props?: {
       <div className={styles.container}>
         <div className={styles.authHeader}>
           <div className={styles.headerTop}>
-            <Link to="/" className={styles.brand}>
+            <div className={styles.brand}>
               <span className={styles.brandIcon}>
                 <img
                   src={branding.getLogoUrl()}
@@ -27,14 +26,14 @@ export default function LoginView(props?: {
                 />
               </span>
               <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>
-            </Link>
+            </div>
             <ThemeToggle />
           </div>
           <p className={styles.tagline}>{branding.getTagline()}</p>
         </div>
-        <Login
-          onLogin={props?.onLogin || (() => {})}
-          onSwitchToRegister={props?.onSwitchToRegister || (() => {})}
+        <Register
+          onRegister={props?.onRegister || (() => {})}
+          onSwitchToLogin={props?.onSwitchToLogin || (() => {})}
         />
       </div>
     </div>

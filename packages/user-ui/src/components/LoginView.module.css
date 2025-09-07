@@ -35,6 +35,11 @@
   align-items: center;
   gap: 0.75rem;
   margin: 0;
+  text-decoration: none;
+}
+
+.brand:hover {
+  text-decoration: none;
 }
 
 .brandIcon img {

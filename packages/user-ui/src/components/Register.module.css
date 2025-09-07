@@ -1,0 +1,347 @@
+/* Register component CSS module styles - matching Login component */
+
+.authContainer {
+  padding: 1rem 2rem 2rem;
+  text-align: left;
+}
+
+.formTitle {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--gray-900);
+  text-align: left;
+  margin-bottom: 1.5rem;
+}
+
+.form {
+  /* Form styles are handled by global form styles */
+}
+
+.formGroup {
+  margin-bottom: 1.5rem;
+}
+
+.formLabel {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--gray-700);
+  text-align: left;
+}
+
+.formInput {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-md);
+  color: var(--gray-900);
+  background: var(--da-input-bg);
+  transition: border-color 0.2s ease;
+  outline: none;
+}
+
+.formInput:hover {
+  border-color: var(--gray-400);
+}
+
+.formInput:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px var(--primary-100);
+}
+
+.formInput.error {
+  border-color: var(--error-500);
+  background: var(--error-50);
+}
+
+.formInput.error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
+}
+
+.formInput:disabled {
+  background: var(--gray-50);
+  color: var(--gray-500);
+  cursor: not-allowed;
+}
+
+.errorText {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.375rem;
+  font-size: 1rem;
+  color: var(--error-600);
+  animation: fadeIn 0.2s ease;
+}
+
+.errorText::before {
+  content: "⚠";
+  font-size: 1rem;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.875rem;
+  background: var(--error-50);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  margin-bottom: 1.25rem;
+  font-size: 1rem;
+  color: var(--error-700);
+  animation: shake 0.3s ease;
+}
+
+.errorMessage::before {
+  content: "⚠";
+  font-size: 1.25rem;
+  color: var(--error-500);
+  flex-shrink: 0;
+  margin-top: -0.125rem;
+}
+
+.helpText {
+  margin-top: 0.375rem;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}
+
+.primaryButton {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--primary-600);
+  color: var(--primary-button-text, white);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.primaryButton:hover:not(:disabled) {
+  background: var(--primary-700);
+}
+
+.primaryButton:disabled {
+  background: var(--gray-300);
+  cursor: not-allowed;
+}
+
+.loadingSpinner {
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--gray-200);
+  border-radius: 50%;
+  border-top-color: currentColor;
+  animation: spin 0.8s linear infinite;
+  margin-right: 0.5rem;
+}
+
+.formFooter {
+  text-align: left;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--gray-200);
+}
+
+.formFooter p {
+  font-size: 1rem;
+  color: var(--gray-600);
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  color: var(--primary-600);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  text-decoration: none;
+}
+
+.linkButton:hover:not(:disabled) {
+  color: var(--primary-700);
+  text-decoration: underline;
+}
+
+.linkButton:disabled {
+  color: var(--gray-400);
+  cursor: not-allowed;
+}
+
+/* Password strength indicator */
+.passwordStrength {
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.strengthBar {
+  flex: 1;
+  height: 4px;
+  background: var(--gray-200);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.strengthFill {
+  height: 100%;
+  width: 0;
+  transition:
+    width 0.3s ease,
+    background-color 0.3s ease;
+}
+
+.strengthFill.weak {
+  width: 25%;
+  background: #ff4444;
+}
+
+.strengthFill.fair {
+  width: 50%;
+  background: #ff8800;
+}
+
+.strengthFill.good {
+  width: 75%;
+  background: #ffbb00;
+}
+
+.strengthFill.strong {
+  width: 100%;
+  background: #16a34a;
+}
+
+.strengthText {
+  font-size: 0.875rem;
+  font-weight: 500;
+  min-width: 3rem;
+}
+
+.strengthText.weak {
+  color: #ff4444;
+}
+
+.strengthText.fair {
+  color: #ff8800;
+}
+
+.strengthText.good {
+  color: #ffbb00;
+}
+
+.strengthText.strong {
+  color: #16a34a;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-4px);
+  }
+  75% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dark mode styles */
+[data-da-theme="dark"] .formTitle {
+  color: #f1f5f9;
+}
+
+[data-da-theme="dark"] .formLabel {
+  color: #ffffff;
+}
+
+[data-da-theme="dark"] .formInput {
+  background: #0f172a;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+[data-da-theme="dark"] .formInput:hover {
+  border-color: #64748b;
+}
+
+[data-da-theme="dark"] .formInput:focus {
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+}
+
+[data-da-theme="dark"] .formInput:disabled {
+  background: var(--gray-200);
+  color: var(--gray-500);
+}
+
+[data-da-theme="dark"] .formFooter {
+  border-top-color: var(--gray-300);
+}
+
+[data-da-theme="dark"] .formFooter p {
+  color: var(--gray-600);
+}
+
+[data-da-theme="dark"] .primaryButton {
+  background: var(--primary-500);
+}
+
+[data-da-theme="dark"] .primaryButton:hover:not(:disabled) {
+  background: var(--primary-600);
+}
+
+[data-da-theme="dark"] .linkButton {
+  color: var(--primary-500);
+}
+
+[data-da-theme="dark"] .linkButton:hover:not(:disabled) {
+  color: var(--primary-600);
+}
+
+[data-da-theme="dark"] .errorMessage {
+  background: var(--error-50);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error-700);
+}
+
+[data-da-theme="dark"] .errorText {
+  color: var(--error-600);
+}
+
+[data-da-theme="dark"] .helpText {
+  color: var(--gray-500);
+}
+
+[data-da-theme="dark"] .loadingSpinner {
+  border-color: var(--gray-300);
+  border-top-color: currentColor;
+}
+
+[data-da-theme="dark"] .passwordStrength {
+  color: var(--gray-300);
+}
+
+[data-da-theme="dark"] .strengthBar {
+  background: var(--gray-700);
+}
