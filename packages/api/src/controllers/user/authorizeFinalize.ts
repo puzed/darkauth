@@ -78,12 +78,11 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       // Check if this is a ZK-enabled request that includes drk_hash from client-side JWE creation
       const drkHashFromClient = formData.get("drk_hash");
-      const drkJweFromClient = formData.get("drk_jwe");
 
-      if (pendingRequest.zkPubKid && (drkHashFromClient || drkJweFromClient)) {
+      if (pendingRequest.zkPubKid && drkHashFromClient) {
         // ZK client has already created the JWE client-side and provided the hash
         hasZk = true;
-        drkHash = drkHashFromClient || undefined;
+        drkHash = drkHashFromClient;
       } else if (pendingRequest.zkPubKid) {
         // Legacy support: server-side check for DRK existence
         // In the proper ZK flow, client handles DRK unwrapping and JWE creation
@@ -112,7 +111,6 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         hasZk,
         zkPubKid: pendingRequest.zkPubKid,
         drkHash,
-        drkJwe: drkJweFromClient || undefined,
         createdAt: new Date(),
       });
 
@@ -134,7 +132,6 @@ export function registerOpenApi(registry: OpenAPIRegistry) {
   const Req = z.object({
     request_id: z.string().min(1),
     drk_hash: z.string().optional(),
-    drk_jwe: z.string().optional(),
   });
   const Resp = z.object({
     code: z.string(),

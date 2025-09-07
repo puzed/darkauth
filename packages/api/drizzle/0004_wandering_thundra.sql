@@ -1,0 +1,1 @@
+ALTER TABLE "auth_codes" DROP COLUMN "drk_jwe";
