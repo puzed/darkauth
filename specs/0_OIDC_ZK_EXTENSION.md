@@ -54,13 +54,11 @@ Notational Conventions
 - Auth: End‑user session at the AS is required.
 - Request (form‑encoded):
   - request_id: string (required)
-  - drk_hash: string (base64url) (RECOMMENDED when zk_pub was provided)
-  - drk_jwe: string (compact JWE) (OPTIONAL legacy fallback; not recommended)
+  - drk_hash: string (base64url) (REQUIRED when zk_pub was provided)
 - Server actions:
   - Validate the pending request and session; issue an authorization code (TTL ≤ 60 s).
-  - If zk_pub_kid was present, set has_zk = true and store drk_hash when provided (preferred).
-  - Optionally persist drk_jwe for legacy clients (discouraged; see Security).
-  - Do not redirect; return JSON { code, state, redirect_uri } so the Auth UI can attach the fragment.
+  - If zk_pub_kid was present, set has_zk = true and store drk_hash when provided.
+  - Do not redirect; return JSON { redirect_uri, code, state } so the Auth UI can attach the fragment.
 - Client (Auth UI) action for ZK flow:
   - Construct drk_jwe = JWE_ECDH‑ES_A256GCM(DRK, zk_pub) with AAD = { sub, client_id }.
   - Compute drk_hash; send in finalize; then navigate to redirect_uri with the fragment: `#drk_jwe=<url-encoded>`.
@@ -70,7 +68,6 @@ Notational Conventions
 - Endpoint: POST /token (unchanged grant = authorization_code)
 - Response additions when has_zk = true on the code:
   - zk_drk_hash: string (base64url of SHA‑256(drk_jwe))
-  - zk_drk_jwe: string (compact JWE) (OPTIONAL legacy fallback; not recommended)
 - Clients MUST verify base64url(SHA‑256(fragment drk_jwe)) == zk_drk_hash before decrypting.
 
 7. DRK Storage Endpoints
@@ -104,7 +101,7 @@ Notational Conventions
 
 - Confidentiality:
   - DRK is never transmitted to or stored by the AS in plaintext. KW is derived client‑side; the AS never observes export_key or KW.
-  - The fragment JWE is never seen by the AS when produced client‑side; zk_drk_jwe in /token is a legacy fallback and SHOULD be disabled in production.
+  - The fragment JWE is never seen by the AS; it is produced client‑side and transmitted only via URL fragment.
 - Binding and replay:
   - drk_hash binds the out‑of‑band fragment to the authorization code. Clients MUST verify the hash prior to decryption.
   - Authorization codes MUST be single‑use and short‑lived (≤ 60 s). PKCE S256 MUST be enforced for public clients and SHOULD be enforced generally.
@@ -133,7 +130,7 @@ Notational Conventions
 13. Backwards Compatibility
 
 - Clients that do not include zk_pub interoperate with standard OIDC flows unchanged.
-- Servers MAY return zk_drk_jwe during migration, but SHOULD prefer client‑side fragment JWE with hash binding.
+- Servers MUST NOT return zk_drk_jwe in token responses; the JWE is transmitted only via URL fragment.
 
 14. IANA Considerations
 

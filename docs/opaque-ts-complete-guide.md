@@ -306,6 +306,7 @@ server.authInit(loginRequest, record, credentialId, clientIdentity)
 - `.serialize()` returns `number[]`
 - `.deserialize()` expects `number[]`
 - Need to convert when storing/transmitting
+- Database libraries (like PGlite) may return `Uint8Array` instead of `Buffer` - always check and convert
 
 ## Error Handling Patterns
 
