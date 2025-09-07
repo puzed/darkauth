@@ -10,3 +10,4 @@ test-screenshots
 config.yaml
 test-data
 packages/api/data
+packages/demo-app/data
