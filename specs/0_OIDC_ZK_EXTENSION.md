@@ -15,7 +15,7 @@ Notational Conventions
 
 - The user authenticates to the AS using OPAQUE (RFC 9380). The client never learns the password; the AS never receives the password.
 - The OPAQUE export_key deterministically derives a wrapping key KW on the user device. KW wraps a randomly generated Data Root Key (DRK). The AS stores only the wrapped DRK; the AS never sees KW or DRK.
-- ZK‑enabled clients supply an ephemeral ECDH public key in the authorization request. After user login, browser code produces a compact JWE of the DRK to that key and completes the authorization. The DRK is delivered in the URL fragment to the client, never transiting the AS.
+- ZK‑enabled clients supply an ephemeral ECDH public key in the authorization request. After user login, browser code produces a compact JWE of the DRK to that key and completes the authorization. **CRITICAL**: The DRK JWE exists solely in client memory and URL fragments - never stored by or transmitted through the AS.
 - The token response includes a hash that binds the authorization code to the fragment JWE, enabling the client to verify integrity of the out‑of‑band handoff.
 - Auxiliary endpoints allow users to publish their long‑term public encryption key and store a DRK‑wrapped private key for recovery/portability.
 
@@ -44,9 +44,16 @@ Notational Conventions
   - Preconditions:
     - Client zk_delivery MUST be "fragment-jwe".
     - PKCE with S256 MUST be used.
+  - **Validation Requirements**:
+    - **Format**: MUST be valid `base64url(JSON.stringify(JWK))`
+    - **JWK Structure**: MUST contain `kty="EC"`, `crv="P-256"`, valid `x` and `y` coordinates
+    - **Coordinate Validation**: `x` and `y` MUST be 32-byte base64url-encoded values representing valid P-256 curve points
+    - **Cryptographic Validation**: Server MUST verify the public key lies on the P-256 curve
+    - **Rejection Policy**: Server MUST return `invalid_request` for malformed, invalid, or weak keys
+    - **Privacy**: MUST NOT contain private key components (`d` field)
   - Server behavior:
     - If zk_pub is present and the client is ZK‑enabled, compute zk_pub_kid = SHA‑256 over the exact zk_pub string and bind it to the pending authorization request.
-    - Servers MUST NOT log zk_pub.
+    - Servers MUST NOT log zk_pub or any derived cryptographic material.
 
 5. Authorization Finalization
 
@@ -68,6 +75,8 @@ Notational Conventions
 - Endpoint: POST /token (unchanged grant = authorization_code)
 - Response additions when has_zk = true on the code:
   - zk_drk_hash: string (base64url of SHA‑256(drk_jwe))
+- **CRITICAL SECURITY**: Token endpoint NEVER returns `zk_drk_jwe`. The server does not store JWE ciphertext - only the hash for verification.
+- JWE is transmitted ONLY via URL fragment, never through server responses.
 - Clients MUST verify base64url(SHA‑256(fragment drk_jwe)) == zk_drk_hash before decrypting.
 
 7. DRK Storage Endpoints
@@ -108,8 +117,12 @@ Notational Conventions
 - Downgrade resilience:
   - Servers MUST only honor zk_pub for clients registered with zk_delivery = "fragment-jwe".
   - Servers MUST ignore or reject zk_pub for non‑ZK clients.
-- Logging and secrets handling:
-  - Servers MUST NOT log zk_pub, drk_jwe, or wrapped_drk. Audit logs SHOULD capture only high‑level events without payloads.
+- **Logging and secrets handling**:
+  - **Prohibited**: Servers MUST NOT log `zk_pub`, `drk_jwe`, `wrapped_drk`, or any cryptographic payloads
+  - **Safe audit logging**: Log only metadata (timestamps, client_id, user subjects, success/failure outcomes)  
+  - **Hash correlation**: Use `zk_pub_kid` and `drk_hash` for debugging/correlation, never the source values
+  - **Production requirements**: Implement structured logging with explicit field filtering to prevent accidental disclosure
+  - **Development**: Even in development, MUST NOT log cryptographic material - only high-level flow events
 - Key algorithms:
   - JWE alg MUST be ECDH‑ES on P‑256; enc MUST be A256GCM. Clients SHOULD validate header alg and enc before decryption.
 - Sessions and cookies:
@@ -130,7 +143,9 @@ Notational Conventions
 13. Backwards Compatibility
 
 - Clients that do not include zk_pub interoperate with standard OIDC flows unchanged.
-- Servers MUST NOT return zk_drk_jwe in token responses; the JWE is transmitted only via URL fragment.
+- **CRITICAL SECURITY**: Servers MUST NOT return `zk_drk_jwe` in token responses; the JWE is transmitted only via URL fragment.
+- **Server storage**: Servers NEVER store JWE ciphertext - only hash values for verification binding.
+- **Fragment-only delivery**: JWE exists solely in client memory and URL fragments, never in server responses or storage.
 
 14. IANA Considerations
 

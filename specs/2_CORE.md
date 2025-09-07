@@ -56,6 +56,51 @@ Config rules:
   * Receiver key: app’s ephemeral `zk_pub` JWK from `/authorize` query.
   * AAD includes `sub` and `client_id`.
   * **`drk_hash = base64url(SHA-256(drk_jwe))`** is stored with the auth code and returned by `/token` to bind fragment → code.
+  * **CRITICAL SECURITY**: Server NEVER stores `drk_jwe` - only `drk_hash` for verification. JWE is transmitted ONLY via URL fragment.
+
+### 2.1 P-256 Public Key Validation Requirements
+
+When processing `zk_pub` parameter containing an ECDH public key:
+
+* **Format validation**: MUST be valid `base64url(JSON.stringify(JWK))` where JWK contains:
+  - `kty`: MUST be "EC"
+  - `crv`: MUST be "P-256" 
+  - `x`, `y`: MUST be valid base64url-encoded P-256 curve coordinates (32 bytes each when decoded)
+  - MUST NOT contain private key components (`d`)
+* **Cryptographic validation**: Server MUST verify the public key lies on the P-256 curve
+* **Rejection policy**: Server MUST reject requests with malformed, invalid, or weak keys
+* **Logging**: Server MUST NOT log the `zk_pub` value in any form (see §2.2)
+
+### 2.2 Secure Logging Practices for Production
+
+To protect cryptographic material and user privacy, the following logging restrictions are MANDATORY:
+
+#### 2.2.1 Prohibited Logging (NEVER log these values)
+* `zk_pub` - Ephemeral ECDH public keys from authorization requests
+* `drk_jwe` - JWE ciphertext containing encrypted DRK
+* `wrapped_drk` - User's wrapped Data Root Key ciphertext
+* OPAQUE protocol messages: `envelope`, `server_pubkey`, request/response payloads
+* Raw password attempts or password-derived values
+* Session tokens, refresh tokens, or authorization codes in plaintext
+* Private key material or KEK-related values
+
+#### 2.2.2 Safe Audit Logging (Production Requirements)
+* **High-level events only**: Authentication success/failure, authorization grants, token issuance
+* **Metadata only**: timestamps, client_id, user subject identifiers, IP addresses, user agents
+* **Hash identifiers**: Use `zk_pub_kid = SHA-256(zk_pub)` and `drk_hash` for correlation, never the source values
+* **Rate limiting events**: Failed attempts, exceeded quotas, suspicious patterns
+* **Admin actions**: Configuration changes, key rotations, user management operations
+
+#### 2.2.3 Development vs Production
+* **Development**: May log additional detail for debugging but MUST NOT include cryptographic payloads
+* **Production**: MUST use structured logging with explicit field filtering to prevent accidental disclosure
+* **Log retention**: Production logs containing user metadata SHOULD be retained per compliance requirements but MUST be encrypted at rest
+
+#### 2.2.4 Monitoring and Alerting
+* **Security events**: Multiple failed authentications, unusual access patterns, key validation failures
+* **System health**: Database connectivity, KEK availability, certificate expiration
+* **Performance metrics**: Request rates, response times, resource utilization (without sensitive data)
+
 * **Tokens**: JWT ID/Access tokens signed with **EdDSA (Ed25519)** via `jose`.
 
 * **KEK and secure-at-rest**
@@ -79,7 +124,7 @@ Tables and key fields:
 - opaque_records: `sub` (pk, fk users.sub), `envelope` (bytea), `server_pubkey` (bytea), `updated_at`.
 - wrapped_root_keys: `sub` (pk, fk users.sub), `wrapped_drk` (bytea), `updated_at`.
 - user_encryption_keys: `sub` (pk, fk users.sub), `enc_public_jwk` (jsonb), `enc_private_jwk_wrapped` (bytea|null), `updated_at`.
-- auth_codes: `code` (pk), `client_id` (fk clients.client_id), `user_sub`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `expires_at`, `consumed` (bool), `has_zk` (bool), `zk_pub_kid` (text), `drk_hash` (text|null), `drk_jwe` (text|null).
+- auth_codes: `code` (pk), `client_id` (fk clients.client_id), `user_sub`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `expires_at`, `consumed` (bool), `has_zk` (bool), `zk_pub_kid` (text), `drk_hash` (text|null).
 - sessions: `id` (pk), `cohort` in `user|admin`, `user_sub` (nullable), `admin_id` (nullable), `created_at`, `expires_at`, `data` (jsonb), `refresh_token` (text|null), `refresh_token_expires_at` (timestamp|null).
 - opaque_login_sessions: `id` (pk), `server_state` (bytea), `identity_s` (text), `identity_u` (text), `created_at`, `expires_at`.
 - pending_auth: `request_id` (pk), `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method`, `zk_pub_kid` (text|null), `created_at`, `expires_at`, `user_sub` (nullable until login), `origin` (for CSRF binding).
@@ -154,6 +199,7 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
 Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 * DarkAuth **only** honors `zk_pub` if the client has `zk_delivery='fragment-jwe'`.
+* **SECURITY PRINCIPLE**: JWE ciphertext exists ONLY in client memory and URL fragments - never stored on server.
 * After OPAQUE completes and the UI has unwrapped **DRK** client-side:
 
   1. Browser JS creates `drk_jwe = JWE_ECDH_ES_A256GCM(DRK, zk_pub)` with AAD `{sub, client_id}`.
@@ -163,7 +209,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
   3. Browser redirects:
      `location.assign(`\${redirect\_uri}?code=...\&state=...#drk\_jwe=\${encodeURIComponent(drk\_jwe)}`)`
 
-> Note: we **do not** attempt to include the fragment on a server 302 because the server does not know `drk_jwe` (only the Auth UI JS does).
+> **CRITICAL**: Server never sees or stores `drk_jwe`. The fragment redirect is client-side only - server 302 would be impossible and insecure.
 
 **/authorize internals**
 
@@ -178,7 +224,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Mints `id_token` (and `access_token` if enabled by settings).
 - Returns a `refresh_token` bound to the session.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
-- If the code had `has_zk=true`, include `zk_drk_hash` (never include `zk_drk_jwe` - it's only in the fragment).
+- **SECURITY**: If the code had `has_zk=true`, include ONLY `zk_drk_hash` for verification. Server NEVER returns `zk_drk_jwe` as it doesn't store it.
 - Consume the code.
 
 ### 5.4 App behavior (ZK vs Standard)
@@ -186,7 +232,8 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 * **ZK client**:
 
   1. Generate ephemeral ECDH keypair; send `zk_pub` on `/authorize`.
-  2. After landing back, read `#drk_jwe`; call `/token`; verify `base64url(sha256(drk_jwe)) === zk_drk_hash`; decrypt JWE using local ephemeral private key → **DRK** in memory.
+  2. After landing back, read `#drk_jwe` from URL fragment (never from server); call `/token`; verify `base64url(sha256(drk_jwe)) === zk_drk_hash`; decrypt JWE using local ephemeral private key → **DRK** in memory.
+  3. **SECURITY**: JWE exists only in client memory and URL fragment - never transmitted through server channels.
 * **Standard client**: ignore ZK. Normal OIDC.
 
 ---
@@ -245,8 +292,7 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
     "token_type": "Bearer",
     "expires_in": 300,
     "refresh_token": "...",
-    "zk_drk_hash": "...",      // only when code.has_zk = true
-    "zk_drk_jwe": "..."        // optional legacy fallback when stored
+    "zk_drk_hash": "..."       // only when code.has_zk = true
   }
   ```
 
@@ -519,7 +565,7 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 
 ## 12. Security Rules (non-negotiable)
 
-* **Never** log `zk_pub`, `drk_jwe`, or any opaque/cryptographic payloads.
+* **Secure logging**: Follow the comprehensive logging restrictions defined in §2.2. NEVER log cryptographic material.
 * `/authorize` only accepts `zk_pub` if `client.zk_delivery='fragment-jwe'`.
 * `/token` only returns `zk_drk_hash` if the code has `has_zk=true`.
 * **Bind everything**: pending-auth ↔ IdP session, code ↔ client\_id, drk\_hash ↔ code, `zk_pub_kid` ↔ code.
