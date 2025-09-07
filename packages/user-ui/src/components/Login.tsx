@@ -4,6 +4,7 @@ import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import Button from "./Button";
 import styles from "./Login.module.css";
 
 interface LoginProps {
@@ -224,7 +225,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
 
         {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
 
-        <button type="submit" className={styles.primaryButton} disabled={loading}>
+        <Button type="submit" variant="primary" fullWidth disabled={loading}>
           {loading ? (
             <>
               <span className={styles.loadingSpinner} />
@@ -233,7 +234,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
           ) : (
             branding.getText("signin", "Continue")
           )}
-        </button>
+        </Button>
       </form>
 
       <div className={styles.formFooter}>

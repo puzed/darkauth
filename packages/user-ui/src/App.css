@@ -104,9 +104,8 @@ body {
 
 #root {
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
+  width: 100%;
 }
 
 .app {
