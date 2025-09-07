@@ -1,5 +1,7 @@
 # DarkAuth
 
+![DarkAuth screenshot](logos/hero.png)
+
 A zero-knowledge authentication system with OIDC compatibility. DarkAuth implements OPAQUE (RFC 9380) for password authentication where the server never learns the password, and provides optional zero-knowledge delivery of Data Root Keys (DRK) to trusted clients.
 
 DarkAuth is open source and self-hosted. There is no paid plan, subscription, or cloud service. A ready-to-run Docker image is available at `ghcr.io/puzed/darkauth:latest`.
