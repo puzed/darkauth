@@ -118,11 +118,7 @@ class OpaqueService {
     if (registrationRequest instanceof Error) {
       throw registrationRequest;
     }
-    try {
-      const bytes = registrationRequest.serialize();
-      const head = toBase64Url(Uint8Array.from(bytes).slice(0, 12));
-      console.log("[opaque] client.registerInit", { len: bytes.length, head });
-    } catch {}
+    // Debug logging removed for security - never log cryptographic material
 
     return {
       request: toBase64Url(Uint8Array.from(registrationRequest.serialize())),

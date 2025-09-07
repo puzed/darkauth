@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import styles from "./Dashboard.module.css";
 import UserLayout from "./UserLayout";
-import { useBranding } from "../hooks/useBranding";
 
 interface SessionData {
   sub: string;

@@ -93,13 +93,22 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
       const exportKeyHash = await sha256Base64Url(regFinish.passwordKey);
       await apiService.passwordChangeFinish(regFinish.request, exportKeyHash, reauthToken);
 
-      saveExportKey(sub, regFinish.passwordKey);
+      // Store export key securely and clear from memory immediately
+      await saveExportKey(sub, regFinish.passwordKey);
 
       if (recoveredDrk) {
         const keysNew = await cryptoService.deriveKeysFromExportKey(regFinish.passwordKey, sub);
         const wrappedDrk = await cryptoService.wrapDRK(recoveredDrk, keysNew.wrapKey, sub);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-        cryptoService.clearSensitiveData(regFinish.passwordKey, recoveredDrk);
+
+        // Clear all sensitive data from memory
+        cryptoService.clearSensitiveData(
+          regFinish.passwordKey,
+          recoveredDrk,
+          keysNew.masterKey,
+          keysNew.wrapKey,
+          keysNew.deriveKey
+        );
         setInfo("Password changed and keys preserved.");
         if (onSuccess) onSuccess();
         return;

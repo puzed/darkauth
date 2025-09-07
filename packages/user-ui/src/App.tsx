@@ -6,7 +6,7 @@ import Dashboard from "./components/Dashboard";
 import LoginView from "./components/LoginView";
 import RegisterView from "./components/RegisterView";
 import apiService from "./services/api";
-import { clearExportKey } from "./services/sessionKey";
+import { clearAllExportKeys } from "./services/sessionKey";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
 import { useBranding } from "./hooks/useBranding";
@@ -71,7 +71,8 @@ function AppContent() {
     apiService.setSessionExpiredCallback(() => {
       setSessionData(null);
       setAuthRequest(null);
-      clearExportKey(sessionData?.sub || "");
+      // Clear all export keys when session expires
+      clearAllExportKeys();
       // Clear any auth request from window
       if (window.authRequest) {
         window.authRequest = undefined;
@@ -79,7 +80,7 @@ function AppContent() {
     });
 
     initializeApp();
-  }, [initializeApp, sessionData?.sub]);
+  }, [initializeApp]);
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
@@ -102,7 +103,8 @@ function AppContent() {
   const handleLogout = async () => {
     try {
       await apiService.logout();
-      if (sessionData?.sub) clearExportKey(sessionData.sub);
+      // Clear all export keys for comprehensive cleanup
+      clearAllExportKeys();
       setSessionData(null);
       setAuthRequest(null);
       // Clear any auth request from window
