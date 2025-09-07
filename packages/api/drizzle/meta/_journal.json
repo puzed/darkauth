@@ -29,6 +29,13 @@
       "when": 1757262097651,
       "tag": "0003_zippy_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1757270678259,
+      "tag": "0004_wandering_thundra",
+      "breakpoints": true
     }
   ]
 }

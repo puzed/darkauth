@@ -421,12 +421,7 @@ export const postToken = withRateLimit("token")(
       // Handle ZK delivery (include zk_drk_hash if applicable)
       if (authCode.hasZk) {
         if (authCode.drkHash) tokenResponse.zk_drk_hash = authCode.drkHash;
-        if (authCode.drkJwe) {
-          tokenResponse.zk_drk_jwe = authCode.drkJwe;
-          console.log("[token] include zk_drk_jwe", { len: authCode.drkJwe.length });
-        } else {
-          console.log("[token] has_zk but no drk_jwe stored");
-        }
+        console.log("[token] ZK delivery - drk_hash included, JWE handled client-side");
       }
 
       const sessionData = {
