@@ -112,13 +112,13 @@ export default function Authorize({
             const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
             const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
             const drkHash = await sha256Base64Url(jwe);
-            
+
             const authResponse = await apiService.authorize({
               requestId: authRequest.requestId,
               approve,
               drkHash,
             });
-            
+
             // Add the JWE to the fragment (this is how it gets to the app without server seeing it)
             const redirectUrl = new URL(authResponse.redirectUrl);
             redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
