@@ -216,7 +216,6 @@ export interface TokenResponse {
   refresh_token?: string;
   scope?: string;
   zk_drk_hash?: string;
-  zk_drk_jwe?: string;
 }
 
 export interface AuthorizationRequest {

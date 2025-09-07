@@ -137,7 +137,6 @@ export const authCodes = pgTable("auth_codes", {
   hasZk: boolean("has_zk").default(false).notNull(),
   zkPubKid: text("zk_pub_kid"),
   drkHash: text("drk_hash"),
-  drkJwe: text("drk_jwe"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

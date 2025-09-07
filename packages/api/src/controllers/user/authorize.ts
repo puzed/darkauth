@@ -14,6 +14,7 @@ import { getSession, getSessionId } from "../../services/sessions.js";
 import type { AuthorizationRequest, Context } from "../../types.js";
 import { generateRandomString, sha256Base64Url } from "../../utils/crypto.js";
 import { parseQueryParams } from "../../utils/http.js";
+import { parseAndValidateZkPub } from "../../utils/jwk.js";
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1),
@@ -86,6 +87,8 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   let zkPubKid: string | undefined;
   if (authRequest.zk_pub && client.zkDelivery === "fragment-jwe") {
+    // Validate that zk_pub is a proper P-256 ECDH public key in JWK format
+    parseAndValidateZkPub(authRequest.zk_pub);
     zkPubKid = sha256Base64Url(authRequest.zk_pub);
   } else if (authRequest.zk_pub && client.zkDelivery === "none") {
     throw new InvalidRequestError("This client does not support ZK delivery");
