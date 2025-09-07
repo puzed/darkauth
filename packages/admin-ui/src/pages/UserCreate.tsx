@@ -1,5 +1,5 @@
 import { ArrowLeft, Copy, KeyRound } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -20,6 +20,9 @@ import adminOpaqueService from "@/services/opaque-cloudflare";
 
 export default function UserCreate() {
   const navigate = useNavigate();
+  const emailId = useId();
+  const nameId = useId();
+  const subId = useId();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [sub, setSub] = useState("");
@@ -81,24 +84,31 @@ export default function UserCreate() {
         </CardHeader>
         <CardContent>
           <FormGrid columns={2}>
-            <FormField label={<Label>Email</Label>}>
+            <FormField label={<Label htmlFor={emailId}>Email</Label>}>
               <Input
+                id={emailId}
+                name="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
                 placeholder="admin@example.com"
+                required
               />
             </FormField>
-            <FormField label={<Label>Name</Label>}>
+            <FormField label={<Label htmlFor={nameId}>Name</Label>}>
               <Input
+                id={nameId}
+                name="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={submitting}
                 placeholder="Jane Doe"
               />
             </FormField>
-            <FormField label={<Label>Subject ID (optional)</Label>}>
+            <FormField label={<Label htmlFor={subId}>Subject ID (optional)</Label>}>
               <Input
+                id={subId}
+                name="sub"
                 value={sub}
                 onChange={(e) => setSub(e.target.value)}
                 disabled={submitting}
@@ -110,7 +120,7 @@ export default function UserCreate() {
             <Button variant="outline" onClick={() => navigate("/users")}>
               Back
             </Button>
-            <Button onClick={create} disabled={submitting || !email}>
+            <Button onClick={create} disabled={submitting || !email.trim()}>
               Create
             </Button>
           </div>
