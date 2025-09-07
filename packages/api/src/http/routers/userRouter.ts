@@ -3,6 +3,7 @@ import { getAuthorize } from "../../controllers/user/authorize.js";
 import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.js";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.js";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.js";
+import { getUserApps } from "../../controllers/user/getUserApps.js";
 import { postLogout } from "../../controllers/user/logout.js";
 import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.js";
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.js";
@@ -268,6 +269,10 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/session") {
         return await getSession(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/apps") {
+        return await getUserApps(context, request, response);
       }
 
       if (method === "POST" && pathname === "/logout") {
