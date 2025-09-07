@@ -1,6 +1,14 @@
 {
-  "generatedAt": "2025-09-07T19:48:23.576Z",
+  "generatedAt": "2025-09-07T20:22:11.597Z",
   "entries": [
+    {
+      "date": "2025-09-07",
+      "title": "v1.0.6",
+      "changes": [
+        "This release hardens client security with fragment-only DRK delivery and secure key storage, and introduces a new User Dashboard powered by fresh API endpoints.\n\n## ✨ Features\n\n### 🔐 Fragment-Only DRK Delivery & Client Key Security\n- Require fragment-only delivery of DRK JWE in the client and verify via `zk_drk_hash`\n- Validate `zk_pub` as P-256 JWK in the API and remove persisted `drk_jwe` server-side\n- Add secure export key storage in User UI with async migration and aggressive clearing of sensitive flow data\n\n### 🖥️ User Dashboard\n- Add User UI dashboard with CSS Modules styling\n- Fetch and display user apps with a new API surface\n- Introduce `/apps` endpoint and client metadata to power the dashboard\n\n## 🛠️ Improvements\n\n### Security Headers & Serving\n- Align CSP `frame-ancestors` to `self` and set `X-Frame-Options: SAMEORIGIN`\n- Remove proxy env flags and improve static serving behavior across environments\n\n## 🐛 Fixes\n\n### Infrastructure & UX\n- Set `Host` header when proxying to the Vite dev server\n- Restore visible success heading after auth to satisfy tests\n- Minor demo app fix\n\n## 🧪 Tests\n\n- Add Admin Users E2E for add/delete\n- Bump reload tokens to stabilize screenshots and flows\n\n## 📚 Chores\n\n### Documentation\n- Clarify zero-knowledge flow and fragment-only DRK delivery in specs\n- Document secure logging requirements and PGlite compatibility\n- Update CSP framing notes in the CORE spec and README screenshot\n\n### Maintenance\n- Docker build/tagging fixes and general linting\n- Update brochure site changelog data and assets\n- Add changelog entry scaffolding for this release"
+      ],
+      "filename": "v1.0.6.md"
+    },
     {
       "date": "2025-09-06",
       "title": "v1.0.5",
