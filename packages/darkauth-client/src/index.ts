@@ -182,9 +182,8 @@ export async function handleCallback(): Promise<AuthSession | null> {
   }
   const tokenResponse = await response.json();
   const fragmentParams = parseFragmentParams(location.hash || "");
-  const fragmentDrkJwe = fragmentParams.drk_jwe;
-  const drkJwe: string | undefined = fragmentDrkJwe || tokenResponse.zk_drk_jwe;
-  if (!drkJwe || typeof drkJwe !== "string") throw new Error("Missing DRK JWE");
+  const drkJwe: string | undefined = fragmentParams.drk_jwe;
+  if (!drkJwe || typeof drkJwe !== "string") throw new Error("Missing DRK JWE from URL fragment");
   if (tokenResponse.zk_drk_hash) {
     const hash = bytesToBase64Url(await sha256(new TextEncoder().encode(drkJwe)));
     if (tokenResponse.zk_drk_hash !== hash) throw new Error("DRK hash mismatch");
