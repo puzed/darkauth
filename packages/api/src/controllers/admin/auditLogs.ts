@@ -5,8 +5,6 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { inArray } from "drizzle-orm";
-import { adminUsers, users } from "../../db/schema.js";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
@@ -53,7 +51,8 @@ export const AuditLogsListResponseSchema = z.object({
   }),
 });
 
-import { queryAuditLogs } from "../../services/audit.js";
+import type { AuditLogFilters } from "../../models/auditLogs.js";
+import { attachActorInfo, countAuditLogs, listAuditLogs } from "../../models/auditLogs.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
@@ -93,7 +92,7 @@ export async function getAuditLogs(
   const search = url.searchParams.get("search") || undefined;
 
   // Build filters object
-  const filters = {
+  const filters: AuditLogFilters = {
     startDate,
     endDate,
     eventType,
@@ -109,63 +108,12 @@ export async function getAuditLogs(
   };
 
   // Query audit logs with filters
-  const auditLogsList = await queryAuditLogs(context, filters);
+  const auditLogsList = await listAuditLogs(context, filters);
 
-  const adminIds = Array.from(
-    new Set(
-      auditLogsList.map((log) => log.adminId).filter((value): value is string => Boolean(value))
-    )
-  );
-  const userIds = Array.from(
-    new Set(
-      auditLogsList.map((log) => log.userId).filter((value): value is string => Boolean(value))
-    )
-  );
-
-  const adminMap = new Map<string, { email: string; name: string }>();
-  const userMap = new Map<string, { email: string | null; name: string | null }>();
-
-  if (adminIds.length > 0) {
-    const rows = await context.db
-      .select({ id: adminUsers.id, email: adminUsers.email, name: adminUsers.name })
-      .from(adminUsers)
-      .where(inArray(adminUsers.id, adminIds as string[]));
-    for (const admin of rows) adminMap.set(admin.id, { email: admin.email, name: admin.name });
-  }
-
-  if (userIds.length > 0) {
-    const rows = await context.db
-      .select({ sub: users.sub, email: users.email, name: users.name })
-      .from(users)
-      .where(inArray(users.sub, userIds as string[]));
-    for (const user of rows)
-      userMap.set(user.sub, { email: user.email || null, name: user.name || null });
-  }
-
-  const enriched = auditLogsList.map((log) => {
-    const isAdmin = Boolean(log.adminId);
-    const actor = isAdmin
-      ? log.adminId && adminMap.get(log.adminId)
-      : log.userId && userMap.get(log.userId);
-    const actorEmail = actor ? ("email" in actor ? actor.email : null) : null;
-    const actorName = actor ? ("name" in actor ? actor.name : null) : null;
-    const actorType = isAdmin ? "Admin" : log.userId ? "User" : "System";
-    const actorId = actorEmail || (isAdmin ? log.adminId || null : log.userId || null) || "system";
-    return {
-      ...log,
-      timestamp: new Date(log.timestamp as unknown as Date).toISOString(),
-      actorType,
-      actorId,
-      actorEmail: actorEmail || undefined,
-      actorName: actorName || undefined,
-      resource: log.resourceType || undefined,
-    };
-  });
+  const enriched = await attachActorInfo(context, auditLogsList);
 
   // Get total count for pagination (using same filters but without limit/offset)
-  const countFilters = { ...filters, limit: undefined, offset: undefined };
-  const totalResults = await queryAuditLogs(context, countFilters);
-  const total = totalResults.length;
+  const total = await countAuditLogs(context, filters);
   const totalPages = Math.ceil(total / limit);
 
   const responseData = {

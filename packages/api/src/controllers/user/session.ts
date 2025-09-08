@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
 import { UnauthorizedError } from "../../errors.js";
+import { getUserBySub } from "../../models/users.js";
 import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -41,13 +40,8 @@ export async function getSession(
     throw new UnauthorizedError("User session required");
   }
 
-  let resetRequired = false;
-  if (sessionData.sub) {
-    const user = await context.db.query.users.findFirst({
-      where: eq(users.sub, sessionData.sub),
-    });
-    resetRequired = !!user?.passwordResetRequired;
-  }
+  const user = sessionData.sub ? await getUserBySub(context, sessionData.sub) : null;
+  const resetRequired = !!user?.passwordResetRequired;
 
   const sessionInfo = {
     sub: sessionData.sub,

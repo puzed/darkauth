@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { userEncryptionKeys } from "../../db/schema.js";
-import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { getEncPublicJwkBySub } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
@@ -29,11 +28,8 @@ export async function getEncPublicJwk(
   } | null;
   const allowOthers = setting?.enc_public_visible_to_authenticated_users === true;
   if (sub !== sessionData.sub && !allowOthers) throw new UnauthorizedError("Not allowed");
-  const row = await context.db.query.userEncryptionKeys.findFirst({
-    where: eq(userEncryptionKeys.sub, sub),
-  });
-  if (!row) throw new NotFoundError("Not found");
-  sendJson(response, 200, { enc_public_jwk: row.encPublicJwk });
+  const jwk = await getEncPublicJwkBySub(context, sub);
+  sendJson(response, 200, { enc_public_jwk: jwk });
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

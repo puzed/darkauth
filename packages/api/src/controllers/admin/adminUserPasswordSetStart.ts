@@ -5,10 +5,9 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { adminUsers } from "../../db/schema.js";
 import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -46,9 +45,7 @@ async function postAdminUserPasswordSetStartHandler(
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") throw new ValidationError("Write permission required");
 
-  const admin = await context.db.query.adminUsers.findFirst({
-    where: eq(adminUsers.id, adminId),
-  });
+  const admin = await getAdminById(context, adminId);
   if (!admin) throw new NotFoundError("Admin user not found");
 
   const body = await readBody(request);

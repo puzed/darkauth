@@ -6,13 +6,11 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { opaqueRecords, users } from "../../db/schema.js";
-import { ConflictError, ValidationError } from "../../errors.js";
-import { createSession } from "../../services/sessions.js";
+import { ValidationError } from "../../errors.js";
+import { userOpaqueRegisterFinish } from "../../models/registration.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url, generateRandomString } from "../../utils/crypto.js";
+import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
 export const postOpaqueRegisterFinish = withAudit({
@@ -80,63 +78,8 @@ export const postOpaqueRegisterFinish = withAudit({
         throw new ValidationError("Invalid base64url encoding in record");
       }
 
-      // Call OPAQUE service to process registration
-      const opaqueRecord = await context.services.opaque.finishRegistration(recordBuffer, email);
-
-      // Generate unique subject identifier for the user
-      const sub = generateRandomString(16);
-
-      try {
-        // Begin transaction
-        await context.db.transaction(async (tx) => {
-          // Check if email already exists
-          const existingUser = await tx.query.users.findFirst({
-            where: eq(users.email, email as string),
-          });
-
-          if (existingUser) {
-            throw new ConflictError("User with this email already exists");
-          }
-
-          // Create user record
-          await tx.insert(users).values({
-            sub,
-            email: email as string,
-            name: name,
-            createdAt: new Date(),
-          });
-
-          // Store OPAQUE record
-          await tx.insert(opaqueRecords).values({
-            sub,
-            envelope: Buffer.from(opaqueRecord.envelope),
-            serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-            updatedAt: new Date(),
-          });
-        });
-
-        // Create session for the new user
-        const sessionInfo = await createSession(context, "user", {
-          sub,
-          email: email as string,
-          name: name,
-        });
-
-        // Return success response with tokens
-        sendJson(response, 201, {
-          sub,
-          accessToken: sessionInfo.sessionId, // Use sessionId as bearer token
-          refreshToken: sessionInfo.refreshToken,
-          message: "User registered successfully",
-        });
-      } catch (dbError) {
-        // Handle database constraint errors
-        if (dbError instanceof ConflictError) {
-          throw dbError;
-        }
-        console.error("Database error during user registration:", dbError);
-        throw new ValidationError("Failed to create user account");
-      }
+      const result = await userOpaqueRegisterFinish(context, { record: recordBuffer, email, name });
+      sendJson(response, 201, { ...result, message: "User registered successfully" });
     } catch (error) {
       sendError(response, error as Error);
     }

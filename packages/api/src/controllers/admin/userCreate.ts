@@ -6,12 +6,10 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
-import { ConflictError, ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { createUser as createUserModel } from "../../models/users.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
-import { generateRandomString } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
 async function createUserHandler(
@@ -39,21 +37,8 @@ async function createUserHandler(
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) throw new ValidationError("Invalid email format");
 
-  const existing = await context.db.query.users.findFirst({
-    where: eq(users.email, email),
-  });
-  if (existing) throw new ConflictError("User with this email already exists");
-
-  const sub = subInput || generateRandomString(16);
-
-  await context.db.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
-
-  sendJson(response, 201, {
-    sub,
-    email,
-    name,
-    createdAt: new Date().toISOString(),
-  });
+  const result = await createUserModel(context, { email, name, sub: subInput });
+  sendJson(response, 201, result);
 }
 
 export const createUser = withAudit({

@@ -6,8 +6,6 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { count } from "drizzle-orm";
-import { groupPermissions, groups, userGroups } from "../../db/schema.js";
 import { ForbiddenError } from "../../errors.js";
 
 const GroupSchema = z.object({
@@ -29,6 +27,7 @@ export const GroupsListResponseSchema = z.object({
   pagination: PaginationSchema,
 });
 
+import { listGroupsWithCounts } from "../../models/groupsList.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
@@ -52,74 +51,8 @@ export async function getGroups(
     100,
     Math.max(1, Number.parseInt(url.searchParams.get("limit") || "20", 10))
   );
-  const offset = (page - 1) * limit;
-  const search = url.searchParams.get("search");
-
-  const { ilike, or } = await import("drizzle-orm");
-
-  const baseQuery = context.db
-    .select({
-      key: groups.key,
-      name: groups.name,
-    })
-    .from(groups);
-
-  const baseCountQuery = context.db.select({ count: count() }).from(groups);
-  const term = search?.trim() ? `%${search.trim()}%` : undefined;
-  const searchCondition = term ? or(ilike(groups.name, term), ilike(groups.key, term)) : undefined;
-
-  const totalRows = await (searchCondition
-    ? baseCountQuery.where(searchCondition)
-    : baseCountQuery);
-  const total = totalRows[0]?.count || 0;
-  const groupsData = await (searchCondition ? baseQuery.where(searchCondition) : baseQuery)
-    .orderBy(groups.name)
-    .limit(limit)
-    .offset(offset);
-
-  const permissionCounts = await context.db
-    .select({
-      groupKey: groupPermissions.groupKey,
-      permissionCount: count(groupPermissions.permissionKey),
-    })
-    .from(groupPermissions)
-    .groupBy(groupPermissions.groupKey);
-
-  const userCounts = await context.db
-    .select({
-      groupKey: userGroups.groupKey,
-      userCount: count(userGroups.userSub),
-    })
-    .from(userGroups)
-    .groupBy(userGroups.groupKey);
-
-  // Create maps for efficient lookup
-  const permissionCountMap = new Map(
-    permissionCounts.map((pc) => [pc.groupKey, pc.permissionCount])
-  );
-  const userCountMap = new Map(userCounts.map((uc) => [uc.groupKey, uc.userCount]));
-
-  // Build response with counts
-  const groupsWithCounts = groupsData.map((group) => ({
-    key: group.key,
-    name: group.name,
-    permissionCount: permissionCountMap.get(group.key) || 0,
-    userCount: userCountMap.get(group.key) || 0,
-  }));
-
-  const totalPages = Math.ceil(total / limit);
-  const responseData = {
-    groups: groupsWithCounts,
-    pagination: {
-      page,
-      limit,
-      total,
-      totalPages,
-      hasNext: page < totalPages,
-      hasPrev: page > 1,
-    },
-  };
-
+  const search = url.searchParams.get("search") || undefined;
+  const responseData = await listGroupsWithCounts(context, { page, limit, search });
   sendJsonValidated(response, 200, responseData, GroupsListResponseSchema);
 }
 

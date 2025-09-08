@@ -5,10 +5,9 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminUsers } from "../../db/schema.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getAdminByEmail } from "../../models/adminUsers.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
@@ -64,36 +63,15 @@ async function postAdminOpaqueLoginStartHandler(
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
     // Find admin user by email (with one retry if a PG client was dropped)
-    async function loadAdminUser(): Promise<
-      | {
-          id: string;
-          email: string;
-          name: string | null;
-          role: "read" | "write";
-          createdAt: Date;
-        }
-      | undefined
-    > {
-      return await context.db.query.adminUsers.findFirst({
-        where: eq(adminUsers.email, data.email as string),
-      });
-    }
-
-    const adminUser = await loadAdminUser();
+    const adminUser = await getAdminByEmail(context, data.email as string);
     context.logger.info({ email: data.email, found: !!adminUser }, "admin user lookup");
 
     if (!adminUser) {
       throw new NotFoundError("Admin user not found");
     }
 
-    // Load admin's OPAQUE record separately
-    async function loadOpaqueRecord(adminId: string) {
-      return await context.db.query.adminOpaqueRecords.findFirst({
-        where: eq(adminOpaqueRecords.adminId, adminId),
-      });
-    }
-
-    const opaque = await loadOpaqueRecord(adminUser.id);
+    const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.js");
+    const opaque = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
     context.logger.info(
       {
         adminId: adminUser.id,

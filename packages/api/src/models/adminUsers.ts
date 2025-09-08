@@ -103,6 +103,56 @@ export async function getAdminUser(context: Context, adminId: string) {
   return result[0];
 }
 
+export async function getAdminById(context: Context, adminId: string) {
+  const result = await context.db
+    .select({
+      id: adminUsers.id,
+      email: adminUsers.email,
+      name: adminUsers.name,
+      role: adminUsers.role,
+      passwordResetRequired: adminUsers.passwordResetRequired,
+      createdAt: adminUsers.createdAt,
+    })
+    .from(adminUsers)
+    .where(eq(adminUsers.id, adminId))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function getAdminByEmail(context: Context, email: string) {
+  const { eq } = await import("drizzle-orm");
+  const result = await context.db
+    .select({
+      id: adminUsers.id,
+      email: adminUsers.email,
+      name: adminUsers.name,
+      role: adminUsers.role,
+      createdAt: adminUsers.createdAt,
+    })
+    .from(adminUsers)
+    .where(eq(adminUsers.email, email))
+    .limit(1);
+  return result[0] || null;
+}
+
+export async function setAdminPasswordResetRequired(
+  context: Context,
+  adminId: string,
+  required: boolean
+) {
+  const existing = await context.db
+    .select({ id: adminUsers.id })
+    .from(adminUsers)
+    .where(eq(adminUsers.id, adminId))
+    .limit(1);
+  if (!existing[0]) throw new NotFoundError("Admin user not found");
+  await context.db
+    .update(adminUsers)
+    .set({ passwordResetRequired: required })
+    .where(eq(adminUsers.id, adminId));
+  return { success: true as const };
+}
+
 export async function createAdminUser(
   context: Context,
   data: {

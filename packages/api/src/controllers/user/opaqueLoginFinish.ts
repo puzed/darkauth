@@ -6,10 +6,9 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
+import { getUserBySubOrEmail } from "../../models/users.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -87,9 +86,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
         }
 
         // Verify user exists
-        const user = await context.db.query.users.findFirst({
-          where: subOrEmail.includes("@") ? eq(users.email, subOrEmail) : eq(users.sub, subOrEmail),
-        });
+        const user = await getUserBySubOrEmail(context, subOrEmail);
 
         if (!user) {
           throw new NotFoundError("User not found");

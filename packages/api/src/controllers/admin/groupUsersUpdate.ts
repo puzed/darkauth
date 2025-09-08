@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq, inArray } from "drizzle-orm";
-import { groups, userGroups, users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { setGroupUsers } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -42,33 +41,8 @@ async function updateGroupUsersHandler(
       throw new ValidationError("All user subs must be strings");
     }
   }
-  const group = await context.db.query.groups.findFirst({ where: eq(groups.key, groupKey) });
-  if (!group) {
-    throw new NotFoundError("Group not found");
-  }
-  if (userSubs.length > 0) {
-    const existingUsers = await context.db
-      .select({ sub: users.sub })
-      .from(users)
-      .where(inArray(users.sub, userSubs));
-    if (existingUsers.length !== userSubs.length) {
-      const existing = new Set(existingUsers.map((u) => u.sub));
-      const missing = userSubs.filter((s) => !existing.has(s));
-      throw new ValidationError(`Users not found: ${missing.join(", ")}`);
-    }
-  }
-  await context.db.transaction(async (trx) => {
-    await trx.delete(userGroups).where(eq(userGroups.groupKey, groupKey));
-    if (userSubs.length > 0) {
-      await trx.insert(userGroups).values(userSubs.map((sub) => ({ userSub: sub, groupKey })));
-    }
-  });
-  const updatedUsers = await context.db
-    .select({ sub: users.sub, email: users.email, name: users.name })
-    .from(userGroups)
-    .innerJoin(users, eq(userGroups.userSub, users.sub))
-    .where(eq(userGroups.groupKey, groupKey));
-  sendJson(response, 200, { success: true, users: updatedUsers });
+  const result = await setGroupUsers(context, groupKey, userSubs);
+  sendJson(response, 200, result);
 }
 
 export const updateGroupUsers = withAudit({
