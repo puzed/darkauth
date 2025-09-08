@@ -6,9 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq, inArray } from "drizzle-orm";
-import { groupPermissions, groups, permissions } from "../../db/schema.js";
-import { ConflictError, ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
 export const CreateGroupSchema = z.object({
   key: z
     .string()
@@ -31,6 +29,7 @@ export const CreateGroupResponseSchema = z.object({
   }),
 });
 
+import { createGroup as createGroupModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -58,75 +57,12 @@ async function createGroupHandler(
   }
 
   const data = parsed.data;
-  const permissionKeys = data.permissionKeys;
-
-  // Check if group already exists
-  const existingGroup = await context.db.query.groups.findFirst({
-    where: eq(groups.key, data.key),
+  const group = await createGroupModel(context, {
+    key: data.key,
+    name: data.name,
+    permissionKeys: data.permissionKeys,
   });
-
-  if (existingGroup) {
-    throw new ConflictError("Group with this key already exists");
-  }
-
-  // Verify all provided permissions exist
-  if (permissionKeys.length > 0) {
-    const existingPermissions = await context.db
-      .select({ key: permissions.key })
-      .from(permissions)
-      .where(inArray(permissions.key, permissionKeys));
-
-    if (existingPermissions.length !== permissionKeys.length) {
-      const existingKeys = existingPermissions.map((p) => p.key);
-      const missingKeys = permissionKeys.filter((key: string) => !existingKeys.includes(key));
-      throw new ValidationError(`Permissions not found: ${missingKeys.join(", ")}`);
-    }
-  }
-
-  // Create group and assign permissions in transaction
-  await context.db.transaction(async (trx) => {
-    // Create the group
-    await trx.insert(groups).values({
-      key: data.key,
-      name: data.name,
-    });
-
-    // Assign permissions if any
-    if (permissionKeys.length > 0) {
-      await trx.insert(groupPermissions).values(
-        permissionKeys.map((permissionKey: string) => ({
-          groupKey: data.key,
-          permissionKey,
-        }))
-      );
-    }
-  });
-
-  // Get the created group with its permissions for response
-  const createdGroup = await context.db.query.groups.findFirst({
-    where: eq(groups.key, data.key),
-  });
-
-  const assignedPermissions = await context.db
-    .select({
-      key: permissions.key,
-      description: permissions.description,
-    })
-    .from(groupPermissions)
-    .innerJoin(permissions, eq(groupPermissions.permissionKey, permissions.key))
-    .where(eq(groupPermissions.groupKey, data.key))
-    .orderBy(permissions.key);
-
-  const responseData = {
-    success: true,
-    group: {
-      key: createdGroup?.key,
-      name: createdGroup?.name,
-      permissions: assignedPermissions,
-      permissionCount: assignedPermissions.length,
-      userCount: 0, // New group starts with 0 users
-    },
-  };
+  const responseData = { success: true, group };
 
   sendJsonValidated(response, 201, responseData, CreateGroupResponseSchema);
 }

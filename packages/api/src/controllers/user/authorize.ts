@@ -6,10 +6,10 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { clients, pendingAuth } from "../../db/schema.js";
 import { InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
+import { createPendingAuth } from "../../models/authorize.js";
+import { getClient } from "../../models/clients.js";
 import { getSession, getSessionId } from "../../services/sessions.js";
 import type { AuthorizationRequest, Context } from "../../types.js";
 import { generateRandomString, sha256Base64Url } from "../../utils/crypto.js";
@@ -61,9 +61,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     throw new InvalidRequestError("Only response_type=code is supported");
   }
 
-  const client = await context.db.query.clients.findFirst({
-    where: eq(clients.clientId, authRequest.client_id),
-  });
+  const client = await getClient(context, authRequest.client_id);
 
   if (!client) {
     throw new UnauthorizedClientError("Unknown client");
@@ -107,7 +105,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     userSub = sessionData?.sub;
   }
 
-  await context.db.insert(pendingAuth).values({
+  await createPendingAuth(context, {
     requestId,
     clientId: authRequest.client_id,
     redirectUri: authRequest.redirect_uri,
@@ -115,10 +113,9 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     codeChallenge: authRequest.code_challenge,
     codeChallengeMethod: authRequest.code_challenge_method,
     zkPubKid,
-    createdAt: new Date(),
-    expiresAt,
     userSub,
     origin: `http://${request.headers.host}`,
+    expiresAt,
   });
 
   const qs = new URLSearchParams();

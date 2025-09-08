@@ -5,10 +5,9 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
-import { NotFoundError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { startUserPasswordSetForAdmin } from "../../models/passwords.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -35,24 +34,22 @@ async function postUserPasswordSetStartHandler(
     const session = await requireSession(context, request, true);
     if (!session.adminRole) throw new ValidationError("Admin privileges required");
 
-    const user = await context.db.query.users.findFirst({ where: eq(users.sub, userSub) });
-    if (!user || !user.email) throw new NotFoundError("User not found");
-
     const body = await readBody(request);
     const data = parseJsonSafely(body) as Record<string, unknown>;
     if (!data.request || typeof data.request !== "string") {
       throw new ValidationError("Missing or invalid request field");
     }
     const requestBuffer = fromBase64Url(data.request);
-    const registrationResponse = await context.services.opaque.startRegistration(
-      requestBuffer,
-      user.email
+    const { registrationResponse, identityU } = await startUserPasswordSetForAdmin(
+      context,
+      userSub,
+      requestBuffer
     );
 
     sendJson(response, 200, {
       message: toBase64Url(Buffer.from(registrationResponse.message)),
       serverPublicKey: toBase64Url(Buffer.from(registrationResponse.serverPublicKey)),
-      identityU: user.email,
+      identityU,
     });
   } catch (error) {
     sendError(response, error as Error);

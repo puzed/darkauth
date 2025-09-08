@@ -6,17 +6,19 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
+import { deletePermissionByKey } from "../../models/permissions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
 async function deletePermissionHandler(
-  _context: Context,
+  context: Context,
   _request: IncomingMessage,
   response: ServerResponse,
-  ..._params: unknown[]
+  key: string
 ): Promise<void> {
-  sendJson(response, 501, { error: "Not yet implemented" });
+  const result = await deletePermissionByKey(context, key);
+  sendJson(response, 200, result);
 }
 
 export const deletePermission = withAudit({

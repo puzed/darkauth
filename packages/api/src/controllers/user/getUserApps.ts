@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { eq } from "drizzle-orm";
-import { clients } from "../../db/schema.js";
 import { UnauthorizedError } from "../../errors.js";
+import { listVisibleApps } from "../../models/clients.js";
 import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendError, sendJson } from "../../utils/http.js";
@@ -26,26 +25,8 @@ export async function getUserApps(
     }
 
     // Get all clients that should be shown on user dashboard
-    const visibleApps = await context.db
-      .select({
-        id: clients.clientId,
-        name: clients.name,
-        description: clients.description,
-        url: clients.appUrl,
-        logoUrl: clients.logoUrl,
-      })
-      .from(clients)
-      .where(eq(clients.showOnUserDashboard, true));
-
-    return sendJson(response, 200, {
-      apps: visibleApps.map((app) => ({
-        id: app.id,
-        name: app.name,
-        description: app.description || undefined,
-        url: app.url || undefined,
-        logoUrl: app.logoUrl || undefined,
-      })),
-    });
+    const apps = await listVisibleApps(context);
+    return sendJson(response, 200, { apps });
   } catch (error) {
     context.logger.error({ error }, "Failed to fetch user apps");
     return sendError(response, new Error("Internal server error"));

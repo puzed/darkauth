@@ -6,8 +6,6 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { adminUsers } from "../../db/schema.js";
 import { UnauthorizedError } from "../../errors.js";
 export const AdminSessionResponseSchema = z.object({
   authenticated: z.boolean(),
@@ -18,6 +16,7 @@ export const AdminSessionResponseSchema = z.object({
   passwordResetRequired: z.boolean(),
 });
 
+import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
@@ -42,9 +41,7 @@ export async function getAdminSession(
   if (!sessionData.adminId || !sessionData.adminRole) {
     throw new UnauthorizedError("Invalid admin session");
   }
-  const admin = await context.db.query.adminUsers.findFirst({
-    where: eq(adminUsers.id, sessionData.adminId),
-  });
+  const admin = await getAdminById(context, sessionData.adminId);
   const resetRequired = !!admin?.passwordResetRequired;
   const responseData = {
     authenticated: true,

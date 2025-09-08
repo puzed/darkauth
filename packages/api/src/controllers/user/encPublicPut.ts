@@ -6,8 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { userEncryptionKeys } from "../../db/schema.js";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { setEncPublicJwk } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -25,15 +25,8 @@ export async function putEncPublicJwk(
   const encPublicJwk = (data as { enc_public_jwk?: unknown }).enc_public_jwk;
   if (!encPublicJwk || typeof encPublicJwk !== "object")
     throw new ValidationError("enc_public_jwk required");
-  const now = new Date();
-  await context.db
-    .insert(userEncryptionKeys)
-    .values({ sub: sessionData.sub, encPublicJwk, updatedAt: now })
-    .onConflictDoUpdate({
-      target: userEncryptionKeys.sub,
-      set: { encPublicJwk, updatedAt: now },
-    });
-  sendJson(response, 200, { success: true });
+  const result = await setEncPublicJwk(context, sessionData.sub, encPublicJwk);
+  sendJson(response, 200, result);
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

@@ -1,11 +1,9 @@
-import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { clients } from "../../db/schema.js";
 import { ForbiddenError, ValidationError } from "../../errors.js";
 export const CreateClientSchema = z.object({
   clientId: z.string().min(1),
@@ -52,6 +50,7 @@ export const ClientResponseSchema = z.object({
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { createClient as createClientModel } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -75,65 +74,8 @@ async function createClientHandler(
 
   const data = parsed.data;
 
-  let clientSecret: string | null = null;
-  let clientSecretEnc: Buffer | null = null;
-  if (data.type === "confidential" || data.tokenEndpointAuthMethod === "client_secret_basic") {
-    clientSecret = cryptoRandomString(32);
-    if (context.services.kek?.isAvailable()) {
-      clientSecretEnc = await context.services.kek.encrypt(Buffer.from(clientSecret));
-    } else {
-      clientSecretEnc = null;
-    }
-  }
-
-  const row = {
-    clientId: data.clientId,
-    name: data.name,
-    type: data.type,
-    tokenEndpointAuthMethod: data.tokenEndpointAuthMethod,
-    clientSecretEnc,
-    requirePkce: data.requirePkce,
-    zkDelivery: data.zkDelivery,
-    zkRequired: data.zkRequired,
-    allowedJweAlgs: data.allowedJweAlgs,
-    allowedJweEncs: data.allowedJweEncs,
-    redirectUris: data.redirectUris,
-    postLogoutRedirectUris: data.postLogoutRedirectUris,
-    grantTypes: data.grantTypes,
-    responseTypes: data.responseTypes,
-    scopes: data.scopes,
-    allowedZkOrigins: data.allowedZkOrigins,
-    idTokenLifetimeSeconds: data.idTokenLifetimeSeconds ?? null,
-    refreshTokenLifetimeSeconds: data.refreshTokenLifetimeSeconds ?? null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  };
-
-  await context.db.insert(clients).values(row);
-
-  const responseData = {
-    clientId: row.clientId,
-    name: row.name,
-    type: row.type,
-    tokenEndpointAuthMethod: row.tokenEndpointAuthMethod,
-    requirePkce: row.requirePkce,
-    zkDelivery: row.zkDelivery,
-    zkRequired: row.zkRequired,
-    allowedJweAlgs: row.allowedJweAlgs,
-    allowedJweEncs: row.allowedJweEncs,
-    redirectUris: row.redirectUris,
-    postLogoutRedirectUris: row.postLogoutRedirectUris,
-    grantTypes: row.grantTypes,
-    responseTypes: row.responseTypes,
-    scopes: row.scopes,
-    allowedZkOrigins: row.allowedZkOrigins,
-    idTokenLifetimeSeconds: row.idTokenLifetimeSeconds,
-    refreshTokenLifetimeSeconds: row.refreshTokenLifetimeSeconds,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    clientSecret: clientSecret ?? undefined,
-  };
-
+  const created = await createClientModel(context, data);
+  const responseData = { ...created };
   sendJsonValidated(response, 201, responseData, ClientResponseSchema);
 }
 
@@ -148,10 +90,6 @@ export const createClient = withAudit({
     return undefined;
   },
 })(createClientHandler);
-
-function cryptoRandomString(bytes = 32) {
-  return randomBytes(bytes).toString("base64url");
-}
 
 export function registerOpenApi(registry: OpenAPIRegistry) {
   registry.registerPath({

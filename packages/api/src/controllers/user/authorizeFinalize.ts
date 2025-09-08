@@ -6,10 +6,15 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { authCodes, pendingAuth, wrappedRootKeys } from "../../db/schema.js";
 import { InvalidRequestError, NotFoundError } from "../../errors.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
+import { createAuthCode } from "../../models/authCodes.js";
+import {
+  deletePendingAuth,
+  getPendingAuth,
+  setPendingAuthUserSub,
+} from "../../models/authorize.js";
+import { getWrappedDrk } from "../../models/wrappedRootKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -48,9 +53,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       }
 
       // Look up pending auth request
-      const pendingRequest = await context.db.query.pendingAuth.findFirst({
-        where: eq(pendingAuth.requestId, requestId),
-      });
+      const pendingRequest = await getPendingAuth(context, requestId);
 
       if (!pendingRequest) {
         throw new NotFoundError("Authorization request not found or expired");
@@ -58,15 +61,12 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       // Check if request has expired
       if (new Date() > pendingRequest.expiresAt) {
-        await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
+        await deletePendingAuth(context, requestId);
         throw new InvalidRequestError("Authorization request has expired");
       }
 
       // Update pending auth with user subject
-      await context.db
-        .update(pendingAuth)
-        .set({ userSub: sessionData.sub })
-        .where(eq(pendingAuth.requestId, requestId));
+      await setPendingAuthUserSub(context, requestId, sessionData.sub);
 
       // Create authorization code
       const code = generateRandomString(32);
@@ -86,36 +86,31 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       } else if (pendingRequest.zkPubKid) {
         // Legacy support: server-side check for DRK existence
         // In the proper ZK flow, client handles DRK unwrapping and JWE creation
-        const wrappedRootKey = await context.db.query.wrappedRootKeys.findFirst({
-          where: eq(wrappedRootKeys.sub, sessionData.sub),
-        });
-
-        if (wrappedRootKey) {
+        try {
+          await getWrappedDrk(context, sessionData.sub);
           hasZk = true;
           // Note: In proper ZK flow, drkHash should come from client JWE creation
           // This is fallback for incomplete client implementation
-        }
+        } catch {}
       }
 
       // Store authorization code with PKCE support
       console.log("[authorize] issue code", code, "for", pendingRequest.clientId);
-      await context.db.insert(authCodes).values({
+      await createAuthCode(context, {
         code,
         clientId: pendingRequest.clientId,
         userSub: sessionData.sub,
         redirectUri: pendingRequest.redirectUri,
         codeChallenge: pendingRequest.codeChallenge,
-        codeChallengeMethod: pendingRequest.codeChallengeMethod,
+        codeChallengeMethod: pendingRequest.codeChallengeMethod || undefined,
         expiresAt: codeExpiresAt,
-        consumed: false,
         hasZk,
         zkPubKid: pendingRequest.zkPubKid,
         drkHash,
-        createdAt: new Date(),
       });
 
       // Clean up pending auth request
-      await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
+      await deletePendingAuth(context, requestId);
 
       // Return JSON with code and state as specified in CORE.md
       // Client-side JavaScript will handle the redirect with fragment

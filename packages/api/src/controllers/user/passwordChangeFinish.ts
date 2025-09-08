@@ -6,10 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { opaqueRecords, userPasswordHistory, users } from "../../db/schema.js";
-import { ConflictError, ValidationError } from "../../errors.js";
-import { verifyJWT } from "../../services/jwks.js";
+import { ValidationError } from "../../errors.js";
+import { userPasswordChangeFinish } from "../../models/passwords.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -55,65 +53,19 @@ async function postUserPasswordChangeFinishHandler(
     throw new ValidationError("Invalid base64url encoding in record");
   }
 
-  const anyMatch = await context.db.query.userPasswordHistory.findFirst({
-    where: (_fields, operators) =>
-      operators.and(
-        operators.eq(userPasswordHistory.userSub, userSub),
-        operators.eq(userPasswordHistory.exportKeyHash, exportKeyHash)
-      ),
-  });
-  if (anyMatch) {
-    throw new ConflictError("Password reuse not allowed");
-  }
-
   if (!data.reauth_token || typeof data.reauth_token !== "string") {
     throw new ValidationError("Reauthentication required");
   }
 
   const reauthToken = data.reauth_token as string;
-
-  try {
-    const payload = await verifyJWT(context, reauthToken);
-    if (payload.sub !== session.sub || payload.purpose !== "password_change") {
-      throw new ValidationError("Invalid reauthentication token");
-    }
-  } catch (_error) {
-    throw new ValidationError("Invalid or expired reauthentication token");
-  }
-
-  const opaqueRecord = await context.services.opaque.finishRegistration(
+  const result = await userPasswordChangeFinish(context, {
+    userSub,
+    email: session.email,
     recordBuffer,
-    session.email
-  );
-
-  await context.db.transaction(async (tx) => {
-    const existing = await tx.query.opaqueRecords.findFirst({
-      where: eq(opaqueRecords.sub, userSub),
-    });
-    if (existing) {
-      await tx
-        .update(opaqueRecords)
-        .set({
-          envelope: Buffer.from(opaqueRecord.envelope),
-          serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-          updatedAt: new Date(),
-        })
-        .where(eq(opaqueRecords.sub, userSub));
-    } else {
-      await tx.insert(opaqueRecords).values({
-        sub: userSub,
-        envelope: Buffer.from(opaqueRecord.envelope),
-        serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-        updatedAt: new Date(),
-      });
-    }
-
-    await tx.insert(userPasswordHistory).values({ userSub: userSub, exportKeyHash: exportKeyHash });
-
-    await tx.update(users).set({ passwordResetRequired: false }).where(eq(users.sub, userSub));
+    exportKeyHash,
+    reauthToken,
   });
-
-  sendJson(response, 200, { success: true });
+  sendJson(response, 200, result);
 }
 
 export const postUserPasswordChangeFinish = withAudit({

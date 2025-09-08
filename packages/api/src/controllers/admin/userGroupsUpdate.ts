@@ -5,9 +5,7 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq, inArray } from "drizzle-orm";
-import { groups, userGroups, users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 export const UpdateUserGroupsSchema = z.object({
   groups: z.array(z.string()),
@@ -27,6 +25,7 @@ export const UpdateUserGroupsResponseSchema = z.object({
   ),
 });
 
+import { setUserGroups } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -59,66 +58,11 @@ async function updateUserGroupsHandler(
 
   const groupKeys = parsed.data.groups;
 
-  // Verify user exists
-  const user = await context.db.query.users.findFirst({
-    where: eq(users.sub, userSub),
-  });
-
-  if (!user) {
-    throw new NotFoundError("User not found");
-  }
-
-  // Verify all provided groups exist
-  if (groupKeys.length > 0) {
-    const existingGroups = await context.db
-      .select({ key: groups.key })
-      .from(groups)
-      .where(inArray(groups.key, groupKeys));
-
-    if (existingGroups.length !== groupKeys.length) {
-      const existingKeys = existingGroups.map((g) => g.key);
-      const missingKeys = groupKeys.filter((key: string) => !existingKeys.includes(key));
-      throw new ValidationError(`Groups not found: ${missingKeys.join(", ")}`);
-    }
-  }
-
-  // Update user groups in transaction
-  await context.db.transaction(async (trx) => {
-    // Remove all existing user groups
-    await trx.delete(userGroups).where(eq(userGroups.userSub, userSub));
-
-    // Add new user groups if any
-    if (groupKeys.length > 0) {
-      await trx.insert(userGroups).values(
-        groupKeys.map((groupKey: string) => ({
-          userSub,
-          groupKey,
-        }))
-      );
-    }
-  });
-
-  // Get updated user groups for response
-  const updatedUserGroups = await context.db
-    .select({
-      groupKey: groups.key,
-      groupName: groups.name,
-    })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .where(eq(userGroups.userSub, userSub));
-
+  const { user, userGroups: updated } = await setUserGroups(context, userSub, groupKeys);
   const responseData = {
     success: true,
-    user: {
-      sub: user.sub,
-      email: user.email,
-      name: user.name,
-    },
-    userGroups: updatedUserGroups.map((g) => ({
-      key: g.groupKey,
-      name: g.groupName,
-    })),
+    user: { sub: user.sub, email: user.email, name: user.name },
+    userGroups: updated,
   };
 
   sendJsonValidated(response, 200, responseData, UpdateUserGroupsResponseSchema);

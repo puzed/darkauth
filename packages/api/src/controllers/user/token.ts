@@ -6,15 +6,6 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import {
-  authCodes,
-  clients,
-  groupPermissions,
-  userGroups,
-  userPermissions,
-  users,
-} from "../../db/schema.js";
 import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { signJWT } from "../../services/jwks.js";
@@ -102,9 +93,10 @@ export const postToken = withRateLimit("token")(
           const credentials = decodeBasicAuth(basic.credentials);
           if (!credentials)
             throw new UnauthorizedClientError("Invalid Basic authentication format");
-          const client = await context.db.query.clients.findFirst({
-            where: eq(clients.clientId, credentials.username),
-          });
+          const client = await (await import("../../models/clients.js")).getClient(
+            context,
+            credentials.username
+          );
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "client_secret_basic")
             throw new UnauthorizedClientError("Invalid client auth method");
@@ -119,9 +111,10 @@ export const postToken = withRateLimit("token")(
         } else {
           if (!tokenRequest.client_id)
             throw new InvalidRequestError("client_id is required for public clients");
-          const client = await context.db.query.clients.findFirst({
-            where: eq(clients.clientId, tokenRequest.client_id),
-          });
+          const client = await (await import("../../models/clients.js")).getClient(
+            context,
+            tokenRequest.client_id
+          );
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "none")
             throw new UnauthorizedClientError("Invalid client auth method");
@@ -132,38 +125,21 @@ export const postToken = withRateLimit("token")(
         const actor = await getActorFromRefreshToken(context, tokenRequest.refresh_token);
         if (!actor || !actor.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
-        const user = await context.db.query.users.findFirst({
-          where: eq(users.sub, actor.userSub),
-        });
+        const { getUserBySub } = await import("../../models/users.js");
+        const user = await getUserBySub(context, actor.userSub);
         if (!user) throw new InvalidGrantError("User not found");
         if (!providedClientId) throw new UnauthorizedClientError("Client authentication failed");
-        const client = await context.db.query.clients.findFirst({
-          where: eq(clients.clientId, providedClientId),
-        });
+        const client = await (await import("../../models/clients.js")).getClient(
+          context,
+          providedClientId
+        );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
-        const userGroupsData = await context.db.query.userGroups.findMany({
-          where: eq(userGroups.userSub, user.sub),
-          with: { group: true },
-        });
-        const userPermissionsData = await context.db.query.userPermissions.findMany({
-          where: eq(userPermissions.userSub, user.sub),
-          with: { permission: true },
-        });
-        const allGroupPermissions: string[] = [];
-        for (const ug of userGroupsData) {
-          const permissions = await context.db.query.groupPermissions.findMany({
-            where: eq(groupPermissions.groupKey, ug.groupKey),
-            with: { permission: true },
-          });
-          for (const p of permissions) allGroupPermissions.push(p.permission.key);
-        }
-        const allPermissions = [
-          ...userPermissionsData.map((up) => up.permission.key),
-          ...allGroupPermissions,
-        ];
-        const uniquePermissions = [...new Set(allPermissions)];
-        const groupsList = userGroupsData.map((ug) => ug.group.key);
+        const { getUserAccess } = await import("../../models/access.js");
+        const { groupsList, permissions: uniquePermissions } = await getUserAccess(
+          context,
+          user.sub
+        );
         const now = Math.floor(Date.now() / 1000);
         let defaultIdTtl = 300;
         const idSettings = (await getSetting(context, "id_token")) as
@@ -225,9 +201,10 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up authorization code
-      const authCode = await context.db.query.authCodes.findFirst({
-        where: eq(authCodes.code, tokenRequest.code),
-      });
+      const authCode = await (await import("../../models/authCodes.js")).getAuthCode(
+        context,
+        tokenRequest.code
+      );
 
       if (!authCode) {
         console.warn("[token] code not found", tokenRequest.code);
@@ -236,7 +213,10 @@ export const postToken = withRateLimit("token")(
 
       // Check if code has expired
       if (new Date() > authCode.expiresAt) {
-        await context.db.delete(authCodes).where(eq(authCodes.code, tokenRequest.code));
+        await (await import("../../models/authCodes.js")).deleteAuthCode(
+          context,
+          tokenRequest.code
+        );
         throw new InvalidGrantError("Authorization code has expired");
       }
 
@@ -251,9 +231,10 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up client
-      const client = await context.db.query.clients.findFirst({
-        where: eq(clients.clientId, authCode.clientId),
-      });
+      const client = await (await import("../../models/clients.js")).getClient(
+        context,
+        authCode.clientId
+      );
 
       if (!client) {
         throw new UnauthorizedClientError("Unknown client");
@@ -328,48 +309,17 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up user
-      const user = await context.db.query.users.findFirst({
-        where: eq(users.sub, authCode.userSub),
-      });
+      const { getUserBySub } = await import("../../models/users.js");
+      const user = await getUserBySub(context, authCode.userSub);
 
       if (!user) {
         throw new InvalidGrantError("User not found");
       }
 
-      // Get user permissions and groups for claims
-      const userGroupsData = await context.db.query.userGroups.findMany({
-        where: eq(userGroups.userSub, user.sub),
-        with: {
-          group: true,
-        },
-      });
-
-      const userPermissionsData = await context.db.query.userPermissions.findMany({
-        where: eq(userPermissions.userSub, user.sub),
-        with: {
-          permission: true,
-        },
-      });
-
-      // Get permissions from groups
-      const allGroupPermissions: Array<{ permission: { key: string } }> = [];
-      for (const userGroup of userGroupsData) {
-        const permissions = await context.db.query.groupPermissions.findMany({
-          where: eq(groupPermissions.groupKey, userGroup.groupKey),
-          with: {
-            permission: true,
-          },
-        });
-        allGroupPermissions.push(...permissions);
-      }
-
-      const allPermissions = [
-        ...userPermissionsData.map((up) => up.permission.key),
-        ...allGroupPermissions.map((gp) => gp.permission.key),
-      ];
-
-      const uniquePermissions = [...new Set(allPermissions)];
-      const groups = userGroupsData.map((ug) => ug.group.key);
+      const { getUserAccess } = await import("../../models/access.js");
+      const access = await getUserAccess(context, user.sub);
+      const uniquePermissions = access.permissions;
+      const groups = access.groupsList;
 
       // Create ID token claims
       const now = Math.floor(Date.now() / 1000);
@@ -433,10 +383,7 @@ export const postToken = withRateLimit("token")(
       tokenResponse.refresh_token = s.refreshToken;
 
       // Consume the authorization code (mark as used)
-      await context.db
-        .update(authCodes)
-        .set({ consumed: true })
-        .where(eq(authCodes.code, tokenRequest.code));
+      await (await import("../../models/authCodes.js")).consumeAuthCode(context, tokenRequest.code);
 
       sendJson(response, 200, tokenResponse);
     }

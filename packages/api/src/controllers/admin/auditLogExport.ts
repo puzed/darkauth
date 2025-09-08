@@ -7,7 +7,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 extendZodWithOpenApi(z);
 
 import { ForbiddenError } from "../../errors.js";
-import { exportAuditLogs } from "../../services/audit.js";
+import { exportAuditLogsCsv } from "../../models/auditLogs.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 
@@ -53,7 +53,7 @@ export async function getAuditLogExport(
     search,
   };
 
-  const csvContent = await exportAuditLogs(context, filters);
+  const csvContent = await exportAuditLogsCsv(context, filters);
   const timestamp = new Date().toISOString().split("T")[0];
   const filename = `audit-logs-${timestamp}.csv`;
   response.setHeader("Content-Type", "text/csv");

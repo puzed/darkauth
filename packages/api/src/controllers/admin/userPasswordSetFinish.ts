@@ -5,10 +5,9 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { opaqueRecords, userPasswordHistory, users } from "../../db/schema.js";
-import { ConflictError, NotFoundError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { finishUserPasswordSetForAdmin } from "../../models/passwords.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -35,9 +34,6 @@ async function postUserPasswordSetFinishHandler(
     const session = await requireSession(context, request, true);
     if (!session.adminRole) throw new ValidationError("Admin privileges required");
 
-    const user = await context.db.query.users.findFirst({ where: eq(users.sub, userSub) });
-    if (!user || !user.email) throw new NotFoundError("User not found");
-
     const body = await readBody(request);
     const data = parseJsonSafely(body) as Record<string, unknown>;
     if (!data.record || typeof data.record !== "string") {
@@ -47,50 +43,17 @@ async function postUserPasswordSetFinishHandler(
       throw new ValidationError("Missing or invalid export_key_hash field");
     }
 
-    const record = data.record;
-    const exportKeyHash = data.export_key_hash;
-
-    const anyMatch = await context.db.query.userPasswordHistory.findFirst({
-      where: (_fields, operators) =>
-        operators.and(
-          operators.eq(userPasswordHistory.userSub, userSub),
-          operators.eq(userPasswordHistory.exportKeyHash, exportKeyHash)
-        ),
-    });
-    if (anyMatch) {
-      throw new ConflictError("Password reuse not allowed");
-    }
+    const record = data.record as string;
+    const exportKeyHash = data.export_key_hash as string;
 
     const recordBuffer = fromBase64Url(record);
-    const opaqueRecord = await context.services.opaque.finishRegistration(recordBuffer, user.email);
-
-    await context.db.transaction(async (tx) => {
-      const existing = await tx.query.opaqueRecords.findFirst({
-        where: eq(opaqueRecords.sub, userSub),
-      });
-      if (existing) {
-        await tx
-          .update(opaqueRecords)
-          .set({
-            envelope: Buffer.from(opaqueRecord.envelope),
-            serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-            updatedAt: new Date(),
-          })
-          .where(eq(opaqueRecords.sub, userSub));
-      } else {
-        await tx.insert(opaqueRecords).values({
-          sub: userSub,
-          envelope: Buffer.from(opaqueRecord.envelope),
-          serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-          updatedAt: new Date(),
-        });
-      }
-
-      await tx.insert(userPasswordHistory).values({ userSub, exportKeyHash });
-      await tx.update(users).set({ passwordResetRequired: true }).where(eq(users.sub, userSub));
+    const result = await finishUserPasswordSetForAdmin(context, {
+      userSub,
+      recordBuffer,
+      exportKeyHash,
     });
 
-    sendJson(response, 200, { success: true });
+    sendJson(response, 200, result);
   } catch (error) {
     sendError(response, error as Error);
   }

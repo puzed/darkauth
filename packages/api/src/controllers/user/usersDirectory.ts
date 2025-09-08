@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq, ilike, or } from "drizzle-orm";
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { userEncryptionKeys, users } from "../../db/schema.js";
+import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -30,22 +29,12 @@ export async function getUserDirectoryEntry(
     await requireSession(context, request, false);
   }
   console.log("[api] user directory get", { sub });
-  const row = await context.db
-    .select({
-      sub: users.sub,
-      display_name: users.name,
-      public_key_jwk: userEncryptionKeys.encPublicJwk,
-    })
-    .from(users)
-    .leftJoin(userEncryptionKeys, eq(userEncryptionKeys.sub, users.sub))
-    .where(eq(users.sub, sub))
-    .limit(1);
-
-  if (!row || row.length === 0) {
+  const row = await getDirectoryEntry(context, sub);
+  if (!row) {
     sendJson(response, 404, { error: "user_not_found" });
     return;
   }
-  sendJson(response, 200, row[0]);
+  sendJson(response, 200, row);
 }
 
 export async function searchUserDirectory(
@@ -70,18 +59,8 @@ export async function searchUserDirectory(
     return;
   }
 
-  const term = `%${q}%`;
   console.log("[api] users search", { q });
-  const rows = await context.db
-    .select({
-      sub: users.sub,
-      display_name: users.name,
-      public_key_jwk: userEncryptionKeys.encPublicJwk,
-    })
-    .from(users)
-    .leftJoin(userEncryptionKeys, eq(userEncryptionKeys.sub, users.sub))
-    .where(or(ilike(users.name, term), ilike(users.email, term)))
-    .limit(10);
+  const rows = await searchDirectory(context, q);
 
   type JwkLike = { kty?: unknown };
   const isJwkWithStringKty = (x: unknown): x is { kty: string } =>
