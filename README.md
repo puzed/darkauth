@@ -30,10 +30,17 @@ Then visit `http://localhost:9081` to complete installation.
 ### Prerequisites
 
 - Node.js 20+
-- PostgreSQL 15+
+- PostgreSQL 15+ (or use embedded PGLite)
 - Docker & Docker Compose (optional, for PostgreSQL or non-Docker setups)
 
-### 1. Start PostgreSQL
+### Installation Options
+
+DarkAuth supports multiple database options:
+
+1. **Remote PostgreSQL** - Connect to an existing PostgreSQL instance
+2. **Embedded PGLite** - Use the built-in PGLite database (no external dependencies)
+
+### 1. Start PostgreSQL (if using remote PostgreSQL)
 
 Using Docker Compose:
 ```bash
@@ -59,10 +66,23 @@ npm run db:push
 Create a `config.yaml` file in the project root:
 
 ```yaml
+# Database configuration (choose one)
+# Option 1: Remote PostgreSQL
+dbMode: remote
 postgresUri: postgresql://username:password@localhost:5432/darkauth
+
+# Option 2: Embedded PGLite
+# dbMode: pglite
+# pgliteDir: ./data/pglite
+
+# Server ports
 userPort: 9080
 adminPort: 9081
-proxyUi: false  # Set to true for development
+
+# UI proxy (development only)
+proxyUi: false
+
+# Key encryption passphrase (required for secure mode)
 kekPassphrase: "your-strong-passphrase"
 ```
 
@@ -75,6 +95,11 @@ npm start
 ```
 
 Visit the installation URL shown in the console (includes a one-time token).
+
+The installer will guide you through:
+1. Database selection (PostgreSQL or PGLite)
+2. KEK passphrase setup
+3. Admin user creation
 
 #### Option B: CLI Installation
 
@@ -148,6 +173,7 @@ All configuration and state stored in PostgreSQL:
 - **pending_auth**: In-progress auth requests
 - **admin_users**: Admin accounts (separate cohort)
 - **permissions/groups**: RBAC configuration
+- **audit_logs**: Audit trail of system events
 
 ## Default Clients
 
@@ -157,13 +183,21 @@ Two clients are created during installation:
 - **Type**: Public
 - **PKCE**: Required
 - **ZK Delivery**: fragment-jwe (enabled)
-- **Redirect URIs**: http://localhost:3000/callback
+- **Redirect URIs**: 
+  - http://localhost:9092/
+  - http://localhost:9092/callback
+  - http://localhost:3000/
+  - http://localhost:3000/callback
+  - https://app.example.com/
+  - https://app.example.com/callback
 
 ### support-desk (Confidential Client)
 - **Type**: Confidential
 - **Auth Method**: client_secret_basic
 - **ZK Delivery**: None
-- **Redirect URIs**: http://localhost:4000/callback
+- **Redirect URIs**: 
+  - http://localhost:4000/callback
+  - https://support.example.com/callback
 
 ## Security Modes
 
@@ -177,14 +211,20 @@ Two clients are created during installation:
 All configuration is managed via `config.yaml`. Create this file in the project root:
 
 ```yaml
-# Required
-postgresUri: postgresql://username:password@localhost:5432/darkauth
-kekPassphrase: "your-strong-passphrase"
+# Database configuration (required)
+dbMode: remote | pglite
+postgresUri: postgresql://username:password@localhost:5432/darkauth  # For remote mode
+pgliteDir: ./data/pglite  # For embedded mode
 
-# Optional (with defaults)
+# Server ports (optional, with defaults)
 userPort: 9080            # User/OIDC server port
 adminPort: 9081           # Admin server port  
 proxyUi: false            # Proxy to Vite dev servers (development only)
+
+# Security (required for secure mode)
+kekPassphrase: "your-strong-passphrase"
+
+# Optional (with defaults)
 publicOrigin: "http://localhost:9080"  # Public-facing origin
 issuer: "http://localhost:9080"        # OIDC issuer URL
 rpId: "localhost"         # Relying party identifier

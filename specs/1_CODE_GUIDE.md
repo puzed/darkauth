@@ -69,6 +69,129 @@ project/
 - Only mock external systems, not the internal ones this project needs. For example, don't mock our postgres database, use a real one in the tests. But it would be okay to mock the Twilio API, it's a third party.
  - Auth UI and Admin UI are built with React + TypeScript + CSS Modules and compiled to static assets served by the Node HTTP server. Do not introduce server-side rendering frameworks.
 
+### Controllers And Models
+
+- Controllers are thin HTTP adapters. They parse input, enforce authentication and authorization, call models and services, and shape HTTP responses. They contain no database logic.
+- Models encapsulate domain and data logic. They validate inputs relevant to the domain, perform all database access, apply invariants, and return plain data objects. They contain no HTTP concerns.
+- Controllers register OpenAPI via zod schemas and map domain data from models to the response. OpenAPI types describe the external shape; model types describe the internal domain.
+- Types used by models are defined with zod and inferred types near the model functions, or shared in `schemas/` when reused by multiple callers. Controllers import those types to validate I/O, but do not redefine domain types.
+- Permissions and cohort checks exist only in controllers (or dedicated auth middleware). Models should assume the caller is authorized.
+- Services handle external protocols or multi-step processes (e.g., OPAQUE, crypto, email). Models may call services when needed but remain focused on the domain state.
+
+Rules:
+- No direct `context.db` usage in controllers. All reads and writes go through a model or service.
+- Controllers may compose multiple model calls but never reach into tables.
+- Models return simple data that the controller can send directly or transform for HTTP.
+- When adding a feature, start by defining model functions, then wire a controller that validates input, authorizes, calls the model, and documents via OpenAPI.
+
+#### Model Responsibilities
+
+Models own all data access and business rules. They are the single source of truth for how data is retrieved, created, updated, and deleted.
+
+Models should:
+- Contain all database queries and operations
+- Handle data validation and business logic
+- Implement data transformation and aggregation
+- Manage relationships between entities
+- Provide clean, typed interfaces for data access
+- Handle pagination, filtering, and search logic
+- Throw appropriate errors (`NotFoundError`, `ConflictError`, `ValidationError`, etc.)
+- Be pure functions that take `Context` as the first parameter
+
+Models should NOT:
+- Handle HTTP requests/responses
+- Manage authentication/authorization
+- Deal with OpenAPI specifications
+- Parse query parameters or request bodies
+
+#### Controller Responsibilities
+
+Controllers are thin HTTP layers that coordinate between the transport (HTTP), authentication, and models.
+
+Controllers should:
+- Handle HTTP request/response lifecycle
+- Parse and validate query parameters and request bodies
+- Manage authentication and authorization (via session middleware)
+- Call appropriate model functions with validated data
+- Handle OpenAPI specification registration
+- Transform model responses for HTTP responses
+- Let error handling bubble to the top-level middleware
+
+Controllers should NOT:
+- Contain database queries or business logic
+- Handle complex data transformations
+- Implement pagination or filtering logic
+- Manage database transactions directly
+
+#### Model–Controller Relationship
+
+Pattern:
+
+```typescript
+// Controller (HTTP layer)
+export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+  const sessionData = await requireSession(context, request, true);
+  if (!sessionData.adminRole) throw new ForbiddenError("Admin access required");
+
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const { page, limit } = getPaginationFromUrl(url, 20, 100);
+  const search = url.searchParams.get("search");
+
+  const result = await listUsers(context, { page, limit, search: search || undefined });
+  sendJsonValidated(response, 200, result, UsersListResponseSchema);
+}
+
+// Model (Data layer)
+export async function listUsers(
+  context: Context,
+  options: { page?: number; limit?: number; search?: string } = {}
+) {
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  // Complex queries, joins, aggregations
+  const users = await context.db.select(/* ... */).from(/* ... */).limit(limit).offset(offset);
+  return { users, pagination: { /* ... */ } };
+}
+```
+
+#### Type Safety Between Layers
+
+Use zod schemas for external API types, and clean TypeScript types for model results.
+
+```typescript
+// schemas/users.ts – external API types
+export const UserSchema = z.object({
+  sub: z.string(),
+  email: z.string().email().nullable(),
+  name: z.string().nullable(),
+  createdAt: z.date(),
+});
+export type User = z.infer<typeof UserSchema>;
+
+// models/users.ts – database operations with types
+export async function listUsers(context: Context, options: ListUsersOptions): Promise<ListUsersResult> {
+  // ...
+}
+
+// controllers/users.ts – HTTP handling
+export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+  const result = await listUsers(context, options);
+  sendJsonValidated(response, 200, result, UsersListResponseSchema);
+}
+```
+
+#### Error Handling
+
+- Models: throw business logic errors (`NotFoundError`, `ConflictError`, `ValidationError`).
+- Controllers: validate inputs and allow errors to bubble to the HTTP error middleware.
+
+#### Testing Strategy
+
+- Model tests: data operations, business rules, edge cases.
+- Controller tests: HTTP handling, authentication, input validation, OpenAPI shapes.
+- Integration tests: end-to-end from HTTP to database using real dependencies where possible.
+
 ### 1. Context Pattern
 
 The context object contains all dependencies (database, services, config) and is passed to every function. This enables:
