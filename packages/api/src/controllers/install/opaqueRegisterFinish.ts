@@ -5,9 +5,8 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminUsers } from "../../db/schema.js";
-import { ConflictError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
+import { storeOpaqueAdmin } from "../../models/install.js";
 import { createOpaqueService } from "../../services/opaque.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
@@ -66,58 +65,15 @@ export async function postInstallOpaqueRegisterFinish(
       "[install:opaque:finish] OPAQUE registration completed"
     );
 
-    const db = context.services.install?.tempDb || context.db;
-    await db.transaction(async (trx) => {
-      context.logger.debug("[install:opaque:finish] Starting database transaction");
-
-      let adm = await trx.query.adminUsers.findFirst({ where: eq(adminUsers.email, data.email) });
-      context.logger.info(
-        { found: !!adm, adminId: adm?.id },
-        "[install:opaque:finish] Checked for existing admin user"
-      );
-
-      if (!adm) {
-        context.logger.info("[install:opaque:finish] Creating new admin user");
-        const [row] = await trx
-          .insert(adminUsers)
-          .values({ email: data.email, name: data.name, role: data.role || "write" })
-          .returning();
-        adm = row;
-        context.logger.info({ adminId: adm?.id }, "[install:opaque:finish] Created admin user");
-      }
-
-      if (!adm) {
-        context.logger.error("[install:opaque:finish] Failed to create admin user");
-        throw new Error("Failed to create admin user");
-      }
-
-      const existing = await trx.query.adminOpaqueRecords.findFirst({
-        where: eq(adminOpaqueRecords.adminId, adm.id),
-      });
-
-      if (existing) {
-        context.logger.error(
-          { adminId: adm.id },
-          "[install:opaque:finish] OPAQUE record already exists"
-        );
-        throw new ConflictError("OPAQUE record already exists");
-      }
-
-      context.logger.info(
-        { adminId: adm.id, envelopeLen: opaque.envelope.length },
-        "[install:opaque:finish] Storing OPAQUE record"
-      );
-
-      await trx.insert(adminOpaqueRecords).values({
-        adminId: adm.id,
-        envelope: Buffer.from(opaque.envelope),
-        serverPubkey: Buffer.from(opaque.serverPublicKey),
-      });
-
-      context.logger.info(
-        { adminId: adm.id },
-        "[install:opaque:finish] OPAQUE record stored successfully"
-      );
+    const effContext = context.services.install?.tempDb
+      ? ({ ...context, db: context.services.install.tempDb } as Context)
+      : context;
+    await storeOpaqueAdmin(effContext, {
+      email: data.email,
+      name: data.name,
+      role: data.role || "write",
+      envelope: opaque.envelope,
+      serverPublicKey: opaque.serverPublicKey,
     });
 
     context.logger.info("[install:opaque:finish] Registration complete, sending success response");

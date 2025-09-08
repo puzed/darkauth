@@ -5,16 +5,8 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import {
-  groupPermissions,
-  groups,
-  permissions,
-  userGroups,
-  userPermissions,
-  users,
-} from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { getUserPermissionsDetails } from "../../models/userPermissions.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -36,88 +28,13 @@ export async function getUserPermissions(
     throw new ValidationError("Invalid user subject");
   }
 
-  // Verify user exists
-  const user = await context.db.query.users.findFirst({
-    where: eq(users.sub, userSub),
+  const result = await getUserPermissionsDetails(context, userSub);
+  sendJson(response, 200, {
+    user: { sub: result.user.sub, email: result.user.email, name: result.user.name },
+    directPermissions: result.directPermissions,
+    inheritedPermissions: result.inheritedPermissions,
+    availablePermissions: result.availablePermissions,
   });
-
-  if (!user) {
-    throw new NotFoundError("User not found");
-  }
-
-  // Get user's direct permissions
-  const directPermissions = await context.db
-    .select({
-      key: permissions.key,
-      description: permissions.description,
-    })
-    .from(userPermissions)
-    .innerJoin(permissions, eq(userPermissions.permissionKey, permissions.key))
-    .where(eq(userPermissions.userSub, userSub))
-    .orderBy(permissions.key);
-
-  // Get permissions inherited from groups
-  const groupPermissionsData = await context.db
-    .select({
-      permissionKey: permissions.key,
-      permissionDescription: permissions.description,
-      groupKey: groups.key,
-      groupName: groups.name,
-    })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .innerJoin(groupPermissions, eq(groups.key, groupPermissions.groupKey))
-    .innerJoin(permissions, eq(groupPermissions.permissionKey, permissions.key))
-    .where(eq(userGroups.userSub, userSub))
-    .orderBy(permissions.key);
-
-  // Group permissions by permission key
-  const inheritedPermissionsMap = new Map<
-    string,
-    {
-      key: string;
-      description: string;
-      groups: Array<{ key: string; name: string }>;
-    }
-  >();
-
-  for (const item of groupPermissionsData) {
-    if (!inheritedPermissionsMap.has(item.permissionKey)) {
-      inheritedPermissionsMap.set(item.permissionKey, {
-        key: item.permissionKey,
-        description: item.permissionDescription,
-        groups: [],
-      });
-    }
-    inheritedPermissionsMap.get(item.permissionKey)?.groups.push({
-      key: item.groupKey,
-      name: item.groupName,
-    });
-  }
-
-  const inheritedPermissions = Array.from(inheritedPermissionsMap.values());
-
-  // Get all available permissions for reference
-  const allPermissions = await context.db
-    .select({
-      key: permissions.key,
-      description: permissions.description,
-    })
-    .from(permissions)
-    .orderBy(permissions.key);
-
-  const responseData = {
-    user: {
-      sub: user.sub,
-      email: user.email,
-      name: user.name,
-    },
-    directPermissions,
-    inheritedPermissions,
-    availablePermissions: allPermissions,
-  };
-
-  sendJson(response, 200, responseData);
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

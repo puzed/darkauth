@@ -5,7 +5,6 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { clients, settings } from "../../db/schema.js";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
@@ -117,12 +116,8 @@ async function _postInstallComplete(
       context.config.publicOrigin,
       context.config.rpId
     );
-    await db.insert(settings).values({
-      key: "kek_kdf",
-      value: kdfParams,
-      secure: true,
-      updatedAt: new Date(),
-    });
+    const installCtx = { ...context, db } as Context;
+    await (await import("../../models/install.js")).writeKdfSetting(installCtx, kdfParams);
 
     context.logger.debug("[install:post] generating signing keys");
     const { publicJwk, privateJwk, kid } = await generateEdDSAKeyPair();
@@ -143,96 +138,22 @@ async function _postInstallComplete(
     const supportDeskClientSecret = generateRandomString(32);
 
     const supportDeskSecretEnc = await kekService.encrypt(Buffer.from(supportDeskClientSecret));
-
-    await db.insert(clients).values([
-      {
-        clientId: "app-web",
-        name: "Web Application",
-        type: "public",
-        tokenEndpointAuthMethod: "none",
-        clientSecretEnc: null,
-        requirePkce: true,
-        zkDelivery: "fragment-jwe",
-        zkRequired: true,
-        allowedJweAlgs: ["ECDH-ES"],
-        allowedJweEncs: ["A256GCM"],
-        redirectUris: [
-          "http://localhost:9092/",
-          "http://localhost:9092/callback",
-          "http://localhost:3000/callback",
-          "https://app.example.com/callback",
-        ],
-        postLogoutRedirectUris: [
-          "http://localhost:9092/",
-          "http://localhost:3000",
-          "https://app.example.com",
-        ],
-        grantTypes: ["authorization_code"],
-        responseTypes: ["code"],
-        scopes: ["openid", "profile", "email"],
-        allowedZkOrigins: [
-          "http://localhost:9092",
-          "http://localhost:3000",
-          "https://app.example.com",
-        ],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        clientId: "support-desk",
-        name: "Support Desk",
-        type: "confidential",
-        tokenEndpointAuthMethod: "client_secret_basic",
-        clientSecretEnc: supportDeskSecretEnc,
-        requirePkce: false,
-        zkDelivery: "none",
-        zkRequired: false,
-        allowedJweAlgs: [],
-        allowedJweEncs: [],
-        redirectUris: ["http://localhost:4000/callback", "https://support.example.com/callback"],
-        postLogoutRedirectUris: ["http://localhost:4000", "https://support.example.com"],
-        grantTypes: ["authorization_code"],
-        responseTypes: ["code"],
-        scopes: ["openid", "profile"],
-        allowedZkOrigins: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]);
+    await (await import("../../models/install.js")).seedDefaultClients(
+      installCtx,
+      supportDeskSecretEnc
+    );
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"
     );
-    const existingAdmin = await db.query.adminUsers.findFirst({
-      where: (tbl, { eq }) => eq(tbl.email, data.adminEmail),
-    });
-
-    if (!existingAdmin) {
-      context.logger.error("[install:post] Admin user was not created during OPAQUE registration!");
-      throw new Error("Admin user must be created via OPAQUE registration first");
-    }
-
-    const adminId = existingAdmin.id;
+    const adminId = await (await import("../../models/install.js")).verifyAdminAndOpaque(
+      installCtx,
+      data.adminEmail
+    );
     context.logger.info({ adminId, email: data.adminEmail }, "[install:post] Admin user verified");
 
     // Verify OPAQUE record exists
-    const opaqueRecord = await db.query.adminOpaqueRecords.findFirst({
-      where: (tbl, { eq }) => eq(tbl.adminId, adminId),
-    });
-
-    if (!opaqueRecord) {
-      context.logger.error("[install:post] OPAQUE record not found for admin user!");
-      throw new Error("OPAQUE registration must be completed first");
-    }
-
-    context.logger.info(
-      {
-        adminId,
-        hasEnvelope: !!opaqueRecord.envelope,
-        envelopeLen: (opaqueRecord.envelope as Buffer)?.length,
-      },
-      "[install:post] OPAQUE record verified"
-    );
+    context.logger.info({ adminId }, "[install:post] OPAQUE record verified");
 
     await markSystemInitialized(tempContextDb);
 

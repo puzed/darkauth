@@ -6,20 +6,22 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
+import { deleteGroup } from "../../models/groups.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
 async function deleteGroupHandler(
-  _context: Context,
+  context: Context,
   _request: IncomingMessage,
   response: ServerResponse,
-  ..._params: unknown[]
+  key: string
 ): Promise<void> {
-  sendJson(response, 501, { error: "Not yet implemented" });
+  const result = await deleteGroup(context, key);
+  sendJson(response, 200, result);
 }
 
-export const deleteGroup = withAudit({
+export const deleteGroupController = withAudit({
   eventType: "GROUP_DELETE",
   resourceType: "group",
   extractResourceId: (_body: unknown, params: string[]) => params[0],

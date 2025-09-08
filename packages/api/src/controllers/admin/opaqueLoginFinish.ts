@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { eq } from "drizzle-orm";
-import { adminUsers } from "../../db/schema.js";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { getAdminById } from "../../models/adminUsers.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -61,9 +60,7 @@ async function postAdminOpaqueLoginFinishHandler(
       "decoded finish"
     );
 
-    const adminUser = await context.db.query.adminUsers.findFirst({
-      where: eq(adminUsers.id, data.adminId),
-    });
+    const adminUser = await getAdminById(context, data.adminId);
     context.logger.info({ adminId: data.adminId, found: !!adminUser }, "admin lookup on finish");
     if (!adminUser) {
       throw new NotFoundError("Admin user not found");

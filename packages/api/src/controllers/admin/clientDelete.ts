@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { clients } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { deleteClient } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -28,17 +27,11 @@ async function deleteClientHandler(
   if (!session.adminRole || session.adminRole !== "write") {
     throw new ForbiddenError("Write access required");
   }
-  const existing = await context.db.query.clients.findFirst({
-    where: eq(clients.clientId, clientId),
-  });
-  if (!existing) {
-    throw new NotFoundError("Client not found");
-  }
-  await context.db.delete(clients).where(eq(clients.clientId, clientId));
-  sendJson(response, 200, { success: true });
+  const result = await deleteClient(context, clientId);
+  sendJson(response, 200, result);
 }
 
-export const deleteClient = withAudit({
+export const deleteClientController = withAudit({
   eventType: "CLIENT_DELETE",
   resourceType: "client",
   extractResourceId: (_body: unknown, params: string[]) => params[0],

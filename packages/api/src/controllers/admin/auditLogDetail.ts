@@ -6,10 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { adminUsers, users } from "../../db/schema.js";
 import { ForbiddenError, NotFoundError } from "../../errors.js";
-import { getAuditLogById } from "../../services/audit.js";
+import { getAuditLogWithActor } from "../../models/auditLogs.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -27,49 +25,13 @@ export async function getAuditLogDetail(
   if (!logId || typeof logId !== "string") {
     throw new NotFoundError("Invalid audit log ID");
   }
-  const auditLog = await getAuditLogById(context, logId);
-  if (!auditLog) {
+  const enriched = await getAuditLogWithActor(context, logId);
+  if (!enriched) {
     throw new NotFoundError("Audit log not found");
   }
 
-  let actorType = "System";
-  let actorId: string | null = null;
-  let actorEmail: string | undefined;
-  let actorName: string | undefined;
-  if (auditLog.adminId) {
-    actorType = "Admin";
-    const rows = await context.db
-      .select({ id: adminUsers.id, email: adminUsers.email, name: adminUsers.name })
-      .from(adminUsers)
-      .where(eq(adminUsers.id, auditLog.adminId as string));
-    const adminUser = rows[0];
-    actorId = adminUser?.email || auditLog.adminId;
-    actorEmail = adminUser?.email;
-    actorName = adminUser?.name;
-  } else if (auditLog.userId) {
-    actorType = "User";
-    const rows = await context.db
-      .select({ sub: users.sub, email: users.email, name: users.name })
-      .from(users)
-      .where(eq(users.sub, auditLog.userId as string));
-    const user = rows[0];
-    actorId = user?.email || auditLog.userId;
-    actorEmail = user?.email || undefined;
-    actorName = user?.name || undefined;
-  } else {
-    actorId = "system";
-  }
-
   const responseData = {
-    auditLog: {
-      ...auditLog,
-      timestamp: new Date(auditLog.timestamp as unknown as Date).toISOString(),
-      actorType,
-      actorId,
-      actorEmail,
-      actorName,
-      resource: auditLog.resourceType || undefined,
-    },
+    auditLog: enriched,
   };
   sendJson(response, 200, responseData);
 }

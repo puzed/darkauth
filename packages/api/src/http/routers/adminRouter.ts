@@ -10,13 +10,13 @@ import { getAuditLogDetail } from "../../controllers/admin/auditLogDetail.js";
 import { getAuditLogExport } from "../../controllers/admin/auditLogExport.js";
 import { getAuditLogs } from "../../controllers/admin/auditLogs.js";
 import { createClient } from "../../controllers/admin/clientCreate.js";
-import { deleteClient } from "../../controllers/admin/clientDelete.js";
+import { deleteClientController } from "../../controllers/admin/clientDelete.js";
 import { getClients } from "../../controllers/admin/clients.js";
-import { updateClient } from "../../controllers/admin/clientUpdate.js";
+import { updateClientController } from "../../controllers/admin/clientUpdate.js";
 import { createGroup } from "../../controllers/admin/groupCreate.js";
-import { deleteGroup } from "../../controllers/admin/groupDelete.js";
+import { deleteGroupController } from "../../controllers/admin/groupDelete.js";
 import { getGroups } from "../../controllers/admin/groups.js";
-import { updateGroup } from "../../controllers/admin/groupUpdate.js";
+import { updateGroupController } from "../../controllers/admin/groupUpdate.js";
 import { getGroupUsers } from "../../controllers/admin/groupUsers.js";
 import { updateGroupUsers } from "../../controllers/admin/groupUsersUpdate.js";
 import { getJwks } from "../../controllers/admin/jwks.js";
@@ -154,9 +154,9 @@ export function createAdminRouter(context: Context) {
       if (groupMatch) {
         const groupKey = groupMatch[1];
         if (method === "PUT")
-          return await updateGroup(context, request, response, groupKey as string);
+          return await updateGroupController(context, request, response, groupKey as string);
         if (method === "DELETE")
-          return await deleteGroup(context, request, response, groupKey as string);
+          return await deleteGroupController(context, request, response, groupKey as string);
       }
 
       const groupUsersMatch = pathname.match(/^\/admin\/groups\/([^/]+)\/users$/);
@@ -232,9 +232,9 @@ export function createAdminRouter(context: Context) {
       if (clientMatch) {
         const clientId = clientMatch[1];
         if (method === "PUT")
-          return await updateClient(context, request, response, clientId as string);
+          return await updateClientController(context, request, response, clientId as string);
         if (method === "DELETE")
-          return await deleteClient(context, request, response, clientId as string);
+          return await deleteClientController(context, request, response, clientId as string);
       }
 
       if (pathname === "/admin/settings") {

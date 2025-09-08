@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { desc } from "drizzle-orm";
-import { jwks } from "../../db/schema.js";
 import { ForbiddenError } from "../../errors.js";
+import { listJwks } from "../../models/jwks.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -26,31 +25,8 @@ export async function getJwks(
     throw new ForbiddenError("Admin access required");
   }
 
-  // Get all JWKS entries (excluding private keys for security)
-  const jwksData = await context.db
-    .select({
-      kid: jwks.kid,
-      alg: jwks.alg,
-      publicJwk: jwks.publicJwk,
-      createdAt: jwks.createdAt,
-      rotatedAt: jwks.rotatedAt,
-      privateJwkEnc: jwks.privateJwkEnc,
-    })
-    .from(jwks)
-    .orderBy(desc(jwks.createdAt));
-
-  const responseData = {
-    keys: jwksData.map((key) => ({
-      kid: key.kid,
-      alg: key.alg,
-      publicJwk: key.publicJwk,
-      createdAt: key.createdAt,
-      rotatedAt: key.rotatedAt,
-      hasPrivateKey: key.privateJwkEnc !== null,
-    })),
-  };
-
-  sendJson(response, 200, responseData);
+  const keys = await listJwks(context);
+  sendJson(response, 200, { keys });
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

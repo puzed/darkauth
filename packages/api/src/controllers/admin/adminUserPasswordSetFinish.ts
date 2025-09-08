@@ -5,10 +5,10 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminPasswordHistory, adminUsers } from "../../db/schema.js";
-import { ConflictError, NotFoundError, ValidationError } from "../../errors.js";
+import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { adminUserPasswordSetFinish } from "../../models/adminPasswords.js";
+import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -51,9 +51,7 @@ async function postAdminUserPasswordSetFinishHandler(
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") throw new ValidationError("Write permission required");
 
-  const admin = await context.db.query.adminUsers.findFirst({
-    where: eq(adminUsers.id, adminId),
-  });
+  const admin = await getAdminById(context, adminId);
   if (!admin) throw new NotFoundError("Admin user not found");
 
   const body = await readBody(request);
@@ -65,50 +63,14 @@ async function postAdminUserPasswordSetFinishHandler(
     );
   }
 
-  const anyMatch = await context.db.query.adminPasswordHistory.findFirst({
-    where: (_fields, operators) =>
-      operators.and(
-        operators.eq(adminPasswordHistory.adminId, adminId),
-        operators.eq(adminPasswordHistory.exportKeyHash, data.export_key_hash)
-      ),
-  });
-  if (anyMatch) {
-    throw new ConflictError("Password reuse not allowed");
-  }
-
   const recordBuffer = fromBase64Url(data.record);
-  const opaqueRecord = await context.services.opaque.finishRegistration(recordBuffer, admin.email);
-
-  await context.db.transaction(async (tx) => {
-    const existing = await tx.query.adminOpaqueRecords.findFirst({
-      where: eq(adminOpaqueRecords.adminId, adminId),
-    });
-    if (existing) {
-      await tx
-        .update(adminOpaqueRecords)
-        .set({
-          envelope: Buffer.from(opaqueRecord.envelope),
-          serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-          updatedAt: new Date(),
-        })
-        .where(eq(adminOpaqueRecords.adminId, adminId));
-    } else {
-      await tx.insert(adminOpaqueRecords).values({
-        adminId,
-        envelope: Buffer.from(opaqueRecord.envelope),
-        serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-        updatedAt: new Date(),
-      });
-    }
-
-    await tx.insert(adminPasswordHistory).values({ adminId, exportKeyHash: data.export_key_hash });
-    await tx
-      .update(adminUsers)
-      .set({ passwordResetRequired: false })
-      .where(eq(adminUsers.id, adminId));
+  const result = await adminUserPasswordSetFinish(context, {
+    adminId,
+    email: admin.email,
+    recordBuffer,
+    exportKeyHash: data.export_key_hash,
   });
-
-  sendJson(response, 200, { success: true });
+  sendJson(response, 200, result);
 }
 
 export const postAdminUserPasswordSetFinish = withAudit({

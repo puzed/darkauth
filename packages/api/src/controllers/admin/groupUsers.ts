@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { groups, userGroups, users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { getGroupUsers as getGroupUsersModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -26,24 +25,8 @@ export async function getGroupUsers(
   if (!groupKey || typeof groupKey !== "string") {
     throw new ValidationError("Invalid group key");
   }
-  const group = await context.db.query.groups.findFirst({ where: eq(groups.key, groupKey) });
-  if (!group) {
-    throw new NotFoundError("Group not found");
-  }
-  const groupUsers = await context.db
-    .select({ sub: users.sub, email: users.email, name: users.name })
-    .from(userGroups)
-    .innerJoin(users, eq(userGroups.userSub, users.sub))
-    .where(eq(userGroups.groupKey, groupKey));
-  const allUsers = await context.db
-    .select({ sub: users.sub, email: users.email, name: users.name })
-    .from(users);
-  const responseData = {
-    group: { key: group.key, name: group.name },
-    users: groupUsers,
-    availableUsers: allUsers,
-  };
-  sendJson(response, 200, responseData);
+  const result = await getGroupUsersModel(context, groupKey);
+  sendJson(response, 200, result);
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

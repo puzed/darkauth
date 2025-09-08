@@ -6,8 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { userEncryptionKeys } from "../../db/schema.js";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { setEncPrivateWrapped } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
@@ -34,15 +34,8 @@ export async function putWrappedEncPrivateJwk(
   }
   if (buf.length === 0) throw new ValidationError("empty payload");
   if (buf.length > 10240) throw new ValidationError("too large");
-  const now = new Date();
-  await context.db
-    .insert(userEncryptionKeys)
-    .values({ sub: sessionData.sub, encPublicJwk: {}, encPrivateJwkWrapped: buf, updatedAt: now })
-    .onConflictDoUpdate({
-      target: userEncryptionKeys.sub,
-      set: { encPrivateJwkWrapped: buf, updatedAt: now },
-    });
-  sendJson(response, 200, { success: true });
+  const result = await setEncPrivateWrapped(context, sessionData.sub, buf);
+  sendJson(response, 200, result);
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

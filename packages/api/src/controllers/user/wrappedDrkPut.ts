@@ -6,8 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { wrappedRootKeys } from "../../db/schema.js";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { setWrappedDrk as setWrappedDrkModel } from "../../models/wrappedRootKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -62,22 +62,7 @@ export const putWrappedDrk = withAudit({
         throw new ValidationError("wrapped_drk too large (max 10KB)");
       }
 
-      // Store in wrappedRootKeys table (upsert operation)
-      const now = new Date();
-      await context.db
-        .insert(wrappedRootKeys)
-        .values({
-          sub: sessionData.sub,
-          wrappedDrk: wrappedDrkBuffer,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: wrappedRootKeys.sub,
-          set: {
-            wrappedDrk: wrappedDrkBuffer,
-            updatedAt: now,
-          },
-        });
+      await setWrappedDrkModel(context, sessionData.sub, wrappedDrkBuffer);
 
       // Return success response
       sendJson(response, 200, {

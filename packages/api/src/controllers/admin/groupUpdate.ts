@@ -6,20 +6,33 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
+import { updateGroup } from "../../models/groups.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
 async function updateGroupHandler(
-  _context: Context,
-  _request: IncomingMessage,
+  context: Context,
+  request: IncomingMessage,
   response: ServerResponse,
-  ..._params: unknown[]
+  key: string
 ): Promise<void> {
-  sendJson(response, 501, { error: "Not yet implemented" });
+  const bodyChunks: Buffer[] = [];
+  await new Promise<void>((resolve) => {
+    request.on("data", (c) => bodyChunks.push(c));
+    request.on("end", () => resolve());
+  });
+  const raw = Buffer.concat(bodyChunks).toString("utf8");
+  const data = JSON.parse(raw) as { name?: string };
+  if (!data.name || typeof data.name !== "string") {
+    sendJson(response, 400, { error: "Invalid name" });
+    return;
+  }
+  const result = await updateGroup(context, key, data.name.trim());
+  sendJson(response, 200, result);
 }
 
-export const updateGroup = withAudit({
+export const updateGroupController = withAudit({
   eventType: "GROUP_UPDATE",
   resourceType: "group",
   extractResourceId: (_body: unknown, params: string[]) => params[0],

@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { clients } from "../../db/schema.js";
 import { InvalidRequestError } from "../../errors.js";
+import { getClient } from "../../models/clients.js";
 import { deleteSession, getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -49,9 +48,7 @@ export const postLogout = withAudit({
         );
       }
 
-      const client = await context.db.query.clients.findFirst({
-        where: eq(clients.clientId, clientId),
-      });
+      const client = await getClient(context, clientId);
 
       if (!client) {
         throw new InvalidRequestError("Unknown client");

@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { deleteUser as deleteUserModel } from "../../models/users.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
@@ -32,12 +31,7 @@ async function deleteUserHandler(
     throw new ForbiddenError("Admin access required");
   }
 
-  const found = await context.db.query.users.findFirst({
-    where: eq(users.sub, sub),
-  });
-  if (!found) throw new NotFoundError("User not found");
-
-  await context.db.delete(users).where(eq(users.sub, sub));
+  await deleteUserModel(context, sub);
   sendJson(response, 200, { message: "User deleted" });
 }
 

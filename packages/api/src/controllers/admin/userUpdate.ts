@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { and, eq, ne } from "drizzle-orm";
-import { users } from "../../db/schema.js";
-import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
+import { updateUserBasic } from "../../models/users.js";
 import type { Context, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -28,49 +27,14 @@ async function updateUserHandler(
     throw new ForbiddenError("Admin access required");
   }
 
-  const existing = await context.db.query.users.findFirst({
-    where: eq(users.sub, sub),
-  });
-  if (!existing) throw new NotFoundError("User not found");
-
   const body = await readBody(request);
   const data = parseJsonSafely(body) as Record<string, unknown>;
-
-  const updates: { email?: string | null; name?: string | null } = {};
-
-  if ("email" in data) {
-    if (data.email === null || data.email === "") {
-      updates.email = null;
-    } else if (typeof data.email === "string") {
-      const email = data.email.trim();
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) throw new ValidationError("Invalid email format");
-      const other = await context.db.query.users.findFirst({
-        where: and(eq(users.email, email), ne(users.sub, sub)),
-      });
-      if (other) throw new ConflictError("User with this email already exists");
-      updates.email = email;
-    } else {
-      throw new ValidationError("Invalid email value");
-    }
-  }
-
-  if ("name" in data) {
-    if (data.name === null) updates.name = null;
-    else if (typeof data.name === "string") updates.name = data.name.trim();
-    else throw new ValidationError("Invalid name value");
-  }
-
-  if (Object.keys(updates).length === 0) {
-    sendJson(response, 200, { ...existing });
-    return;
-  }
-
-  await context.db.update(users).set(updates).where(eq(users.sub, sub));
-  const updated = await context.db.query.users.findFirst({
-    where: eq(users.sub, sub),
+  const payload = data as Partial<{ email: string | null; name: string | null }>;
+  const updated = await updateUserBasic(context, sub, {
+    email: payload.email ?? undefined,
+    name: payload.name ?? undefined,
   });
-  sendJson(response, 200, updated || existing);
+  sendJson(response, 200, updated);
 }
 
 export const updateUser = withAudit({

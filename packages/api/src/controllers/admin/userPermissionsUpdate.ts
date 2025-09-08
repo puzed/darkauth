@@ -5,9 +5,8 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { eq, inArray } from "drizzle-orm";
-import { permissions, userPermissions, users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { setUserPermissions } from "../../models/userPermissions.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -46,64 +45,9 @@ async function updateUserPermissionsHandler(
   // At this point, we know permissionKeys is string[]
   const permissionKeys = data.permissionKeys as string[];
 
-  // Verify user exists
-  const user = await context.db.query.users.findFirst({
-    where: eq(users.sub, userSub),
-  });
-
-  if (!user) {
-    throw new NotFoundError("User not found");
-  }
-
-  // Verify all provided permissions exist
-  if (data.permissionKeys.length > 0) {
-    const existingPermissions = await context.db
-      .select({ key: permissions.key })
-      .from(permissions)
-      .where(inArray(permissions.key, data.permissionKeys));
-
-    if (existingPermissions.length !== data.permissionKeys.length) {
-      const existingKeys = existingPermissions.map((p) => p.key);
-      const missingKeys = data.permissionKeys.filter((key: string) => !existingKeys.includes(key));
-      throw new ValidationError(`Permissions not found: ${missingKeys.join(", ")}`);
-    }
-  }
-
-  // Update user permissions in transaction
-  await context.db.transaction(async (trx) => {
-    // Remove all existing user permissions
-    await trx.delete(userPermissions).where(eq(userPermissions.userSub, userSub));
-
-    // Add new user permissions if any
-    if (permissionKeys.length > 0) {
-      await trx.insert(userPermissions).values(
-        permissionKeys.map((permissionKey: string) => ({
-          userSub,
-          permissionKey,
-        }))
-      );
-    }
-  });
-
-  // Get updated user permissions for response
-  const updatedUserPermissions = await context.db
-    .select({
-      key: permissions.key,
-      description: permissions.description,
-    })
-    .from(userPermissions)
-    .innerJoin(permissions, eq(userPermissions.permissionKey, permissions.key))
-    .where(eq(userPermissions.userSub, userSub))
-    .orderBy(permissions.key);
-
   const responseData = {
     success: true,
-    user: {
-      sub: user.sub,
-      email: user.email,
-      name: user.name,
-    },
-    directPermissions: updatedUserPermissions,
+    ...(await setUserPermissions(context, userSub, permissionKeys)),
   };
 
   sendJson(response, 200, responseData);

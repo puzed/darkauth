@@ -6,10 +6,9 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { opaqueRecords, users } from "../../db/schema.js";
-import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { NotFoundError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
+import { getUserOpaqueRecordByEmail } from "../../models/users.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendJson } from "../../utils/http.js";
@@ -62,44 +61,19 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
     // Find user by email
-    const user = await context.db.query.users.findFirst({
-      where: eq(users.email, data.email as string),
-      with: {
-        opaqueRecord: true,
-      },
-    });
+    const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(
+      context,
+      data.email as string
+    );
     context.logger.debug({ found: !!user }, "user lookup");
 
     if (!user) {
       throw new NotFoundError("User not found");
     }
 
-    if (!user.opaqueRecord) {
-      throw new UnauthorizedError("User has no authentication record");
-    }
-
     // Convert stored OPAQUE record to the expected format
-    let envelopeBuffer = user.opaqueRecord.envelope as unknown as Buffer | string | null;
-    let serverPubkeyBuffer = user.opaqueRecord.serverPubkey as unknown as Buffer | string | null;
-
-    if (
-      (envelopeBuffer
-        ? typeof envelopeBuffer === "string"
-          ? envelopeBuffer.length
-          : (envelopeBuffer as Buffer).length
-        : 0) === 0 ||
-      (serverPubkeyBuffer
-        ? typeof serverPubkeyBuffer === "string"
-          ? serverPubkeyBuffer.length
-          : (serverPubkeyBuffer as Buffer).length
-        : 0) === 0
-    ) {
-      const rec = await context.db.query.opaqueRecords.findFirst({
-        where: eq(opaqueRecords.sub, user.sub),
-      });
-      envelopeBuffer = rec?.envelope ?? envelopeBuffer;
-      serverPubkeyBuffer = rec?.serverPubkey ?? serverPubkeyBuffer;
-    }
+    const envelopeBuffer = envelope as unknown as Buffer | string | null;
+    const serverPubkeyBuffer = serverPubkey as unknown as Buffer | string | null;
     context.logger.debug(
       {
         envLen:

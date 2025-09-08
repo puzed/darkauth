@@ -5,7 +5,7 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { rotateKeys } from "../../services/jwks.js";
+import { rotateJwks as rotateJwksModel } from "../../models/jwks.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -22,7 +22,7 @@ async function rotateJwksHandler(
     throw new Error("Write access required");
   }
 
-  const { kid } = await rotateKeys(context);
+  const { kid } = await rotateJwksModel(context);
   sendJson(response, 200, { kid, message: "JWKS rotated" });
 }
 

@@ -5,10 +5,9 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { eq } from "drizzle-orm";
-import { adminUsers } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { setAdminPasswordResetRequired } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -33,18 +32,8 @@ async function postAdminUserPasswordResetHandler(
     throw new ForbiddenError("Write permission required");
   }
 
-  const admin = await context.db.query.adminUsers.findFirst({
-    where: eq(adminUsers.id, adminId),
-  });
-  if (!admin) {
-    throw new NotFoundError("Admin user not found");
-  }
-
-  await context.db
-    .update(adminUsers)
-    .set({ passwordResetRequired: true })
-    .where(eq(adminUsers.id, adminId));
-  sendJson(response, 200, { success: true });
+  const result = await setAdminPasswordResetRequired(context, adminId, true);
+  sendJson(response, 200, result);
 }
 
 export const postAdminUserPasswordReset = withAudit({

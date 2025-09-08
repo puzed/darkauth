@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { clients } from "../../db/schema.js";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { updateClient } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -29,7 +28,26 @@ async function updateClientHandler(
   if (!parsed || typeof parsed !== "object") throw new ValidationError("Invalid JSON body");
   const data = parsed as Record<string, unknown>;
 
-  const updates: Partial<typeof clients.$inferInsert> = { updatedAt: new Date() };
+  type ClientUpdateInput = {
+    name?: string;
+    type?: "public" | "confidential";
+    tokenEndpointAuthMethod?: "none" | "client_secret_basic";
+    requirePkce?: boolean;
+    zkDelivery?: "none" | "fragment-jwe";
+    zkRequired?: boolean;
+    allowedJweAlgs?: string[];
+    allowedJweEncs?: string[];
+    redirectUris?: string[];
+    postLogoutRedirectUris?: string[];
+    grantTypes?: string[];
+    responseTypes?: string[];
+    scopes?: string[];
+    allowedZkOrigins?: string[];
+    idTokenLifetimeSeconds?: number | null;
+    refreshTokenLifetimeSeconds?: number | null;
+  };
+
+  const updates: ClientUpdateInput = {};
   if (typeof data.name === "string") updates.name = data.name;
   if (data.type === "public" || data.type === "confidential") updates.type = data.type;
   if (
@@ -86,12 +104,12 @@ async function updateClientHandler(
   if (typeof data.refreshTokenLifetimeSeconds === "number")
     updates.refreshTokenLifetimeSeconds = data.refreshTokenLifetimeSeconds;
 
-  await context.db.update(clients).set(updates).where(eq(clients.clientId, clientId));
+  await updateClient(context, clientId, updates);
 
   sendJson(response, 200, { success: true });
 }
 
-export const updateClient = withAudit({
+export const updateClientController = withAudit({
   eventType: "CLIENT_UPDATE",
   resourceType: "client",
   extractResourceId: (body: unknown, params: string[]) => {

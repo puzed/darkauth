@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { users } from "../../db/schema.js";
 import { ValidationError } from "../../errors.js";
+import { getUserOpaqueRecordByEmail } from "../../models/users.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -42,24 +41,20 @@ export async function postUserPasswordVerifyStart(
       throw new ValidationError("Invalid base64url encoding in request");
     }
 
-    const user = await context.db.query.users.findFirst({
-      where: eq(users.email, session.email),
-      with: { opaqueRecord: true },
-    });
-    if (!user || !user.opaqueRecord) {
+    const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(
+      context,
+      session.email
+    );
+    if (!user || !envelope || !serverPubkey) {
       throw new ValidationError("User has no authentication record");
-    }
-
-    const envelope = user.opaqueRecord.envelope;
-    const serverPubkey = user.opaqueRecord.serverPubkey;
-
-    if (!envelope || !serverPubkey) {
-      throw new ValidationError("User OPAQUE record is incomplete");
     }
 
     const loginResponse = await context.services.opaque.startLogin(
       requestBuffer,
-      { envelope: new Uint8Array(envelope), serverPublicKey: new Uint8Array(serverPubkey) },
+      {
+        envelope: new Uint8Array(envelope as Buffer),
+        serverPublicKey: new Uint8Array(serverPubkey as Buffer),
+      },
       session.email
     );
 

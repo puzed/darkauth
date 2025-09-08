@@ -5,9 +5,8 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { eq } from "drizzle-orm";
-import { groups, userGroups, users } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { getUserGroups as getUserGroupsModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
@@ -29,48 +28,8 @@ export async function getUserGroups(
     throw new ValidationError("Invalid user subject");
   }
 
-  // Verify user exists
-  const user = await context.db.query.users.findFirst({
-    where: eq(users.sub, userSub),
-  });
-
-  if (!user) {
-    throw new NotFoundError("User not found");
-  }
-
-  // Get user's groups
-  const userGroupsData = await context.db
-    .select({
-      groupKey: groups.key,
-      groupName: groups.name,
-    })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .where(eq(userGroups.userSub, userSub));
-
-  // Get all available groups for reference
-  const allGroups = await context.db
-    .select({
-      key: groups.key,
-      name: groups.name,
-    })
-    .from(groups)
-    .orderBy(groups.name);
-
-  const responseData = {
-    user: {
-      sub: user.sub,
-      email: user.email,
-      name: user.name,
-    },
-    userGroups: userGroupsData.map((g) => ({
-      key: g.groupKey,
-      name: g.groupName,
-    })),
-    availableGroups: allGroups,
-  };
-
-  sendJson(response, 200, responseData);
+  const result = await getUserGroupsModel(context, userSub);
+  sendJson(response, 200, result);
 }
 
 export function registerOpenApi(registry: OpenAPIRegistry) {

@@ -1,7 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminPasswordHistory, adminUsers } from "../../db/schema.js";
-import { ConflictError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
+import { adminPasswordChangeFinish } from "../../models/adminPasswords.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -53,55 +52,13 @@ async function postAdminPasswordChangeFinishHandler(
       throw new ValidationError("Invalid base64url encoding in record");
     }
 
-    const anyMatch = await context.db.query.adminPasswordHistory.findFirst({
-      where: (_fields, operators) =>
-        operators.and(
-          operators.eq(adminPasswordHistory.adminId, adminId),
-          operators.eq(adminPasswordHistory.exportKeyHash, data.export_key_hash)
-        ),
-    });
-    if (anyMatch) {
-      throw new ConflictError("Password reuse not allowed");
-    }
-
-    const opaqueRecord = await context.services.opaque.finishRegistration(
+    const result = await adminPasswordChangeFinish(context, {
+      adminId,
+      email: session.email,
       recordBuffer,
-      session.email
-    );
-
-    await context.db.transaction(async (tx) => {
-      const existing = await tx.query.adminOpaqueRecords.findFirst({
-        where: eq(adminOpaqueRecords.adminId, adminId),
-      });
-      if (existing) {
-        await tx
-          .update(adminOpaqueRecords)
-          .set({
-            envelope: Buffer.from(opaqueRecord.envelope),
-            serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-            updatedAt: new Date(),
-          })
-          .where(eq(adminOpaqueRecords.adminId, adminId));
-      } else {
-        await tx.insert(adminOpaqueRecords).values({
-          adminId,
-          envelope: Buffer.from(opaqueRecord.envelope),
-          serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
-          updatedAt: new Date(),
-        });
-      }
-
-      await tx
-        .insert(adminPasswordHistory)
-        .values({ adminId, exportKeyHash: data.export_key_hash });
-
-      await tx
-        .update(adminUsers)
-        .set({ passwordResetRequired: false })
-        .where(eq(adminUsers.id, adminId));
+      exportKeyHash: data.export_key_hash,
     });
-
-    sendJson(response, 200, { success: true });
+    sendJson(response, 200, result);
   } catch (error) {
     sendError(response, error as Error);
   }
