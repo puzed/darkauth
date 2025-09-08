@@ -6,9 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { desc } from "drizzle-orm";
-import { clients } from "../../db/schema.js";
 import { ForbiddenError } from "../../errors.js";
+import { listClients } from "../../models/clients.js";
 
 const ClientResponseSchema = z.object({
   clientId: z.string(),
@@ -51,36 +50,9 @@ export async function getClients(
     throw new ForbiddenError("Admin access required");
   }
 
-  const clientsData = await context.db
-    .select({
-      clientId: clients.clientId,
-      name: clients.name,
-      type: clients.type,
-      tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
-      requirePkce: clients.requirePkce,
-      zkDelivery: clients.zkDelivery,
-      zkRequired: clients.zkRequired,
-      allowedJweAlgs: clients.allowedJweAlgs,
-      allowedJweEncs: clients.allowedJweEncs,
-      redirectUris: clients.redirectUris,
-      postLogoutRedirectUris: clients.postLogoutRedirectUris,
-      grantTypes: clients.grantTypes,
-      responseTypes: clients.responseTypes,
-      scopes: clients.scopes,
-      allowedZkOrigins: clients.allowedZkOrigins,
-      idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
-      refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
-      createdAt: clients.createdAt,
-      updatedAt: clients.updatedAt,
-    })
-    .from(clients)
-    .orderBy(desc(clients.createdAt));
+  const result = await listClients(context);
 
-  const responseData = {
-    clients: clientsData,
-  };
-
-  sendJsonValidated(response, 200, responseData, ClientsListResponseSchema);
+  sendJsonValidated(response, 200, result, ClientsListResponseSchema);
 }
 
 // export const openApiSchema = createRouteSpec({

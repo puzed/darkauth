@@ -1418,6 +1418,140 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
 }
 ```
 
+## Models and Controllers
+
+### Model Responsibilities
+
+Models handle all data access logic and business rules. They should be the single source of truth for how data is retrieved, created, updated, and deleted.
+
+**Models should:**
+- Contain all database queries and operations
+- Handle data validation and business logic
+- Implement data transformation and aggregation
+- Manage relationships between entities
+- Provide clean, typed interfaces for data access
+- Handle pagination, filtering, and search logic
+- Throw appropriate errors (NotFoundError, ConflictError, etc.)
+- Be pure functions that take `Context` as first parameter
+
+**Models should NOT:**
+- Handle HTTP requests/responses
+- Manage authentication/authorization
+- Deal with OpenAPI specifications
+- Parse query parameters or request bodies
+
+### Controller Responsibilities
+
+Controllers are thin layers that handle HTTP-specific concerns and coordinate between different parts of the system.
+
+**Controllers should:**
+- Handle HTTP request/response lifecycle
+- Parse and validate query parameters and request bodies
+- Manage authentication and authorization (via session middleware)
+- Call appropriate model functions with validated data
+- Handle OpenAPI specification registration
+- Transform model responses for HTTP responses
+- Catch and transform errors for HTTP responses
+
+**Controllers should NOT:**
+- Contain database queries or business logic
+- Handle complex data transformations
+- Implement pagination or filtering logic
+- Manage database transactions directly
+
+### Model-Controller Relationship
+
+The relationship follows this pattern:
+
+```typescript
+// Controller (HTTP layer)
+export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+  // 1. Authentication/authorization
+  const sessionData = await requireSession(context, request, true);
+  if (!sessionData.adminRole) {
+    throw new ForbiddenError("Admin access required");
+  }
+
+  // 2. Parse and validate input
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const { page, limit } = getPaginationFromUrl(url, 20, 100);
+  const search = url.searchParams.get("search");
+
+  // 3. Call model function
+  const result = await listUsers(context, { page, limit, search: search || undefined });
+
+  // 4. Return HTTP response
+  sendJsonValidated(response, 200, result, UsersListResponseSchema);
+}
+
+// Model (Data layer)
+export async function listUsers(
+  context: Context,
+  options: { page?: number; limit?: number; search?: string } = {}
+) {
+  // All database logic, pagination, filtering, etc.
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+
+  // Complex queries, joins, aggregations
+  const users = await context.db
+    .select(/* ... */)
+    .from(/* ... */)
+    .where(/* ... */)
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    users,
+    pagination: { /* ... */ }
+  };
+}
+```
+
+### Type Safety Between Layers
+
+Models should export clean TypeScript interfaces that controllers can use:
+
+```typescript
+// schemas/users.ts - Define external API types
+export const UserSchema = z.object({
+  sub: z.string(),
+  email: z.string().email().nullable(),
+  name: z.string().nullable(),
+  createdAt: z.date(),
+});
+
+export type User = z.infer<typeof UserSchema>;
+
+// models/users.ts - Database operations with types
+export async function listUsers(
+  context: Context,
+  options: ListUsersOptions
+): Promise<ListUsersResult> {
+  // Database operations
+}
+
+// controllers/users.ts - HTTP handling
+export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+  const result = await listUsers(context, options);
+  sendJsonValidated(response, 200, result, UsersListResponseSchema);
+}
+```
+
+### Error Handling
+
+Both models and controllers should use the same error classes, but handle them at different levels:
+
+- **Models**: Throw business logic errors (NotFoundError, ConflictError, ValidationError)
+- **Controllers**: Catch and transform errors for HTTP responses (handled automatically by error middleware)
+
+### Testing Strategy
+
+- **Model tests**: Focus on data operations, business logic, edge cases
+- **Controller tests**: Focus on HTTP handling, authentication, input validation
+- **Integration tests**: Test the full flow from HTTP request to database
+
 ## OpenAPI Documentation
 
 ### Controller Schema Exports
