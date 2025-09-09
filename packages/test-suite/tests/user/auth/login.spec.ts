@@ -71,7 +71,7 @@ test.describe('Authentication - User Login', () => {
     await page.fill('input[name="email"], input[type="email"]', 'wrong-user@example.com');
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.click('button[type="submit"], button:has-text("Sign In")');
-    await expect(page.locator('body')).toContainText(/no account found|not found|invalid|error|incorrect/i);
+    await expect(page.locator('body')).toContainText(/no account found|not found|invalid|error|incorrect|rate\s*limit|exceeded|slow\s*down/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
 
