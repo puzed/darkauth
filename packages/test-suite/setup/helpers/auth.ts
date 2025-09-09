@@ -84,12 +84,23 @@ export async function createUserViaAdmin(
   const client = new OpaqueClient();
   await client.initialize();
   const loginStart = await client.startLogin(admin.password, admin.email);
-  const startRes = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-    body: JSON.stringify({ email: admin.email, request: toBase64Url(Buffer.from(loginStart.request)) })
-  });
-  if (!startRes.ok) throw new Error(`admin login start failed: ${startRes.status}`);
+  let startRes: Response | null = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
+      body: JSON.stringify({ email: admin.email, request: toBase64Url(Buffer.from(loginStart.request)) })
+    });
+    if (res.status !== 429) {
+      startRes = res;
+      break;
+    }
+    const resetHeader = res.headers.get('X-RateLimit-Reset');
+    const nowSec = Math.ceil(Date.now() / 1000);
+    const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 250;
+    await new Promise((r) => setTimeout(r, Math.min(waitMs, 1500)));
+  }
+  if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
   const startJson = await startRes.json();
   const loginFinish = await client.finishLogin(
     fromBase64Url(startJson.message),
