@@ -12,8 +12,6 @@ export interface BasicUser {
 const adminTokenCache = new Map<string, string>();
 
 export async function registerUser(servers: TestServers, user: BasicUser): Promise<void> {
-  const client = new OpaqueClient();
-  await client.initialize();
   const regClient = new OpaqueClient();
   await regClient.initialize();
   const regStart = await regClient.startRegistration(user.password, user.email);
@@ -92,7 +90,7 @@ export async function createUserViaAdmin(
     await client.initialize();
     const loginStart = await client.startLogin(admin.password, admin.email);
     let startRes: Response | null = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
+  for (let attempt = 0; attempt < 5; attempt++) {
       const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
@@ -104,8 +102,8 @@ export async function createUserViaAdmin(
       }
       const resetHeader = res.headers.get('X-RateLimit-Reset');
       const nowSec = Math.ceil(Date.now() / 1000);
-      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 1000;
-      await new Promise((r) => setTimeout(r, Math.min(waitMs, 5000)));
+      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 500;
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 1000)));
     }
     if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
     const startJson = await startRes.json();
@@ -144,6 +142,8 @@ export async function createUserViaAdmin(
   const created = await createRes.json();
   const sub = created.sub as string;
 
+  const regClient = new OpaqueClient();
+  await regClient.initialize();
   const regStart = await regClient.startRegistration(user.password, user.email);
   const setStartRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/password/set/start`, {
     method: 'POST',
