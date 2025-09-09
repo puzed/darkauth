@@ -6,8 +6,13 @@ extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { createPglite } from "../../db/pglite.js";
-import { ValidationError } from "../../errors.js";
+import {
+  AlreadyInitializedError,
+  ExpiredInstallTokenError,
+  ValidationError,
+} from "../../errors.js";
 import { createOpaqueService } from "../../services/opaque.js";
+import { isSystemInitialized } from "../../services/settings.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
@@ -30,6 +35,10 @@ export async function postInstallOpaqueRegisterStart(
 ) {
   try {
     context.logger.info("[install:opaque:start] Beginning OPAQUE registration start");
+    const initialized = await isSystemInitialized(context);
+    if (initialized) {
+      throw new AlreadyInitializedError();
+    }
     const body = await readBody(request);
     context.logger.debug({ bodyLen: body.length }, "[install:opaque:start] Read request body");
     const data = Req.parse(parseJsonSafely(body));
@@ -40,6 +49,12 @@ export async function postInstallOpaqueRegisterStart(
     if (!context.services.install?.token || data.token !== context.services.install.token) {
       context.logger.error("[install:opaque:start] Invalid install token");
       throw new ValidationError("Invalid install token");
+    }
+    if (context.services.install?.createdAt) {
+      const tokenAge = Date.now() - (context.services.install.createdAt || 0);
+      if (tokenAge > 10 * 60 * 1000) {
+        throw new ExpiredInstallTokenError();
+      }
     }
     if (context.services.install?.adminCreated) {
       throw new ValidationError("Bootstrap admin already created");
