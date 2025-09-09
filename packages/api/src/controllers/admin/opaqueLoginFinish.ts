@@ -7,7 +7,7 @@ import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 
 interface OpaqueLoginFinishRequest {

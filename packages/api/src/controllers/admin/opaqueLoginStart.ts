@@ -11,7 +11,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 
 const OpaqueLoginStartRequestSchema = z.object({
   email: z.string().email(),
