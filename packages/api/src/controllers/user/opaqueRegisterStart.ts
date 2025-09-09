@@ -6,7 +6,8 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
+import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -18,6 +19,14 @@ export const postOpaqueRegisterStart = async (
 ): Promise<void> => {
   if (!context.services.opaque) {
     throw new ValidationError("OPAQUE service not available");
+  }
+
+  const enabled = (await getSetting(context, "users.self_registration_enabled")) as
+    | boolean
+    | undefined
+    | null;
+  if (!enabled) {
+    throw new ForbiddenError("Self-registration disabled");
   }
 
   // Read and parse request body
