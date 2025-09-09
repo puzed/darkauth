@@ -110,9 +110,9 @@ async function postAdminOpaqueLoginStartHandler(
     context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start response");
 
     // Convert response to base64url for JSON transmission
+    // SECURITY: Do not include adminId in response - identity is bound server-side
     const responseData = {
       message: toBase64Url(Buffer.from(loginResponse.message)),
-      adminId: adminUser.id,
       sessionId: loginResponse.sessionId,
     };
     sendJson(response, 200, responseData);
