@@ -5,9 +5,14 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { ValidationError } from "../../errors.js";
+import {
+  AlreadyInitializedError,
+  ExpiredInstallTokenError,
+  ValidationError,
+} from "../../errors.js";
 import { storeOpaqueAdmin } from "../../models/install.js";
 import { createOpaqueService } from "../../services/opaque.js";
+import { isSystemInitialized } from "../../services/settings.js";
 import type { Context } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
@@ -27,6 +32,10 @@ export async function postInstallOpaqueRegisterFinish(
 ) {
   try {
     context.logger.info("[install:opaque:finish] Beginning OPAQUE registration finish");
+    const initialized = await isSystemInitialized(context);
+    if (initialized) {
+      throw new AlreadyInitializedError();
+    }
 
     let svc = context.services.opaque;
     if (context.services.install?.tempDb) {
@@ -51,6 +60,12 @@ export async function postInstallOpaqueRegisterFinish(
     if (!context.services.install?.token || data.token !== context.services.install.token) {
       context.logger.error("[install:opaque:finish] Invalid install token");
       throw new ValidationError("Invalid install token");
+    }
+    if (context.services.install?.createdAt) {
+      const tokenAge = Date.now() - (context.services.install.createdAt || 0);
+      if (tokenAge > 10 * 60 * 1000) {
+        throw new ExpiredInstallTokenError();
+      }
     }
 
     if (context.services.install.adminCreated) {
@@ -91,6 +106,9 @@ export async function postInstallOpaqueRegisterFinish(
     } else {
       if (!install.adminEmail) install.adminEmail = data.email;
       install.adminCreated = true;
+    }
+    if (context.services.install) {
+      context.services.install.token = undefined;
     }
 
     context.logger.info("[install:opaque:finish] Registration complete, sending success response");
