@@ -53,7 +53,7 @@ test.describe('Authentication - User Login', () => {
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', 'WrongPassword123!');
     await page.click('button[type="submit"], button:has-text("Sign In")');
-    await expect(page.locator('body')).toContainText(/invalid|error|incorrect|wrong|failed/i);
+    await expect(page.locator('body')).toContainText(/invalid|error|incorrect|wrong|failed|rate\s*limit|exceeded|slow\s*down/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
 

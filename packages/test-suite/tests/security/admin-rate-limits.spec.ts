@@ -82,8 +82,31 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
   })
 
   test('limits configurable via settings', async ({ request }) => {
-    const res = await request.put(`${servers.adminUrl}/admin/settings`, {
+    const client = new OpaqueClient()
+    await client.initialize()
+    const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email)
+    const startRes = await request.post(`${servers.adminUrl}/admin/opaque/login/start`, {
       headers: { 'Origin': servers.adminUrl },
+      data: { email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) }
+    })
+    expect(startRes.ok()).toBeTruthy()
+    const startJson = await startRes.json()
+    const finish = await client.finishLogin(
+      fromBase64Url(startJson.message),
+      start.state,
+      new Uint8Array(),
+      'DarkAuth',
+      FIXED_TEST_ADMIN.email
+    )
+    const finishRes = await request.post(`${servers.adminUrl}/admin/opaque/login/finish`, {
+      headers: { 'Origin': servers.adminUrl },
+      data: { sessionId: startJson.sessionId, finish: toBase64Url(Buffer.from(finish.finish)) }
+    })
+    expect(finishRes.ok()).toBeTruthy()
+    const finishJson = await finishRes.json()
+
+    const res = await request.put(`${servers.adminUrl}/admin/settings`, {
+      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${finishJson.accessToken}` },
       data: { key: 'rate_limits.opaque.enabled', value: false }
     })
     expect(res.ok()).toBeTruthy()
@@ -104,4 +127,3 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
     }
   })
 })
-
