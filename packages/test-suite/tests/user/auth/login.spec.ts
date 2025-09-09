@@ -26,7 +26,7 @@ test.describe('Authentication - User Login', () => {
     await client.initialize();
     const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email);
     let startRes: Response | null = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
+    for (let attempt = 0; attempt < 5; attempt++) {
       const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
@@ -35,8 +35,8 @@ test.describe('Authentication - User Login', () => {
       if (res.status !== 429) { startRes = res; break; }
       const resetHeader = res.headers.get('X-RateLimit-Reset');
       const nowSec = Math.ceil(Date.now() / 1000);
-      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 1000;
-      await new Promise((r) => setTimeout(r, Math.min(waitMs, 5000)));
+      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 500;
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 1000)));
     }
     if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
     const startJson = await startRes.json();
