@@ -89,6 +89,11 @@ export interface Services {
       identityU: string,
       identityS?: string
     ) => Promise<OpaqueLoginResponse>;
+    startLoginWithDummy: (
+      request: Uint8Array,
+      identityU: string,
+      identityS?: string
+    ) => Promise<OpaqueLoginResponse>;
     finishLogin: (finish: Uint8Array, sessionId: string) => Promise<OpaqueLoginResult>;
   };
   install?: {

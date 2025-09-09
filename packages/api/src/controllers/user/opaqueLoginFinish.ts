@@ -106,18 +106,18 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
           userEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
         }
 
-        // Look up user by the email from the server session only
-        const user = await getUserBySubOrEmail(context, userEmail);
-        if (!user) {
-          throw new UnauthorizedError("Authentication failed");
-        }
-
-        // Call OPAQUE service to finish login
+        // Call OPAQUE service to finish login first to normalize timing
         let loginResult: OpaqueLoginResult;
         try {
           loginResult = await context.services.opaque.finishLogin(finishBuffer, sessionId);
         } catch (error) {
           console.error("OPAQUE login finish failed:", error);
+          throw new UnauthorizedError("Authentication failed");
+        }
+
+        // Look up user by the email from the server session only
+        const user = await getUserBySubOrEmail(context, userEmail);
+        if (!user) {
           throw new UnauthorizedError("Authentication failed");
         }
 

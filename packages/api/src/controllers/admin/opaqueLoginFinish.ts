@@ -88,14 +88,7 @@ async function postAdminOpaqueLoginFinishHandler(
       adminEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
     }
 
-    // Look up admin by the email from the server session only
-    const adminUser = await getAdminByEmail(context, adminEmail);
-    context.logger.info({ email: adminEmail, found: !!adminUser }, "admin lookup on finish");
-    if (!adminUser) {
-      throw new UnauthorizedError("Authentication failed");
-    }
-
-    // Call OPAQUE service to finish login
+    // Call OPAQUE service to finish login first to normalize timing
     let loginResult: OpaqueLoginResult;
     try {
       context.logger.info(
@@ -123,6 +116,13 @@ async function postAdminOpaqueLoginFinishHandler(
       throw new UnauthorizedError("Authentication failed");
     }
     context.logger.debug({ sessionKeyLen: loginResult.sessionKey.length }, "opaque finish ok");
+
+    // Look up admin by the email from the server session only
+    const adminUser = await getAdminByEmail(context, adminEmail);
+    context.logger.info({ email: adminEmail, found: !!adminUser }, "admin lookup on finish");
+    if (!adminUser) {
+      throw new UnauthorizedError("Authentication failed");
+    }
 
     // Create admin session
     const { sessionId, refreshToken } = await createSession(context, "admin", {
