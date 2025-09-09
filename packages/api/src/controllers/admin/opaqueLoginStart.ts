@@ -6,6 +6,7 @@ extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
 import type { Context } from "../../types.js";
@@ -34,8 +35,7 @@ async function postAdminOpaqueLoginStartHandler(
       throw new ValidationError("OPAQUE service not available");
     }
 
-    context.logger.debug({}, "reading request body");
-    const body = await readBody(request);
+    const body = await getCachedBody(request);
     const data = parseJsonSafely(body) as Record<string, unknown>;
     context.logger.debug({ bodyLen: body?.length || 0 }, "parsed body");
 
@@ -122,7 +122,10 @@ async function postAdminOpaqueLoginStartHandler(
   }
 }
 
-export const postAdminOpaqueLoginStart = postAdminOpaqueLoginStartHandler;
+export const postAdminOpaqueLoginStart = withRateLimit(
+  "opaque",
+  (body) => (body && typeof body === "object" && "email" in body ? (body as { email?: string }).email : undefined)
+)(postAdminOpaqueLoginStartHandler);
 
 export function registerOpenApi(registry: OpenAPIRegistry) {
   registry.registerPath({

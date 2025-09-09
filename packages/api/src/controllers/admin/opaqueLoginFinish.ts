@@ -8,6 +8,7 @@ import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 
 interface OpaqueLoginFinishRequest {
   finish: string;
@@ -36,7 +37,7 @@ async function postAdminOpaqueLoginFinishHandler(
     }
 
     // Read and parse request body
-    const body = await readBody(request);
+    const body = await getCachedBody(request);
     const data = parseJsonSafely(body);
     context.logger.debug({ bodyLen: body?.length || 0 }, "parsed body");
 
@@ -152,7 +153,11 @@ async function postAdminOpaqueLoginFinishHandler(
   }
 }
 
-export const postAdminOpaqueLoginFinish = withAudit({
+export const postAdminOpaqueLoginFinish = withRateLimit("opaque", (body) => {
+  const data = body as { sessionId?: string };
+  return data?.sessionId;
+})(
+  withAudit({
   eventType: "ADMIN_LOGIN",
   resourceType: "admin",
   extractResourceId: (body) => {
@@ -160,4 +165,4 @@ export const postAdminOpaqueLoginFinish = withAudit({
     const data = body as { sessionId?: string };
     return data?.sessionId;
   },
-})(postAdminOpaqueLoginFinishHandler);
+})(postAdminOpaqueLoginFinishHandler));
