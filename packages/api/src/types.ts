@@ -100,6 +100,8 @@ export interface Services {
     chosenPostgresUri?: string;
     chosenDbMode?: "remote" | "pglite";
     chosenPgliteDir?: string;
+    adminEmail?: string;
+    adminCreated?: boolean;
   };
   audit?: {
     logEvent: (event: AuditEvent) => Promise<void>;
