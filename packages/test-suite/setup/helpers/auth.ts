@@ -144,7 +144,7 @@ export async function createUserViaAdmin(
   const created = await createRes.json();
   const sub = created.sub as string;
 
-  const regStart = await client.startRegistration(user.password, user.email);
+  const regStart = await regClient.startRegistration(user.password, user.email);
   const setStartRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/password/set/start`, {
     method: 'POST',
     headers: {
@@ -156,7 +156,7 @@ export async function createUserViaAdmin(
   });
   if (!setStartRes.ok) throw new Error(`password set start failed: ${setStartRes.status}`);
   const setStartJson = await setStartRes.json();
-  const regFinish = await client.finishRegistration(
+  const regFinish = await regClient.finishRegistration(
     fromBase64Url(setStartJson.message),
     regStart.state,
     fromBase64Url(setStartJson.serverPublicKey),
