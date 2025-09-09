@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { eq, lt } from "drizzle-orm";
 import { opaqueLoginSessions } from "../db/schema.js";
 import {
@@ -63,6 +64,31 @@ export async function createOpaqueService(context?: Context) {
       };
       await saveOpaqueServerState(context, stateToSave);
     }
+  }
+
+  let dummyRecord: { envelope: Uint8Array; serverPublicKey: Uint8Array } | null = null;
+
+  async function ensureDummyRecord() {
+    if (dummyRecord) return dummyRecord;
+    const server = opaqueServerService;
+    if (!server) {
+      throw new Error("OPAQUE server not initialized");
+    }
+    const client = await createOpaqueClientService();
+    const identityU = "dummy@example.invalid";
+    const password = Buffer.from(randomBytes(32)).toString("base64");
+    const regStart = await client.startRegistration(password, identityU);
+    const srvResp = await server.startRegistration(regStart.request, identityU, "DarkAuth");
+    const clientFinish = await client.finishRegistration(
+      srvResp.response,
+      regStart.state,
+      server.getSetup().serverPublicKey,
+      "DarkAuth",
+      identityU
+    );
+    const rec = await server.finishRegistration(clientFinish.upload, identityU, "DarkAuth");
+    dummyRecord = { envelope: rec.envelope, serverPublicKey: rec.serverPublicKey };
+    return dummyRecord;
   }
 
   return {
@@ -192,6 +218,15 @@ export async function createOpaqueService(context?: Context) {
         message: result.response,
         sessionId,
       };
+    },
+
+    async startLoginWithDummy(
+      request: Uint8Array,
+      identityU: string,
+      identityS = "DarkAuth"
+    ): Promise<OpaqueLoginResponse> {
+      const rec = await ensureDummyRecord();
+      return this.startLogin(request, rec, identityU, identityS);
     },
 
     async finishLogin(finish: Uint8Array, sessionId: string): Promise<OpaqueLoginResult> {
