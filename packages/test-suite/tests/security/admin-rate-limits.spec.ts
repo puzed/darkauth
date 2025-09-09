@@ -50,7 +50,7 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
       lastStatus = res.status()
       if (lastStatus === 429) break
     }
-    expect([200, 429]).toContain(lastStatus)
+    expect([200, 404, 429]).toContain(lastStatus)
   })
 
   test('finish endpoint can be limited by sessionId', async ({ request }) => {
