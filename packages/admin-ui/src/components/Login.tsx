@@ -141,7 +141,6 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
 
       // Send login finish request to server
       const loginFinishResponse = await adminApiService.adminOpaqueLoginFinish({
-        adminId: loginStartResponse.adminId,
         finish: loginFinish.request,
         sessionId: loginStartResponse.sessionId,
       });

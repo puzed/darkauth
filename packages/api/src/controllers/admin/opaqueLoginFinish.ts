@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
-import { getAdminById } from "../../models/adminUsers.js";
+import { eq } from "drizzle-orm";
+import { opaqueLoginSessions } from "../../db/schema.js";
+import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { getAdminByEmail } from "../../models/adminUsers.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -9,8 +11,8 @@ import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http
 
 interface OpaqueLoginFinishRequest {
   finish: string;
-  adminId: string;
   sessionId: string;
+  // Note: adminId field is ignored for security - identity comes from server session
 }
 
 function isOpaqueLoginFinishRequest(data: unknown): data is OpaqueLoginFinishRequest {
@@ -18,11 +20,7 @@ function isOpaqueLoginFinishRequest(data: unknown): data is OpaqueLoginFinishReq
     return false;
   }
   const obj = data as Record<string, unknown>;
-  return (
-    typeof obj.finish === "string" &&
-    typeof obj.adminId === "string" &&
-    typeof obj.sessionId === "string"
-  );
+  return typeof obj.finish === "string" && typeof obj.sessionId === "string";
 }
 
 async function postAdminOpaqueLoginFinishHandler(
@@ -44,9 +42,11 @@ async function postAdminOpaqueLoginFinishHandler(
 
     // Validate request format
     if (!isOpaqueLoginFinishRequest(data)) {
-      throw new ValidationError(
-        "Invalid request format. Expected finish, adminId, and sessionId fields."
-      );
+      throw new ValidationError("Invalid request format. Expected finish and sessionId fields.");
+    }
+
+    if (!context.db) {
+      throw new ValidationError("Database context not available");
     }
 
     let finishBuffer: Uint8Array;
@@ -60,10 +60,38 @@ async function postAdminOpaqueLoginFinishHandler(
       "decoded finish"
     );
 
-    const adminUser = await getAdminById(context, data.adminId);
-    context.logger.info({ adminId: data.adminId, found: !!adminUser }, "admin lookup on finish");
+    // CRITICAL SECURITY FIX: Retrieve identity from server-side OPAQUE session
+    // This prevents account takeover by ensuring the authenticated identity
+    // comes from the server's session store, not client input
+    const sessionRow = await context.db.query.opaqueLoginSessions.findFirst({
+      where: eq(opaqueLoginSessions.id, data.sessionId),
+    });
+
+    if (!sessionRow) {
+      throw new UnauthorizedError("Invalid or expired login session");
+    }
+
+    // Decrypt identityU from the session to get the admin's email
+    let adminEmail: string;
+    if (context.services?.kek) {
+      try {
+        const kekSvc = context.services.kek;
+        const decU = await kekSvc.decrypt(Buffer.from(sessionRow.identityU, "base64"));
+        adminEmail = decU.toString("utf-8");
+      } catch {
+        // Fallback if decryption fails (data might be base64 encoded during initial setup)
+        adminEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
+      }
+    } else {
+      // Fallback to base64 decoding if KEK not available
+      adminEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
+    }
+
+    // Look up admin by the email from the server session only
+    const adminUser = await getAdminByEmail(context, adminEmail);
+    context.logger.info({ email: adminEmail, found: !!adminUser }, "admin lookup on finish");
     if (!adminUser) {
-      throw new NotFoundError("Admin user not found");
+      throw new UnauthorizedError("Authentication failed");
     }
 
     // Call OPAQUE service to finish login
@@ -127,11 +155,9 @@ async function postAdminOpaqueLoginFinishHandler(
 export const postAdminOpaqueLoginFinish = withAudit({
   eventType: "ADMIN_LOGIN",
   resourceType: "admin",
-  extractResourceId: (body: unknown) => {
-    if (body && typeof body === "object") {
-      const b = body as { adminId?: string };
-      return b.adminId;
-    }
-    return undefined;
+  extractResourceId: (body) => {
+    // Use sessionId for audit correlation
+    const data = body as { sessionId?: string };
+    return data?.sessionId;
   },
 })(postAdminOpaqueLoginFinishHandler);
