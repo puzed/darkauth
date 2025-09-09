@@ -61,17 +61,21 @@ async function _postInstallComplete(
     "[install:post] parsed payload"
   );
 
-  // Validate install token (must match and be fresh)
-  const token = data?.token;
-  if (!token || token !== context.services.install?.token) {
-    if (!context.config.isDevelopment) {
-      throw new ForbiddenInstallTokenError();
+  // Validate install token (must match and be fresh) unless admin was already created
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const providedToken = (data?.token as string | undefined) || url.searchParams.get("token") || "";
+  const adminFinished = !!context.services.install?.adminCreated;
+  if (!adminFinished) {
+    if (!providedToken || providedToken !== context.services.install?.token) {
+      if (!context.config.isDevelopment) {
+        throw new ForbiddenInstallTokenError();
+      }
     }
-  }
-  if (context.services.install?.createdAt) {
-    const tokenAge = Date.now() - (context.services.install?.createdAt || 0);
-    if (tokenAge > 10 * 60 * 1000 && !context.config.isDevelopment) {
-      throw new ExpiredInstallTokenError();
+    if (context.services.install?.createdAt) {
+      const tokenAge = Date.now() - (context.services.install?.createdAt || 0);
+      if (tokenAge > 10 * 60 * 1000 && !context.config.isDevelopment) {
+        throw new ExpiredInstallTokenError();
+      }
     }
   }
 
