@@ -3,7 +3,8 @@ import { createTestServers, destroyTestServers, TestServers } from '../../../set
 import { installDarkAuth, injectInstallToken } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN, createTestUser } from '../../../fixtures/testData.js';
 import { createUserViaAdmin } from '../../../setup/helpers/auth.js';
-import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
+import { generateRandomString, toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
+import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 
 test.describe('Authentication - User Login', () => {
   let servers: TestServers;
@@ -24,11 +25,20 @@ test.describe('Authentication - User Login', () => {
     const client = new OpaqueClient();
     await client.initialize();
     const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email);
-    const startRes = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-      body: JSON.stringify({ email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) })
-    });
+    let startRes: Response | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
+        body: JSON.stringify({ email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) })
+      });
+      if (res.status !== 429) { startRes = res; break; }
+      const resetHeader = res.headers.get('X-RateLimit-Reset');
+      const nowSec = Math.ceil(Date.now() / 1000);
+      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 1000;
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 5000)));
+    }
+    if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
     const startJson = await startRes.json();
     const finish = await client.finishLogin(
       fromBase64Url(startJson.message),
