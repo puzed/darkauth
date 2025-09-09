@@ -22,40 +22,11 @@ test.describe('Authentication - User Login', () => {
       installToken
     });
 
-    const client = new OpaqueClient();
-    await client.initialize();
-    const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email);
-    let startRes: Response | null = null;
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-        body: JSON.stringify({ email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) })
-      });
-      if (res.status !== 429) { startRes = res; break; }
-      const resetHeader = res.headers.get('X-RateLimit-Reset');
-      const nowSec = Math.ceil(Date.now() / 1000);
-      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 500;
-      await new Promise((r) => setTimeout(r, Math.min(waitMs, 1000)));
-    }
-    if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
-    const startJson = await startRes.json();
-    const finish = await client.finishLogin(
-      fromBase64Url(startJson.message),
-      start.state,
-      new Uint8Array(),
-      'DarkAuth',
-      FIXED_TEST_ADMIN.email
-    );
-    const finishRes = await fetch(`${servers.adminUrl}/admin/opaque/login/finish`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-      body: JSON.stringify({ sessionId: startJson.sessionId, finish: toBase64Url(Buffer.from(finish.finish)) })
-    });
-    const finishJson = await finishRes.json();
+    const { getAdminBearerToken } = await import('../../../setup/helpers/auth.js');
+    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
     await fetch(`${servers.adminUrl}/admin/settings`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl, 'Authorization': `Bearer ${finishJson.accessToken}` },
+      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
       body: JSON.stringify({ key: 'rate_limits.opaque.max_requests', value: 1000 })
     });
   });
