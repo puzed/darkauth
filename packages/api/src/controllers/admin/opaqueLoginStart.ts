@@ -5,11 +5,11 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
-import type { Context } from "../../types.js";
+import type { Context, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 
@@ -66,47 +66,41 @@ async function postAdminOpaqueLoginStartHandler(
     const adminUser = await getAdminByEmail(context, data.email as string);
     context.logger.info({ email: data.email, found: !!adminUser }, "admin user lookup");
 
+    let loginResponse: OpaqueLoginResponse;
     if (!adminUser) {
-      throw new NotFoundError("Admin user not found");
+      loginResponse = await context.services.opaque.startLoginWithDummy(
+        requestBuffer,
+        data.email as string
+      );
+    } else {
+      const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.js");
+      const opaque = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
+      const envelopeBuffer =
+        typeof opaque?.envelope === "string"
+          ? Buffer.from((opaque?.envelope as unknown as string).slice(2), "hex")
+          : (opaque?.envelope ?? Buffer.alloc(0));
+      const serverPubkeyBuffer =
+        typeof opaque?.serverPubkey === "string"
+          ? Buffer.from((opaque?.serverPubkey as unknown as string).slice(2), "hex")
+          : (opaque?.serverPubkey ?? Buffer.alloc(0));
+
+      if (!opaque || envelopeBuffer.length === 0 || serverPubkeyBuffer.length === 0) {
+        loginResponse = await context.services.opaque.startLoginWithDummy(
+          requestBuffer,
+          data.email as string
+        );
+      } else {
+        const opaqueRecord = {
+          envelope: new Uint8Array(envelopeBuffer),
+          serverPublicKey: new Uint8Array(serverPubkeyBuffer),
+        };
+        loginResponse = await context.services.opaque.startLogin(
+          requestBuffer,
+          opaqueRecord,
+          data.email as string
+        );
+      }
     }
-
-    const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.js");
-    const opaque = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
-    context.logger.info(
-      {
-        adminId: adminUser.id,
-        hasRecord: !!opaque,
-        envLen: (opaque?.envelope as Buffer)?.length || 0,
-      },
-      "opaque record lookup"
-    );
-
-    if (!opaque) {
-      throw new UnauthorizedError("Admin user has no authentication record");
-    }
-
-    // Convert stored OPAQUE record to the expected format
-    const envelopeBuffer =
-      typeof opaque.envelope === "string"
-        ? Buffer.from((opaque.envelope as unknown as string).slice(2), "hex")
-        : (opaque.envelope ?? Buffer.alloc(0));
-
-    const serverPubkeyBuffer =
-      typeof opaque.serverPubkey === "string"
-        ? Buffer.from((opaque.serverPubkey as unknown as string).slice(2), "hex")
-        : (opaque.serverPubkey ?? Buffer.alloc(0));
-
-    const opaqueRecord = {
-      envelope: new Uint8Array(envelopeBuffer),
-      serverPublicKey: new Uint8Array(serverPubkeyBuffer),
-    };
-
-    // Call OPAQUE service to start login
-    const loginResponse = await context.services.opaque.startLogin(
-      requestBuffer,
-      opaqueRecord,
-      data.email as string // Pass the user's email as identityU
-    );
     context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start response");
 
     // Convert response to base64url for JSON transmission

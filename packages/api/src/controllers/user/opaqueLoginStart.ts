@@ -6,10 +6,10 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { NotFoundError, ValidationError } from "../../errors.js";
+import { ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserOpaqueRecordByEmail } from "../../models/users.js";
-import type { Context } from "../../types.js";
+import type { Context, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendJson } from "../../utils/http.js";
 
@@ -60,60 +60,50 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     }
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
-    // Find user by email
-    const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(
-      context,
-      data.email as string
-    );
-    context.logger.debug({ found: !!user }, "user lookup");
+    const userLookup = await getUserOpaqueRecordByEmail(context, data.email as string);
+    context.logger.debug({ found: !!userLookup.user }, "user lookup");
 
-    if (!user) {
-      throw new NotFoundError("User not found");
+    let loginResponse: OpaqueLoginResponse;
+    if (!userLookup.user) {
+      loginResponse = await context.services.opaque.startLoginWithDummy(
+        requestBuffer,
+        data.email as string
+      );
+    } else {
+      const envelopeBuffer = userLookup.envelope as unknown as Buffer | string | null;
+      const serverPubkeyBuffer = userLookup.serverPubkey as unknown as Buffer | string | null;
+      const envelopeBuf: Buffer =
+        typeof envelopeBuffer === "string"
+          ? Buffer.from((envelopeBuffer as string).replace(/^\\x/i, ""), "hex")
+          : (envelopeBuffer as Buffer);
+      const serverPubkeyBuf: Buffer =
+        typeof serverPubkeyBuffer === "string"
+          ? Buffer.from((serverPubkeyBuffer as string).replace(/^\\x/i, ""), "hex")
+          : (serverPubkeyBuffer as Buffer);
+
+      if (!envelopeBuf || !serverPubkeyBuf || envelopeBuf.length === 0) {
+        loginResponse = await context.services.opaque.startLoginWithDummy(
+          requestBuffer,
+          data.email as string
+        );
+      } else {
+        const opaqueRecord = {
+          envelope: new Uint8Array(envelopeBuf),
+          serverPublicKey: new Uint8Array(serverPubkeyBuf),
+        };
+        loginResponse = await context.services.opaque.startLogin(
+          requestBuffer,
+          opaqueRecord,
+          data.email as string
+        );
+      }
     }
-
-    // Convert stored OPAQUE record to the expected format
-    const envelopeBuffer = envelope as unknown as Buffer | string | null;
-    const serverPubkeyBuffer = serverPubkey as unknown as Buffer | string | null;
-    context.logger.debug(
-      {
-        envLen:
-          typeof envelopeBuffer === "string"
-            ? envelopeBuffer.length
-            : (envelopeBuffer as Buffer)?.length || 0,
-      },
-      "opaque record lengths"
-    );
-
-    const envelopeBuf: Buffer =
-      typeof envelopeBuffer === "string"
-        ? Buffer.from((envelopeBuffer as string).replace(/^\\x/i, ""), "hex")
-        : (envelopeBuffer as Buffer);
-    const serverPubkeyBuf: Buffer =
-      typeof serverPubkeyBuffer === "string"
-        ? Buffer.from((serverPubkeyBuffer as string).replace(/^\\x/i, ""), "hex")
-        : (serverPubkeyBuffer as Buffer);
-
-    if (!envelopeBuf || !serverPubkeyBuf || envelopeBuf.length === 0) {
-      throw new ValidationError("User OPAQUE record is incomplete");
-    }
-
-    const opaqueRecord = {
-      envelope: new Uint8Array(envelopeBuf),
-      serverPublicKey: new Uint8Array(serverPubkeyBuf),
-    };
-
-    // Call OPAQUE service to start login
-    const loginResponse = await context.services.opaque.startLogin(
-      requestBuffer,
-      opaqueRecord,
-      data.email as string // Pass the user's email as identityU
-    );
     context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start ok");
 
     // Convert response to base64url for JSON transmission
     const responseData = {
       message: toBase64Url(Buffer.from(loginResponse.message)),
-      sub: user.sub,
+      sub: "00000000-0000-0000-0000-000000000000",
       sessionId: loginResponse.sessionId,
     };
 
