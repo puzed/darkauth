@@ -20,6 +20,34 @@ test.describe('Authentication - User Login', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken
     });
+
+    const client = new OpaqueClient();
+    await client.initialize();
+    const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email);
+    const startRes = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
+      body: JSON.stringify({ email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) })
+    });
+    const startJson = await startRes.json();
+    const finish = await client.finishLogin(
+      fromBase64Url(startJson.message),
+      start.state,
+      new Uint8Array(),
+      'DarkAuth',
+      FIXED_TEST_ADMIN.email
+    );
+    const finishRes = await fetch(`${servers.adminUrl}/admin/opaque/login/finish`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
+      body: JSON.stringify({ sessionId: startJson.sessionId, finish: toBase64Url(Buffer.from(finish.finish)) })
+    });
+    const finishJson = await finishRes.json();
+    await fetch(`${servers.adminUrl}/admin/settings`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl, 'Authorization': `Bearer ${finishJson.accessToken}` },
+      body: JSON.stringify({ key: 'rate_limits.opaque.max_requests', value: 1000 })
+    });
   });
 
   test.beforeEach(async ({ page }) => {
