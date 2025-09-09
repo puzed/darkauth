@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
-import RowActions from "@/components/row-actions";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
 // Page-specific CSS removed; using shared components only
 import tableStyles from "@/components/table.module.css";
@@ -103,7 +102,7 @@ export default function Clients() {
                 <th className={tableStyles.head}>Client</th>
                 <th className={tableStyles.head}>Type</th>
                 <th className={tableStyles.head}>Created</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
+                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -111,10 +110,8 @@ export default function Clients() {
                 <tr key={client.clientId} className={tableStyles.row}>
                   <td className={tableStyles.cell}>
                     <div>
-                      <div style={{ fontWeight: 500 }}>{client.name}</div>
-                      <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>
-                        {client.clientId}
-                      </div>
+                      <div className={tableStyles.clientName}>{client.name}</div>
+                      <div className={tableStyles.clientSub}>{client.clientId}</div>
                     </div>
                   </td>
                   <td className={tableStyles.cell}>
@@ -124,36 +121,37 @@ export default function Clients() {
                     {new Date(client.createdAt).toLocaleDateString()}
                   </td>
                   <td className={tableStyles.cell}>
-                    <RowActions
-                      items={[
-                        {
-                          key: "edit",
-                          label: "Edit Client",
-                          icon: <Edit className="h-4 w-4" />,
-                          onClick: () => navigate(`/clients/${client.clientId}`),
-                        },
-                        {
-                          key: "delete",
-                          label: "Delete Client",
-                          icon: <Trash2 className="h-4 w-4" />,
-                          destructive: true,
-                          onClick: async () => {
-                            if (!confirm(`Delete client ${client.clientId}?`)) return;
-                            try {
-                              setDeleting(client.clientId);
-                              await adminApiService.deleteClient(client.clientId);
-                              setClients((prev) =>
-                                prev.filter((c) => c.clientId !== client.clientId)
-                              );
-                            } catch (e) {
-                              setError(e instanceof Error ? e.message : "Failed to delete client");
-                            } finally {
-                              setDeleting(null);
-                            }
-                          },
-                        },
-                      ]}
-                    />
+                    <div className={tableStyles.actionsInline}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/clients/${client.clientId}`)}
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={async () => {
+                          if (!confirm(`Delete client ${client.clientId}?`)) return;
+                          try {
+                            setDeleting(client.clientId);
+                            await adminApiService.deleteClient(client.clientId);
+                            setClients((prev) =>
+                              prev.filter((c) => c.clientId !== client.clientId)
+                            );
+                          } catch (e) {
+                            setError(e instanceof Error ? e.message : "Failed to delete client");
+                          } finally {
+                            setDeleting(null);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
