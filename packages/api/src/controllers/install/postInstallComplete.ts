@@ -155,6 +155,16 @@ async function _postInstallComplete(
     // Verify OPAQUE record exists
     context.logger.info({ adminId }, "[install:post] OPAQUE record verified");
 
+    const admins = await installCtx.db.query.adminUsers.findMany();
+    if (admins.length !== 1) {
+      throw new ValidationError("Exactly one admin must exist after bootstrap");
+    }
+
+    if (context.services.install) {
+      context.services.install.token = undefined;
+      context.services.install.createdAt = undefined;
+    }
+
     await markSystemInitialized(tempContextDb);
 
     context.logger.info("[install:post] installation complete");
@@ -217,8 +227,6 @@ async function _postInstallComplete(
     }
 
     if (context.services.install) {
-      context.services.install.token = undefined;
-      context.services.install.createdAt = undefined;
       try {
         await context.services.install.tempDbClose?.();
       } catch {}

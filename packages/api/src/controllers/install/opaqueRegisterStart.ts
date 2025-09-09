@@ -41,6 +41,14 @@ export async function postInstallOpaqueRegisterStart(
       context.logger.error("[install:opaque:start] Invalid install token");
       throw new ValidationError("Invalid install token");
     }
+    if (context.services.install?.adminCreated) {
+      throw new ValidationError("Bootstrap admin already created");
+    }
+
+    if (context.services.install?.adminEmail && context.services.install.adminEmail !== data.email) {
+      throw new ValidationError("Admin email does not match installation");
+    }
+
     if (!context.services.install?.tempDb) {
       try {
         if (data.dbMode === "pglite" && data.pgliteDir) {
@@ -118,6 +126,14 @@ export async function postInstallOpaqueRegisterStart(
         context.logger.error({ err }, "[install:opaque:start] Failed to prepare database");
         throw new ValidationError("Failed to prepare database");
       }
+    }
+
+    let install = context.services.install;
+    if (!install) {
+      install = { adminEmail: data.email };
+      context.services.install = install;
+    } else if (!install.adminEmail) {
+      install.adminEmail = data.email;
     }
     let svc = context.services.opaque;
     context.logger.info(
