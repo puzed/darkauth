@@ -3,6 +3,7 @@ import { createTestServers, destroyTestServers, TestServers } from '../../setup/
 import { installDarkAuth, injectInstallToken } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
+import { getAdminBearerToken } from '../../setup/helpers/auth.js'
 import { generateRandomString, toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
 test.describe('Security - Admin OPAQUE Rate Limits', () => {
@@ -82,31 +83,9 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
   })
 
   test('limits configurable via settings', async ({ request }) => {
-    const client = new OpaqueClient()
-    await client.initialize()
-    const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email)
-    const startRes = await request.post(`${servers.adminUrl}/admin/opaque/login/start`, {
-      headers: { 'Origin': servers.adminUrl },
-      data: { email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from(start.request)) }
-    })
-    expect(startRes.ok()).toBeTruthy()
-    const startJson = await startRes.json()
-    const finish = await client.finishLogin(
-      fromBase64Url(startJson.message),
-      start.state,
-      new Uint8Array(),
-      'DarkAuth',
-      FIXED_TEST_ADMIN.email
-    )
-    const finishRes = await request.post(`${servers.adminUrl}/admin/opaque/login/finish`, {
-      headers: { 'Origin': servers.adminUrl },
-      data: { sessionId: startJson.sessionId, finish: toBase64Url(Buffer.from(finish.finish)) }
-    })
-    expect(finishRes.ok()).toBeTruthy()
-    const finishJson = await finishRes.json()
-
+    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
     const res = await request.put(`${servers.adminUrl}/admin/settings`, {
-      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${finishJson.accessToken}` },
+      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
       data: { key: 'rate_limits.opaque.enabled', value: false }
     })
     expect(res.ok()).toBeTruthy()
