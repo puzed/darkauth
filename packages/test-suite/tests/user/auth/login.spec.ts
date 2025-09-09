@@ -23,12 +23,7 @@ test.describe('Authentication - User Login', () => {
       installToken
     });
 
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
-    await fetch(`${servers.adminUrl}/admin/settings`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ key: 'rate_limits.opaque.max_requests', value: 1000 })
-    });
+    // No admin settings tweaks here; keep suite isolated from rate-limit state
   });
 
   test.beforeEach(async ({ page }) => {
