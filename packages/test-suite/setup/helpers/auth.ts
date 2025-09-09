@@ -60,7 +60,7 @@ export async function establishUserSession(
   const finishRes = await fetch(`${servers.userUrl}/api/user/opaque/login/finish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sub: startJson.sub, finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
+    body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
   });
   if (!finishRes.ok) throw new Error(`login finish failed: ${finishRes.status}`);
   const finishJson = await finishRes.json();
