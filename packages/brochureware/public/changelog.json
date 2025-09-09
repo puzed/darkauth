@@ -1,6 +1,14 @@
 {
-  "generatedAt": "2025-09-09T23:10:34.814Z",
+  "generatedAt": "2025-09-09T23:36:58.742Z",
   "entries": [
+    {
+      "date": "2025-09-10",
+      "title": "v1.0.7",
+      "changes": [
+        "This release strengthens OPAQUE authentication with enumeration resistance, targeted admin rate limits, and server-bound identity checks. It also gates self-registration behind a setting, hardens the install lifecycle, and adds inline client actions in the Admin UI, alongside broad test stability work and documentation updates.\n\n## ✨ Features\n\n### 🔧 Admin UI Enhancements\n- Inline actions on the Clients table with styles moved to CSS\n\n## 🛠️ Improvements\n\n### Authentication Hardening\n- Normalize OPAQUE login to avoid account enumeration\n- Bind OPAQUE finish to server session identity for account lookup\n- Rate-limit admin OPAQUE login (start/finish) with a dedicated bucket\n- Harden install lifecycle with initialized checks, token TTL, and single-use tokens\n- Enforce a single bootstrap admin and bind email during install\n\n### Configuration & Behavior\n- Gate self-registration behind a setting and hide signup by default in the User UI\n- Exclude test files from the API TypeScript build\n- Controller–model separation in the API for simpler data access\n\n## 🐛 Fixes\n\n- Branding preview iframe behavior\n\n## 🧪 Tests\n\n- Add identity-binding tests for OPAQUE finish (admin and user flows)\n- Add admin OPAQUE login rate-limit coverage and settings toggle verification\n- Add install token lifecycle tests\n- Share and cache admin auth helper (`getAdminBearerToken`) across suites\n- Adjust backoff, retries, and suite isolation for rate-limited paths\n- Multiple stability tweaks and reload token bumps\n\n## 📚 Chores\n\n- Document OPAQUE identity binding, enumeration resistance, and rate limiting\n- Mark phases complete for self-registration gating, admin rate limits, and enumeration hardening\n- Document controller–model separation and update project guide\n- Update brochure site changelog data and general linting/cleanup"
+      ],
+      "filename": "v1.0.7.md"
+    },
     {
       "date": "2025-09-07",
       "title": "v1.0.6",
