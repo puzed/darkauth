@@ -31,12 +31,13 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
     await client.initialize()
 
     let lastStatus = 0
+    const DECOY_EMAIL = 'limit-test-admin@example.com'
     for (let i = 0; i < 12; i++) {
-      const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email)
+      const start = await client.startLogin(FIXED_TEST_ADMIN.password, DECOY_EMAIL)
       const res = await request.post(`${servers.adminUrl}/admin/opaque/login/start`, {
         headers: { 'Origin': servers.adminUrl },
         data: {
-          email: FIXED_TEST_ADMIN.email,
+          email: DECOY_EMAIL,
           request: toBase64Url(Buffer.from(start.request))
         }
       })
