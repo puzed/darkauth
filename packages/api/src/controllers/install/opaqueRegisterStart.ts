@@ -45,7 +45,10 @@ export async function postInstallOpaqueRegisterStart(
       throw new ValidationError("Bootstrap admin already created");
     }
 
-    if (context.services.install?.adminEmail && context.services.install.adminEmail !== data.email) {
+    if (
+      context.services.install?.adminEmail &&
+      context.services.install.adminEmail !== data.email
+    ) {
       throw new ValidationError("Admin email does not match installation");
     }
 
