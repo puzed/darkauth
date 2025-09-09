@@ -32,13 +32,14 @@ Config rules:
 
   * **ZK-enabled clients** add `zk_pub` and receive **DRK via fragment JWE**; standard clients don't.
 
-* **Install UI (first-run only, served on admin port)**: One-time initialization UI gated by a single-use token (query param). Collected data seeds defaults and config. Served on the admin port until installation completes.
+* **Install UI (first-run only, served on admin port)**: One-time initialization UI gated by a single-use token (query param). Collected data seeds defaults and config. Served on the admin port until installation completes. Exactly one bootstrap admin may be created, bound to the installer-provided email. The install token is invalidated on the first successful admin OPAQUE finish and all install endpoints are disabled once initialized.
 
 ---
 
 ## 2. Cryptography
 
 * **OPAQUE (RFC 9380)**: PAKE for password auth. Produces a **client-only `export_key`** (stable per user+password). The server stores an **opaque record** (envelope/verifier), not a password.
+  - Identity binding requirement: On login finish, the server MUST bind the authenticated account to the `identityU` persisted in the server-side OPAQUE login session created during start. Any client-supplied identity fields (e.g., user `sub/email`, admin `adminId`) MUST be ignored when minting sessions.
 * **Key schedule (client)**
 
   ```
@@ -159,6 +160,7 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
   * `user_keys`: `{"enc_public_visible_to_authenticated_users":true}`
   * `zk_delivery`: `{"fragment_param":"drk_jwe","jwe_alg":"ECDH-ES","jwe_enc":"A256GCM","hash_alg":"SHA-256"}`
   * `opaque`: e.g., `{"kdf":"ristretto255","envelope_mode":"base"}`
+  * `users`: `{"self_registration_enabled": false}`
   * `security_headers`, `rate_limits`, etc.
 * `jwks`: generate Ed25519; store public JWK; **encrypt private JWK** with KEK in secure mode.
 * `clients`: seed at least:
@@ -242,7 +244,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 1. **OPAQUE login** (via `/opaque/login/start` + `/opaque/login/finish`):
 
-   * On success, IdP session cookie is set (server knows `sub`); **client gets `export_key`** in JS.
+   * On success, an IdP session (bearer token) is issued for the bound identity; **client gets `export_key`** in JS.
 2. **Get/store DRK**:
 
    * `GET /crypto/wrapped-drk` → if missing (first login), generate 32‑byte DRK, `WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)`, `PUT /crypto/wrapped-drk`.
@@ -298,9 +300,14 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
 
 ### 7.3 OPAQUE (Rate-Limited)
 
-* **POST `/opaque/register/start`**, **/finish** (10 req/15min per IP)
-* **POST `/opaque/login/start`**, \**/finish`** (10 req/15min per IP)  
+* **POST `/opaque/register/start`**, **/finish** (10 req/15min per IP). Self‑registration is disabled by default and gated by `settings.users.self_registration_enabled`.
+* **POST `/opaque/login/start`**, \**/finish`** (10 req/15min per IP). Admin OPAQUE endpoints on the admin API are rate-limited the same way.  
   *Uses Cloudflare's opaque-ts library (RFC 9380 compliant). The server stores the `opaque_records` row on register; login sets IdP session and returns whatever the client needs to compute `export_key`. Rate limiting prevents brute force attacks.*
+
+Enumeration resistance:
+
+* Start responses MUST be indistinguishable for existing vs non-existing accounts. When the account is missing, the server MUST return a uniform response using a fixed dummy OPAQUE record and a sessionId that will fail at finish, without leaking existence.
+* Finish MUST return a generic Unauthorized on failure without revealing whether the account exists.
 
 ### 7.4 DRK storage
 
@@ -327,8 +334,8 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
 ### 7.5 Session + Logout (optional)
 
 * **GET `/session`** → minimal info for Auth UI.
-* **POST `/logout`** → clears IdP session cookie.
-* **POST `/refresh-token`** → `{ refreshToken }` → issues a new session and refresh token and resets the session cookie. For SPA session longevity.
+* **POST `/logout`** → revokes current session.
+* **POST `/refresh-token`** → `{ refreshToken }` → issues a new access token and refresh token. For SPA session longevity.
 
 ### 7.6 User Directory
 
@@ -376,8 +383,8 @@ Endpoints:
   1. Validates and consumes the install token.
   2. Applies schema migrations (Drizzle push).
   3. Seeds defaults (settings, JWKS, clients).
-  4. Creates initial admin user with `role='write'`.
-  5. Performs OPAQUE registration for the admin with the provided password, storing the `admin_opaque_records` entry.
+  4. Creates the single bootstrap admin user with `role='write'`, bound to the installer-provided email.
+  5. Admin completes OPAQUE registration via install OPAQUE endpoints; on first successful finish, the install token is invalidated. After initialization, all install endpoints return `already_initialized`.
   6. Derives KEK with Argon2id from passphrase (from config.yaml), encrypts private JWKs and any client secrets, stores KDF params in `settings.kek_kdf`.
   7. Marks `settings.initialized=true`. The admin port begins serving the normal admin UI; the user port stops showing maintenance.
 
@@ -594,6 +601,7 @@ The system implements comprehensive rate limiting to prevent brute force attacks
 ### 13.1 Endpoint-Specific Limits
 
 * **OPAQUE endpoints** (`/opaque/*`, `/authorize` with OPAQUE): 10 requests per 1 minutes per IP
+  - Applies equally to admin OPAQUE login endpoints
 * **Token endpoint** (`/token`): 30 requests per 1 minutes per IP
 * **General API**: 100 requests per 1 minutes per IP
 * **Admin endpoints**: 50 requests per 1 minutes per IP
