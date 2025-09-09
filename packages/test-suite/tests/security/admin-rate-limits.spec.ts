@@ -111,10 +111,10 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
     })
     expect(res.ok()).toBeTruthy()
 
-    const client = new OpaqueClient()
-    await client.initialize()
+    const client2 = new OpaqueClient()
+    await client2.initialize()
     for (let i = 0; i < 12; i++) {
-      const start = await client.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email)
+      const start = await client2.startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email)
       const r = await request.post(`${servers.adminUrl}/admin/opaque/login/start`, {
         headers: { 'Origin': servers.adminUrl },
         data: {

@@ -9,6 +9,8 @@ export interface BasicUser {
   name: string;
 }
 
+const adminTokenCache = new Map<string, string>();
+
 export async function registerUser(servers: TestServers, user: BasicUser): Promise<void> {
   const client = new OpaqueClient();
   await client.initialize();
@@ -81,44 +83,49 @@ export async function createUserViaAdmin(
   admin: { email: string; password: string },
   user: BasicUser
 ): Promise<{ sub: string }> {
-  const client = new OpaqueClient();
-  await client.initialize();
-  const loginStart = await client.startLogin(admin.password, admin.email);
-  let startRes: Response | null = null;
-  for (let attempt = 0; attempt < 10; attempt++) {
-    const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  let token = adminTokenCache.get(cacheKey);
+  if (!token) {
+    const client = new OpaqueClient();
+    await client.initialize();
+    const loginStart = await client.startLogin(admin.password, admin.email);
+    let startRes: Response | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
+        body: JSON.stringify({ email: admin.email, request: toBase64Url(Buffer.from(loginStart.request)) })
+      });
+      if (res.status !== 429) {
+        startRes = res;
+        break;
+      }
+      const resetHeader = res.headers.get('X-RateLimit-Reset');
+      const nowSec = Math.ceil(Date.now() / 1000);
+      const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 1000;
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, 5000)));
+    }
+    if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
+    const startJson = await startRes.json();
+    const loginFinish = await client.finishLogin(
+      fromBase64Url(startJson.message),
+      loginStart.state,
+      new Uint8Array(),
+      'DarkAuth',
+      admin.email
+    );
+    const finishRes = await fetch(`${servers.adminUrl}/admin/opaque/login/finish`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-      body: JSON.stringify({ email: admin.email, request: toBase64Url(Buffer.from(loginStart.request)) })
+      body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
     });
-    if (res.status !== 429) {
-      startRes = res;
-      break;
-    }
-    const resetHeader = res.headers.get('X-RateLimit-Reset');
-    const nowSec = Math.ceil(Date.now() / 1000);
-    const waitMs = resetHeader ? Math.max(0, (parseInt(resetHeader, 10) - nowSec) * 1000) : 250;
-    await new Promise((r) => setTimeout(r, Math.min(waitMs, 1500)));
+    if (!finishRes.ok) throw new Error(`admin login finish failed: ${finishRes.status}`);
+    const finishJson = await finishRes.json();
+    token = finishJson.accessToken as string;
+    adminTokenCache.set(cacheKey, token);
   }
-  if (!startRes || !startRes.ok) throw new Error(`admin login start failed: ${startRes ? startRes.status : 'no-response'}`);
-  const startJson = await startRes.json();
-  const loginFinish = await client.finishLogin(
-    fromBase64Url(startJson.message),
-    loginStart.state,
-    new Uint8Array(),
-    'DarkAuth',
-    admin.email
-  );
-  const finishRes = await fetch(`${servers.adminUrl}/admin/opaque/login/finish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
-    body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
-  });
-  if (!finishRes.ok) throw new Error(`admin login finish failed: ${finishRes.status}`);
-  const finishJson = await finishRes.json();
-  const token = finishJson.accessToken as string;
 
-  const createRes = await fetch(`${servers.adminUrl}/admin/users`, {
+  let createRes = await fetch(`${servers.adminUrl}/admin/users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -127,6 +134,10 @@ export async function createUserViaAdmin(
     },
     body: JSON.stringify({ email: user.email, name: user.name })
   });
+  if (createRes.status === 401) {
+    adminTokenCache.delete(cacheKey);
+    return createUserViaAdmin(servers, admin, user);
+  }
   if (!createRes.ok) throw new Error(`create user failed: ${createRes.status}`);
   const created = await createRes.json();
   const sub = created.sub as string;
