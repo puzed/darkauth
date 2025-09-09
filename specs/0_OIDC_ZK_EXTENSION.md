@@ -75,7 +75,7 @@ Notational Conventions
 - Endpoint: POST /token (unchanged grant = authorization_code)
 - Response additions when has_zk = true on the code:
   - zk_drk_hash: string (base64url of SHA‑256(drk_jwe))
-- **CRITICAL SECURITY**: Token endpoint NEVER returns `zk_drk_jwe`. The server does not store JWE ciphertext - only the hash for verification.
+- **CRITICAL SECURITY**: Token endpoint NEVER returns `zk_drk_jwe`. The server does not store JWE ciphertext - only the hash for verification. When `has_zk=false` on the code, `zk_drk_hash` MUST be omitted.
 - JWE is transmitted ONLY via URL fragment, never through server responses.
 - Clients MUST verify base64url(SHA‑256(fragment drk_jwe)) == zk_drk_hash before decrypting.
 
@@ -125,8 +125,9 @@ Notational Conventions
   - **Development**: Even in development, MUST NOT log cryptographic material - only high-level flow events
 - Key algorithms:
   - JWE alg MUST be ECDH‑ES on P‑256; enc MUST be A256GCM. Clients SHOULD validate header alg and enc before decryption.
-- Sessions and cookies:
-  - Standard OIDC protections apply. Session cookies MUST be Secure + HttpOnly with SameSite=Lax or stricter.
+- Sessions/tokens:
+  - Standard OIDC protections apply. This extension does not mandate cookie vs bearer token transport.
+  - If cookies are used, they MUST be Secure + HttpOnly with SameSite=Lax or stricter.
 
 11. Privacy Considerations
 
@@ -156,4 +157,3 @@ Appendix A: Data Formats
 - zk_pub (request parameter): base64url(JSON.stringify(JWK)), where JWK has kty="EC", crv="P-256", x, y.
 - drk_jwe (fragment or token field): compact JWE with protected header { alg:"ECDH-ES", enc:"A256GCM" } and AAD containing { sub, client_id }.
 - wrapped_drk: base64url of AES‑GCM ciphertext. AAD MUST contain sub.
-
