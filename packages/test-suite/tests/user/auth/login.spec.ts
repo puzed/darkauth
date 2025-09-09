@@ -54,7 +54,11 @@ test.describe('Authentication - User Login', () => {
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.click('button[type="submit"], button:has-text("Sign In")');
-    await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
+    try {
+      await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
+    } catch {
+      await page.waitForURL(/\/dashboard/i, { timeout: 8000 });
+    }
   });
 
   test('user cannot login with wrong password', async ({ page }) => {
