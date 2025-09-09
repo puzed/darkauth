@@ -33,6 +33,7 @@ const ALLOWED_SETTINGS = [
   "issuer",
   "public_origin",
   "rp_id",
+  "users",
   "ui_user",
   "ui_admin",
   "ui_demo",

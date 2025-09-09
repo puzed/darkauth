@@ -110,6 +110,13 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       });
       console.debug("[user-ui] login: finish response", loginFinishResponse);
 
+      onLogin({
+        sub: loginFinishResponse.sub,
+        name: loginFinishResponse.user?.name || undefined,
+        email: loginFinishResponse.user?.email || formData.email,
+        passwordResetRequired: false,
+      });
+
       const keys = await cryptoService.deriveKeysFromExportKey(
         loginFinish.exportKey,
         loginFinishResponse.sub
@@ -132,28 +139,11 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         }
       }
 
-      let name: string | undefined = loginFinishResponse.user?.name || undefined;
-      let email: string | undefined = loginFinishResponse.user?.email || formData.email;
-      let passwordResetRequired = false;
-      try {
-        const sessionData = await apiService.getSession();
-        name = sessionData.name || name;
-        email = (sessionData.email as string | undefined) || email;
-        passwordResetRequired = !!sessionData.passwordResetRequired;
-      } catch {}
-
       opaqueService.clearState(loginStart.state);
 
       // Store export key securely and clear immediately from memory
       await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
       cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
-
-      onLogin({
-        sub: loginFinishResponse.sub,
-        name,
-        email,
-        passwordResetRequired,
-      });
     } catch (error) {
       console.error("Login failed:", error);
 
@@ -239,19 +229,21 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         </Button>
       </form>
 
-      <div className={styles.formFooter}>
-        <p>
-          {branding.getText("noAccount", "Don't have an account?")}{" "}
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={onSwitchToRegister}
-            disabled={loading}
-          >
-            {branding.getText("signup", "Sign up")}
-          </button>
-        </p>
-      </div>
+      {window.__APP_CONFIG__?.features?.selfRegistrationEnabled ? (
+        <div className={styles.formFooter}>
+          <p>
+            {branding.getText("noAccount", "Don't have an account?")}{" "}
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={onSwitchToRegister}
+              disabled={loading}
+            >
+              {branding.getText("signup", "Sign up")}
+            </button>
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }
