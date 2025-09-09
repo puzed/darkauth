@@ -27,17 +27,23 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
   })
 
   test('start endpoint enforces opaque limits', async ({ request }) => {
+    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
+    await request.put(`${servers.adminUrl}/admin/settings`, {
+      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
+      data: { key: 'security.trust_proxy_headers', value: true }
+    })
+
     const client = new OpaqueClient()
     await client.initialize()
 
     let lastStatus = 0
-    const DECOY_EMAIL = 'limit-test-admin@example.com'
     for (let i = 0; i < 12; i++) {
-      const start = await client.startLogin(FIXED_TEST_ADMIN.password, DECOY_EMAIL)
+      const email = `limit-${i}-${Date.now()}@example.com`
+      const start = await client.startLogin(FIXED_TEST_ADMIN.password, email)
       const res = await request.post(`${servers.adminUrl}/admin/opaque/login/start`, {
-        headers: { 'Origin': servers.adminUrl },
+        headers: { 'Origin': servers.adminUrl, 'X-Forwarded-For': `1.2.3.${i}` },
         data: {
-          email: DECOY_EMAIL,
+          email,
           request: toBase64Url(Buffer.from(start.request))
         }
       })
