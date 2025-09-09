@@ -2,13 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { eq } from "drizzle-orm";
 import { opaqueLoginSessions } from "../../db/schema.js";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 
 interface OpaqueLoginFinishRequest {
   finish: string;
@@ -158,11 +158,12 @@ export const postAdminOpaqueLoginFinish = withRateLimit("admin", (body) => {
   return data?.sessionId;
 })(
   withAudit({
-  eventType: "ADMIN_LOGIN",
-  resourceType: "admin",
-  extractResourceId: (body) => {
-    // Use sessionId for audit correlation
-    const data = body as { sessionId?: string };
-    return data?.sessionId;
-  },
-})(postAdminOpaqueLoginFinishHandler));
+    eventType: "ADMIN_LOGIN",
+    resourceType: "admin",
+    extractResourceId: (body) => {
+      // Use sessionId for audit correlation
+      const data = body as { sessionId?: string };
+      return data?.sessionId;
+    },
+  })(postAdminOpaqueLoginFinishHandler)
+);
