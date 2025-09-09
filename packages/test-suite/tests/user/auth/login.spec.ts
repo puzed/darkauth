@@ -5,6 +5,7 @@ import { FIXED_TEST_ADMIN, createTestUser } from '../../../fixtures/testData.js'
 import { createUserViaAdmin } from '../../../setup/helpers/auth.js';
 import { generateRandomString, toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
+import { getAdminBearerToken } from '../../../setup/helpers/auth.js';
 
 test.describe('Authentication - User Login', () => {
   let servers: TestServers;
@@ -22,7 +23,6 @@ test.describe('Authentication - User Login', () => {
       installToken
     });
 
-    const { getAdminBearerToken } = await import('../../../setup/helpers/auth.js');
     const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
     await fetch(`${servers.adminUrl}/admin/settings`, {
       method: 'PUT',
