@@ -23,7 +23,7 @@ export async function getAdminBearerToken(
   await client.initialize();
   const loginStart = await client.startLogin(admin.password, admin.email);
   let startRes: Response | null = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     const res = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl },
