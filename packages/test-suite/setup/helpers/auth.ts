@@ -14,7 +14,9 @@ const adminTokenCache = new Map<string, string>();
 export async function registerUser(servers: TestServers, user: BasicUser): Promise<void> {
   const client = new OpaqueClient();
   await client.initialize();
-  const regStart = await client.startRegistration(user.password, user.email);
+  const regClient = new OpaqueClient();
+  await regClient.initialize();
+  const regStart = await regClient.startRegistration(user.password, user.email);
   const startRes = await fetch(`${servers.userUrl}/api/user/opaque/register/start`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Origin': servers.userUrl },
@@ -22,7 +24,7 @@ export async function registerUser(servers: TestServers, user: BasicUser): Promi
   });
   if (!startRes.ok) throw new Error(`register start failed: ${startRes.status}`);
   const startJson = await startRes.json();
-  const regFinish = await client.finishRegistration(
+  const regFinish = await regClient.finishRegistration(
     fromBase64Url(startJson.message),
     regStart.state,
     fromBase64Url(startJson.serverPublicKey),
