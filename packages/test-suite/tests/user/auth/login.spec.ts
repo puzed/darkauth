@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth, injectInstallToken } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN, createTestUser } from '../../../fixtures/testData.js';
+import { createUserViaAdmin } from '../../../setup/helpers/auth.js';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
 
 test.describe('Authentication - User Login', () => {
@@ -21,17 +22,10 @@ test.describe('Authentication - User Login', () => {
     });
   });
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page }) => {
     user = createTestUser();
-    await page.goto(`${servers.userUrl}/`);
-    await page.click('button:has-text("Sign up")');
-    await page.fill('input[name="name"]', user.name);
-    await page.fill('input[name="email"], input[type="email"]', user.email);
-    await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.fill('input[name="confirmPassword"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Continue")');
-    await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
-    await page.evaluate(() => localStorage.clear());
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    await page.goto(`${servers.userUrl}/login`);
   });
 
   test.afterAll(async () => {
