@@ -61,3 +61,18 @@
 .actionTrigger:hover {
   background: hsl(var(--accent));
 }
+
+.clientName {
+  font-weight: 500;
+}
+
+.clientSub {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+}
+
+.actionsInline {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
