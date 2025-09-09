@@ -57,7 +57,9 @@ export async function postInstallOpaqueRegisterFinish(
       "[install:opaque:finish] Parsed request"
     );
 
-    if (!context.services.install?.token || data.token !== context.services.install.token) {
+    const url = new URL(request.url || "", `http://${request.headers.host}`);
+    const providedToken = data.token || url.searchParams.get("token") || "";
+    if (!context.services.install?.token || providedToken !== context.services.install.token) {
       context.logger.error("[install:opaque:finish] Invalid install token");
       throw new ValidationError("Invalid install token");
     }
