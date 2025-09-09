@@ -85,6 +85,16 @@ export async function seedDefaultSettings(
       defaultValue: issuer,
       value: issuer,
     },
+
+    {
+      key: "users.self_registration_enabled",
+      name: "Self Registration Enabled",
+      type: "boolean",
+      category: "Users",
+      tags: ["users"],
+      defaultValue: false,
+      value: false,
+    },
     {
       key: "public_origin",
       name: "Public Origin",

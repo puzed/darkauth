@@ -73,10 +73,17 @@ export async function createUserServer(context: Context) {
             customCSS: "",
           };
         }
+        const selfReg = (await getSetting(context, "users.self_registration_enabled")) as
+          | boolean
+          | null
+          | undefined;
         const payload = {
           issuer,
           clientId: ui.clientId || "app-web",
           redirectUri: ui.redirectUri || `${publicOrigin}/callback`,
+          features: {
+            selfRegistrationEnabled: !!selfReg,
+          },
           branding: {
             identity: branding?.identity || {
               name: "DarkAuth",

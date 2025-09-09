@@ -37,6 +37,7 @@ function AppContent() {
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [authRequest, setAuthRequest] = useState<AuthRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const selfRegistrationEnabled = !!window.__APP_CONFIG__?.features?.selfRegistrationEnabled;
 
   const initializeApp = useCallback(async () => {
     try {
@@ -154,8 +155,10 @@ function AppContent() {
         element={
           sessionData && !authRequest ? (
             <Navigate to="/dashboard" replace />
-          ) : (
+          ) : selfRegistrationEnabled ? (
             <RegisterView onRegister={handleRegister} onSwitchToLogin={() => navigate("/login")} />
+          ) : (
+            <Navigate to="/login" replace />
           )
         }
       />

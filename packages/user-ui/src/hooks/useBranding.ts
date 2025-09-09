@@ -16,7 +16,10 @@ type BrandingConfig = {
 
 declare global {
   interface Window {
-    __APP_CONFIG__?: { branding?: BrandingConfig };
+    __APP_CONFIG__?: {
+      branding?: BrandingConfig;
+      features?: { selfRegistrationEnabled?: boolean };
+    };
     __BRANDING_WORDING__?: Record<string, string>;
     __BRANDING_LOGO_LIGHT__?: string | null;
     __BRANDING_LOGO_DARK__?: string | null;
