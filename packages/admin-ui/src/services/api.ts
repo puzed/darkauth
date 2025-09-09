@@ -15,14 +15,14 @@ export interface AdminOpaqueLoginStartRequest {
 
 export interface AdminOpaqueLoginStartResponse {
   message: string;
-  adminId: string;
   sessionId: string;
+  // Note: adminId removed for security - identity is bound server-side
 }
 
 export interface AdminOpaqueLoginFinishRequest {
-  adminId: string;
   finish: string;
   sessionId: string;
+  // Note: adminId removed for security - identity is derived from server session
 }
 
 export interface AdminOpaqueLoginFinishResponse {

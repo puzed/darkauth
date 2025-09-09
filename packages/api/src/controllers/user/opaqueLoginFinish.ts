@@ -1,12 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { opaqueLoginSessions } from "../../db/schema.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { NotFoundError, UnauthorizedError, ValidationError } from "../../errors.js";
+import { UnauthorizedError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserBySubOrEmail } from "../../models/users.js";
 import { createSession } from "../../services/sessions.js";
@@ -15,20 +17,19 @@ import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 
-export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
-  body && typeof body === "object"
-    ? ("email" in body ? (body as { email?: string }).email : undefined) ||
-      ("sub" in body ? (body as { sub?: string }).sub : undefined)
-    : undefined
-)(
+export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
+  // Rate limit by sessionId to prevent abuse
+  const data = body as { sessionId?: string };
+  return data?.sessionId;
+})(
   withAudit({
     eventType: "USER_LOGIN",
     resourceType: "user",
-    extractResourceId: (body) =>
-      body && typeof body === "object"
-        ? ("sub" in body ? (body as { sub?: string }).sub : undefined) ||
-          ("email" in body ? (body as { email?: string }).email : undefined)
-        : undefined,
+    extractResourceId: (body) => {
+      // Use sessionId for audit correlation
+      const data = body as { sessionId?: string };
+      return data?.sessionId;
+    },
   })(
     async (
       context: Context,
@@ -41,14 +42,17 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
           throw new ValidationError("OPAQUE service not available");
         }
 
+        if (!context.db) {
+          throw new ValidationError("Database context not available");
+        }
+
         // Read and parse request body (may be cached by rate limit middleware)
         const body = await getCachedBody(request);
         const data = parseJsonSafely(body) as {
           finish?: string;
           message?: string;
           sessionId?: string;
-          sub?: string;
-          email?: string;
+          // Note: sub and email fields are ignored for security
         };
 
         // Validate request format
@@ -68,16 +72,6 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
           throw new ValidationError("Missing or invalid sessionId field");
         }
 
-        const subOrEmail: string | undefined =
-          typeof data.sub === "string"
-            ? data.sub
-            : typeof data.email === "string"
-              ? data.email
-              : undefined;
-        if (!subOrEmail) {
-          throw new ValidationError("Missing sub or email field");
-        }
-
         let finishBuffer: Uint8Array;
         try {
           finishBuffer = fromBase64Url(finishB64);
@@ -85,11 +79,37 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) =>
           throw new ValidationError("Invalid base64url encoding in finish");
         }
 
-        // Verify user exists
-        const user = await getUserBySubOrEmail(context, subOrEmail);
+        // CRITICAL SECURITY FIX: Retrieve identity from server-side OPAQUE session
+        // This prevents account takeover by ensuring the authenticated identity
+        // comes from the server's session store, not client input
+        const sessionRow = await context.db.query.opaqueLoginSessions.findFirst({
+          where: eq(opaqueLoginSessions.id, sessionId),
+        });
 
+        if (!sessionRow) {
+          throw new UnauthorizedError("Invalid or expired login session");
+        }
+
+        // Decrypt identityU from the session to get the user's email
+        let userEmail: string;
+        if (context.services?.kek) {
+          try {
+            const kekSvc = context.services.kek;
+            const decU = await kekSvc.decrypt(Buffer.from(sessionRow.identityU, "base64"));
+            userEmail = decU.toString("utf-8");
+          } catch {
+            // Fallback if decryption fails (data might be base64 encoded during initial setup)
+            userEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
+          }
+        } else {
+          // Fallback to base64 decoding if KEK not available
+          userEmail = Buffer.from(sessionRow.identityU, "base64").toString("utf-8");
+        }
+
+        // Look up user by the email from the server session only
+        const user = await getUserBySubOrEmail(context, userEmail);
         if (!user) {
-          throw new NotFoundError("User not found");
+          throw new UnauthorizedError("Authentication failed");
         }
 
         // Call OPAQUE service to finish login
