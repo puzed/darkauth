@@ -53,6 +53,14 @@ export async function postInstallOpaqueRegisterFinish(
       throw new ValidationError("Invalid install token");
     }
 
+    if (context.services.install.adminCreated) {
+      throw new ValidationError("Bootstrap admin already created");
+    }
+
+    if (context.services.install.adminEmail && context.services.install.adminEmail !== data.email) {
+      throw new ValidationError("Admin email does not match installation");
+    }
+
     const recordBuf = fromBase64Url(data.record);
     context.logger.debug(
       { recordLen: recordBuf.length },
@@ -75,6 +83,15 @@ export async function postInstallOpaqueRegisterFinish(
       envelope: opaque.envelope,
       serverPublicKey: opaque.serverPublicKey,
     });
+
+    let install = context.services.install;
+    if (!install) {
+      install = { adminEmail: data.email, adminCreated: true };
+      context.services.install = install;
+    } else {
+      if (!install.adminEmail) install.adminEmail = data.email;
+      install.adminCreated = true;
+    }
 
     context.logger.info("[install:opaque:finish] Registration complete, sending success response");
     sendJson(response, 201, { success: true });
