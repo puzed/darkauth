@@ -69,6 +69,23 @@ project/
 - Only mock external systems, not the internal ones this project needs. For example, don't mock our postgres database, use a real one in the tests. But it would be okay to mock the Twilio API, it's a third party.
  - Auth UI and Admin UI are built with React + TypeScript + CSS Modules and compiled to static assets served by the Node HTTP server. Do not introduce server-side rendering frameworks.
 
+### Server Lifecycle And Portability
+
+- Projects may run one or many HTTP servers. Treat all HTTP servers uniformly: each server must be portable, restartable, and stoppable.
+- Tests and production must use the same server factory and lifecycle API.
+- Do not rely on globals for server state. All resources live in context and are created/destroyed via explicit lifecycle calls.
+
+Lifecycle API (conceptual):
+- createServer(context) returns an object exposing: start(), stop(), restart(), getContext(), and references to all running HTTP servers.
+- start() resolves only when all HTTP servers are bound on their configured ports and report healthy via a readiness endpoint.
+- stop() resolves only when all HTTP servers are closed, open sockets destroyed, timers cleared, and resources released. No leaks.
+- restart() = stop old servers and context, build a brand‑new context, build brand‑new servers on the same ports, then start and wait for readiness. Never reuse the old context.
+- Ports per server are defined in config and must remain stable across restarts. Avoid hard‑coded port numbers.
+
+Readiness and health:
+- Every HTTP server exposes a lightweight health endpoint for readiness checks used by start/restart and tests.
+- Callers should not insert arbitrary sleeps; lifecycle methods guarantee readiness before resolving.
+
 ### Controllers And Models
 
 - Controllers are thin HTTP adapters. They parse input, enforce authentication and authorization, call models and services, and shape HTTP responses. They contain no database logic.
@@ -216,11 +233,26 @@ Use AppError for application-specific errors that bubble up to the HTTP layer fo
 - Build with a minimal bundler (e.g., Vite). Output is static and served by the Node HTTP server.
 - Apply a strict CSP; no inline scripts or styles. Prefer hashed/script-src only when unavoidable.
 
-### Install Flow
-- First run exposes a temporary Install UI on `http://localhost:9081/install?token=<random>` guarded by a single-use, short-lived token.
-- The install form collects `adminEmail`, `adminName`, and secure-mode selection. If secure mode is chosen and no `ZKAUTH_KEK_PASSPHRASE` is supplied, the form accepts a passphrase to derive KEK (Argon2id) for encrypting private keys and secrets.
-- Submitting the form runs migrations, seeds defaults and clients, creates the initial admin with role `write` (no password), and marks the system initialized. The Install UI shuts down.
-- On first Admin UI visit after install, the bootstrap admin completes OPAQUE registration to set the password.
+### Server Lifecycle Guarantees
+- Use a single entrypoint that builds config, constructs a fresh context, and then builds servers using the shared factory.
+- Never swallow lifecycle errors; surface them and fail fast in dev/test. Logs must include the failing phase (start/stop/restart).
+- Track and destroy open sockets per server on stop to avoid close hangs.
+- All background timers, intervals, DB pools, and service instances are owned by context and registered for cleanup.
+
+Background work safety:
+- When a server is stopping or restarting, nothing spawned from that server may continue using the old context. This includes background jobs, queues, schedulers, and loggers.
+- Provide a liveness token or generation number on context. Background tasks must check it and abort if the context is closed or generation has changed.
+- If work must survive restart, flush it before stop or persist it to a durable queue and resume with the new context after restart.
+- Never write to databases, queues, or files using a closed or stale context.
+
+Fresh context on restart:
+- Always rebuild context from the source of truth (env, config files, database) rather than reusing mutated in‑memory state.
+- Recreate connection pools and service instances; do not carry handles across restarts.
+
+Readiness workflow:
+- start() resolves only when all servers report healthy.
+- stop() resolves only when all servers are closed and resources are cleaned.
+- restart() resolves only when new servers are healthy on the same ports.
 
 
 ### types.ts
@@ -249,9 +281,9 @@ export interface Config {
   jwtSecret: string;
 }
 
-### Ports
-- User/OIDC/UI: `9080`
-- Admin UI/API + Install UI: `9081`
+### Ports And Bindings
+- Define ports per server in config (by name if multiple). Do not hard‑code numeric ports in code.
+- Keep bindings stable across restarts so clients and tests can rely on addresses.
 ```
 
 ### errors.ts
@@ -1330,6 +1362,11 @@ npm run test:watch
 # Run specific test file
 tsx --test src/models/users.test.ts
 ```
+
+#### Readiness In Tests
+- Do not add arbitrary sleeps. Rely on server lifecycle guarantees: start/stop/restart resolve only when ready.
+- If a restart is triggered asynchronously from within a request handler, probe the health endpoint until ready instead of sleeping.
+- Prefer the dot reporter when running tests that start HTTP servers to avoid TTY stalls.
 
 #### Test Structure
 - Use `describe`, `it`, `beforeEach`, `afterEach` from `node:test`
