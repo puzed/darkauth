@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Lock, Moon, Shield, Sun, X } from "lucide-react";
+import { Loader2, Lock, Moon, Shield, Sun } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { setTheme as applyThemeSetting, getTheme } from "@/lib/theme";
@@ -40,13 +40,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<AdminOpaqueLoginState | null>(null);
-  const [showInstallSuccess, setShowInstallSuccess] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem("da_install_success") === "1";
-    } catch {
-      return false;
-    }
-  });
+
   const [mode, setMode] = useState<"light" | "dark">(() => {
     const t = getTheme();
     if (t === "system") {
@@ -217,30 +211,6 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
 
   return (
     <div className={styles.container}>
-      {showInstallSuccess && (
-        <div className={styles.noticeWrap}>
-          <div className={styles.notice}>
-            <CheckCircle2 size={18} color="hsl(var(--primary))" />
-            <div>
-              <div className={styles.noticeTitle}>Installation complete</div>
-              <div className={styles.noticeDesc}>You can now log in as your admin user</div>
-            </div>
-            <button
-              type="button"
-              aria-label="Dismiss"
-              className={styles.noticeClose}
-              onClick={() => {
-                setShowInstallSuccess(false);
-                try {
-                  localStorage.removeItem("da_install_success");
-                } catch {}
-              }}
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </div>
-      )}
       <div className={styles.card}>
         <div className={styles.themeToggle}>
           <button

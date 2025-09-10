@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // no toast; we'll show a persistent banner on login screen instead
 import adminOpaqueService, { type AdminOpaqueRegistrationState } from "@/services/opaque";
+import styles from "./Install.module.css";
 
 interface InstallData {
   adminEmail: string;
@@ -177,14 +178,7 @@ export default function Install() {
 
   if (stage === "checking") {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
+      <div className={styles.centerWrap}>
         <div>Checking installation status…</div>
       </div>
     );
@@ -192,21 +186,14 @@ export default function Install() {
 
   if (stage === "restarting") {
     return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
-            <Loader2 size={28} style={{ animation: "spin 1s linear infinite" }} />
+      <div className={styles.centerWrap}>
+        <div className={styles.restartWrap}>
+          <div className={styles.success}>Installed successfully</div>
+          <div className={styles.restartLine}>
+            <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+            <span>Server is restarting with new configuration...</span>
           </div>
-          <h2>Installation Complete!</h2>
-          <p>Server is restarting with new configuration...</p>
-          <p>You will be redirected automatically.</p>
+          <p className={styles.help}>You will be redirected automatically.</p>
         </div>
       </div>
     );
@@ -214,160 +201,67 @@ export default function Install() {
 
   if (stage === "error") {
     return (
-      <div className="page-container">
-        <div className="page-header">
-          <h1 className="page-title">Install Link Invalid</h1>
-          <p className="page-subtitle">
-            The one-time install token is missing, invalid, or expired. Use the link printed in the
-            server console and try again.
-          </p>
+      <div className={styles.container}>
+        <div className={styles.inner}>
+          <div className={styles.header}>
+            <h1>Install Link Invalid</h1>
+            <p>
+              The one-time install token is missing, invalid, or expired. Use the link printed in
+              the server console and try again.
+            </p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="page-container">
-      <div className="page-header">
-        <img
-          src="/favicon.svg"
-          alt="DarkAuth"
-          width={120}
-          height={120}
-          style={{ marginBottom: 8 }}
-        />
-        <h1 className="page-title">DarkAuth Installation</h1>
-        <p className="page-subtitle">Complete the setup to initialize your DarkAuth server</p>
-      </div>
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        {error && (
-          <div
-            style={{
-              background: "#fef2f2",
-              border: "1px solid #fecaca",
-              color: "#991b1b",
-              padding: 12,
-              borderRadius: 8,
-            }}
-          >
-            {error}
-          </div>
-        )}
-        <Card>
-          <CardHeader>
-            <CardTitle>Admin User</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormGrid columns={1}>
-              <GridField label={<Label htmlFor={`${uid}-name`}>Admin Name</Label>}>
-                <Input
-                  id={`${uid}-name`}
-                  name="adminName"
-                  value={formData.adminName}
-                  onChange={onChange}
-                  placeholder="Your full name"
-                  disabled={loading}
-                  required
-                />
-              </GridField>
-              <GridField label={<Label htmlFor={`${uid}-email`}>Admin Email</Label>}>
-                <Input
-                  id={`${uid}-email`}
-                  name="adminEmail"
-                  type="email"
-                  value={formData.adminEmail}
-                  onChange={onChange}
-                  placeholder="admin@yourcompany.com"
-                  disabled={loading}
-                  required
-                />
-              </GridField>
-              <GridField label={<Label htmlFor={`${uid}-pass`}>Admin Password</Label>}>
-                <Input
-                  id={`${uid}-pass`}
-                  name="adminPassword"
-                  type="password"
-                  value={formData.adminPassword}
-                  onChange={onChange}
-                  placeholder="Choose a strong password"
-                  minLength={8}
-                  disabled={loading}
-                  required
-                />
-              </GridField>
-            </FormGrid>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Database</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormGrid columns={1}>
-              <GridField label={<Label htmlFor={`${uid}-dbmode`}>Choose</Label>}>
-                <div style={{ display: "flex", gap: 12 }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      type="radio"
-                      name="dbMode"
-                      checked={dbMode === "remote"}
-                      onChange={() => setDbMode("remote")}
-                    />
-                    Remote Postgres
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <input
-                      type="radio"
-                      name="dbMode"
-                      checked={dbMode === "pglite"}
-                      onChange={() => setDbMode("pglite")}
-                    />
-                    Embedded PGLite
-                  </label>
-                </div>
-              </GridField>
-              {dbMode === "remote" && (
-                <GridField label={<Label htmlFor={`${uid}-pg`}>Postgres URI</Label>}>
-                  <Input
-                    id={`${uid}-pg`}
-                    value={postgresUri}
-                    onChange={(e) => setPostgresUri(e.target.value)}
-                    placeholder="postgresql://user:pass@host:5432/dbname"
-                    disabled={loading}
-                  />
-                </GridField>
-              )}
-              {dbMode === "pglite" && (
-                <GridField label={<Label htmlFor={`${uid}-pglite`}>PGLite Directory</Label>}>
-                  <Input
-                    id={`${uid}-pglite`}
-                    value={pgliteDir}
-                    onChange={(e) => setPgliteDir(e.target.value)}
-                    placeholder="./data/pglite"
-                    disabled={loading}
-                  />
-                </GridField>
-              )}
-            </FormGrid>
-          </CardContent>
-        </Card>
-
-        {!hasKek && (
+    <div className={styles.container}>
+      <div className={styles.inner}>
+        <div className={styles.header}>
+          <img src="/favicon.svg" alt="DarkAuth" className={styles.logo} />
+          <h1>DarkAuth Installation</h1>
+          <p>Complete the setup to initialize your DarkAuth server</p>
+        </div>
+        <form onSubmit={submit} className={styles.form}>
+          {error && <div className={styles.error}>{error}</div>}
           <Card>
             <CardHeader>
-              <CardTitle>Key Encryption</CardTitle>
+              <CardTitle>Admin User</CardTitle>
             </CardHeader>
             <CardContent>
               <FormGrid columns={1}>
-                <GridField label={<Label htmlFor={`${uid}-kek`}>KEK Passphrase</Label>}>
+                <GridField label={<Label htmlFor={`${uid}-name`}>Admin Name</Label>}>
                   <Input
-                    id={`${uid}-kek`}
-                    name="kekPassphrase"
-                    type="password"
-                    value={formData.kekPassphrase || ""}
+                    id={`${uid}-name`}
+                    name="adminName"
+                    value={formData.adminName}
                     onChange={onChange}
-                    placeholder="Enter a strong passphrase"
+                    placeholder="Your full name"
+                    disabled={loading}
+                    required
+                  />
+                </GridField>
+                <GridField label={<Label htmlFor={`${uid}-email`}>Admin Email</Label>}>
+                  <Input
+                    id={`${uid}-email`}
+                    name="adminEmail"
+                    type="email"
+                    value={formData.adminEmail}
+                    onChange={onChange}
+                    placeholder="admin@yourcompany.com"
+                    disabled={loading}
+                    required
+                  />
+                </GridField>
+                <GridField label={<Label htmlFor={`${uid}-pass`}>Admin Password</Label>}>
+                  <Input
+                    id={`${uid}-pass`}
+                    name="adminPassword"
+                    type="password"
+                    value={formData.adminPassword}
+                    onChange={onChange}
+                    placeholder="Choose a strong password"
                     minLength={8}
                     disabled={loading}
                     required
@@ -376,12 +270,91 @@ export default function Install() {
               </FormGrid>
             </CardContent>
           </Card>
-        )}
 
-        <Button size="lg" disabled={loading} style={{ width: "100%" }}>
-          {loading ? "Installing…" : "Complete Installation"}
-        </Button>
-      </form>
+          <Card>
+            <CardHeader>
+              <CardTitle>Database</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormGrid columns={1}>
+                <GridField label={<Label htmlFor={`${uid}-dbmode`}>Choose</Label>}>
+                  <div style={{ display: "flex", gap: 12 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input
+                        type="radio"
+                        name="dbMode"
+                        checked={dbMode === "remote"}
+                        onChange={() => setDbMode("remote")}
+                      />
+                      Remote Postgres
+                    </label>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input
+                        type="radio"
+                        name="dbMode"
+                        checked={dbMode === "pglite"}
+                        onChange={() => setDbMode("pglite")}
+                      />
+                      Embedded PGLite
+                    </label>
+                  </div>
+                </GridField>
+                {dbMode === "remote" && (
+                  <GridField label={<Label htmlFor={`${uid}-pg`}>Postgres URI</Label>}>
+                    <Input
+                      id={`${uid}-pg`}
+                      value={postgresUri}
+                      onChange={(e) => setPostgresUri(e.target.value)}
+                      placeholder="postgresql://user:pass@host:5432/dbname"
+                      disabled={loading}
+                    />
+                  </GridField>
+                )}
+                {dbMode === "pglite" && (
+                  <GridField label={<Label htmlFor={`${uid}-pglite`}>PGLite Directory</Label>}>
+                    <Input
+                      id={`${uid}-pglite`}
+                      value={pgliteDir}
+                      onChange={(e) => setPgliteDir(e.target.value)}
+                      placeholder="./data/pglite"
+                      disabled={loading}
+                    />
+                  </GridField>
+                )}
+              </FormGrid>
+            </CardContent>
+          </Card>
+
+          {!hasKek && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Key Encryption</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FormGrid columns={1}>
+                  <GridField label={<Label htmlFor={`${uid}-kek`}>KEK Passphrase</Label>}>
+                    <Input
+                      id={`${uid}-kek`}
+                      name="kekPassphrase"
+                      type="password"
+                      value={formData.kekPassphrase || ""}
+                      onChange={onChange}
+                      placeholder="Enter a strong passphrase"
+                      minLength={8}
+                      disabled={loading}
+                      required
+                    />
+                  </GridField>
+                </FormGrid>
+              </CardContent>
+            </Card>
+          )}
+
+          <Button size="lg" disabled={loading} style={{ width: "100%" }}>
+            {loading ? "Installing…" : "Complete Installation"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }
