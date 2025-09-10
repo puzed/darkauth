@@ -1,6 +1,5 @@
 import {
   ChevronDown,
-  ChevronRight,
   FileText,
   Home,
   Key,
@@ -65,7 +64,6 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
   };
 
   const [open, setOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(location.pathname.startsWith("/settings"));
   const [theme, setThemeState] = useState(getTheme());
 
   useEffect(() => {
@@ -143,71 +141,22 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
               <FileText className={styles.navIcon} />
               <span>Changelog</span>
             </NavLink>
-            <div className={styles.appearanceRow}>
-              <span className={styles.appearanceLabel}>Appearance</span>
-              <div className={styles.appearanceControls}>
-                <button
-                  type="button"
-                  aria-label="Use system appearance"
-                  className={`${styles.iconBtn} ${theme === "system" ? styles.iconBtnActive : ""}`}
-                  onClick={() => onSet("system")}
-                  title="System"
-                >
-                  <Monitor className={styles.appearanceIcon} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Use light appearance"
-                  className={`${styles.iconBtn} ${theme === "light" ? styles.iconBtnActive : ""}`}
-                  onClick={() => onSet("light")}
-                  title="Light"
-                >
-                  <Sun className={styles.appearanceIcon} />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Use dark appearance"
-                  className={`${styles.iconBtn} ${theme === "dark" ? styles.iconBtnActive : ""}`}
-                  onClick={() => onSet("dark")}
-                  title="Dark"
-                >
-                  <Moon className={styles.appearanceIcon} />
-                </button>
-              </div>
-            </div>
-            <button
-              type="button"
-              className={styles.navItem}
-              onClick={() => setSettingsOpen((v) => !v)}
+            <NavLink
+              to="/settings"
+              className={`${styles.navItem} ${isActive("/settings") && location.pathname === "/settings" ? styles.active : ""}`}
+              onClick={handleNavClick}
             >
               <Settings className={styles.navIcon} />
               <span>Settings</span>
-              {settingsOpen ? (
-                <ChevronDown className={styles.chevron} />
-              ) : (
-                <ChevronRight className={styles.chevron} />
-              )}
-            </button>
-            {settingsOpen && (
-              <div className={styles.subMenu}>
-                <NavLink
-                  to="/settings"
-                  className={`${styles.navItem} ${isActive("/settings") && location.pathname === "/settings" ? styles.active : ""}`}
-                  onClick={handleNavClick}
-                >
-                  <Settings className={styles.navIcon} />
-                  <span>Core</span>
-                </NavLink>
-                <NavLink
-                  to="/settings/admin-users"
-                  className={`${styles.navItem} ${isActive("/settings/admin-users") ? styles.active : ""}`}
-                  onClick={handleNavClick}
-                >
-                  <Users className={styles.navIcon} />
-                  <span>Admin Users</span>
-                </NavLink>
-              </div>
-            )}
+            </NavLink>
+            <NavLink
+              to="/settings/admin-users"
+              className={`${styles.navItem} ${isActive("/settings/admin-users") ? styles.active : ""}`}
+              onClick={handleNavClick}
+            >
+              <Users className={styles.navIcon} />
+              <span>Admin Users</span>
+            </NavLink>
           </div>
         </div>
       </div>
@@ -223,9 +172,38 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
               <button type="button" className={styles.userMenuItem}>
                 Profile
               </button>
-              <button type="button" className={styles.userMenuItem}>
-                Settings
-              </button>
+              <div className={styles.appearanceRow}>
+                <span className={styles.appearanceLabel}>Appearance</span>
+                <div className={styles.appearanceControls}>
+                  <button
+                    type="button"
+                    aria-label="Use system appearance"
+                    className={`${styles.iconBtn} ${theme === "system" ? styles.iconBtnActive : ""}`}
+                    onClick={() => onSet("system")}
+                    title="System"
+                  >
+                    <Monitor className={styles.appearanceIcon} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Use light appearance"
+                    className={`${styles.iconBtn} ${theme === "light" ? styles.iconBtnActive : ""}`}
+                    onClick={() => onSet("light")}
+                    title="Light"
+                  >
+                    <Sun className={styles.appearanceIcon} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Use dark appearance"
+                    className={`${styles.iconBtn} ${theme === "dark" ? styles.iconBtnActive : ""}`}
+                    onClick={() => onSet("dark")}
+                    title="Dark"
+                  >
+                    <Moon className={styles.appearanceIcon} />
+                  </button>
+                </div>
+              </div>
               <NavLink
                 to="/reset-password"
                 className={styles.userMenuItem}
