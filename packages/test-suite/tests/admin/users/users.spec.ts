@@ -1,22 +1,19 @@
 import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
-import { installDarkAuth, injectInstallToken } from '../../../setup/install.js';
+import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
 
 test.describe('Admin - Users', () => {
   let servers: TestServers;
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-users' });
-    const installToken = generateRandomString(32);
-    injectInstallToken(servers.context, installToken);
     await installDarkAuth({
       adminUrl: servers.adminUrl,
       adminEmail: FIXED_TEST_ADMIN.email,
       adminName: FIXED_TEST_ADMIN.name,
       adminPassword: FIXED_TEST_ADMIN.password,
-      installToken
+      installToken: 'test-install-token'
     });
   });
 

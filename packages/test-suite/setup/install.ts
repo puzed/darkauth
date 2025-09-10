@@ -1,4 +1,4 @@
-import { generateRandomString, toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
+import { toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 
 export interface InstallConfig {
@@ -6,15 +6,15 @@ export interface InstallConfig {
   adminEmail: string;
   adminName: string;
   adminPassword: string;
+  installToken?: string;
 }
 
-export interface InstallConfigWithToken extends InstallConfig {
-  installToken: string;
-}
-
-export async function installDarkAuth(config: InstallConfig | InstallConfigWithToken): Promise<void> {
+export async function installDarkAuth(config: InstallConfig): Promise<void> {
+  if (!config.installToken) {
+    throw new Error('installToken not provided')
+  }
   // Use provided token or generate one (in real app this comes from server console)
-  const installToken = 'installToken' in config ? config.installToken : generateRandomString(32);
+  const installToken = config.installToken;
   const installResponse = await fetch(`${config.adminUrl}/api/install?token=${installToken}`);
   if (!installResponse.ok) {
     // Continue anyway in dev/test; server accepts dev tokens
@@ -89,13 +89,29 @@ export async function installDarkAuth(config: InstallConfig | InstallConfigWithT
   }
   
   const result = await response.json();
-}
 
-// Helper function to inject install token into server context
-// This is a test-specific function that wouldn't exist in production
-export function injectInstallToken(context: any, token: string): void {
-  context.services.install = {
-    token,
-    createdAt: Date.now()
-  };
+  // Wait for servers to restart and become healthy
+  async function waitForHealthy(url: string, timeoutMs = 15000): Promise<void> {
+    const start = Date.now();
+    const healthUrl = `${url}/api/health`;
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const res = await fetch(healthUrl, { method: 'GET' });
+        if (res.ok) return;
+      } catch {}
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    throw new Error(`Server at ${url} not healthy after restart`);
+  }
+
+  await waitForHealthy(config.adminUrl);
+
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(config.adminUrl, { method: 'GET' });
+      if (res.ok || (res.status >= 200 && res.status < 400)) break;
+    } catch {}
+    await new Promise((r) => setTimeout(r, 150));
+  }
 }

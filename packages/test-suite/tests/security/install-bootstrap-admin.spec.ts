@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../setup/server.js';
-import { injectInstallToken } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { generateRandomString, toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
@@ -10,9 +9,10 @@ test.describe('Security - Single Bootstrap Admin', () => {
   let installToken: string;
 
   test.beforeAll(async () => {
-    servers = await createTestServers({ testName: 'security-bootstrap-admin' });
-    installToken = generateRandomString(32);
-    injectInstallToken(servers.context, installToken);
+    servers = await createTestServers({
+      testName: 'security-bootstrap-admin',
+      installToken: 'test-install-token'
+    });
   });
 
   test.afterAll(async () => {
