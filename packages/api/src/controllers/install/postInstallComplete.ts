@@ -206,26 +206,12 @@ async function _postInstallComplete(
         context.config.configFile
       );
 
-      context.logger.info("[install:post] Configuration saved, server will restart in 2 seconds");
-
-      // Schedule trigger for tsx watch restart by updating reload.ts content
-      setTimeout(async () => {
-        context.logger.info("[install:post] Triggering restart via reload token");
-        const fs = await import("node:fs");
-        const path = await import("node:path");
-        try {
-          const reloadPath = path.resolve(process.cwd(), "src", "reload.ts");
-          const stamp = Date.now();
-          fs.writeFileSync(reloadPath, `export const reloadToken = ${stamp};\n`, "utf8");
-          context.logger.info({ reloadPath }, "[install:post] Wrote reload token");
-        } catch (touchErr) {
-          context.logger.warn(
-            { err: touchErr },
-            "[install:post] Failed to write reload token, falling back to exit"
-          );
-          process.exit(0);
-        }
-      }, 2000);
+      context.logger.info("[install:post] Configuration saved, scheduling restart");
+      if (!context.services.install) {
+        context.services.install = {};
+      }
+      const install = context.services.install;
+      install.restartRequested = true;
     } catch (err) {
       context.logger.error({ err }, "[install:post] Failed to save configuration");
     }
@@ -244,6 +230,7 @@ async function _postInstallComplete(
 export const postInstallComplete = withAudit({
   eventType: "SYSTEM_INSTALL",
   resourceType: "system",
+  flushAudit: true,
   extractResourceId: (body: unknown) => {
     if (body && typeof body === "object") {
       const data = body as { adminEmail?: string };

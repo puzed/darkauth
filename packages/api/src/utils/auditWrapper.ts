@@ -13,6 +13,7 @@ interface AuditConfig {
   resourceType?: string;
   extractResourceId?: (body: unknown, params: string[]) => string | undefined;
   skipBodyCapture?: boolean;
+  flushAudit?: boolean;
 }
 
 // Determine cohort based on path
@@ -266,7 +267,7 @@ export function withAudit(config: AuditConfig | string) {
           }
         }
 
-        logAuditEvent(context, {
+        const auditCall = logAuditEvent(context, {
           eventType: auditConfig.eventType,
           method: request.method || "UNKNOWN",
           path: request.url || "/",
@@ -299,10 +300,35 @@ export function withAudit(config: AuditConfig | string) {
           requestBody: requestBody ? sanitizeRequestBody(requestBody) || undefined : undefined,
           responseTime: Date.now() - startTime,
           details: extractDetails(request),
-        }).catch((err) => {
-          // Don't fail the request if audit logging fails
-          console.error("Audit log failed:", err);
         });
+        if (auditConfig.flushAudit || auditConfig.eventType === "SYSTEM_INSTALL") {
+          try {
+            await auditCall;
+          } catch (err) {
+            console.error("Audit log failed:", err);
+          }
+        } else {
+          auditCall.catch((err) => {
+            console.error("Audit log failed:", err);
+          });
+        }
+
+        if (
+          auditConfig.eventType === "SYSTEM_INSTALL" &&
+          context.services?.install?.restartRequested
+        ) {
+          try {
+            context.services.install.restartRequested = false;
+            if (typeof context.restart === "function") {
+              await context.restart();
+            }
+          } catch (err) {
+            context.logger?.error?.({ err }, "[auditWrapper] restart after install failed");
+            try {
+              process.exit(1);
+            } catch {}
+          }
+        }
       }
     };
 }
