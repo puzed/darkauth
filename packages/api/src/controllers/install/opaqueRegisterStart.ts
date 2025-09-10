@@ -18,7 +18,7 @@ import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
 const Req = z.object({
-  token: z.string(),
+  token: z.string().optional(),
   email: z.string().email(),
   name: z.string(),
   role: z.enum(["read", "write"]).optional(),
@@ -47,7 +47,8 @@ export async function postInstallOpaqueRegisterStart(
       "[install:opaque:start] Parsed request"
     );
     const url = new URL(request.url || "", `http://${request.headers.host}`);
-    const providedToken = data.token || url.searchParams.get("token") || "";
+    const providedToken =
+      data.token || url.searchParams.get("token") || context.config.installToken || "";
     if (!context.services.install?.token || providedToken !== context.services.install.token) {
       context.logger.error("[install:opaque:start] Invalid install token");
       throw new ValidationError("Invalid install token");
