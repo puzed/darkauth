@@ -95,7 +95,6 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       }
 
       // Store authorization code with PKCE support
-      console.log("[authorize] issue code", code, "for", pendingRequest.clientId);
       await createAuthCode(context, {
         code,
         clientId: pendingRequest.clientId,
