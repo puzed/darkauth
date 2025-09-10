@@ -1,6 +1,14 @@
 {
-  "generatedAt": "2025-09-10T18:46:56.848Z",
+  "generatedAt": "2025-09-10T20:22:34.627Z",
   "entries": [
+    {
+      "date": "2025-09-10",
+      "title": "v1.0.8",
+      "changes": [
+        "This release refreshes the Admin Settings experience with an accordion layout and in-place JSON editing, introduces API metadata for settings with seeded descriptions, fixes install token handling during bootstrap, and updates tests and docs accordingly.\n\n## ✨ Features\n\n### 🔧 Admin Settings UI\n- Refactor Settings UI into accordion sections with a JSON editor and CSS Modules\n\n### 🧩 API Settings Metadata\n- Add settings description field and seed; update services and schema\n\n## 🐛 Fixes\n\n- Accept install token via query parameter and respect `adminCreated` during install\n\n## 🧪 Tests\n\n- Adjust reload integration to account for Settings changes\n- Bump reload token for test stability\n\n## 📚 Chores\n\n- Update brochure site changelog data\n- Add Settings UI improvements plan and refine release creation steps"
+      ],
+      "filename": "v1.0.8.md"
+    },
     {
       "date": "2025-09-10",
       "title": "v1.0.7",
