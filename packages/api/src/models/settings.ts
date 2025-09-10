@@ -68,6 +68,7 @@ export async function listSettings(context: Context) {
       name: settings.name,
       type: settings.type,
       category: settings.category,
+      description: settings.description,
       tags: settings.tags,
       defaultValue: settings.defaultValue,
       value: settings.value,

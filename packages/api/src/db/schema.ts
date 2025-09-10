@@ -44,6 +44,7 @@ export const settings = pgTable("settings", {
   name: text("name"),
   type: text("type"),
   category: text("category"),
+  description: text("description"),
   tags: text("tags").array().default([]).notNull(),
   defaultValue: jsonb("default_value"),
   value: jsonb("value").notNull(),
