@@ -22,7 +22,9 @@ async function updateClientHandler(
   const clientId = params[0];
   if (!clientId) throw new ValidationError("Client ID is required");
   const session = await requireSession(context, request, true);
-  if (!session.adminRole) throw new ForbiddenError("Admin access required");
+  if (!session.adminRole || session.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
+  }
   const body = await readBody(request);
   const parsed = parseJsonSafely(body);
   if (!parsed || typeof parsed !== "object") throw new ValidationError("Invalid JSON body");
