@@ -27,8 +27,8 @@ async function deleteUserHandler(
     request,
     true
   );
-  if (!sessionData.adminRole) {
-    throw new ForbiddenError("Admin access required");
+  if (!sessionData.adminRole || sessionData.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
   }
 
   await deleteUserModel(context, sub);

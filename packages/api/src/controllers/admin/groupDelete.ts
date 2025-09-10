@@ -2,21 +2,28 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { z } from "zod";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
 import { deleteGroup } from "../../models/groups.js";
+import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
 async function deleteGroupHandler(
   context: Context,
-  _request: IncomingMessage,
+  request: IncomingMessage,
   response: ServerResponse,
   key: string
 ): Promise<void> {
+  const sessionData = await requireSession(context, request, true);
+  if (!sessionData.adminRole || sessionData.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
+  }
+
   const result = await deleteGroup(context, key);
   sendJson(response, 200, result);
 }
