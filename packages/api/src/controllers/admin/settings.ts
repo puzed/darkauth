@@ -51,6 +51,7 @@ export function registerOpenApi(registry: OpenAPIRegistry) {
     name: z.string().optional().nullable(),
     type: z.string().optional().nullable(),
     category: z.string().optional().nullable(),
+    description: z.string().optional().nullable(),
     tags: z.array(z.string()).optional().nullable(),
     defaultValue: z.any().optional().nullable(),
     value: z.any(),
