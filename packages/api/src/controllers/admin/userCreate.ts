@@ -22,8 +22,8 @@ async function createUserHandler(
     request,
     true
   );
-  if (!sessionData.adminRole) {
-    throw new ForbiddenError("Admin access required");
+  if (!sessionData.adminRole || sessionData.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
   }
 
   const body = await readBody(request);

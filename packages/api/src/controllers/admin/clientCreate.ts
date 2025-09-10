@@ -63,7 +63,9 @@ async function createClientHandler(
   ..._params: unknown[]
 ) {
   const session = await requireSession(context, request, true);
-  if (!session.adminRole) throw new ForbiddenError("Admin access required");
+  if (!session.adminRole || session.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
+  }
 
   const body = await readBody(request);
   const raw = parseJsonSafely(body);
