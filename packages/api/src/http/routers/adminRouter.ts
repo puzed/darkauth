@@ -44,7 +44,8 @@ import { getUserPermissions } from "../../controllers/admin/userPermissions.js";
 import { updateUserPermissions } from "../../controllers/admin/userPermissionsUpdate.js";
 import { getUsers } from "../../controllers/admin/users.js";
 import { updateUser } from "../../controllers/admin/userUpdate.js";
-import { NotFoundError } from "../../errors.js";
+import { NotFoundError, UnauthorizedError } from "../../errors.js";
+import { getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { assertSameOrigin } from "../../utils/csrf.js";
 import { sendError } from "../../utils/http.js";
@@ -56,6 +57,27 @@ export function createAdminRouter(context: Context) {
     const pathname = url.pathname;
 
     try {
+      // Whitelist of endpoints that don't require session authentication
+      const publicEndpoints = [
+        "/admin/opaque/login/start",
+        "/admin/opaque/login/finish",
+        "/admin/refresh-token", // Uses refresh token in body, not session header
+        // Note: /admin/session is checked separately as it returns different data based on auth
+      ];
+
+      // Check authentication for all endpoints except whitelisted ones
+      const isPublicEndpoint = publicEndpoints.includes(pathname);
+      const isSessionCheck = pathname === "/admin/session";
+
+      if (!isPublicEndpoint && !isSessionCheck) {
+        const sessionId = getSessionId(request, true);
+        if (!sessionId) {
+          throw new UnauthorizedError("Authentication required");
+        }
+        // Note: We don't validate the session here as each endpoint does its own validation
+        // This is just a first-line defense to ensure a token is present
+      }
+
       const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
       if (needsCsrf) assertSameOrigin(request);
       if (method === "GET" && pathname === "/admin/session") {
