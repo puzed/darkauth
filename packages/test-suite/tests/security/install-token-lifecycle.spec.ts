@@ -1,7 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { createTestServers, destroyTestServers, TestServers } from '../../setup/server.js'
-import { injectInstallToken } from '../../setup/install.js'
-import { generateRandomString, toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
+import { toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
 
 test.describe('Security - Install Token Lifecycle', () => {
@@ -10,8 +9,6 @@ test.describe('Security - Install Token Lifecycle', () => {
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'security-install-token-lifecycle' })
-    installToken = generateRandomString(32)
-    injectInstallToken(servers.context, installToken)
   })
 
   test.afterAll(async () => {
@@ -38,10 +35,6 @@ test.describe('Security - Install Token Lifecycle', () => {
   })
 
   test('token cleared after first finish cannot be reused', async ({ request }) => {
-    // fresh token
-    installToken = generateRandomString(32)
-    injectInstallToken(servers.context, installToken)
-
     const client = new OpaqueClient()
     await client.initialize()
     const adminEmail = `bootstrap-${Date.now()}@example.com`
@@ -66,7 +59,7 @@ test.describe('Security - Install Token Lifecycle', () => {
     )
     const finishRes = await request.post(`${servers.adminUrl}/api/install/opaque/finish`, {
       data: {
-        token: installToken,
+        token: 'test-install-token',
         email: adminEmail,
         name: 'Admin',
         record: toBase64Url(Buffer.from(regFinish.upload))
