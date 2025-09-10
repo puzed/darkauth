@@ -1,9 +1,8 @@
 import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../setup/server.js';
-import { installDarkAuth, injectInstallToken } from '../../setup/install.js';
+import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN, createTestUser } from '../../fixtures/testData.js';
-import { registerUser } from '../../setup/helpers/auth.js';
-import { generateRandomString, toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
+import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 
 test.describe('Security - Identity Binding in OPAQUE Login', () => {
@@ -11,14 +10,12 @@ test.describe('Security - Identity Binding in OPAQUE Login', () => {
   
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'security-identity-binding' });
-    const installToken = generateRandomString(32);
-    injectInstallToken(servers.context, installToken);
     await installDarkAuth({
       adminUrl: servers.adminUrl,
       adminEmail: FIXED_TEST_ADMIN.email,
       adminName: FIXED_TEST_ADMIN.name,
       adminPassword: FIXED_TEST_ADMIN.password,
-      installToken
+      installToken: 'test-install-token'
     });
   });
   

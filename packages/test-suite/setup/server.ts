@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { createContext } from '@DarkAuth/api/src/context/createContext.ts';
-import { createAdminServer, createUserServer } from '@DarkAuth/api/src/http/createServer.ts';
+import { createServer as createAppServer } from '@DarkAuth/api/src/createServer.ts';
 import type { Context, Config } from '@DarkAuth/api/src/types.ts';
 import { randomBytes } from 'node:crypto';
 
@@ -8,6 +8,7 @@ export interface TestServerConfig {
   testName: string;
   adminPort?: number;
   userPort?: number;
+  installToken?: string;
 }
 
 export interface TestServers {
@@ -53,39 +54,15 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
     rpId: 'localhost',
     insecureKeys: true,
     configFile,
+    installToken: config.installToken || 'test-install-token',
     // logLevel: 'silent'
   };
 
   const context = await createContext(contextConfig);
-  
-  const adminServer = await createAdminServer(context);
-  const userServer = await createUserServer(context);
-
-  await new Promise<void>((resolve) => {
-    adminServer.listen(adminPort, resolve);
-  });
-
-  let started = false;
-  for (let i = 0; i < 5 && !started; i++) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        userServer.once('error', reject);
-        userServer.listen(userPort, () => {
-          userServer.removeAllListeners('error');
-          resolve();
-        });
-      });
-      started = true;
-    } catch (err: any) {
-      if (err && err.code === 'EADDRINUSE') {
-        userPort = await getRandomPort();
-        contextConfig.userPort = userPort;
-        context.config.userPort = userPort;
-        continue;
-      }
-      throw err;
-    }
-  }
+  const app = await createAppServer(context);
+  await app.start();
+  const adminServer = app.adminServer;
+  const userServer = app.userServer;
 
   // Test servers started
 
@@ -104,15 +81,9 @@ export async function destroyTestServers(servers: TestServers): Promise<void> {
   await new Promise<void>((resolve) => {
     servers.adminServer.close(() => resolve());
   });
-  
-  // Clean up test mode environment variable
   delete process.env.DARKAUTH_TEST_MODE;
-  
   await new Promise<void>((resolve) => {
     servers.userServer.close(() => resolve());
   });
-  
   await servers.context.destroy();
-  
-  // Test servers destroyed
 }
