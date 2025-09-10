@@ -14,6 +14,7 @@ export interface Context {
   logger: Logger;
   cleanupFunctions: Array<() => Promise<void> | void>;
   destroy: () => Promise<void>;
+  restart?: () => Promise<void>;
 }
 
 export interface Logger {
@@ -107,6 +108,7 @@ export interface Services {
     chosenPgliteDir?: string;
     adminEmail?: string;
     adminCreated?: boolean;
+    restartRequested?: boolean;
   };
   audit?: {
     logEvent: (event: AuditEvent) => Promise<void>;
@@ -130,6 +132,7 @@ export interface Config {
   logLevel?: string; // Pino log level (error, warn, info, debug, trace, silent)
   inInstallMode?: boolean;
   configFile?: string; // Path to config file (defaults to config.yaml)
+  installToken?: string; // Optional fixed install token for tests
 }
 
 export interface OpaqueServerSetup {

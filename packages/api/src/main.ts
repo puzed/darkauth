@@ -1,7 +1,6 @@
 import { hasConfigFile, loadRootConfig } from "./config/loadConfig.js";
-import "./reload.js";
 import { createContext } from "./context/createContext.js";
-import { createAdminServer, createUserServer } from "./http/createServer.js";
+import { createServer } from "./createServer.js";
 import { getLatestSigningKey } from "./services/jwks.js";
 import { getSetting, isSystemInitialized } from "./services/settings.js";
 import type { Config } from "./types.js";
@@ -31,7 +30,7 @@ async function main() {
     const initialized = await isSystemInitialized(context);
 
     if (!initialized) {
-      const installToken = generateRandomString(32);
+      const installToken = context.config.installToken || generateRandomString(32);
       const installUrl = `http://localhost:${config.adminPort}/install?token=${installToken}`;
 
       printBox([
@@ -78,16 +77,8 @@ async function main() {
       }
     }
 
-    const userServer = await createUserServer(context);
-    const adminServer = await createAdminServer(context);
-
-    userServer.listen(config.userPort, () => {
-      console.log(`User/OIDC server listening on port ${config.userPort}`);
-    });
-
-    adminServer.listen(config.adminPort, () => {
-      console.log(`Admin server listening on port ${config.adminPort}`);
-    });
+    const app = await createServer(context);
+    await app.start();
 
     printInfoTable("DarkAuth v1.0.0", [
       ["User/OIDC API:", `http://localhost:${config.userPort}`],
@@ -98,17 +89,13 @@ async function main() {
 
     process.on("SIGINT", async () => {
       console.log("\nShutting down gracefully...");
-      userServer.close();
-      adminServer.close();
-      await context.destroy();
+      await app.stop();
       process.exit(0);
     });
 
     process.on("SIGTERM", async () => {
       console.log("\nShutting down gracefully...");
-      userServer.close();
-      adminServer.close();
-      await context.destroy();
+      await app.stop();
       process.exit(0);
     });
   } catch (error) {
