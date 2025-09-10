@@ -256,6 +256,7 @@ export interface AdminSetting {
   name?: string | null;
   type?: string | null;
   category?: string | null;
+  description?: string | null;
   tags?: string[] | null;
   defaultValue?: unknown | null;
   value: unknown;

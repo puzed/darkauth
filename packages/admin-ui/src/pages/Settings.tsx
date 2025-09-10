@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/layout/page-header";
+import SettingRow from "@/components/settings/SettingRow";
+import SettingsAccordion from "@/components/settings/SettingsAccordion";
+import settingsStyles from "@/components/settings/SettingsAccordion.module.css";
+import SettingsSection from "@/components/settings/SettingsSection";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import adminApiService, { type AdminSetting } from "@/services/api";
@@ -36,6 +45,10 @@ export default function Settings() {
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [settings, setSettings] = useState<AdminSetting[]>([]);
   const [drafts, setDrafts] = useState<Record<string, unknown>>({});
+  const [editOpen, setEditOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminSetting | null>(null);
+  const [editJson, setEditJson] = useState<string>("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -118,83 +131,73 @@ export default function Settings() {
   };
 
   return (
-    <div>
+    <div className={settingsStyles.pageContainer}>
       <PageHeader
         title="Settings"
-        subtitle="Edit system settings grouped by category"
-        actions={
-          <Button variant="outline" onClick={load}>
-            Reload
-          </Button>
-        }
+        subtitle="Configure your application settings organized by category"
       />
 
-      {error && <div style={{ color: "red", margin: "16px 0" }}>{error}</div>}
+      {error && (
+        <div className={settingsStyles.errorAlert}>
+          <div className={settingsStyles.errorIcon}>⚠️</div>
+          <div>{error}</div>
+        </div>
+      )}
 
       {loading ? (
-        <div>Loading settings...</div>
+        <div className={settingsStyles.loadingContainer}>
+          <div className={settingsStyles.loadingSpinner}></div>
+          <div>Loading settings...</div>
+        </div>
       ) : (
-        <div style={{ display: "grid", gap: 24 }}>
+        <SettingsAccordion defaultValue={groups[0]?.[0]}>
           {groups.map(([top, inner]) => (
-            <Card key={top}>
-              <CardHeader>
-                <CardTitle>{top}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div style={{ display: "grid", gap: 24 }}>
-                  {inner.map(([sub, items]) => (
-                    <div key={sub}>
-                      {sub !== "General" && (
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>{sub}</div>
-                      )}
-                      <div
-                        style={{
-                          display: "grid",
-                          gap: 16,
-                          gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-                        }}
-                      >
-                        {items
-                          .slice()
-                          .sort((a, b) =>
-                            toLabel(a.key, a.name).localeCompare(toLabel(b.key, b.name))
-                          )
-                          .map((s) => {
-                            const t = inferType(s);
-                            const label = toLabel(s.key, s.name);
-                            const disabled =
-                              savingKey === s.key || (s.secure && s.value === "[REDACTED]");
-                            return (
-                              <div key={s.key}>
-                                <Label>{label}</Label>
-                                {t === "boolean" ? (
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      alignItems: "center",
-                                      gap: 8,
-                                      marginTop: 8,
+            <SettingsSection key={top} value={top} title={top}>
+              <div className={settingsStyles.inner}>
+                {inner.map(([sub, items]) => (
+                  <div key={sub}>
+                    {sub !== "General" && <div className={settingsStyles.subHeading}>{sub}</div>}
+                    <div className={settingsStyles.rows}>
+                      {items
+                        .slice()
+                        .sort((a, b) =>
+                          toLabel(a.key, a.name).localeCompare(toLabel(b.key, b.name))
+                        )
+                        .map((s) => {
+                          const t = inferType(s);
+                          const label = toLabel(s.key, s.name);
+                          const disabled =
+                            savingKey === s.key || (s.secure && s.value === "[REDACTED]");
+                          const isObject = t === "object";
+                          const atDefault = isObject
+                            ? JSON.stringify(s.value) === JSON.stringify(s.defaultValue)
+                            : false;
+                          return (
+                            <SettingRow
+                              key={s.key}
+                              label={label}
+                              description={s.description || undefined}
+                              className={savingKey === s.key ? settingsStyles.saving : undefined}
+                              right={
+                                t === "boolean" ? (
+                                  <Checkbox
+                                    checked={Boolean(drafts[s.key])}
+                                    onCheckedChange={(v) => {
+                                      setDrafts((d) => ({ ...d, [s.key]: !!v }));
+                                      adminApiService
+                                        .updateSetting(s.key, !!v)
+                                        .then(() => toast({ title: "Saved", description: s.key }))
+                                        .catch((e) =>
+                                          toast({
+                                            title: "Error",
+                                            description:
+                                              e instanceof Error ? e.message : "Failed to save",
+                                            variant: "destructive",
+                                          })
+                                        );
                                     }}
-                                  >
-                                    <Checkbox
-                                      checked={Boolean(drafts[s.key])}
-                                      onCheckedChange={(v) => {
-                                        setDrafts((d) => ({ ...d, [s.key]: !!v }));
-                                        adminApiService
-                                          .updateSetting(s.key, !!v)
-                                          .then(() => toast({ title: "Saved", description: s.key }))
-                                          .catch((e) =>
-                                            toast({
-                                              title: "Error",
-                                              description:
-                                                e instanceof Error ? e.message : "Failed to save",
-                                              variant: "destructive",
-                                            })
-                                          );
-                                      }}
-                                      disabled={disabled}
-                                    />
-                                  </div>
+                                    disabled={disabled}
+                                  />
                                 ) : t === "number" ? (
                                   <Input
                                     type="number"
@@ -215,28 +218,101 @@ export default function Settings() {
                                     disabled={disabled}
                                   />
                                 ) : (
-                                  <Textarea
-                                    rows={8}
-                                    value={String(drafts[s.key] ?? "")}
-                                    onChange={(e) =>
-                                      setDrafts((d) => ({ ...d, [s.key]: e.target.value }))
-                                    }
-                                    onBlur={() => save(s)}
-                                    disabled={disabled}
-                                  />
-                                )}
-                              </div>
-                            );
-                          })}
-                      </div>
+                                  <div className={settingsStyles.actions}>
+                                    <Button
+                                      variant="outline"
+                                      onClick={() => {
+                                        setEditing(s);
+                                        setEditJson(JSON.stringify(s.value, null, 2));
+                                        setEditOpen(true);
+                                      }}
+                                      disabled={disabled}
+                                    >
+                                      Edit
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      onClick={async () => {
+                                        try {
+                                          setSavingKey(s.key);
+                                          await adminApiService.updateSetting(
+                                            s.key,
+                                            s.defaultValue
+                                          );
+                                          toast({ title: "Reset", description: s.key });
+                                          await load();
+                                        } catch (e) {
+                                          toast({
+                                            title: "Error",
+                                            description:
+                                              e instanceof Error ? e.message : "Failed to reset",
+                                            variant: "destructive",
+                                          });
+                                        } finally {
+                                          setSavingKey(null);
+                                        }
+                                      }}
+                                      disabled={disabled || atDefault}
+                                    >
+                                      Reset
+                                    </Button>
+                                  </div>
+                                )
+                              }
+                            />
+                          );
+                        })}
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                  </div>
+                ))}
+              </div>
+            </SettingsSection>
           ))}
-        </div>
+        </SettingsAccordion>
       )}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className={settingsStyles.dialogContent}>
+          <DialogHeader>
+            <DialogTitle>Edit JSON</DialogTitle>
+            <DialogDescription>{editing?.key}</DialogDescription>
+          </DialogHeader>
+          <Textarea
+            rows={16}
+            value={editJson}
+            onChange={(e) => setEditJson(e.target.value)}
+            disabled={editSaving}
+          />
+          <div className={settingsStyles.dialogActions}>
+            <Button variant="outline" onClick={() => setEditOpen(false)} disabled={editSaving}>
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!editing) return;
+                try {
+                  setEditSaving(true);
+                  const parsed = JSON.parse(editJson);
+                  await adminApiService.updateSetting(editing.key, parsed);
+                  setEditOpen(false);
+                  toast({ title: "Saved", description: editing.key });
+                  await load();
+                } catch (e) {
+                  toast({
+                    title: "Error",
+                    description: e instanceof Error ? e.message : "Invalid JSON",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setEditSaving(false);
+                }
+              }}
+              disabled={editSaving}
+            >
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
