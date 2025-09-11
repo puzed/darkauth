@@ -163,10 +163,7 @@ spec:
   ];
 
   const sdks = [
-    { name: "TypeScript/JavaScript", status: "Stable", version: "v2.1.0" },
-    { name: "Python", status: "Beta", version: "v1.0.0-beta.2" },
-    { name: "Go", status: "Alpha", version: "v0.9.0" },
-    { name: "Java", status: "Planned", version: "TBD" }
+    { name: "TypeScript/JavaScript", status: "Stable", version: "v0.1.0" }
   ];
 
   const [tab, setTab] = useState("compose");
@@ -300,9 +297,11 @@ spec:
             <Button variant="hero" size="lg">
               Launch Interactive Demo
             </Button>
-            <Button variant="outline" size="lg">
-              View Source Code
-            </Button>
+            <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
+              <Button variant="outline" size="lg">
+                View Source Code
+              </Button>
+            </a>
           </div>
         </div>
       </div>

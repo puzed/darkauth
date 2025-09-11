@@ -26,7 +26,7 @@ const Hero = () => {
 
           {/* Subheadline */}
           <p className="mb-8 text-xl leading-8 text-muted-foreground max-w-3xl mx-auto">
-            DarkAuth is the world's first production-ready authentication system where your server 
+            DarkAuth is a production-ready authentication system where your server 
             <strong className="text-foreground"> never learns user passwords</strong> — not during registration, 
             not during login, never. Built on cryptographically proven OPAQUE protocol with full OIDC compatibility.
           </p>
