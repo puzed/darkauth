@@ -16,26 +16,26 @@ const Security = () => {
   const certifications = [
     {
       icon: Award,
-      title: "RFC 9380 Compliant",
-      description: "Peer-reviewed OPAQUE protocol implementation",
-      status: "Verified"
+      title: "RFC 9380 Implemented",
+      description: "OPAQUE protocol per standard",
+      status: "Implemented"
     },
     {
       icon: Shield,
       title: "Security Audited",
-      description: "Third-party cryptographic review completed",
-      status: "Certified"
+      description: "Independent review planned",
+      status: "Planned"
     },
     {
       icon: FileText,
       title: "SOC 2 Type II",
-      description: "Enterprise security and availability controls",
-      status: "In Progress"
+      description: "Compliance roadmap",
+      status: "Planned"
     },
     {
       icon: Lock,
       title: "ISO 27001",
-      description: "Information security management certification",
+      description: "Information security management roadmap",
       status: "Planned"
     }
   ];
@@ -62,7 +62,7 @@ const Security = () => {
     {
       threat: "Quantum Computing",
       traditional: "Future risk to current hashing",
-      darkauth: "Post-quantum cryptography ready",
+      darkauth: "Uses modern, widely deployed cryptography",
       icon: "⚛️"
     }
   ];
@@ -226,7 +226,7 @@ const Security = () => {
                   <div>
                     <strong className="text-foreground">EdDSA Signatures:</strong>
                     <span className="text-muted-foreground ml-2">
-                      Quantum-resistant elliptic curve cryptography
+                      Modern elliptic curve cryptography (Ed25519)
                     </span>
                   </div>
                 </div>
@@ -259,9 +259,11 @@ const Security = () => {
                   Our security model is designed for transparency. 
                   Request detailed cryptographic specifications.
                 </p>
-                <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
-                  Download Security Whitepaper
-                </Button>
+                <a href="/whitepaper.pdf" download>
+                  <Button variant="outline" className="bg-white/10 border-white/20 text-white hover:bg-white/20">
+                    Download Security Whitepaper
+                  </Button>
+                </a>
               </div>
             </div>
           </div>
