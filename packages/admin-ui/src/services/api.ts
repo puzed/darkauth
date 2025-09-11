@@ -139,6 +139,7 @@ export interface Permission {
 export interface Client {
   clientId: string;
   name: string;
+  showOnUserDashboard?: boolean;
   type: "public" | "confidential";
   tokenEndpointAuthMethod: "none" | "client_secret_basic";
   requirePkce: boolean;
@@ -164,6 +165,7 @@ export interface CreateClientRequest {
   name: string;
   type: "public" | "confidential";
   tokenEndpointAuthMethod: "none" | "client_secret_basic";
+  showOnUserDashboard?: boolean;
   requirePkce?: boolean;
   zkDelivery?: "none" | "fragment-jwe";
   zkRequired?: boolean;
