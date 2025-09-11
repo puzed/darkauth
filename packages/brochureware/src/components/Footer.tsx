@@ -16,7 +16,7 @@ const Footer = () => {
       { name: "Documentation", href: "#docs" },
       { name: "API Reference", href: "/docs/api" },
       { name: "SDKs", href: "/docs/sdks" },
-      { name: "GitHub", href: "https://github.com/darkauth" }
+      { name: "GitHub", href: "https://github.com/puzed/" }
     ],
     company: [
       { name: "About", href: "/about" },
@@ -54,15 +54,17 @@ const Footer = () => {
               </div>
             </div>
             <p className="text-sm text-secondary-foreground/80 mb-6 max-w-xs">
-              The world's first production-ready zero-knowledge authentication system. 
+              A production-ready zero-knowledge authentication system. 
               Your password never leaves your device.
             </p>
             
             {/* Social Links */}
             <div className="flex space-x-4">
-              <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
-                <Github className="h-4 w-4" />
-              </Button>
+              <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
+                <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
+                  <Github className="h-4 w-4" />
+                </Button>
+              </a>
               <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
                 <Twitter className="h-4 w-4" />
               </Button>
