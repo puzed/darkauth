@@ -258,6 +258,16 @@ test("parseAndValidateZkPub throws for valid JSON but invalid JWK", () => {
   );
 });
 
+test("validateP256PublicKeyJWK rejects presence of private key component d", () => {
+  const jwkWithD = { kty: "EC", crv: "P-256", x: validJWK.x, y: validJWK.y, d: "secret" };
+  assert.throws(
+    () => validateP256PublicKeyJWK(jwkWithD as unknown),
+    (error: unknown) => {
+      return error instanceof ValidationError && /must not include private key/.test(error.message);
+    }
+  );
+});
+
 test("parseAndValidateZkPub accepts various valid coordinate lengths", () => {
   // Test with different valid 32-byte P-256 coordinates
   const testCases = [
