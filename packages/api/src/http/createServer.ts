@@ -37,9 +37,12 @@ export async function createUserServer(context: Context) {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
       if (pathname === "/api/health") {
-        response.statusCode = 200;
+        const initialized = await isSystemInitialized(context);
+        const restarting = !!context.services?.install?.restartRequested;
+        const ok = initialized && !restarting;
+        response.statusCode = ok ? 200 : 503;
         response.setHeader("Content-Type", "text/plain");
-        response.end("ok");
+        response.end(ok ? "ok" : "starting");
         return;
       }
 
@@ -204,9 +207,12 @@ export async function createAdminServer(context: Context) {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
       const pathname = url.pathname;
       if (pathname === "/api/health") {
-        response.statusCode = 200;
+        const initialized = await isSystemInitialized(context);
+        const restarting = !!context.services?.install?.restartRequested;
+        const ok = initialized && !restarting;
+        response.statusCode = ok ? 200 : 503;
         response.setHeader("Content-Type", "text/plain");
-        response.end("ok");
+        response.end(ok ? "ok" : "starting");
         return;
       }
 
