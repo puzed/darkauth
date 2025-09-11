@@ -11,10 +11,11 @@ import { withRateLimit } from "../../middleware/rateLimit.js";
 import { createPendingAuth } from "../../models/authorize.js";
 import { getClient } from "../../models/clients.js";
 import { getSession, getSessionId } from "../../services/sessions.js";
+import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.js";
 import type { AuthorizationRequest, Context } from "../../types.js";
-import { generateRandomString, sha256Base64Url } from "../../utils/crypto.js";
+import { generateRandomString, toBase64Url } from "../../utils/crypto.js";
 import { parseQueryParams } from "../../utils/http.js";
-import { parseAndValidateZkPub } from "../../utils/jwk.js";
+import { validateP256PublicKeyJWK } from "../../utils/jwk.js";
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1),
@@ -84,10 +85,23 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   }
 
   let zkPubKid: string | undefined;
+  let canonicalZkPub: string | undefined;
   if (authRequest.zk_pub && client.zkDelivery === "fragment-jwe") {
-    // Validate that zk_pub is a proper P-256 ECDH public key in JWK format
-    parseAndValidateZkPub(authRequest.zk_pub);
-    zkPubKid = sha256Base64Url(authRequest.zk_pub);
+    try {
+      parseZkPub(authRequest.zk_pub);
+      canonicalZkPub = authRequest.zk_pub;
+    } catch (_e) {
+      const legacyJson = authRequest.zk_pub;
+      let jwk: unknown;
+      try {
+        jwk = JSON.parse(legacyJson);
+      } catch {
+        throw new InvalidRequestError("zk_pub must be base64url(JSON JWK) or valid JSON JWK");
+      }
+      validateP256PublicKeyJWK(jwk);
+      canonicalZkPub = toBase64Url(Buffer.from(JSON.stringify(jwk)));
+    }
+    zkPubKid = createZkPubKid(canonicalZkPub);
   } else if (authRequest.zk_pub && client.zkDelivery === "none") {
     throw new InvalidRequestError("This client does not support ZK delivery");
   } else if (!authRequest.zk_pub && client.zkRequired) {
@@ -123,7 +137,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   qs.set("client_name", client.name);
   qs.set("scopes", authRequest.scope);
   if (zkPubKid) qs.set("has_zk", "1");
-  if (authRequest.zk_pub) qs.set("zk_pub", authRequest.zk_pub);
+  if (authRequest.zk_pub && canonicalZkPub) qs.set("zk_pub", canonicalZkPub);
   if (authRequest.client_id) qs.set("client_id", authRequest.client_id);
   if (authRequest.redirect_uri) qs.set("redirect_uri", authRequest.redirect_uri);
   if (authRequest.state) qs.set("state", authRequest.state);

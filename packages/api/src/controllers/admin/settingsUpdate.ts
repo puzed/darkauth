@@ -86,8 +86,12 @@ async function updateSettingsHandler(
   // Update the setting
   await setSetting(context, data.key, data.value);
 
-  // Clear rate limit cache if rate limits or security settings were updated
-  if (data.key === "rate_limits" || data.key === "security") {
+  if (
+    data.key === "rate_limits" ||
+    data.key.startsWith("rate_limits.") ||
+    data.key === "security" ||
+    data.key.startsWith("security.")
+  ) {
     clearRateLimitCache();
   }
 

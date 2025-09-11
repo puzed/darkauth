@@ -56,6 +56,7 @@ export async function postInstallOpaqueRegisterStart(
     if (context.services.install?.createdAt) {
       const tokenAge = Date.now() - (context.services.install.createdAt || 0);
       if (tokenAge > 10 * 60 * 1000) {
+        context.services.install.createdAt = Date.now();
         throw new ExpiredInstallTokenError();
       }
     }

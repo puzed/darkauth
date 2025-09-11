@@ -116,7 +116,7 @@ async function postAdminOpaqueLoginStartHandler(
   }
 }
 
-export const postAdminOpaqueLoginStart = withRateLimit("admin", (body) =>
+export const postAdminOpaqueLoginStart = withRateLimit("opaque", (body) =>
   body && typeof body === "object" && "email" in body
     ? (body as { email?: string }).email
     : undefined
