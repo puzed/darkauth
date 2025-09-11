@@ -78,7 +78,7 @@ const SecurityPage = () => {
                 <li>Insider reads: no plaintext keys or DRK present on the server.</li>
                 <li>Token endpoint key exfiltration: server never stores or returns DRK JWE.</li>
                 <li>Redirect tampering: clients verify zk_drk_hash before using DRK.</li>
-                <li>Weak ECDH keys: public keys are validated and must lie on P-256.</li>
+                <li>Weak ECDH keys: public keys are validated for P-256 format and length.</li>
               </ul>
             </CardContent>
           </Card>
@@ -137,7 +137,7 @@ const SecurityPage = () => {
           <Card className="bg-card border-border/50">
             <CardContent className="p-6">
               <h3 className="text-lg font-semibold mb-2">Public Key Validation</h3>
-              <p className="text-sm text-muted-foreground">zk_pub must be a base64url JWK with kty=EC, crv=P-256, valid x/y, on-curve. Private components are rejected.</p>
+              <p className="text-sm text-muted-foreground">zk_pub must be a base64url JWK with kty=EC, crv=P-256, and valid x/y coordinates. Private components are rejected.</p>
             </CardContent>
           </Card>
           <Card className="bg-card border-border/50">
