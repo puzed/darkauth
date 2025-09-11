@@ -90,11 +90,25 @@ export async function installDarkAuth(config: InstallConfig): Promise<void> {
   
   const result = await response.json();
 
-  // Wait for servers to restart and become healthy
-  async function waitForHealthy(url: string, timeoutMs = 15000): Promise<void> {
-    const start = Date.now();
+  async function waitForRestart(url: string, downTimeoutMs = 7000, upTimeoutMs = 20000): Promise<void> {
     const healthUrl = `${url}/api/health`;
-    while (Date.now() - start < timeoutMs) {
+    const downStart = Date.now();
+    let sawDown = false;
+    while (Date.now() - downStart < downTimeoutMs) {
+      try {
+        const res = await fetch(healthUrl, { method: 'GET' });
+        if (!res.ok) {
+          sawDown = true;
+          break;
+        }
+      } catch {
+        sawDown = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    const upStart = Date.now();
+    while (Date.now() - upStart < upTimeoutMs) {
       try {
         const res = await fetch(healthUrl, { method: 'GET' });
         if (res.ok) return;
@@ -104,7 +118,7 @@ export async function installDarkAuth(config: InstallConfig): Promise<void> {
     throw new Error(`Server at ${url} not healthy after restart`);
   }
 
-  await waitForHealthy(config.adminUrl);
+  await waitForRestart(config.adminUrl);
 
   const deadline = Date.now() + 8000;
   while (Date.now() < deadline) {
