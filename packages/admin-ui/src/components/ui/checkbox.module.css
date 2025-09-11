@@ -6,7 +6,7 @@
   justify-content: center;
   border-radius: 6px;
   border: 1px solid hsl(var(--input));
-  background: hsl(var(--background));
+  background: hsl(var(--card));
   color: hsl(var(--primary-foreground));
   transition:
     background-color 0.15s ease,
@@ -21,6 +21,18 @@
 
 .root[data-state="checked"] {
   background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+}
+
+.root:hover {
+  border-color: hsl(var(--primary));
+}
+
+:global(.dark) .root {
+  border-color: hsl(var(--muted-foreground) / 0.55);
+}
+
+:global(.dark) .root[data-state="checked"] {
   border-color: hsl(var(--primary));
 }
 
