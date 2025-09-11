@@ -11,6 +11,7 @@ import { ForbiddenError } from "../../errors.js";
 const ClientResponseSchema = z.object({
   clientId: z.string(),
   name: z.string(),
+  showOnUserDashboard: z.boolean().optional(),
   type: z.string(),
   tokenEndpointAuthMethod: z.string(),
   requirePkce: z.boolean(),

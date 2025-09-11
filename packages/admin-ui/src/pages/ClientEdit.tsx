@@ -6,14 +6,8 @@ import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import inputStyles from "@/components/ui/input.module.css";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import adminApiService, { type Client } from "@/services/api";
 
@@ -39,6 +33,7 @@ export default function ClientEdit() {
     requirePkce: true,
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
+    showOnUserDashboard: false,
     redirectUris: "",
     postLogoutRedirectUris: "",
     grantTypes: "",
@@ -66,6 +61,7 @@ export default function ClientEdit() {
       setForm({
         clientId: c.clientId,
         name: c.name,
+        showOnUserDashboard: !!c.showOnUserDashboard,
         type: c.type,
         tokenEndpointAuthMethod: c.tokenEndpointAuthMethod,
         requirePkce: c.requirePkce,
@@ -108,6 +104,7 @@ export default function ClientEdit() {
         requirePkce: form.requirePkce,
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
+        showOnUserDashboard: form.showOnUserDashboard,
         redirectUris: parseList(form.redirectUris),
         postLogoutRedirectUris: parseList(form.postLogoutRedirectUris),
         grantTypes: parseList(form.grantTypes),
@@ -175,81 +172,73 @@ export default function ClientEdit() {
               />
             </FormField>
             <FormField label={<Label>Type</Label>}>
-              <Select
+              <select
+                className={inputStyles.input}
                 value={form.type}
-                onValueChange={(v) => setForm((f) => ({ ...f, type: v as Client["type"] }))}
+                onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as Client["type"] }))}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">public</SelectItem>
-                  <SelectItem value="confidential">confidential</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="public">public</option>
+                <option value="confidential">confidential</option>
+              </select>
             </FormField>
             <FormField label={<Label>Auth Method</Label>}>
-              <Select
+              <select
+                className={inputStyles.input}
                 value={form.tokenEndpointAuthMethod}
-                onValueChange={(v) =>
+                onChange={(e) =>
                   setForm((f) => ({
                     ...f,
-                    tokenEndpointAuthMethod: v as Client["tokenEndpointAuthMethod"],
+                    tokenEndpointAuthMethod: e.target.value as Client["tokenEndpointAuthMethod"],
                   }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">none</SelectItem>
-                  <SelectItem value="client_secret_basic">client_secret_basic</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="none">none</option>
+                <option value="client_secret_basic">client_secret_basic</option>
+              </select>
             </FormField>
             <FormField label={<Label>Require PKCE</Label>}>
-              <Select
+              <select
+                className={inputStyles.input}
                 value={form.requirePkce ? "true" : "false"}
-                onValueChange={(v) => setForm((f) => ({ ...f, requirePkce: v === "true" }))}
+                onChange={(e) => setForm((f) => ({ ...f, requirePkce: e.target.value === "true" }))}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
             </FormField>
             <FormField label={<Label>ZK Delivery</Label>}>
-              <Select
+              <select
+                className={inputStyles.input}
                 value={form.zkDelivery}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, zkDelivery: v as Client["zkDelivery"] }))
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, zkDelivery: e.target.value as Client["zkDelivery"] }))
                 }
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">none</SelectItem>
-                  <SelectItem value="fragment-jwe">fragment-jwe</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="none">none</option>
+                <option value="fragment-jwe">fragment-jwe</option>
+              </select>
             </FormField>
             <FormField label={<Label>ZK Required</Label>}>
-              <Select
+              <select
+                className={inputStyles.input}
                 value={form.zkRequired ? "true" : "false"}
-                onValueChange={(v) => setForm((f) => ({ ...f, zkRequired: v === "true" }))}
+                onChange={(e) => setForm((f) => ({ ...f, zkRequired: e.target.value === "true" }))}
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="true">Yes</SelectItem>
-                  <SelectItem value="false">No</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
+            </FormField>
+            <FormField label={<Label>Show On User Dashboard</Label>}>
+              <select
+                className={inputStyles.input}
+                value={form.showOnUserDashboard ? "true" : "false"}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, showOnUserDashboard: e.target.value === "true" }))
+                }
+              >
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </select>
             </FormField>
           </FormGrid>
           <FormGrid columns={2}>
