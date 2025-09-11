@@ -31,7 +31,7 @@ const UseCases = () => {
       description: "Bank-grade security with zero-knowledge guarantees for sensitive financial data",
       benefits: [
         "Eliminate insider threats completely",
-        "Quantum-resistant cryptography",
+        "Modern, peer-reviewed cryptography",
         "Regulatory compliance made simple"
       ],
       badge: "SOC 2 Compatible",
@@ -56,7 +56,7 @@ const UseCases = () => {
       benefits: [
         "Zero-trust architecture compatible",
         "Classification level separation",
-        "Post-quantum cryptography ready"
+        "Standards-based cryptography"
       ],
       badge: "Security Cleared",
       color: "text-purple-500"
@@ -83,14 +83,14 @@ const UseCases = () => {
       title: "Security Teams",
       scenario: "Eliminate Risk",
       description: "Remove password breach vectors entirely from your attack surface",
-      implementation: "Database-driven config, automatic rotation, comprehensive logging"
+      implementation: "Database-backed config, manual key rotation API, comprehensive logging"
     },
     {
       icon: Zap,
       title: "DevOps Teams",
       scenario: "Simplify Operations",
       description: "Single binary deployment with PostgreSQL, no complex infrastructure",
-      implementation: "Docker ready, Kubernetes friendly, standard monitoring endpoints"
+      implementation: "Single server/container, Kubernetes friendly, standard monitoring endpoints"
     }
   ];
 

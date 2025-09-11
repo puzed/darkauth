@@ -26,9 +26,11 @@ const Header = () => {
 
         <div className="flex items-center space-x-3">
           <ThemeToggle />
-          <Button variant="ghost" size="sm" className="hidden md:inline-flex">
-            GitHub
-          </Button>
+          <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
+            <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+              GitHub
+            </Button>
+          </a>
           <a href="#docs">
             <Button variant="hero" size="sm" className="hidden md:inline-flex">
               Run with Docker
@@ -48,7 +50,9 @@ const Header = () => {
                 <a href="/screenshots" className="block px-2 py-2 rounded-md hover:bg-muted">Screenshots</a>
                 <a href="/changelog" className="block px-2 py-2 rounded-md hover:bg-muted">Changelog</a>
                 <div className="pt-3 flex gap-2">
-                  <Button variant="ghost" className="flex-1">GitHub</Button>
+                  <a href="https://github.com/puzed/" target="_blank" rel="noreferrer" className="flex-1">
+                    <Button variant="ghost" className="w-full">GitHub</Button>
+                  </a>
                   <a href="#docs" className="flex-1">
                     <Button variant="hero" className="w-full">Run with Docker</Button>
                   </a>

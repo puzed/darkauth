@@ -11,7 +11,7 @@ DarkAuth is open source and self-hosted. There is no paid plan, subscription, or
 - **Zero-Knowledge Password Auth**: OPAQUE protocol ensures passwords never reach the server
 - **OIDC Compatible**: Standard OAuth 2.0/OpenID Connect for universal compatibility
 - **Zero-Knowledge DRK Delivery**: Optional fragment-based JWE delivery for trusted clients
-- **Database-Driven Configuration**: All settings stored in PostgreSQL (no config files)
+- **Database-Backed Configuration**: Most settings stored in PostgreSQL; minimal `config.yaml` for bootstrap
 - **Two-Port Architecture**: Separate ports for user (9080) and admin (9081). First-run installer is served on the admin port until setup completes.
 - **Secure Key Storage**: Optional encryption of private keys at rest using Argon2id-derived KEK
 - **RBAC Support**: Fine-grained permissions and groups for users

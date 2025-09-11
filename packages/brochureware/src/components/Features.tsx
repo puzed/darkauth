@@ -38,7 +38,7 @@ const Features = () => {
     {
       icon: Database,
       title: "Database-Driven Config",
-      description: "All configuration stored in PostgreSQL with no files to manage or secure",
+      description: "Most settings live in PostgreSQL; minimal config.yaml for bootstrap",
       badge: "DevOps Friendly",
       color: "text-accent"
     },
@@ -51,8 +51,8 @@ const Features = () => {
     },
     {
       icon: RefreshCw,
-      title: "Automatic Key Rotation",
-      description: "EdDSA signing keys rotate automatically with zero downtime",
+      title: "Key Rotation API",
+      description: "Rotate Ed25519 signing keys via the admin endpoint without downtime",
       badge: "Maintenance Free",
       color: "text-accent"
     },
@@ -65,16 +65,16 @@ const Features = () => {
     },
     {
       icon: Zap,
-      title: "Single Binary Deployment",
-      description: "Deploy as one binary with PostgreSQL — no complex infrastructure required",
+      title: "Single Server Deployment",
+      description: "Run a single server or container with PostgreSQL or embedded PGLite",
       badge: "Simple Ops",
       color: "text-accent"
     },
     {
       icon: Users,
-      title: "Multi-Tenant Ready",
-      description: "Built-in support for multiple organizations with isolated data and configuration",
-      badge: "Scale Ready",
+      title: "Two-Port Architecture",
+      description: "Separate user (9080) and admin (9081) interfaces with distinct access controls",
+      badge: "Clear Boundaries",
       color: "text-primary"
     }
   ];
@@ -130,12 +130,12 @@ const Features = () => {
               <div className="text-sm text-muted-foreground">OPAQUE Protocol Standard</div>
             </div>
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-accent">EdDSA</div>
-              <div className="text-sm text-muted-foreground">Quantum-Resistant Signing</div>
+              <div className="text-2xl font-bold text-accent">Ed25519</div>
+              <div className="text-sm text-muted-foreground">Signing Algorithm (EdDSA)</div>
             </div>
             <div className="space-y-2">
-              <div className="text-2xl font-bold text-primary">&lt;10ms</div>
-              <div className="text-sm text-muted-foreground">Authentication Latency</div>
+              <div className="text-2xl font-bold text-primary">PKCE S256</div>
+              <div className="text-sm text-muted-foreground">Required for Public Clients</div>
             </div>
             <div className="space-y-2">
               <div className="text-2xl font-bold text-accent">Open Source</div>
