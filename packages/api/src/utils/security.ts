@@ -51,9 +51,9 @@ interface RateLimitBucket {
 }
 
 const rateLimitStore = new Map<string, RateLimitBucket>();
-const emailRateLimitStore = new Map<string, RateLimitBucket>(); // Email-based rate limiting
-const blockedIPs = new Set<string>(); // Temporary IP blocks for severe violations
-const blockedEmails = new Set<string>(); // Temporary email blocks for auth attempts
+const emailRateLimitStore = new Map<string, RateLimitBucket>();
+const blockedIPs = new Set<string>();
+const blockedEmails = new Set<string>();
 
 // Default rate limit configurations (can be overridden by database settings)
 export const DEFAULT_RATE_LIMITS = {
@@ -138,13 +138,17 @@ export async function getRateLimitConfig(
   const typeSettings = (settings[limitType] as DbRateLimitConfig | undefined) || {};
   const defaultConfig = DEFAULT_RATE_LIMITS[limitType];
 
-  return {
-    windowMs: typeSettings.window_minutes
-      ? typeSettings.window_minutes * 60 * 1000
-      : defaultConfig.windowMs,
-    maxRequests: typeSettings.max_requests ?? defaultConfig.maxRequests,
-    enabled: typeSettings.enabled ?? defaultConfig.enabled,
-  };
+  const windowMs = typeSettings.window_minutes
+    ? typeSettings.window_minutes * 60 * 1000
+    : defaultConfig.windowMs;
+  let maxRequests = typeSettings.max_requests ?? defaultConfig.maxRequests;
+  const enabled = typeSettings.enabled ?? defaultConfig.enabled;
+
+  if (context.config.isDevelopment && limitType === "opaque") {
+    if (maxRequests < 1000) maxRequests = 1000;
+  }
+
+  return { windowMs, maxRequests, enabled };
 }
 
 export async function checkRateLimit(
@@ -172,9 +176,17 @@ export async function checkRateLimit(
   const clientIp = await getClientIp(context, request);
   const now = Date.now();
 
-  // For auth endpoints, check email-based rate limiting if identifier provided
+  // Derive port key to scope limits per server instance
+  let portKey = "p0";
+  try {
+    const host = request.headers.host || "";
+    const parsed = new URL(`http://${host}`);
+    portKey = `p${parsed.port || "0"}`;
+  } catch {}
+
+  // For auth endpoints, check identifier-based rate limiting if identifier provided
   if (identifier && (limitType === "auth" || limitType === "opaque")) {
-    const emailKey = `ratelimit:${limitType}:email:${identifier}`;
+    const emailKey = `ratelimit:${limitType}:${portKey}:email:${identifier}`;
 
     // Check if email is blocked
     if (blockedEmails.has(identifier)) {
@@ -230,10 +242,11 @@ export async function checkRateLimit(
   }
 
   // IP-based rate limiting
-  const key = `ratelimit:${limitType}:${clientIp}`;
+  const clientKey = `${portKey}:${clientIp}`;
+  const key = `ratelimit:${limitType}:${clientKey}`;
 
   // Check if IP is blocked
-  if (blockedIPs.has(clientIp)) {
+  if (blockedIPs.has(clientKey)) {
     return {
       allowed: false,
       remaining: 0,
@@ -264,18 +277,16 @@ export async function checkRateLimit(
   // Track suspicious activity for certain endpoints
   if (!allowed && (limitType === "auth" || limitType === "opaque" || limitType === "token")) {
     bucket.suspiciousActivity++;
-
-    // Temporarily block IPs with excessive failed attempts
-    if (bucket.suspiciousActivity >= 5) {
-      blockedIPs.add(clientIp);
-
-      // Unblock after 1 hour
-      setTimeout(
-        () => {
-          blockedIPs.delete(clientIp);
-        },
-        60 * 60 * 1000
-      );
+    if (limitType !== "opaque") {
+      if (bucket.suspiciousActivity >= 5) {
+        blockedIPs.add(clientKey);
+        setTimeout(
+          () => {
+            blockedIPs.delete(clientKey);
+          },
+          60 * 60 * 1000
+        );
+      }
     }
   }
 
