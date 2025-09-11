@@ -12,6 +12,7 @@ export interface P256PublicKeyJWK {
   key_ops?: string[];
   alg?: string;
   kid?: string;
+  d?: unknown;
 }
 
 /**
@@ -50,6 +51,10 @@ export function validateP256PublicKeyJWK(jwk: unknown): asserts jwk is P256Publi
   }
 
   const key = jwk as Record<string, unknown>;
+
+  if (Object.hasOwn(key, "d")) {
+    throw new ValidationError("zk_pub must not include private key material");
+  }
 
   // Validate required fields
   if (key.kty !== "EC") {
