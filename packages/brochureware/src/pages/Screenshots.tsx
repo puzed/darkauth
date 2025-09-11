@@ -25,12 +25,8 @@ const Screenshots = () => {
     let cancelled = false;
     const load = async () => {
       const themed = await fetch(`${basePath}/index.json`, { cache: "no-store" });
-      let data = [];
+      let data = [] as any;
       if (themed.ok) data = await themed.json();
-      if (!themed.ok || !Array.isArray(data) || data.length === 0) {
-        const legacy = await fetch(`/test-screenshots/index.json`, { cache: "no-store" });
-        data = legacy.ok ? await legacy.json() : [];
-      }
       if (!cancelled) {
         setShots(Array.isArray(data) ? data : []);
         setLoaded(true);
