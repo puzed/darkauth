@@ -153,7 +153,7 @@ async function postAdminOpaqueLoginFinishHandler(
   }
 }
 
-export const postAdminOpaqueLoginFinish = withRateLimit("admin", (body) => {
+export const postAdminOpaqueLoginFinish = withRateLimit("opaque", (body) => {
   const data = body as { sessionId?: string };
   return data?.sessionId;
 })(
