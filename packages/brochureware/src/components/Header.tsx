@@ -16,10 +16,9 @@ const Header = () => {
         </a>
 
         <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-          <a href="#features" className="transition-smooth hover:text-primary">Features</a>
-          <a href="#how-it-works" className="transition-smooth hover:text-primary">How It Works</a>
-          <a href="#security" className="transition-smooth hover:text-primary">Security</a>
-          <a href="#docs" className="transition-smooth hover:text-primary">Documentation</a>
+          <a href="/features" className="transition-smooth hover:text-primary">Features</a>
+          <a href="/how-it-works" className="transition-smooth hover:text-primary">How It Works</a>
+          <a href="/security" className="transition-smooth hover:text-primary">Security</a>
           
           <a href="/screenshots" className="transition-smooth hover:text-primary">Screenshots</a>
           <a href="/changelog" className="transition-smooth hover:text-primary">Changelog</a>
@@ -43,10 +42,9 @@ const Header = () => {
             </SheetTrigger>
             <SheetContent side="right" className="w-full sm:max-w-sm">
               <div className="px-1 py-2 space-y-2">
-                <a href="#features" className="block px-2 py-2 rounded-md hover:bg-muted">Features</a>
-                <a href="#how-it-works" className="block px-2 py-2 rounded-md hover:bg-muted">How It Works</a>
-                <a href="#security" className="block px-2 py-2 rounded-md hover:bg-muted">Security</a>
-                <a href="#docs" className="block px-2 py-2 rounded-md hover:bg-muted">Documentation</a>
+                <a href="/features" className="block px-2 py-2 rounded-md hover:bg-muted">Features</a>
+                <a href="/how-it-works" className="block px-2 py-2 rounded-md hover:bg-muted">How It Works</a>
+                <a href="/security" className="block px-2 py-2 rounded-md hover:bg-muted">Security</a>
                 <a href="/screenshots" className="block px-2 py-2 rounded-md hover:bg-muted">Screenshots</a>
                 <a href="/changelog" className="block px-2 py-2 rounded-md hover:bg-muted">Changelog</a>
                 <div className="pt-3 flex gap-2">
