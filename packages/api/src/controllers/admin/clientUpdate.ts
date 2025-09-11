@@ -37,6 +37,7 @@ async function updateClientHandler(
     requirePkce?: boolean;
     zkDelivery?: "none" | "fragment-jwe";
     zkRequired?: boolean;
+    showOnUserDashboard?: boolean;
     allowedJweAlgs?: string[];
     allowedJweEncs?: string[];
     redirectUris?: string[];
@@ -61,6 +62,8 @@ async function updateClientHandler(
   if (data.zkDelivery === "none" || data.zkDelivery === "fragment-jwe")
     updates.zkDelivery = data.zkDelivery;
   if (typeof data.zkRequired === "boolean") updates.zkRequired = data.zkRequired;
+  if (typeof data.showOnUserDashboard === "boolean")
+    updates.showOnUserDashboard = data.showOnUserDashboard;
   if (
     Array.isArray(data.allowedJweAlgs) &&
     data.allowedJweAlgs.every((item): item is string => typeof item === "string")
@@ -132,6 +135,7 @@ export function registerOpenApi(registry: OpenAPIRegistry) {
     requirePkce: z.boolean().optional(),
     zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
     zkRequired: z.boolean().optional(),
+    showOnUserDashboard: z.boolean().optional(),
     allowedJweAlgs: z.array(z.string()).optional(),
     allowedJweEncs: z.array(z.string()).optional(),
     redirectUris: z.array(z.string()).optional(),

@@ -19,6 +19,7 @@ export async function listClients(context: Context) {
     .select({
       clientId: clients.clientId,
       name: clients.name,
+      showOnUserDashboard: clients.showOnUserDashboard,
       type: clients.type,
       tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
       requirePkce: clients.requirePkce,
