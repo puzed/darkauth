@@ -21,8 +21,9 @@ function isPng(name) {
   return name.toLowerCase().endsWith(".png");
 }
 
-function isTestFinished(name) {
-  return /^test-finished-\d+\.png$/i.test(name);
+function stepFromName(name) {
+  const m = name.match(/^test(?:-finished)?-(\d+)\.png$/i);
+  return m ? parseInt(m[1], 10) : null;
 }
 
 async function collectDir(testResultsDir, outDir) {
@@ -40,14 +41,14 @@ async function collectDir(testResultsDir, outDir) {
     if (!entry.isDirectory()) continue;
     const scenarioDir = path.join(testResultsDir, entry.name);
     const files = await fs.readdir(scenarioDir);
-    const pngs = files.filter((f) => isPng(f) && isTestFinished(f));
+    const pngs = files.filter((f) => isPng(f) && stepFromName(f) !== null);
     pngs.sort((a, b) => {
-      const an = parseInt(a.match(/test-finished-(\d+)\.png/i)?.[1] || "0", 10);
-      const bn = parseInt(b.match(/test-finished-(\d+)\.png/i)?.[1] || "0", 10);
+      const an = stepFromName(a) || 0;
+      const bn = stepFromName(b) || 0;
       return an - bn;
     });
     for (const file of pngs) {
-      const num = parseInt(file.match(/test-finished-(\d+)\.png/i)?.[1] || "0", 10);
+      const num = stepFromName(file) || 0;
       const src = path.join(scenarioDir, file);
       const buf = await fs.readFile(src);
       const hash = crypto.createHash("sha256").update(buf).digest("hex").slice(0, 10);
@@ -87,22 +88,28 @@ async function collect() {
   const baseResults = path.resolve(__dirname, "../../test-suite");
   const lightIn = path.join(baseResults, "test-results-light");
   const darkIn = path.join(baseResults, "test-results-dark");
-  const defaultIn = path.join(baseResults, "test-results");
 
   const baseOut = path.resolve(__dirname, "../public/test-screenshots");
   const outLight = path.join(baseOut, "light");
   const outDark = path.join(baseOut, "dark");
+  await ensureDir(baseOut);
 
   const hasLight = await exists(lightIn);
   const hasDark = await exists(darkIn);
-  const hasDefault = await exists(defaultIn);
-
-  if (hasLight || hasDark) {
-    if (hasLight) await collectDir(lightIn, outLight);
-    if (hasDark) await collectDir(darkIn, outDark);
-    return;
+  if (!(hasLight && hasDark)) {
+    throw new Error("Expected both test-results-light and test-results-dark to exist");
   }
-  await collectDir(defaultIn, baseOut);
+  await collectDir(lightIn, outLight);
+  await collectDir(darkIn, outDark);
+
+  const lightManifest = JSON.parse(await fs.readFile(path.join(outLight, "index.json"), "utf8"));
+  const darkManifest = JSON.parse(await fs.readFile(path.join(outDark, "index.json"), "utf8"));
+  if (!Array.isArray(lightManifest) || lightManifest.length === 0) {
+    throw new Error("No screenshots found for light theme");
+  }
+  if (!Array.isArray(darkManifest) || darkManifest.length === 0) {
+    throw new Error("No screenshots found for dark theme");
+  }
 }
 
 collect().catch((err) => {

@@ -21,7 +21,7 @@
     "start": "npm run start -w @DarkAuth/api",
     "test:report": "npm run test:report -w @DarkAuth/test-suite",
     "test:install": "npm run install:playwright -w @DarkAuth/test-suite",
-    "test:screenshots": "rm -rf packages/test-suite/test-results-light packages/test-suite/test-results-dark && npm --workspace @DarkAuth/test-suite run pretest && (cd packages/test-suite && COLOR_SCHEME=light npx playwright test --reporter=dot --workers=1 --output=test-results-light) || true && (cd packages/test-suite && COLOR_SCHEME=dark npx playwright test --reporter=dot --workers=1 --output=test-results-dark) || true && node packages/brochureware/scripts/collect-screenshots.js",
+    "test:screenshots": "rm -rf packages/test-suite/test-results-light packages/test-suite/test-results-dark && npm --workspace @DarkAuth/test-suite run pretest && (cd packages/test-suite && COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light) && (cd packages/test-suite && COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark) && node packages/brochureware/scripts/collect-screenshots.js",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "format": "npm run format --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
