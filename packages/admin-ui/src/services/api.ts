@@ -113,6 +113,7 @@ export interface UsersResponse {
 export interface Group {
   key: string;
   name: string;
+  enableLogin?: boolean;
   permissions?: string[];
   permissionCount?: number;
   userCount?: number;
@@ -673,6 +674,7 @@ class AdminApiService {
   async createGroup(group: {
     key: string;
     name: string;
+    enableLogin?: boolean;
     permissionKeys?: string[];
   }): Promise<void> {
     await this.request("/groups", {
@@ -683,7 +685,7 @@ class AdminApiService {
 
   async updateGroup(
     groupKey: string,
-    updates: { name?: string; permissionKeys?: string[] }
+    updates: { name?: string; enableLogin?: boolean; permissionKeys?: string[] }
   ): Promise<void> {
     await this.request(`/groups/${groupKey}`, {
       method: "PUT",

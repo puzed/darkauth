@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -16,9 +16,11 @@ export default function GroupCreate() {
   const [name, setName] = useState("");
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [enableLogin, setEnableLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const enableLoginId = useId();
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -70,6 +72,7 @@ export default function GroupCreate() {
       await adminApiService.createGroup({
         key,
         name,
+        enableLogin,
         permissionKeys: selectedPermissions,
       });
 
@@ -141,6 +144,18 @@ export default function GroupCreate() {
                   }}
                 >
                   Alphanumeric characters, underscores, and hyphens only
+                </div>
+              </FormField>
+              <FormField label={<Label>Enable Login</Label>}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Checkbox
+                    id={enableLoginId}
+                    checked={enableLogin}
+                    onCheckedChange={(v) => setEnableLogin(v === true)}
+                  />
+                  <Label htmlFor={enableLoginId} style={{ fontWeight: 400 }}>
+                    Members of this group are permitted to sign in
+                  </Label>
                 </div>
               </FormField>
             </FormGrid>
