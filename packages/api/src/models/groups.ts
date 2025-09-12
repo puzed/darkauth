@@ -64,7 +64,7 @@ export async function getGroupUsers(context: Context, groupKey: string) {
 
 export async function createGroup(
   context: Context,
-  data: { key: string; name: string; permissionKeys?: string[] }
+  data: { key: string; name: string; enableLogin?: boolean; permissionKeys?: string[] }
 ) {
   const { eq, inArray } = await import("drizzle-orm");
   const permissionKeys = data.permissionKeys || [];
@@ -86,7 +86,9 @@ export async function createGroup(
     }
   }
   await context.db.transaction(async (trx) => {
-    await trx.insert(groups).values({ key: data.key, name: data.name });
+    await trx
+      .insert(groups)
+      .values({ key: data.key, name: data.name, enableLogin: data.enableLogin ?? true });
     if (permissionKeys.length > 0) {
       const { groupPermissions } = await import("../db/schema.js");
       await trx
@@ -105,6 +107,7 @@ export async function createGroup(
   return {
     key: createdGroup?.key as string,
     name: createdGroup?.name as string,
+    enableLogin: Boolean(createdGroup?.enableLogin),
     permissions: assignedPermissions,
     permissionCount: assignedPermissions.length,
     userCount: 0,
@@ -115,21 +118,22 @@ export async function setUserGroups(context: Context, userSub: string, groupKeys
   const { eq, inArray } = await import("drizzle-orm");
   const user = await context.db.query.users.findFirst({ where: eq(users.sub, userSub) });
   if (!user) throw new (await import("../errors.js")).NotFoundError("User not found");
-  if (groupKeys.length > 0) {
+  const targetGroups = groupKeys.length > 0 ? groupKeys : ["default"];
+  if (targetGroups.length > 0) {
     const existingGroups = await context.db
       .select({ key: groups.key })
       .from(groups)
-      .where(inArray(groups.key, groupKeys));
-    if (existingGroups.length !== groupKeys.length) {
+      .where(inArray(groups.key, targetGroups));
+    if (existingGroups.length !== targetGroups.length) {
       const existingKeys = existingGroups.map((g) => g.key);
-      const missingKeys = groupKeys.filter((k) => !existingKeys.includes(k));
+      const missingKeys = targetGroups.filter((k) => !existingKeys.includes(k));
       throw new ValidationError(`Groups not found: ${missingKeys.join(", ")}`);
     }
   }
   await context.db.transaction(async (trx) => {
     await trx.delete(userGroups).where(eq(userGroups.userSub, userSub));
-    if (groupKeys.length > 0) {
-      await trx.insert(userGroups).values(groupKeys.map((groupKey) => ({ userSub, groupKey })));
+    if (targetGroups.length > 0) {
+      await trx.insert(userGroups).values(targetGroups.map((groupKey) => ({ userSub, groupKey })));
     }
   });
   const updatedUserGroups = await context.db
@@ -166,16 +170,25 @@ export async function getUserGroups(context: Context, userSub: string) {
   };
 }
 
-export async function updateGroup(context: Context, key: string, name: string) {
+export async function updateGroup(
+  context: Context,
+  key: string,
+  data: { name?: string; enableLogin?: boolean }
+) {
   const group = await context.db.query.groups.findFirst({ where: eq(groups.key, key) });
   if (!group) throw new NotFoundError("Group not found");
-  await context.db.update(groups).set({ name }).where(eq(groups.key, key));
+  const updates: { name?: string; enableLogin?: boolean } = {};
+  if (typeof data.name === "string" && data.name.trim().length > 0) updates.name = data.name.trim();
+  if (typeof data.enableLogin === "boolean") updates.enableLogin = data.enableLogin;
+  if (Object.keys(updates).length === 0) return { success: true as const };
+  await context.db.update(groups).set(updates).where(eq(groups.key, key));
   return { success: true as const };
 }
 
 export async function deleteGroup(context: Context, key: string) {
   const group = await context.db.query.groups.findFirst({ where: eq(groups.key, key) });
   if (!group) throw new NotFoundError("Group not found");
+  if (group.key === "default") throw new ValidationError("Cannot delete default group");
   await context.db.delete(groups).where(eq(groups.key, key));
   return { success: true as const };
 }

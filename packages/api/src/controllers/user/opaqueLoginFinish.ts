@@ -3,12 +3,12 @@ import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { opaqueLoginSessions } from "../../db/schema.js";
+import { groups, opaqueLoginSessions, userGroups } from "../../db/schema.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { AppError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserBySubOrEmail } from "../../models/users.js";
 import { createSession } from "../../services/sessions.js";
@@ -119,6 +119,29 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         const user = await getUserBySubOrEmail(context, userEmail);
         if (!user) {
           throw new UnauthorizedError("Authentication failed");
+        }
+
+        // Enforce group login gating: must belong to at least one group with enable_login = true
+        let hasEnabledGroup = false;
+        try {
+          const { and } = await import("drizzle-orm");
+          const rows = await context.db
+            .select({ groupKey: userGroups.groupKey })
+            .from(userGroups)
+            .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+            .where(and(eq(userGroups.userSub, user.sub), eq(groups.enableLogin, true)))
+            .limit(1);
+          hasEnabledGroup = rows.length > 0;
+        } catch {
+          const rows = await context.db
+            .select({ groupKey: userGroups.groupKey })
+            .from(userGroups)
+            .where(eq(userGroups.userSub, user.sub))
+            .limit(1);
+          hasEnabledGroup = rows.length > 0;
+        }
+        if (!hasEnabledGroup) {
+          throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
         }
 
         // Create user session

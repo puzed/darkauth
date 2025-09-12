@@ -1,4 +1,4 @@
-import { count, ilike, or } from "drizzle-orm";
+import { count, ilike, or, sql } from "drizzle-orm";
 import { groupPermissions, groups, userGroups } from "../db/schema.js";
 import type { Context } from "../types.js";
 
@@ -10,6 +10,7 @@ export async function listGroupsWithCounts(
   const limit = Math.min(100, Math.max(1, options.limit || 20));
   const offset = (page - 1) * limit;
 
+  let includeEnable = true;
   const baseQuery = context.db.select({ key: groups.key, name: groups.name }).from(groups);
   const baseCountQuery = context.db.select({ count: count() }).from(groups);
   const term = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
@@ -20,10 +21,22 @@ export async function listGroupsWithCounts(
     : baseCountQuery);
   const total = totalRows[0]?.count || 0;
 
-  const groupsData = await (searchCondition ? baseQuery.where(searchCondition) : baseQuery)
-    .orderBy(groups.name)
-    .limit(limit)
-    .offset(offset);
+  let groupsData: Array<{ key: string; name: string; enableLogin?: boolean }> = [];
+  try {
+    const q = context.db
+      .select({ key: groups.key, name: groups.name, enableLogin: groups.enableLogin })
+      .from(groups);
+    groupsData = await (searchCondition ? q.where(searchCondition) : q)
+      .orderBy(sql`CASE WHEN ${groups.key} = 'default' THEN 0 ELSE 1 END`, groups.name)
+      .limit(limit)
+      .offset(offset);
+  } catch {
+    includeEnable = false;
+    groupsData = await (searchCondition ? baseQuery.where(searchCondition) : baseQuery)
+      .orderBy(sql`CASE WHEN ${groups.key} = 'default' THEN 0 ELSE 1 END`, groups.name)
+      .limit(limit)
+      .offset(offset);
+  }
 
   const permissionCounts = await context.db
     .select({
@@ -46,6 +59,7 @@ export async function listGroupsWithCounts(
   const groupsWithCounts = groupsData.map((group) => ({
     key: group.key,
     name: group.name,
+    ...(includeEnable ? { enableLogin: Boolean(group.enableLogin) } : {}),
     permissionCount: permissionCountMap.get(group.key) || 0,
     userCount: userCountMap.get(group.key) || 0,
   }));

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminUsers, clients, settings } from "../db/schema.js";
+import { adminOpaqueRecords, adminUsers, clients, groups, settings } from "../db/schema.js";
 import { ConflictError, NotFoundError } from "../errors.js";
 import type { Context } from "../types.js";
 
@@ -107,4 +107,32 @@ export async function seedDefaultClients(context: Context, supportDeskSecretEnc:
       updatedAt: new Date(),
     },
   ]);
+}
+
+export async function seedDefaultGroups(context: Context) {
+  const existing = await context.db.query.groups.findFirst({ where: eq(groups.key, "default") });
+  if (!existing) {
+    await context.db.insert(groups).values({ key: "default", name: "Default", enableLogin: true });
+  }
+}
+
+export async function ensureDefaultGroupAndSchema(context: Context) {
+  try {
+    await context.db.execute(
+      // @ts-expect-error drizzle execute string for raw SQL
+      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "enable_login" boolean NOT NULL DEFAULT true;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      // @ts-expect-error
+      `INSERT INTO "groups" ("key", "name", "enable_login") VALUES ('default','Default',true) ON CONFLICT ("key") DO NOTHING;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      // @ts-expect-error
+      `INSERT INTO "user_groups" ("user_sub", "group_key") SELECT u.sub, 'default' FROM users u LEFT JOIN user_groups ug ON ug.user_sub = u.sub WHERE ug.user_sub IS NULL;`
+    );
+  } catch {}
 }
