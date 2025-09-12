@@ -5,6 +5,7 @@ import pino from "pino";
 import { createPglite } from "../db/pglite.js";
 import * as schema from "../db/schema.js";
 import { opaqueLoginSessions, settings } from "../db/schema.js";
+import { ensureDefaultGroupAndSchema } from "../models/install.js";
 import { createKekService } from "../services/kek.js";
 import { createOpaqueService } from "../services/opaque.js";
 import { cleanupExpiredSessions } from "../services/sessions.js";
@@ -101,6 +102,14 @@ export async function createContext(config: Config): Promise<Context> {
       }
     },
   };
+
+  if (!config.inInstallMode) {
+    try {
+      await ensureDefaultGroupAndSchema(context);
+    } catch (err) {
+      logger.warn({ err }, "ensureDefaultGroupAndSchema failed");
+    }
+  }
 
   if (!config.inInstallMode) {
     const interval = setInterval(

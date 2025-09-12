@@ -16,6 +16,7 @@ export const CreateGroupSchema = z.object({
       "Key must contain only alphanumeric characters, underscores, and hyphens"
     ),
   name: z.string().min(1),
+  enableLogin: z.boolean().optional().default(true),
   permissionKeys: z.array(z.string()).optional().default([]),
 });
 export const CreateGroupResponseSchema = z.object({
@@ -23,6 +24,7 @@ export const CreateGroupResponseSchema = z.object({
   group: z.object({
     key: z.string(),
     name: z.string(),
+    enableLogin: z.boolean(),
     permissions: z.array(z.object({ key: z.string(), description: z.string() })),
     permissionCount: z.number().int().nonnegative(),
     userCount: z.number().int().nonnegative(),
@@ -60,6 +62,7 @@ async function createGroupHandler(
   const group = await createGroupModel(context, {
     key: data.key,
     name: data.name,
+    enableLogin: data.enableLogin,
     permissionKeys: data.permissionKeys,
   });
   const responseData = { success: true, group };

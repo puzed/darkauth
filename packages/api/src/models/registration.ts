@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { opaqueRecords, users } from "../db/schema.js";
+import { opaqueRecords, userGroups, users } from "../db/schema.js";
 import { ConflictError, ValidationError } from "../errors.js";
 import { createSession } from "../services/sessions.js";
 import type { Context } from "../types.js";
@@ -20,6 +20,7 @@ export async function userOpaqueRegisterFinish(
     await tx
       .insert(users)
       .values({ sub, email: data.email, name: data.name, createdAt: new Date() });
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" });
     await tx.insert(opaqueRecords).values({
       sub,
       envelope: Buffer.from(opaqueRecord.envelope),

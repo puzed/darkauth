@@ -11,7 +11,7 @@ import { updateGroup } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
-import { sendJson } from "../../utils/http.js";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
 async function updateGroupHandler(
   context: Context,
@@ -24,18 +24,24 @@ async function updateGroupHandler(
     throw new ForbiddenError("Write access required");
   }
 
-  const bodyChunks: Buffer[] = [];
-  await new Promise<void>((resolve) => {
-    request.on("data", (c) => bodyChunks.push(c));
-    request.on("end", () => resolve());
-  });
-  const raw = Buffer.concat(bodyChunks).toString("utf8");
-  const data = JSON.parse(raw) as { name?: string };
-  if (!data.name || typeof data.name !== "string") {
+  const raw = await readBody(request);
+  const data = parseJsonSafely(raw) as { name?: string; enableLogin?: boolean };
+  if (data.name !== undefined && typeof data.name !== "string") {
     sendJson(response, 400, { error: "Invalid name" });
     return;
   }
-  const result = await updateGroup(context, key, data.name.trim());
+  if (data.enableLogin !== undefined && typeof data.enableLogin !== "boolean") {
+    sendJson(response, 400, { error: "Invalid enableLogin" });
+    return;
+  }
+  if (data.name === undefined && data.enableLogin === undefined) {
+    sendJson(response, 400, { error: "No updates provided" });
+    return;
+  }
+  const result = await updateGroup(context, key, {
+    name: data.name,
+    enableLogin: data.enableLogin,
+  });
   sendJson(response, 200, result);
 }
 
@@ -46,7 +52,7 @@ export const updateGroupController = withAudit({
 })(updateGroupHandler);
 
 export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({ name: z.string().min(1) });
+  const Req = z.object({ name: z.string().min(1).optional(), enableLogin: z.boolean().optional() });
   registry.registerPath({
     method: "put",
     path: "/admin/groups/{key}",
