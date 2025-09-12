@@ -1,5 +1,5 @@
 import { ArrowLeft, Trash2, UserPlus } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -35,6 +35,7 @@ export default function GroupEdit() {
   const [error, setError] = useState<string | null>(null);
   const [group, setGroup] = useState<Group | null>(null);
   const [name, setName] = useState("");
+  const [enableLogin, setEnableLogin] = useState(true);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [groupUsers, setGroupUsers] = useState<
@@ -44,6 +45,7 @@ export default function GroupEdit() {
     Array<{ sub: string; email: string; name?: string }>
   >([]);
   const [addingOpen, setAddingOpen] = useState(false);
+  const enableLoginId = useId();
 
   const loadData = useCallback(async () => {
     try {
@@ -64,6 +66,7 @@ export default function GroupEdit() {
 
       setGroup(foundGroup);
       setName(foundGroup.name);
+      setEnableLogin(foundGroup.enableLogin !== false);
       setPermissions(permissionsData);
 
       // Since the API doesn't return permissions in the group object yet,
@@ -102,6 +105,7 @@ export default function GroupEdit() {
 
       await adminApiService.updateGroup(group.key, {
         name,
+        enableLogin,
         permissionKeys: selectedPermissions,
       });
 
@@ -220,6 +224,19 @@ export default function GroupEdit() {
                   value={`${group.permissionCount || 0} permission${(group.permissionCount || 0) !== 1 ? "s" : ""}`}
                   readOnly
                 />
+              </FormField>
+              <FormField label={<Label>Enable Login</Label>}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Checkbox
+                    id={enableLoginId}
+                    checked={enableLogin}
+                    onCheckedChange={(v) => setEnableLogin(v === true)}
+                    disabled={submitting}
+                  />
+                  <Label htmlFor={enableLoginId} style={{ fontWeight: 400 }}>
+                    Members of this group are permitted to sign in
+                  </Label>
+                </div>
               </FormField>
             </FormGrid>
           </CardContent>
