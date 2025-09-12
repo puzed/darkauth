@@ -228,6 +228,7 @@ export const permissions = pgTable("permissions", {
 export const groups = pgTable("groups", {
   key: text("key").primaryKey(),
   name: text("name").notNull(),
+  enableLogin: boolean("enable_login").default(true).notNull(),
 });
 
 export const groupPermissions = pgTable(

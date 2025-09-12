@@ -80,7 +80,11 @@ export async function createUser(
   const existing = await context.db.query.users.findFirst({ where: eq(users.email, email) });
   if (existing) throw new ConflictError("User with this email already exists");
   const sub = subInput || (await (await import("../utils/crypto.js")).generateRandomString(16));
-  await context.db.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
+  await context.db.transaction(async (tx) => {
+    await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
+    const { userGroups } = await import("../db/schema.js");
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" });
+  });
   return { sub, email, name, createdAt: new Date().toISOString() };
 }
 

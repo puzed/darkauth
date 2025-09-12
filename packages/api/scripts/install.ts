@@ -4,11 +4,8 @@ import { createContext } from "../src/context/createContext.js";
 import { adminUsers, clients, settings } from "../src/db/schema.js";
 import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
 import { createKekService, generateKdfParams } from "../src/services/kek.js";
-import {
-	isSystemInitialized,
-	markSystemInitialized,
-	seedDefaultSettings,
-} from "../src/services/settings.js";
+import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.js";
+import { seedDefaultGroups } from "../src/models/install.js";
 import type { Config, KdfParams } from "../src/types.js";
 import { generateRandomString } from "../src/utils/crypto.js";
 import fs from "node:fs";
@@ -356,7 +353,10 @@ async function install() {
 			},
 		]);
 
-		console.log("6. Creating default admin user...");
+		console.log("6. Seeding default group...");
+		await seedDefaultGroups(context);
+
+		console.log("7. Creating default admin user...");
 		const adminEmail = "admin@example.com";
 		const adminName = "System Administrator";
 
@@ -367,7 +367,7 @@ async function install() {
 			createdAt: new Date(),
 		});
 
-		console.log("7. Marking system as initialized...");
+		console.log("8. Marking system as initialized...");
 		await markSystemInitialized(context);
 
 		console.log(
