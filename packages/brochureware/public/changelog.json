@@ -1,6 +1,14 @@
 {
-  "generatedAt": "2025-09-11T22:22:37.299Z",
+  "generatedAt": "2025-09-12T20:40:49.897Z",
   "entries": [
+    {
+      "date": "2025-09-12",
+      "title": "v1.0.9",
+      "changes": [
+        "This release introduces a unified server lifecycle with graceful restarts, enhances security with stricter ZK public key validation and admin role enforcement, adds user dashboard client visibility controls, expands the brochure site with a downloadable whitepaper, and improves test stability with better screenshot artifacts and readiness checks.\n\n## ✨ Features\n\n### 🚀 Server Lifecycle\n- Unified server lifecycle with createServer and graceful restart capabilities\n- Safe restart after install via restartRequested flag\n\n### 🎨 User Experience\n- Add showOnUserDashboard field for client visibility control in Admin UI\n- Generate Security Whitepaper PDF at build time with download link\n\n### 📖 Documentation Site\n- Add Features, How It Works, and Security pages to brochure site\n- Refine marketing copy, SEO descriptions, and GitHub links\n\n## 🛠️ Improvements\n\n### Security Enhancements\n- Reject ZK public key JWKs containing private key components\n- Enforce write admin role for admin mutations\n- Require session token for all admin routes\n- Canonicalize zk_pub handling and kid derivation\n\n### Rate Limiting\n- Scope rate limits per port for better isolation\n- Use dedicated opaque rate-limit bucket for admin OPAQUE\n- Clear rate-limit cache for nested keys\n- Relax opaque limits in development mode\n\n### Installation Flow\n- Allow install OPAQUE start/finish to accept token from config\n- Make install token optional in dev/test environments\n- Refresh install token TTL on expiry\n\n## 🐛 Fixes\n\n- Return 503 on /api/health until server is initialized or during restart\n- Improve checkbox contrast and hover states in dark/light themes\n\n## 🧪 Tests\n\n- Add user dashboard E2E test coverage\n- Enforce light/dark screenshot generation with required artifacts\n- Use unified createServer lifecycle with proper readiness checks\n- Remove reload-based restart mechanism for better stability\n\n## 📚 Documentation\n\n- Add Security Whitepaper and ZK pub parsing specification\n- Document server lifecycle, restart guarantees, and readiness expectations\n- Update configuration clarity in README\n\n## 🧹 Chores\n\n- Update dependencies lockfile\n- Remove authorize finalize debug log\n- Multiple changelog data updates for brochure site"
+      ],
+      "filename": "v1.0.9.md"
+    },
     {
       "date": "2025-09-10",
       "title": "v1.0.8",
