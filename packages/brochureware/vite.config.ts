@@ -12,9 +12,13 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   css: {
+    transformer: "postcss",
     postcss: {
       plugins: [tailwind(), autoprefixer()],
     },
+  },
+  build: {
+    cssMinify: "esbuild",
   },
   plugins: [
     react(),
