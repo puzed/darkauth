@@ -116,7 +116,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
         try {
           const s = await apiService.getOtpStatus();
-          if (s.enabled && !s.verified) {
+          if (s.enabled) {
             window.location.replace("/otp/verify");
           } else {
             window.location.replace("/otp/setup?forced=1");

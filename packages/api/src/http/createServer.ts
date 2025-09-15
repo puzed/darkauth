@@ -157,6 +157,7 @@ export async function createUserServer(context: Context) {
 
       if (
         pathname.startsWith("/api/") ||
+        pathname.startsWith("/otp/") ||
         pathname === "/authorize" ||
         pathname === "/token" ||
         pathname.startsWith("/.well-known")
@@ -166,6 +167,9 @@ export async function createUserServer(context: Context) {
           let apiPath = pathname.slice(4);
           apiPath = apiPath.replace(/^\/user(\/|$)/, "/");
           request.url = apiPath + url.search;
+        }
+        if (pathname.startsWith("/otp/")) {
+          request.url = pathname + url.search;
         }
         if (!initialized) {
           response.statusCode = 503;
