@@ -17,6 +17,8 @@ This specification extends DarkAuth v1 with TOTP (Time-based One-Time Password) 
 - Admin ability to reset OTP for any user (admin or regular)
 - Rate-limited verification to prevent brute force
 - Anti-replay protection via timestep tracking
+- Per-group OTP requirement with admin-configurable toggle
+- Default group requires OTP by default; configurable in Admin UI
 
 **Security Principles:**
 - OTP secrets encrypted at rest using KEK with AAD binding
@@ -86,6 +88,29 @@ Add to `settings` table:
   }
 }
 ```
+
+Policy precedence when `otp.enabled = true`:
+- Admins must complete OTP when `require_for_admin = true`.
+- All users must complete OTP when `require_for_users = true`.
+- Otherwise, OTP is required when any login-enabled group requires OTP.
+
+Group evaluation only considers groups where `enable_login = true`.
+
+### 2.3 Group Policy Extension
+
+Add per-group OTP requirement toggle.
+
+Schema:
+```
+ALTER TABLE groups ADD COLUMN require_otp boolean NOT NULL DEFAULT false;
+```
+
+Seeding:
+- Ensure the `Default` group exists and set `require_otp = true` by default.
+
+Behavior:
+- On login, if the user is a member of any group with `enable_login = true` and `require_otp = true`, OTP is required.
+- A single matching group is sufficient to require OTP.
 
 ---
 
@@ -173,7 +198,8 @@ Response:
   "verified": true,
   "created_at": "2024-01-01T00:00:00Z",
   "last_used_at": "2024-01-15T12:00:00Z",
-  "backup_codes_remaining": 5
+  "backup_codes_remaining": 5,
+  "required": true
 }
 ```
 
@@ -260,8 +286,8 @@ Response:
 
 1. User initiates OPAQUE login via `/opaque/login/start` and `/opaque/login/finish`
 2. On successful OPAQUE:
-   - Check if user has verified OTP configuration
-   - If yes, create partial session with `otp_required=true`
+   - Evaluate OTP policy using precedence and group membership
+   - If required, create partial session with `otp_required=true`
    - Return `{ otp_required: true }` in login response
 3. User submits OTP via `/otp/verify`
 4. On successful OTP verification:
@@ -273,7 +299,7 @@ Response:
 
 Identical to user flow but through admin endpoints:
 1. OPAQUE via `/admin/opaque/login/*`
-2. Check admin_otp_configs
+2. Check admin OTP policy using precedence
 3. OTP verification via `/admin/otp/verify`
 
 ### 4.3 Session Management
@@ -296,7 +322,41 @@ Middleware must check:
 
 ## 5. UI Implementation
 
-### 5.1 User UI (port 9080)
+### 5.1 Client-Side Routing & Redirect Rules
+
+**Login finish handler (client):**
+1. If `otpRequired` is false → proceed as normal
+2. If `otpRequired` is true → call `/otp/status` and:
+   - If `enabled === true` and `verified === false` → `replace('/otp/verify')` (auth layout)
+   - If `enabled === false` → `replace('/otp/setup?forced=1')` (auth layout; cannot navigate away)
+
+**Route guards (client):**
+- Wrap all in-app routes (e.g. `/dashboard`, `/change-password`, settings pages) in an `OtpGate` component:
+  - Fetch `/otp/status`
+  - If `required && !verified && enabled` → `Navigate('/otp/verify')`
+  - If `required && !verified && !enabled` → `Navigate('/otp/setup?forced=1')`
+  - Otherwise render children
+- `/otp/setup` (without `forced=1`) remains available for optional/manage flow from dashboard
+- `/otp` redirects to `/otp/verify`
+- Legacy `/otp-setup` redirects to `/otp/setup`
+
+### 5.2 UI & Layout Rules
+
+**Shared OTP component (single source of truth):**
+- Props: `mode: 'setup' | 'verify'`, `layout: 'auth' | 'dashboard'`, `provisioningUri?: string`, `secret?: string`, handlers for verify
+- Setup mode:
+  - Shows centered QR (192px) with adequate vertical spacing
+  - "Can't scan? Show secret" link reveals base32 secret + copy action
+  - 6-digit input sized to 192px; Verify button below with spacing
+  - Never calls `/otp/setup/init` in verify mode
+- Verify mode:
+  - Shows a single input (192px) + Verify button
+  - No QR in confirm flow
+- Layout:
+  - `auth` renders inside the login card (same container as LoginView)
+  - `dashboard` renders inside the dashboard card (same container as ChangePasswordView)
+
+### 5.3 User UI (port 9080)
 
 **Setup Flow:**
 1. User navigates to Account Settings → Security → Two-Factor Authentication
@@ -320,7 +380,7 @@ Middleware must check:
 - Regenerate backup codes button
 - View remaining backup codes count
 
-### 5.2 Admin UI (port 9081)
+### 5.4 Admin UI (port 9081)
 
 **Own OTP Management:**
 - Same as User UI but under admin profile settings
@@ -331,6 +391,11 @@ Middleware must check:
 - "Remove OTP" button for write-role admins
 - "Unlock OTP" button if user is locked out
 - Audit log viewer showing OTP operations
+
+**Group Policy Management:**
+- Group Create/Edit: add Require OTP toggle in the Settings section
+- Default state: on for the `Default` group, off for new groups
+- Help text: any login-enabled group with Require OTP enforces OTP for members
 
 ---
 
@@ -583,10 +648,11 @@ async function recordOtpSuccess(
 - Grace period for existing admins to enable OTP
 - New admins must set up OTP on first login
 
-**Phase 3: Selective requirement for users**
-- Add `require_otp` boolean to users table
-- Admins can mark specific users as requiring OTP
-- Useful for privileged accounts
+**Phase 3: Group-based requirement for users**
+- Add `groups.require_otp boolean` with default false
+- Seed `Default` group with `require_otp = true`
+- Admin UI exposes Require OTP toggle on Group create/edit
+- Enforcement uses login-enabled groups to decide requirement
 
 **Phase 4: Required for all (optional)**
 - Set `require_for_users: true`
@@ -611,6 +677,8 @@ async function recordOtpSuccess(
 - Encryption/decryption of secrets
 - Rate limiting logic
 - Session state transitions
+- Policy evaluation with groups and `enable_login`
+- Default group seeded with `require_otp = true`
 
 ### 8.2 Integration Tests
 
@@ -618,6 +686,7 @@ async function recordOtpSuccess(
 - Login flow with OTP (OPAQUE → OTP → full session)
 - Backup code usage and invalidation
 - Admin operations (view, remove, unlock)
+- Group Require OTP toggle enforces OTP when enabled
 - Rate limiting and lockout behavior
 - KEK rotation with encrypted secrets
 
@@ -864,12 +933,41 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
 
 ## 14. Implementation Plan
 
-### 14.1 Database & Settings
+### 14.1 Client-Side Implementation Steps
+
+1. **Client redirects**
+   - Update login finish path: after receiving `otpRequired`, fetch `/otp/status` and branch to `/otp/verify` vs `/otp/setup?forced=1`
+
+2. **Route guard**
+   - Create/finish `OtpGate` and wrap: `/dashboard`, `/change-password`, any other private routes
+   - Guard logic uses `/otp/status` per the rules above
+
+3. **Routes**
+   - Keep `/otp/setup` (optional/manage) → dashboard layout
+   - Add forced flag via `?forced=1` to render the auth layout wrapper for setup when required
+   - Keep `/otp/verify` (confirm) → auth layout only
+   - Redirects: `/otp` → `/otp/verify`, `/otp-setup` → `/otp/setup`
+
+4. **Shared OTP component**
+   - Extract current logic from `OtpFlow` into a reusable component
+   - `OtpSetupView` uses it with `mode='setup'` and `layout` depending on `forced` query param
+   - `OtpVerifyView` uses it with `mode='verify'` and `layout='auth'`
+
+5. **API usage correctness**
+   - Setup mode calls `/otp/setup/init` to obtain `{ provisioning_uri, secret }`
+   - Verify mode never calls `/otp/setup/init`
+   - After successful verify, redirect to `/dashboard`
+
+6. **Navigation hardening**
+   - Header dropdown actions respect gating due to `OtpGate`
+   - Optional/manage link points to `/otp/setup` (no forced flag)
+
+### 14.2 Database & Settings
 - Add `otp_configs` and `otp_backup_codes` tables as unified cohort tables
 - Seed `settings.otp` with sensible defaults
 - Add dedicated "otp" rate limit configuration
 
-### 14.2 OTP Service (services/otp.ts)
+### 14.3 OTP Service (services/otp.ts)
 - TOTP implementation using Node crypto only:
   - Base32 decode for secret handling
   - HMAC computation (SHA1/256/512 support)
@@ -881,14 +979,14 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
 - Rate limit helpers integrated with existing framework
 - Anti-replay via last_used_step tracking
 
-### 14.3 User Controllers (port 9080)
+### 14.4 User Controllers (port 9080)
 - `/otp/setup/init`: Create unverified secret, return provisioning URI
 - `/otp/setup/verify`: Verify code, mark verified, generate backup codes
 - `/otp/status`: Return enabled/verified/last_used/backup count
 - `/otp/verify`: Require partial session, verify code/backup, set session.data.otp_verified
 - `/otp/disable` and `/otp/backup-codes/regenerate`: Require reauth token
 
-### 14.4 Admin Controllers (port 9081)
+### 14.5 Admin Controllers (port 9081)
 - Mirror user endpoints under `/admin/otp/*`
 - Management endpoints:
   - `GET /admin/users/:sub/otp`
@@ -896,47 +994,61 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
   - `POST /admin/users/:sub/otp/unlock`
   - Same for `/admin/admins/:id/otp`
 
-### 14.5 Login Flow Changes
+### 14.6 Login Flow Changes
 - After `/opaque/login/finish`, check OTP config
 - Create session with `data.otp_required=true` if OTP enabled
 - Return `{ otp_required: true }` in response
 - Middleware enforces `data.otp_verified=true` for protected endpoints
 
-### 14.6 Token Issuance
+### 14.7 Token Issuance
 - Include AMR: `['pwd', 'otp']` when MFA verified
 - Include ACR: `'urn:ietf:params:acr:mfa'` for MFA sessions
 
-### 14.7 UI Implementation
+### 14.8 UI Implementation
 - User UI: Settings page for OTP setup/management
 - Admin UI: Own OTP + user/admin management
 - Client-side QR generation from provisioning URI
 - Use existing input-otp component if available
 
-## 15. Decisions on Open Questions
+## 15. Acceptance Criteria
+
+### 15.1 Forced Group, OTP Configured but Not Verified
+- After login, user is taken to `/otp/verify` in the auth layout
+- All other app routes redirect back to `/otp/verify` until success
+- Entering valid code proceeds to `/dashboard`
+
+### 15.2 Forced Group, OTP Not Configured
+- After login, user is taken to `/otp/setup?forced=1` in the auth layout
+- All other app routes redirect back to `/otp/setup?forced=1` until setup+verify completes
+- Successful setup+verify proceeds to `/dashboard`
+
+### 15.3 Not Forced
+- Normal login goes to `/dashboard`
+- Visiting `/otp/setup` shows the dashboard layout setup card, works end-to-end
+
+### 15.4 Visual Requirements
+- Auth layout flows match login card; dashboard flows match Change Password card
+- QR centered with comfortable spacing; 192px input/buttons aligned; link to reveal/copy secret works
+
+### 15.5 Test Checklist
+- Login finish redirect matrix:
+  - `(required=true, enabled=true, verified=false)` → `/otp/verify`
+  - `(required=true, enabled=false)` → `/otp/setup?forced=1`
+  - `(required=false)` → `/dashboard`
+- Route gating:
+  - While required && !verified, navigating to `/dashboard` or `/change-password` redirects to the appropriate `/otp/*` page
+- Setup flow:
+  - `/otp/setup` shows QR; verify succeeds; backup codes appear; returns to dashboard
+- Verify flow:
+  - `/otp/verify` shows single input; verify succeeds; returns to dashboard
+
+## 16. Decisions on Open Questions
 
 ### Per-User Required Flags
 **Decision:** Defer to Phase 3. For v1.x, use cohort-wide settings (`require_for_admin`, `require_for_users`). Add per-user `require_otp` field later if needed.
 
 ### Rate Limit Configuration
 **Decision:** Use dedicated "otp" rate limit bucket with conservative defaults (10 requests per 15 minutes). This separates OTP attempts from general auth attempts and allows fine-tuning.
-
-## 16. Done Criteria
-
-- [ ] Users can enable/disable OTP through User UI
-- [ ] Admins can enable/disable OTP through Admin UI
-- [ ] OTP required after OPAQUE login when enabled
-- [ ] Backup codes work as alternative to OTP
-- [ ] Admins can remove OTP for any user or admin (not self)
-- [ ] DB-backed + IP-based rate limiting prevents brute force
-- [ ] All OTP operations use withAudit pattern
-- [ ] Secrets encrypted at rest with KEK + AAD binding
-- [ ] Provisioning URI provided, QR generated client-side
-- [ ] Clock skew tolerance of ±30 seconds via window
-- [ ] Anti-replay protection via last_used_step
-- [ ] Session.data stores OTP state (no schema migration)
-- [ ] AMR/ACR claims reflect MFA status
-- [ ] Comprehensive test coverage
-- [ ] Documentation and SDK updates
 
 ---
 
