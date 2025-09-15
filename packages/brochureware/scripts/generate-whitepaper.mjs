@@ -2,13 +2,11 @@ import { mkdirSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs';
-import path from 'node:path';
-import MarkdownIt from 'markdown-it';
+ 
 import { JSDOM } from 'jsdom';
-import htmlToPdfmake from 'html-to-pdfmake';
-import PdfPrinter from 'pdfmake';
 import mermaid from 'mermaid';
 import { Resvg } from '@resvg/resvg-js';
+import { markdownFileToPdf } from '@DarkAuth/md-to-pdf';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,87 +78,30 @@ async function main() {
     md = md.slice(0, r.index) + replacementHtml + md.slice(r.index + r.length);
   }
 
-  const mdParser = new MarkdownIt({ html: true, linkify: true, breaks: true });
-  const htmlBody = mdParser.render(md);
+  
 
-  const conversionWindow = new JSDOM('<!doctype html><html><body></body></html>').window;
-  const pdfmakeContent = htmlToPdfmake(htmlBody, {
-    window: conversionWindow,
-    defaultStyles: {
-      h1: { fontSize: 20, bold: true, margin: [0, 8, 0, 8] },
-      h2: { fontSize: 16, bold: true, margin: [0, 8, 0, 6] },
-      h3: { fontSize: 13, bold: true, margin: [0, 6, 0, 4] },
-      p: { fontSize: 11, margin: [0, 2, 0, 4] },
-      code: { fontSize: 9, background: '#f6f6f6' },
-      pre: { fontSize: 9, background: '#f6f6f6', margin: [0, 4, 0, 4] },
-      li: { fontSize: 11, margin: [0, 1, 0, 1] },
-      table: { margin: [0, 6, 0, 6] },
-      th: { bold: true, fillColor: '#efefef' },
-      td: {},
-    }
+  const tempMdPath = join(outDir, 'whitepaper.generated.md');
+  const header = `# DarkAuth v1 Security Whitepaper\n\nA technical analysis of zero‑knowledge key delivery for OIDC\n\n_${new Date().toISOString().slice(0, 10)}_\n\n`;
+  const combined = header + md;
+  fs.writeFileSync(tempMdPath, combined, 'utf8');
+  const css = [
+    'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.6;color:#111;padding:24px}',
+    'h1{font-size:26px;margin:0 0 8px 0}',
+    'h2{font-size:20px;margin:20px 0 8px 0}',
+    'h3{font-size:16px;margin:16px 0 6px 0}',
+    'p,li{font-size:12px}',
+    'pre{background:#f6f8fa;padding:10px;border-radius:6px;overflow:auto}',
+    'code{background:#f6f8fa;padding:2px 4px;border-radius:4px}',
+    'img{max-width:100%;display:block;margin:8px auto}'
+  ].join('');
+  await markdownFileToPdf(tempMdPath, outPath, {
+    css,
+    format: 'A4',
+    margin: { top: '20mm', right: '16mm', bottom: '20mm', left: '16mm' },
+    displayHeaderFooter: true,
+    headerTemplate: '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm}</style><section></section>',
+    footerTemplate: '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm;display:flex;justify-content:flex-end}</style><section><span class="pageNumber"></span> / <span class="totalPages"></span></section>'
   });
-
-  function constrainImages(node) {
-    if (Array.isArray(node)) return node.map(constrainImages);
-    if (node && typeof node === 'object') {
-      if (node.image && typeof node.image === 'string' && node.image.startsWith('data:image')) {
-        node.fit = [500, 320];
-        node.alignment = node.alignment || 'center';
-        node.margin = node.margin || [0, 6, 0, 10];
-      }
-      for (const key of Object.keys(node)) node[key] = constrainImages(node[key]);
-    }
-    return node;
-  }
-  const constrainedContent = constrainImages(pdfmakeContent);
-
-  function findFont(rel) {
-    const candidates = [
-      path.resolve(__dirname, '../node_modules/roboto-font/fonts/Roboto', rel),
-      path.resolve(__dirname, '../../node_modules/roboto-font/fonts/Roboto', rel),
-      path.resolve(__dirname, '../../../node_modules/roboto-font/fonts/Roboto', rel),
-      path.resolve(process.cwd(), 'node_modules/roboto-font/fonts/Roboto', rel),
-      path.resolve(process.cwd(), '../../node_modules/roboto-font/fonts/Roboto', rel),
-      path.resolve(process.cwd(), '../../../node_modules/roboto-font/fonts/Roboto', rel),
-    ];
-    for (const p of candidates) {
-      try { if (fs.existsSync(p)) return p; } catch {}
-    }
-    return null;
-  }
-  const fonts = {
-    Roboto: {
-      normal: findFont('roboto-regular-webfont.ttf') || findFont('Roboto-Regular.ttf') || '',
-      bold: findFont('roboto-bold-webfont.ttf') || findFont('Roboto-Bold.ttf') || '',
-      italics: findFont('roboto-italic-webfont.ttf') || findFont('Roboto-Italic.ttf') || '',
-      bolditalics: findFont('roboto-bolditalic-webfont.ttf') || findFont('Roboto-BoldItalic.ttf') || '',
-    },
-  };
-  if (!fonts.Roboto.normal) {
-    throw new Error('Roboto TTF fonts not found in node_modules/roboto-font');
-  }
-
-  const printer = new PdfPrinter(fonts);
-  const docDefinition = {
-    pageSize: 'A4',
-    pageMargins: [40, 60, 40, 60],
-    footer: function(currentPage, pageCount) {
-      return { text: `Page ${currentPage} of ${pageCount}`, alignment: 'right', margin: [0, 10, 20, 0], fontSize: 8 };
-    },
-    styles: {},
-    content: [
-      { text: 'DarkAuth v1 Security Whitepaper', fontSize: 22, bold: true, margin: [0, 0, 0, 8] },
-      { text: 'A technical analysis of zero‑knowledge key delivery for OIDC', italics: true, margin: [0, 0, 0, 16] },
-      { text: new Date().toISOString().slice(0, 10), fontSize: 9, margin: [0, 0, 0, 24] },
-      constrainedContent,
-    ],
-  };
-
-  const pdfDoc = printer.createPdfKitDocument(docDefinition);
-  const stream = fs.createWriteStream(outPath);
-  pdfDoc.pipe(stream);
-  pdfDoc.end();
-  await new Promise((resolve) => stream.on('finish', resolve));
   console.log(`Whitepaper PDF generated at ${outPath}`);
 }
 
