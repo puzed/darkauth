@@ -159,6 +159,16 @@ export const postToken = withRateLimit("token")(
           client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
             ? client.idTokenLifetimeSeconds
             : defaultIdTtl;
+        let amr: string[] | undefined = ["pwd"];
+        try {
+          const { sessions } = await import("../../db/schema.js");
+          const { eq } = await import("drizzle-orm");
+          const sess = await context.db.query.sessions.findFirst({
+            where: eq(sessions.refreshToken, tokenRequest.refresh_token),
+          });
+          const data = (sess?.data || {}) as Record<string, unknown>;
+          if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+        } catch {}
         const idTokenClaims: IdTokenClaims = {
           iss: context.config.issuer,
           sub: user.sub,
@@ -170,6 +180,8 @@ export const postToken = withRateLimit("token")(
           name: user.name || undefined,
           permissions: uniquePermissions.length > 0 ? uniquePermissions : undefined,
           groups: groupsList.length > 0 ? groupsList : undefined,
+          acr: amr ? "mfa" : undefined,
+          amr,
         };
         const idToken = await signJWT(
           context,
@@ -341,6 +353,16 @@ export const postToken = withRateLimit("token")(
         client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
           ? client.idTokenLifetimeSeconds
           : defaultIdTtl;
+      let amr: string[] | undefined = ["pwd"];
+      try {
+        const { sessions } = await import("../../db/schema.js");
+        const { and, eq, gt } = await import("drizzle-orm");
+        const row = await context.db.query.sessions.findFirst({
+          where: and(eq(sessions.userSub, user.sub), gt(sessions.expiresAt, new Date())),
+        });
+        const data = (row?.data || {}) as Record<string, unknown>;
+        if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+      } catch {}
       const idTokenClaims: IdTokenClaims = {
         iss: context.config.issuer,
         sub: user.sub,
@@ -352,6 +374,8 @@ export const postToken = withRateLimit("token")(
         name: user.name || undefined,
         permissions: uniquePermissions.length > 0 ? uniquePermissions : undefined,
         groups: groups.length > 0 ? groups : undefined,
+        acr: amr ? "mfa" : undefined,
+        amr: amr,
       };
 
       // Generate and sign ID token

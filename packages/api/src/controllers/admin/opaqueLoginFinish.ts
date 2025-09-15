@@ -125,11 +125,24 @@ async function postAdminOpaqueLoginFinishHandler(
     }
 
     // Create admin session
+    let otpRequired = false;
+    try {
+      const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
+      if (
+        s &&
+        typeof s === "object" &&
+        (s as { require_for_admin?: boolean }).require_for_admin === true
+      )
+        otpRequired = true;
+    } catch {}
+
     const { sessionId, refreshToken } = await createSession(context, "admin", {
       adminId: adminUser.id,
       email: adminUser.email,
       name: adminUser.name,
       adminRole: adminUser.role,
+      otpRequired,
+      otpVerified: false,
     });
 
     // Return session token as Bearer token
@@ -144,6 +157,7 @@ async function postAdminOpaqueLoginFinishHandler(
         name: adminUser.name,
         role: adminUser.role,
       },
+      otpRequired,
     };
 
     sendJson(response, 200, responseData);

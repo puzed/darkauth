@@ -49,6 +49,8 @@ export async function getSession(
     name: sessionData.name,
     authenticated: true,
     passwordResetRequired: resetRequired,
+    otpRequired: !!sessionData.otpRequired,
+    otpVerified: !!sessionData.otpVerified,
   };
 
   sendJson(response, 200, sessionInfo);
@@ -60,6 +62,8 @@ export function registerOpenApi(registry: OpenAPIRegistry) {
     sub: z.string().optional(),
     email: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
+    otpRequired: z.boolean().optional(),
+    otpVerified: z.boolean().optional(),
   });
   registry.registerPath({
     method: "get",

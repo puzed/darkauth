@@ -1,5 +1,6 @@
 import { relations } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   customType,
   index,
@@ -229,6 +230,7 @@ export const groups = pgTable("groups", {
   key: text("key").primaryKey(),
   name: text("name").notNull(),
   enableLogin: boolean("enable_login").default(true).notNull(),
+  requireOtp: boolean("require_otp").default(false).notNull(),
 });
 
 export const groupPermissions = pgTable(
@@ -275,6 +277,32 @@ export const userPermissions = pgTable(
     pk: primaryKey({ columns: [table.userSub, table.permissionKey] }),
   })
 );
+
+export const otpConfigs = pgTable(
+  "otp_configs",
+  {
+    cohort: text("cohort").notNull(),
+    subjectId: text("subject_id").notNull(),
+    secretEnc: bytea("secret_enc").notNull(),
+    verified: boolean("verified").default(false).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    lastUsedStep: bigint("last_used_step", { mode: "bigint" }),
+    failureCount: integer("failure_count").default(0).notNull(),
+    lockedUntil: timestamp("locked_until"),
+  },
+  (table) => ({ pk: primaryKey({ columns: [table.cohort, table.subjectId] }) })
+);
+
+export const otpBackupCodes = pgTable("otp_backup_codes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  cohort: text("cohort").notNull(),
+  subjectId: text("subject_id").notNull(),
+  codeHash: text("code_hash").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 export const usersRelations = relations(users, ({ one, many }) => ({
   opaqueRecord: one(opaqueRecords, {

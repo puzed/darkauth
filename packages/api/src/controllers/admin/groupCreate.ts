@@ -17,6 +17,7 @@ export const CreateGroupSchema = z.object({
     ),
   name: z.string().min(1),
   enableLogin: z.boolean().optional().default(true),
+  requireOtp: z.boolean().optional().default(false),
   permissionKeys: z.array(z.string()).optional().default([]),
 });
 export const CreateGroupResponseSchema = z.object({
@@ -25,6 +26,7 @@ export const CreateGroupResponseSchema = z.object({
     key: z.string(),
     name: z.string(),
     enableLogin: z.boolean(),
+    requireOtp: z.boolean().optional(),
     permissions: z.array(z.object({ key: z.string(), description: z.string() })),
     permissionCount: z.number().int().nonnegative(),
     userCount: z.number().int().nonnegative(),
@@ -63,6 +65,7 @@ async function createGroupHandler(
     key: data.key,
     name: data.name,
     enableLogin: data.enableLogin,
+    requireOtp: data.requireOtp,
     permissionKeys: data.permissionKeys,
   });
   const responseData = { success: true, group };

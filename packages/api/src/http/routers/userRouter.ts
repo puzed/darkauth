@@ -9,6 +9,13 @@ import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.js";
 import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.js";
 import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.js";
+import { postOtpBackupCodesRegenerate } from "../../controllers/user/otpBackupCodesRegenerate.js";
+import { postOtpDisable } from "../../controllers/user/otpDisable.js";
+import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.js";
+import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.js";
+import { getOtpStatus } from "../../controllers/user/otpStatus.js";
+import { postOtpVerify } from "../../controllers/user/otpVerify.js";
+import { postOtpReauth } from "../../controllers/user/otpReauth.js";
 import { postUserPasswordChangeFinish } from "../../controllers/user/passwordChangeFinish.js";
 import { postUserPasswordChangeStart } from "../../controllers/user/passwordChangeStart.js";
 import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordChangeVerifyFinish.js";
@@ -269,6 +276,33 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/session") {
         return await getSession(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/otp/status") {
+        return await getOtpStatus(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/otp/verify") {
+        return await postOtpVerify(context, request, response);
+      }
+      if (method === "POST" && pathname === "/otp/reauth") {
+        return await postOtpReauth(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/otp/setup/init") {
+        return await postOtpSetupInit(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/otp/setup/verify") {
+        return await postOtpSetupVerify(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/otp/disable") {
+        return await postOtpDisable(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/otp/backup-codes/regenerate") {
+        return await postOtpBackupCodesRegenerate(context, request, response);
       }
 
       if (method === "GET" && pathname === "/apps") {
