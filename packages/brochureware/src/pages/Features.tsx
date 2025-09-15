@@ -34,6 +34,16 @@ const features: Feature[] = [
   },
   {
     icon: Lock,
+    title: "TOTP MFA (Users & Admins)",
+    bullets: [
+      "Setup and verify with backup codes",
+      "Per-group and cohort enforcement with rate limits",
+      "AMR includes otp; ACR indicates MFA",
+    ],
+    tags: ["OTP", "TOTP", "MFA"],
+  },
+  {
+    icon: Lock,
     title: "Zero‑Knowledge DRK Delivery",
     bullets: [
       "Client unwraps DRK using device‑derived keys",
