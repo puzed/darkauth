@@ -43,6 +43,8 @@ interface AdminSessionData {
   sessionKey?: string;
   exportKey?: string;
   passwordResetRequired?: boolean;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
 }
 
 const App = () => {
@@ -60,6 +62,8 @@ const App = () => {
           email: session.email,
           role: session.role || "read",
           passwordResetRequired: !!session.passwordResetRequired,
+          otpRequired: !!session.otpRequired,
+          otpVerified: !!session.otpVerified,
         };
 
         setAdminSession(sessionData);
@@ -209,6 +213,24 @@ const App = () => {
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/error" element={<ErrorPage />} />
               <Route path="*" element={<Navigate to="/reset-password" replace />} />
+            </Routes>
+            <Toaster />
+          </AdminLayout>
+        </BrowserRouter>
+      </QueryClientProvider>
+    );
+  }
+
+  if (adminSession.otpRequired && !adminSession.otpVerified) {
+    const AdminOtp = require("./pages/AdminOtp").default;
+    return (
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AdminLayout>
+            <Routes>
+              <Route path="/otp" element={<AdminOtp />} />
+              <Route path="/error" element={<ErrorPage />} />
+              <Route path="*" element={<Navigate to="/otp" replace />} />
             </Routes>
             <Toaster />
           </AdminLayout>

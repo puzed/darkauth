@@ -34,6 +34,7 @@ import adminOpaqueService from "@/services/opaque-cloudflare";
 interface UserWithDetails extends User {
   groups?: string[];
   permissions?: string[];
+  otp?: { enabled: boolean; verified: boolean };
 }
 
 export default function Users() {
@@ -53,7 +54,18 @@ export default function Users() {
       setLoading(true);
       setError(null);
       const response = await adminApiService.getUsersPaged(currentPage, 20, debouncedSearch);
-      setUsers(response.users);
+      const base = response.users as UserWithDetails[];
+      const enriched = await Promise.all(
+        base.map(async (u) => {
+          try {
+            const s = await adminApiService.getUserOtpStatus(u.sub);
+            return { ...u, otp: { enabled: !!s.enabled, verified: !!s.verified } };
+          } catch {
+            return { ...u };
+          }
+        })
+      );
+      setUsers(enriched);
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
     } catch (error) {
@@ -118,6 +130,22 @@ export default function Users() {
       await adminApiService.userPasswordSetFinish(user.sub, finish.request, hash);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to set password");
+    }
+  };
+
+  const removeOtp = async (user: User) => {
+    try {
+      await adminApiService.deleteUserOtp(user.sub);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to remove OTP");
+    }
+  };
+
+  const unlockOtp = async (user: User) => {
+    try {
+      await adminApiService.unlockUserOtp(user.sub);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to unlock OTP");
     }
   };
 
@@ -188,6 +216,7 @@ export default function Users() {
                 <th className={tableStyles.head}>User</th>
                 <th className={tableStyles.head}>Email</th>
                 <th className={tableStyles.head}>Groups</th>
+                <th className={tableStyles.head}>Security</th>
                 <th className={tableStyles.head}>Created</th>
                 <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
               </tr>
@@ -211,6 +240,15 @@ export default function Users() {
                       </div>
                     ) : (
                       <span style={{ color: "hsl(var(--muted-foreground))" }}>No groups</span>
+                    )}
+                  </td>
+                  <td className={tableStyles.cell}>
+                    {user.otp?.enabled ? (
+                      <Badge variant={user.otp.verified ? undefined : "secondary"}>
+                        {user.otp.verified ? "OTP" : "OTP Pending"}
+                      </Badge>
+                    ) : (
+                      <span style={{ color: "hsl(var(--muted-foreground))" }}>None</span>
                     )}
                   </td>
                   <td className={tableStyles.cell}>{formatDate(user.createdAt)}</td>
@@ -240,6 +278,26 @@ export default function Users() {
                               label: "Require Reset",
                               icon: <RotateCcw className="h-4 w-4" />,
                               onClick: () => requirePasswordReset(user),
+                            },
+                          ],
+                        },
+                        {
+                          key: "otp",
+                          label: "OTP",
+                          icon: <KeyRound className="h-4 w-4" />,
+                          onClick: () => {},
+                          children: [
+                            {
+                              key: "otp-remove",
+                              label: "Remove OTP",
+                              icon: <RotateCcw className="h-4 w-4" />,
+                              onClick: () => removeOtp(user),
+                            },
+                            {
+                              key: "otp-unlock",
+                              label: "Unlock OTP",
+                              icon: <RefreshCcw className="h-4 w-4" />,
+                              onClick: () => unlockOtp(user),
                             },
                           ],
                         },
