@@ -1,28 +1,28 @@
 {
-  "name": "@DarkAuth/md-to-pdf",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc",
-    "typecheck": "tsc --noEmit",
-    "prepare": "tsc",
-    "test": "tsx --test src/**/*.test.ts",
-    "format": "biome format --write .",
-    "lint": "biome lint .",
-    "check": "biome check .",
-    "check:fix": "biome check --write .",
-    "tidy": "biome check --write . && biome lint --write ."
-  },
-  "dependencies": {
-    "markdown-it": "^14.1.0",
-    "puppeteer": "^24.20.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^2.2.4",
-    "typescript": "^5.9.2",
-    "tsx": "^4.20.5"
-  }
+	"name": "@DarkAuth/md-to-pdf",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"scripts": {
+		"build": "tsc",
+		"typecheck": "tsc --noEmit",
+		"prepare": "tsc",
+		"test": "tsx --test src/**/*.test.ts",
+		"format": "biome format --write .",
+		"lint": "biome lint .",
+		"check": "biome check .",
+		"check:fix": "biome check --write .",
+		"tidy": "biome check --write . && biome lint --write ."
+	},
+	"dependencies": {
+		"markdown-it": "^14.1.0",
+		"puppeteer": "^24.20.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.4",
+		"typescript": "^5.9.2",
+		"tsx": "^4.20.5"
+	}
 }

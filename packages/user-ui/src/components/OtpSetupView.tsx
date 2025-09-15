@@ -1,11 +1,11 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
+import styles from "./ChangePasswordView.module.css";
+import btnStyles from "./Login.module.css";
+import authStyles from "./LoginView.module.css";
+import OtpFlow from "./OtpFlow";
 import ThemeToggle from "./ThemeToggle";
 import UserLayout from "./UserLayout";
-import OtpFlow from "./OtpFlow";
-import styles from "./ChangePasswordView.module.css";
-import authStyles from "./LoginView.module.css";
-import btnStyles from "./Login.module.css";
 
 export default function OtpSetupView({
   sessionData,
@@ -30,7 +30,9 @@ export default function OtpSetupView({
                   <img
                     src={branding.getLogoUrl()}
                     alt={branding.getTitle()}
-                    className={branding.getLogoUrl() === "/favicon.svg" ? authStyles.defaultLogo : ""}
+                    className={
+                      branding.getLogoUrl() === "/favicon.svg" ? authStyles.defaultLogo : ""
+                    }
                   />
                 </span>
                 <h1 className={authStyles.brandTitle}>{branding.getTitle()}</h1>
@@ -42,7 +44,9 @@ export default function OtpSetupView({
 
           <div className={btnStyles.authContainer}>
             <h2 className={btnStyles.formTitle}>Set up Two-Factor Authentication</h2>
-            <p className={btnStyles.formDescription}>Scan the QR, then enter the 6-digit code to verify</p>
+            <p className={btnStyles.formDescription}>
+              Scan the QR, then enter the 6-digit code to verify
+            </p>
             <div className={btnStyles.form}>
               <OtpFlow fullWidth />
             </div>

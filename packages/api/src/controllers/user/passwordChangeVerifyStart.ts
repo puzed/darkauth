@@ -9,7 +9,7 @@ extendZodWithOpenApi(z);
 import { ValidationError } from "../../errors.js";
 import { getUserOpaqueRecordByEmail } from "../../models/users.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
@@ -57,7 +57,12 @@ export async function postUserPasswordVerifyStart(
         ? Buffer.from((serverPubkey as string).replace(/^\\x/i, ""), "hex")
         : (serverPubkey as Buffer);
 
-    if (!envelopeBuf || envelopeBuf.length === 0 || !serverPubkeyBuf || serverPubkeyBuf.length === 0) {
+    if (
+      !envelopeBuf ||
+      envelopeBuf.length === 0 ||
+      !serverPubkeyBuf ||
+      serverPubkeyBuf.length === 0
+    ) {
       throw new ValidationError("User has no authentication record");
     }
 
@@ -73,7 +78,7 @@ export async function postUserPasswordVerifyStart(
       );
     } catch {}
 
-    let loginResponse;
+    let loginResponse: OpaqueLoginResponse;
     try {
       loginResponse = await context.services.opaque.startLogin(
         requestBuffer,
@@ -86,7 +91,11 @@ export async function postUserPasswordVerifyStart(
     } catch (err) {
       try {
         context.logger.error(
-          { path: "/password/change/verify/start", email: session.email, error: (err as Error)?.message },
+          {
+            path: "/password/change/verify/start",
+            email: session.email,
+            error: (err as Error)?.message,
+          },
           "password verify start failed"
         );
       } catch {}

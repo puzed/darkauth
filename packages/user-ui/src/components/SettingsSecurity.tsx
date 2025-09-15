@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import opaqueService from "../services/opaque";
 
@@ -62,8 +62,6 @@ export default function SettingsSecurity() {
     }
   };
 
-  
-
   const getReauthToken = async (): Promise<string> => {
     try {
       const session = await api.getSession();
@@ -77,7 +75,7 @@ export default function SettingsSecurity() {
       opaqueService.clearState(start.state);
       const finishResp = await api.passwordVerifyFinish(finish.request, startResp.sessionId);
       return finishResp.reauth_token;
-    } catch (e) {
+    } catch (_e) {
       const askOtp = window.prompt("Enter a current OTP or backup code") || "";
       if (!askOtp) throw new Error("Verification required");
       const res = await api.otpReauth(askOtp);
@@ -142,25 +140,48 @@ export default function SettingsSecurity() {
           ) : (
             <>
               <div className="help-text">Scan the QR or use the URI below.</div>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginTop: 16, marginBottom: 20 }}>
-                <canvas ref={qrCanvasRef} width={192} height={192} style={{ background: "#fff", borderRadius: 8 }} />
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 16,
+                  marginTop: 16,
+                  marginBottom: 20,
+                }}
+              >
+                <canvas
+                  ref={qrCanvasRef}
+                  width={192}
+                  height={192}
+                  style={{ background: "#fff", borderRadius: 8 }}
+                />
                 <button
                   type="button"
                   onClick={() => setShowManual((v) => !v)}
-                  style={{ background: "none", border: "none", color: "var(--primary-500)", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--primary-500)",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    padding: 0,
+                  }}
                 >
                   {showManual ? "Hide secret" : "Can't scan? Show secret"}
                 </button>
                 {showManual && secret && (
                   <div style={{ maxWidth: 420, width: "100%" }}>
-                    <div style={{
-                      wordBreak: "break-all",
-                      background: "hsl(var(--muted))",
-                      padding: 8,
-                      borderRadius: 6,
-                      textAlign: "center",
-                      fontFamily: "monospace",
-                    }}>
+                    <div
+                      style={{
+                        wordBreak: "break-all",
+                        background: "hsl(var(--muted))",
+                        padding: 8,
+                        borderRadius: 6,
+                        textAlign: "center",
+                        fontFamily: "monospace",
+                      }}
+                    >
                       {secret}
                     </div>
                     <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
@@ -168,7 +189,9 @@ export default function SettingsSecurity() {
                         type="button"
                         className="secondary-button"
                         onClick={async () => {
-                          try { await navigator.clipboard.writeText(secret); } catch {}
+                          try {
+                            await navigator.clipboard.writeText(secret);
+                          } catch {}
                         }}
                       >
                         Copy secret
@@ -206,27 +229,52 @@ export default function SettingsSecurity() {
       {status?.enabled && !status.verified && (
         <div className="form-group">
           <h3>Complete Verification</h3>
-          <div className="help-text">Scan the QR or enter a code from your app or a backup code.</div>
+          <div className="help-text">
+            Scan the QR or enter a code from your app or a backup code.
+          </div>
           {provisioningUri && (
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginTop: 16, marginBottom: 20 }}>
-              <canvas ref={qrCanvasRef} width={192} height={192} style={{ background: "#fff", borderRadius: 8 }} />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 16,
+                marginTop: 16,
+                marginBottom: 20,
+              }}
+            >
+              <canvas
+                ref={qrCanvasRef}
+                width={192}
+                height={192}
+                style={{ background: "#fff", borderRadius: 8 }}
+              />
               <button
                 type="button"
                 onClick={() => setShowManual((v) => !v)}
-                style={{ background: "none", border: "none", color: "var(--primary-500)", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--primary-500)",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
               >
                 {showManual ? "Hide secret" : "Can't scan? Show secret"}
               </button>
               {showManual && secret && (
                 <div style={{ maxWidth: 420, width: "100%" }}>
-                  <div style={{
-                    wordBreak: "break-all",
-                    background: "hsl(var(--muted))",
-                    padding: 8,
-                    borderRadius: 6,
-                    textAlign: "center",
-                    fontFamily: "monospace",
-                  }}>
+                  <div
+                    style={{
+                      wordBreak: "break-all",
+                      background: "hsl(var(--muted))",
+                      padding: 8,
+                      borderRadius: 6,
+                      textAlign: "center",
+                      fontFamily: "monospace",
+                    }}
+                  >
                     {secret}
                   </div>
                   <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
@@ -234,7 +282,9 @@ export default function SettingsSecurity() {
                       type="button"
                       className="secondary-button"
                       onClick={async () => {
-                        try { await navigator.clipboard.writeText(secret); } catch {}
+                        try {
+                          await navigator.clipboard.writeText(secret);
+                        } catch {}
                       }}
                     >
                       Copy secret

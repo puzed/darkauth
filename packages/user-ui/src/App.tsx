@@ -4,9 +4,9 @@ import Authorize from "./components/Authorize";
 import ChangePasswordView from "./components/ChangePasswordView";
 import Dashboard from "./components/Dashboard";
 import LoginView from "./components/LoginView";
-import RegisterView from "./components/RegisterView";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
+import RegisterView from "./components/RegisterView";
 import SettingsSecurityView from "./components/SettingsSecurityView";
 import apiService from "./services/api";
 import { clearAllExportKeys } from "./services/sessionKey";
@@ -306,9 +306,13 @@ function OtpGate({ children }: { children: React.ReactNode }) {
       }
     })();
   }, []);
-  if (!ready) return (
-    <div className="loading-container"><div className="loading-spinner" /><p>Loading...</p></div>
-  );
+  if (!ready)
+    return (
+      <div className="loading-container">
+        <div className="loading-spinner" />
+        <p>Loading...</p>
+      </div>
+    );
   if (redirect) return <Navigate to={redirect} replace />;
   return <>{children}</>;
 }

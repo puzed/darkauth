@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import UserLayout from "./UserLayout";
-import SettingsSecurity from "./SettingsSecurity";
 import styles from "./ChangePasswordView.module.css";
+import SettingsSecurity from "./SettingsSecurity";
+import UserLayout from "./UserLayout";
 
 export default function SettingsSecurityView({
   sessionData,

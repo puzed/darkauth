@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
+import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import Button from "./Button";
 
@@ -76,32 +76,54 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
         <p>Loading...</p>
       </div>
     );
-  if (error)
-    return <div style={{ color: "hsl(var(--destructive))" }}>{error}</div>;
+  if (error) return <div style={{ color: "hsl(var(--destructive))" }}>{error}</div>;
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
       {step === "setup" && (
         <div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16, marginTop: 16, marginBottom: 20 }}>
-            <canvas ref={qrCanvasRef} width={192} height={192} style={{ background: "#fff", borderRadius: 8 }} />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 16,
+              marginTop: 16,
+              marginBottom: 20,
+            }}
+          >
+            <canvas
+              ref={qrCanvasRef}
+              width={192}
+              height={192}
+              style={{ background: "#fff", borderRadius: 8 }}
+            />
             <button
               type="button"
               onClick={() => setShowManual((v) => !v)}
-              style={{ background: "none", border: "none", color: "var(--primary-500)", textDecoration: "underline", cursor: "pointer", padding: 0 }}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--primary-500)",
+                textDecoration: "underline",
+                cursor: "pointer",
+                padding: 0,
+              }}
             >
               {showManual ? "Hide secret" : "Can't scan? Show secret"}
             </button>
             {showManual && secret && (
               <div style={{ maxWidth: 420, width: "100%" }}>
-                <div style={{
-                  wordBreak: "break-all",
-                  background: "hsl(var(--muted))",
-                  padding: 8,
-                  borderRadius: 6,
-                  textAlign: "center",
-                  fontFamily: "monospace",
-                }}>
+                <div
+                  style={{
+                    wordBreak: "break-all",
+                    background: "hsl(var(--muted))",
+                    padding: 8,
+                    borderRadius: 6,
+                    textAlign: "center",
+                    fontFamily: "monospace",
+                  }}
+                >
                   {secret}
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
@@ -109,7 +131,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                     type="button"
                     className="secondary-button"
                     onClick={async () => {
-                      try { if (secret) await navigator.clipboard.writeText(secret); } catch {}
+                      try {
+                        if (secret) await navigator.clipboard.writeText(secret);
+                      } catch {}
                     }}
                   >
                     Copy secret
@@ -118,12 +142,19 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
               </div>
             )}
           </div>
-          <div className="help-text" style={{ textAlign: "center" }}>Enter the 6-digit code to verify:</div>
+          <div className="help-text" style={{ textAlign: "center" }}>
+            Enter the 6-digit code to verify:
+          </div>
           <input
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="123456"
-            style={{ width: fullWidth ? "100%" : 192, padding: 8, margin: fullWidth ? "8px 0 10px" : "8px auto 10px", display: "block" }}
+            style={{
+              width: fullWidth ? "100%" : 192,
+              padding: 8,
+              margin: fullWidth ? "8px 0 10px" : "8px auto 10px",
+              display: "block",
+            }}
             maxLength={6}
             inputMode="numeric"
             pattern="[0-9]*"
@@ -138,10 +169,14 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
           {backupCodes && (
             <div style={{ marginTop: 20 }}>
               <h3>Backup Codes</h3>
-              <div className="help-text">Write these down and store them securely. Each can be used once.</div>
+              <div className="help-text">
+                Write these down and store them securely. Each can be used once.
+              </div>
               <ul style={{ listStyle: "none", padding: 0, marginTop: 10 }}>
                 {backupCodes.map((c) => (
-                  <li key={c} style={{ fontFamily: "monospace", margin: "4px 0" }}>{c}</li>
+                  <li key={c} style={{ fontFamily: "monospace", margin: "4px 0" }}>
+                    {c}
+                  </li>
                 ))}
               </ul>
               <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
@@ -149,7 +184,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   type="button"
                   className="secondary-button"
                   onClick={async () => {
-                    try { await navigator.clipboard.writeText(backupCodes.join("\n")); } catch {}
+                    try {
+                      await navigator.clipboard.writeText(backupCodes.join("\n"));
+                    } catch {}
                   }}
                 >
                   Copy
@@ -178,7 +215,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                     const content = backupCodes.join("\n");
                     const w = window.open("", "_blank");
                     if (w) {
-                      w.document.write(`<pre>${content.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`);
+                      w.document.write(
+                        `<pre>${content.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`
+                      );
                       w.document.close();
                       w.focus();
                       w.print();
@@ -188,7 +227,12 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   Print
                 </button>
               </div>
-              <div style={{ width: fullWidth ? "100%" : 192, margin: fullWidth ? "16px 0 0" : "16px auto 0" }}>
+              <div
+                style={{
+                  width: fullWidth ? "100%" : 192,
+                  margin: fullWidth ? "16px 0 0" : "16px auto 0",
+                }}
+              >
                 <Button onClick={() => window.location.replace("/dashboard")} fullWidth={true}>
                   Continue
                 </Button>
