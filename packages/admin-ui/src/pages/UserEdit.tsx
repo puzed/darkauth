@@ -5,7 +5,7 @@ import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import TagMultiSelect from "@/components/ui/tag-multi-select";
@@ -22,6 +22,12 @@ export default function UserEdit() {
   const [name, setName] = useState("");
   const [allGroups, setAllGroups] = useState<Group[]>([]);
   const [groupKeys, setGroupKeys] = useState<string[]>([]);
+  const [otpStatus, setOtpStatus] = useState<{
+    enabled: boolean;
+    verified: boolean;
+    created_at?: string | null;
+    last_used_at?: string | null;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -41,6 +47,10 @@ export default function UserEdit() {
         adminApiService.getGroups(),
         adminApiService.getUserGroups(u.sub),
       ]);
+      try {
+        const s = await adminApiService.getUserOtpStatus(u.sub);
+        setOtpStatus(s);
+      } catch {}
       setAllGroups(groups);
       setGroupKeys(userGroupKeys);
     } catch (e) {
@@ -98,6 +108,16 @@ export default function UserEdit() {
       <Card>
         <CardHeader>
           <CardTitle>User Details</CardTitle>
+          {otpStatus && (
+            <CardDescription>
+              OTP:{" "}
+              {otpStatus.enabled
+                ? otpStatus.verified
+                  ? "Enabled (Verified)"
+                  : "Enabled (Unverified)"
+                : "Disabled"}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
           {user?.passwordResetRequired && (
@@ -139,6 +159,28 @@ export default function UserEdit() {
             </FormField>
           </FormGrid>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+            {user && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await adminApiService.unlockUserOtp(user.sub);
+                    load();
+                  }}
+                >
+                  Unlock OTP
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    await adminApiService.deleteUserOtp(user.sub);
+                    load();
+                  }}
+                >
+                  Remove OTP
+                </Button>
+              </>
+            )}
             <Button variant="outline" onClick={() => navigate("/users")}>
               Back
             </Button>

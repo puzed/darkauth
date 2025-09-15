@@ -62,6 +62,8 @@ export interface AdminSessionResponse {
   email?: string;
   role?: "read" | "write";
   passwordResetRequired?: boolean;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
 }
 
 // Users Management
@@ -114,6 +116,7 @@ export interface Group {
   key: string;
   name: string;
   enableLogin?: boolean;
+  requireOtp?: boolean;
   permissions?: string[];
   permissionCount?: number;
   userCount?: number;
@@ -480,6 +483,30 @@ class AdminApiService {
     return this.request("/session");
   }
 
+  async getOwnOtpStatus(): Promise<{
+    enabled: boolean;
+    verified: boolean;
+    created_at?: string | null;
+    last_used_at?: string | null;
+  }> {
+    return this.request("/otp/status");
+  }
+  async ownOtpSetupInit(): Promise<{ secret: string; provisioning_uri: string }> {
+    return this.request("/otp/setup/init", { method: "POST" });
+  }
+  async ownOtpSetupVerify(code: string): Promise<{ success: boolean; backup_codes: string[] }> {
+    return this.request("/otp/setup/verify", { method: "POST", body: JSON.stringify({ code }) });
+  }
+  async ownOtpVerify(code: string): Promise<{ success: boolean }> {
+    return this.request("/otp/verify", { method: "POST", body: JSON.stringify({ code }) });
+  }
+  async ownOtpDisable(): Promise<{ success: boolean }> {
+    return this.request("/otp/disable", { method: "POST" });
+  }
+  async ownOtpBackupCodesRegenerate(): Promise<{ backup_codes: string[] }> {
+    return this.request("/otp/backup-codes/regenerate", { method: "POST" });
+  }
+
   async logout(): Promise<void> {
     await this.request("/logout", {
       method: "POST",
@@ -675,6 +702,7 @@ class AdminApiService {
     key: string;
     name: string;
     enableLogin?: boolean;
+    requireOtp?: boolean;
     permissionKeys?: string[];
   }): Promise<void> {
     await this.request("/groups", {
@@ -685,7 +713,12 @@ class AdminApiService {
 
   async updateGroup(
     groupKey: string,
-    updates: { name?: string; enableLogin?: boolean; permissionKeys?: string[] }
+    updates: {
+      name?: string;
+      enableLogin?: boolean;
+      requireOtp?: boolean;
+      permissionKeys?: string[];
+    }
   ): Promise<void> {
     await this.request(`/groups/${groupKey}`, {
       method: "PUT",
@@ -697,6 +730,23 @@ class AdminApiService {
     await this.request(`/groups/${groupKey}`, {
       method: "DELETE",
     });
+  }
+
+  async getUserOtpStatus(userSub: string): Promise<{
+    enabled: boolean;
+    verified: boolean;
+    created_at?: string | null;
+    last_used_at?: string | null;
+    failure_count?: number;
+    locked_until?: string | null;
+  }> {
+    return this.request(`/users/${userSub}/otp`);
+  }
+  async deleteUserOtp(userSub: string): Promise<void> {
+    await this.request(`/users/${userSub}/otp`, { method: "DELETE" });
+  }
+  async unlockUserOtp(userSub: string): Promise<void> {
+    await this.request(`/users/${userSub}/otp/unlock`, { method: "POST" });
   }
 
   // Permissions Management

@@ -36,6 +36,7 @@ export default function GroupEdit() {
   const [group, setGroup] = useState<Group | null>(null);
   const [name, setName] = useState("");
   const [enableLogin, setEnableLogin] = useState(true);
+  const [requireOtp, setRequireOtp] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [groupUsers, setGroupUsers] = useState<
@@ -67,6 +68,7 @@ export default function GroupEdit() {
       setGroup(foundGroup);
       setName(foundGroup.name);
       setEnableLogin(foundGroup.enableLogin !== false);
+      setRequireOtp(foundGroup.requireOtp === true);
       setPermissions(permissionsData);
 
       // Since the API doesn't return permissions in the group object yet,
@@ -106,6 +108,7 @@ export default function GroupEdit() {
       await adminApiService.updateGroup(group.key, {
         name,
         enableLogin,
+        requireOtp,
         permissionKeys: selectedPermissions,
       });
 
@@ -235,6 +238,19 @@ export default function GroupEdit() {
                   />
                   <Label htmlFor={enableLoginId} style={{ fontWeight: 400 }}>
                     Members of this group are permitted to sign in
+                  </Label>
+                </div>
+              </FormField>
+              <FormField label={<Label>Require OTP</Label>}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Checkbox
+                    id={`${enableLoginId}-require-otp`}
+                    checked={requireOtp}
+                    onCheckedChange={(v) => setRequireOtp(v === true)}
+                    disabled={submitting}
+                  />
+                  <Label htmlFor={`${enableLoginId}-require-otp`} style={{ fontWeight: 400 }}>
+                    Members must complete OTP when this group permits login
                   </Label>
                 </div>
               </FormField>
