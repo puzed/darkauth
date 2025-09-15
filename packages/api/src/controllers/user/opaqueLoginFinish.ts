@@ -123,7 +123,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
 
         // Enforce group login gating: must belong to at least one group with enable_login = true
         let hasEnabledGroup = false;
-        try {
+        {
           const { and } = await import("drizzle-orm");
           const rows = await context.db
             .select({ groupKey: userGroups.groupKey })
@@ -132,23 +132,46 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
             .where(and(eq(userGroups.userSub, user.sub), eq(groups.enableLogin, true)))
             .limit(1);
           hasEnabledGroup = rows.length > 0;
-        } catch {
-          const rows = await context.db
-            .select({ groupKey: userGroups.groupKey })
-            .from(userGroups)
-            .where(eq(userGroups.userSub, user.sub))
-            .limit(1);
-          hasEnabledGroup = rows.length > 0;
         }
         if (!hasEnabledGroup) {
           throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
         }
+
+        let otpRequired = false;
+        try {
+          const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
+          if (
+            s &&
+            typeof s === "object" &&
+            (s as { require_for_users?: boolean }).require_for_users === true
+          ) {
+            otpRequired = true;
+          }
+        } catch {}
+        try {
+          const { and } = await import("drizzle-orm");
+          const rows = await context.db
+            .select({ groupKey: userGroups.groupKey })
+            .from(userGroups)
+            .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+            .where(
+              and(
+                eq(userGroups.userSub, user.sub),
+                eq(groups.enableLogin, true),
+                eq(groups.requireOtp, true)
+              )
+            )
+            .limit(1);
+          if (rows.length > 0) otpRequired = true;
+        } catch {}
 
         // Create user session
         const { sessionId: createdSessionId, refreshToken } = await createSession(context, "user", {
           sub: user.sub,
           email: user.email || undefined,
           name: user.name || undefined,
+          otpRequired: otpRequired,
+          otpVerified: false,
         });
 
         // Return session token as Bearer token
@@ -159,6 +182,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
           user: { sub: user.sub, email: user.email, name: user.name },
           accessToken: createdSessionId, // Use sessionId as bearer token
           refreshToken,
+          otpRequired,
         };
 
         sendJson(response, 200, responseData);

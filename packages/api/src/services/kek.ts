@@ -7,12 +7,13 @@ export async function createKekService(passphrase: string, params: KdfParams) {
   const kek = await deriveKek(passphrase, params);
 
   return {
-    async encrypt(data: Buffer): Promise<Buffer> {
-      const { ciphertext, iv, tag } = encryptAesGcm(data, kek);
+    async encrypt(data: Buffer, aad?: string | Buffer): Promise<Buffer> {
+      const aadBuf = typeof aad === "string" ? Buffer.from(aad, "utf8") : aad;
+      const { ciphertext, iv, tag } = encryptAesGcm(data, kek, aadBuf);
       return Buffer.concat([iv, tag, ciphertext]);
     },
 
-    async decrypt(encryptedData: Buffer): Promise<Buffer> {
+    async decrypt(encryptedData: Buffer, aad?: string | Buffer): Promise<Buffer> {
       if (encryptedData.length < 28) {
         throw new Error("Invalid encrypted data format");
       }
@@ -21,7 +22,8 @@ export async function createKekService(passphrase: string, params: KdfParams) {
       const tag = encryptedData.subarray(12, 28);
       const ciphertext = encryptedData.subarray(28);
 
-      return decryptAesGcm(ciphertext, kek, iv, tag);
+      const aadBuf = typeof aad === "string" ? Buffer.from(aad, "utf8") : aad;
+      return decryptAesGcm(ciphertext, kek, iv, tag, aadBuf);
     },
 
     isAvailable(): boolean {

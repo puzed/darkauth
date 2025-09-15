@@ -12,6 +12,7 @@ const GroupSchema = z.object({
   key: z.string(),
   name: z.string(),
   enableLogin: z.boolean().optional(),
+  requireOtp: z.boolean().optional(),
   permissionCount: z.number().int().nonnegative().optional(),
   userCount: z.number().int().nonnegative().optional(),
 });

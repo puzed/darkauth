@@ -72,6 +72,13 @@ export const DEFAULT_RATE_LIMITS = {
   // Admin endpoints
   admin: { windowMs: 1 * 60 * 1000, maxRequests: 50, enabled: true },
 
+  // OTP endpoints
+  otp: { windowMs: 15 * 60 * 1000, maxRequests: 10, enabled: true },
+  otp_setup: { windowMs: 60 * 60 * 1000, maxRequests: 3, enabled: true },
+  otp_verify: { windowMs: 60 * 60 * 1000, maxRequests: 10, enabled: true },
+  otp_disable: { windowMs: 60 * 60 * 1000, maxRequests: 5, enabled: true },
+  otp_regenerate: { windowMs: 60 * 60 * 1000, maxRequests: 5, enabled: true },
+
   // Install endpoint
   install: { windowMs: 60 * 60 * 1000, maxRequests: 3, enabled: true },
 };
@@ -102,7 +109,19 @@ export async function getRateLimitConfig(
       const { getSetting } = await import("../services/settings.js");
       const obj = (await getSetting(context, "rate_limits")) as DbRateLimitSettings | null;
       const flat: DbRateLimitSettings = {};
-      const types: RateLimitType[] = ["general", "auth", "opaque", "token", "admin", "install"];
+      const types: RateLimitType[] = [
+        "general",
+        "auth",
+        "opaque",
+        "token",
+        "admin",
+        "install",
+        "otp",
+        "otp_setup",
+        "otp_verify",
+        "otp_disable",
+        "otp_regenerate",
+      ];
       for (const t of types) {
         const w = (await getSetting(context, `rate_limits.${t}.window_minutes`)) as
           | number

@@ -48,15 +48,50 @@ export async function postUserPasswordVerifyStart(
     if (!user || !envelope || !serverPubkey) {
       throw new ValidationError("User has no authentication record");
     }
+    const envelopeBuf: Buffer =
+      typeof envelope === "string"
+        ? Buffer.from((envelope as string).replace(/^\\x/i, ""), "hex")
+        : (envelope as Buffer);
+    const serverPubkeyBuf: Buffer =
+      typeof serverPubkey === "string"
+        ? Buffer.from((serverPubkey as string).replace(/^\\x/i, ""), "hex")
+        : (serverPubkey as Buffer);
 
-    const loginResponse = await context.services.opaque.startLogin(
-      requestBuffer,
-      {
-        envelope: new Uint8Array(envelope as Buffer),
-        serverPublicKey: new Uint8Array(serverPubkey as Buffer),
-      },
-      session.email
-    );
+    if (!envelopeBuf || envelopeBuf.length === 0 || !serverPubkeyBuf || serverPubkeyBuf.length === 0) {
+      throw new ValidationError("User has no authentication record");
+    }
+
+    try {
+      context.logger.debug(
+        {
+          path: "/password/change/verify/start",
+          envelopeLen: envelopeBuf.length,
+          serverPubkeyLen: serverPubkeyBuf.length,
+          email: session.email,
+        },
+        "password verify start pre"
+      );
+    } catch {}
+
+    let loginResponse;
+    try {
+      loginResponse = await context.services.opaque.startLogin(
+        requestBuffer,
+        {
+          envelope: new Uint8Array(envelopeBuf),
+          serverPublicKey: new Uint8Array(serverPubkeyBuf),
+        },
+        session.email
+      );
+    } catch (err) {
+      try {
+        context.logger.error(
+          { path: "/password/change/verify/start", email: session.email, error: (err as Error)?.message },
+          "password verify start failed"
+        );
+      } catch {}
+      throw new ValidationError("User has no authentication record");
+    }
 
     sendJson(response, 200, {
       message: toBase64Url(Buffer.from(loginResponse.message)),

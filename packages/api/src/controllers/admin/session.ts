@@ -14,6 +14,8 @@ export const AdminSessionResponseSchema = z.object({
   name: z.string(),
   role: z.enum(["read", "write"]),
   passwordResetRequired: z.boolean(),
+  otpRequired: z.boolean().optional(),
+  otpVerified: z.boolean().optional(),
 });
 
 import { getAdminById } from "../../models/adminUsers.js";
@@ -50,6 +52,8 @@ export async function getAdminSession(
     name: sessionData.name,
     role: sessionData.adminRole,
     passwordResetRequired: resetRequired,
+    otpRequired: !!sessionData.otpRequired,
+    otpVerified: !!sessionData.otpVerified,
   };
 
   sendJsonValidated(response, 200, responseData, AdminSessionResponseSchema);
