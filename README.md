@@ -11,6 +11,7 @@ DarkAuth is open source and self-hosted. There is no paid plan, subscription, or
 - **Zero-Knowledge Password Auth**: OPAQUE protocol ensures passwords never reach the server
 - **OIDC Compatible**: Standard OAuth 2.0/OpenID Connect for universal compatibility
 - **Zero-Knowledge DRK Delivery**: Optional fragment-based JWE delivery for trusted clients
+- **TOTP MFA**: Time-based one-time passwords for users and admins with backup codes, rate limits, and per-group enforcement
 - **Database-Backed Configuration**: Most settings stored in PostgreSQL; minimal `config.yaml` for bootstrap
 - **Two-Port Architecture**: Separate ports for user (9080) and admin (9081). First-run installer is served on the admin port until setup completes.
 - **Secure Key Storage**: Optional encryption of private keys at rest using Argon2id-derived KEK
@@ -170,6 +171,7 @@ All configuration and state stored in PostgreSQL:
 - **wrapped_root_keys**: Encrypted DRK storage
 - **auth_codes**: Authorization codes
 - **sessions**: Active sessions
+- **otp_configs / otp_backup_codes**: OTP configuration and backup codes
 - **pending_auth**: In-progress auth requests
 - **admin_users**: Admin accounts (separate cohort)
 - **permissions/groups**: RBAC configuration
@@ -247,6 +249,22 @@ rpId: "localhost"         # Relying party identifier
 - `POST /api/opaque/login/start`
 - `POST /api/opaque/login/finish`
 
+### OTP (TOTP) — User
+- `POST /api/otp/setup/init`
+- `POST /api/otp/setup/verify`
+- `GET /api/otp/status`
+- `POST /api/otp/verify`
+- `POST /api/otp/disable`
+- `POST /api/otp/backup-codes/regenerate`
+
+### OTP (TOTP) — Admin
+- `POST /api/admin/otp/setup/init`
+- `POST /api/admin/otp/setup/verify`
+- `GET /api/admin/otp/status`
+- `POST /api/admin/otp/verify`
+- `POST /api/admin/otp/disable`
+- `POST /api/admin/otp/backup-codes/regenerate`
+
 ### DRK Management
 - `GET /api/crypto/wrapped-drk` - Retrieve wrapped DRK
 - `PUT /api/crypto/wrapped-drk` - Store wrapped DRK
@@ -254,6 +272,8 @@ rpId: "localhost"         # Relying party identifier
 ### Session
 - `GET /api/session` - Current session info
 - `POST /api/logout` - End session
+
+When OTP is enabled and required, login creates a partial session with `data.otp_required=true`. After successful OTP verification, the session includes `data.otp_verified=true`. AMR includes `otp` and ACR is `urn:ietf:params:acr:mfa`.
 
 ### Admin API (Port 9081)
 - `/api/admin/users` - User management
@@ -334,6 +354,7 @@ npm run test:debug
 5. **CSP Headers** - Strict Content Security Policy enforced
 6. **Rate limiting** - Configurable per endpoint
 7. **Session security** - Short-lived sessions with CSRF protection
+8. **OTP hardening** - Secrets encrypted with KEK, backup codes hashed with Argon2, anti-replay via timestep tracking, cohort/group enforcement, AMR/ACR reflect MFA
 
 ## Support
 

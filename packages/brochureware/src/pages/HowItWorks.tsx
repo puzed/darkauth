@@ -282,8 +282,20 @@ const HowItWorksPage = () => {
       </Section>
 
       <Section>
-        <div className="text-sm text-muted-foreground">
-          See more in <a href="/security" className="text-primary hover:underline">Security</a> and the OIDC extension spec.
+        <div className="grid md:grid-cols-2 gap-6 items-start">
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-6">
+              <h3 className="text-lg font-semibold mb-2">Login Gating with OTP</h3>
+              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
+                <li>When required and configured, finish login → verify at /otp/verify</li>
+                <li>When required and not configured, finish login → setup at /otp/setup?forced=1</li>
+                <li>Route guards enforce OTP until verified; success returns to the dashboard</li>
+              </ul>
+            </CardContent>
+          </Card>
+          <div className="text-sm text-muted-foreground">
+            See more in <a href="/security" className="text-primary hover:underline">Security</a> and the OTP specification.
+          </div>
         </div>
       </Section>
 

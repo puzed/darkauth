@@ -61,6 +61,7 @@ const SecurityPage = () => {
           <KeyPoint icon={Hash} title="Integrity Binding" text="Token responses include zk_drk_hash so apps can verify the fragment JWE before decryption." />
           <KeyPoint icon={EyeOff} title="No Sensitive Logging" text="zk_pub, DRK, JWE ciphertext, export_key, and derived keys are never logged." />
           <KeyPoint icon={Network} title="OIDC Compatibility" text="Standard discovery, authorization, and token endpoints; ZK is opt-in per client." />
+          <KeyPoint icon={ShieldCheck} title="MFA via TOTP" text="Time-based OTP with backup codes, cohort and group enforcement, rate limits, and AMR/ACR signals in tokens." />
         </div>
       </Section>
 

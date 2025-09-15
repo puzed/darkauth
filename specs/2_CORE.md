@@ -260,6 +260,10 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 ---
 
+### 6.1 OTP Gating (MFA Overview)
+
+After OPAQUE login completes, DarkAuth can require a second factor using TOTP. When OTP is enabled and required by cohort or group policy, the server creates a partial session with `data.otp_required=true` and the UI redirects to the OTP flow. On successful verification, the session includes `data.otp_verified=true` and normal navigation resumes. ID tokens for MFA sessions include `amr=['pwd','otp']` and `acr='urn:ietf:params:acr:mfa'`. Implementation details, endpoints, and schema are defined in specs/9_OTP.md.
+
 ## 7. HTTP Endpoints (precise)
 
 All endpoints in this section are served on port `9080` (user). Admin UI/API runs on port `9081`.
