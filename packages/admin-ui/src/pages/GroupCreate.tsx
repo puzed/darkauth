@@ -17,6 +17,7 @@ export default function GroupCreate() {
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [enableLogin, setEnableLogin] = useState(true);
+  const [requireOtp, setRequireOtp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [loadingPermissions, setLoadingPermissions] = useState(true);
@@ -73,6 +74,7 @@ export default function GroupCreate() {
         key,
         name,
         enableLogin,
+        requireOtp,
         permissionKeys: selectedPermissions,
       });
 
@@ -155,6 +157,18 @@ export default function GroupCreate() {
                   />
                   <Label htmlFor={enableLoginId} style={{ fontWeight: 400 }}>
                     Members of this group are permitted to sign in
+                  </Label>
+                </div>
+              </FormField>
+              <FormField label={<Label>Require OTP</Label>}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Checkbox
+                    id={`${enableLoginId}-require-otp`}
+                    checked={requireOtp}
+                    onCheckedChange={(v) => setRequireOtp(v === true)}
+                  />
+                  <Label htmlFor={`${enableLoginId}-require-otp`} style={{ fontWeight: 400 }}>
+                    Members must complete OTP when this group permits login
                   </Label>
                 </div>
               </FormField>
