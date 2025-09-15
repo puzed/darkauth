@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { verifyOtpCode } from "../../models/otp.js";
+import { signJWT } from "../../services/jwks.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, JWTPayload } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
-import { signJWT } from "../../services/jwks.js";
 
 export const postOtpReauth = withAudit({ eventType: "OTP_REAUTH", resourceType: "user" })(
   withRateLimit("otp_verify")(async function postOtpReauth(
@@ -27,4 +27,3 @@ export const postOtpReauth = withAudit({ eventType: "OTP_REAUTH", resourceType: 
     sendJson(response, 200, { reauth_token: token });
   })
 );
-

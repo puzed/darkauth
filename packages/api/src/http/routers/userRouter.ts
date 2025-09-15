@@ -11,11 +11,11 @@ import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterF
 import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.js";
 import { postOtpBackupCodesRegenerate } from "../../controllers/user/otpBackupCodesRegenerate.js";
 import { postOtpDisable } from "../../controllers/user/otpDisable.js";
+import { postOtpReauth } from "../../controllers/user/otpReauth.js";
 import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.js";
 import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.js";
 import { getOtpStatus } from "../../controllers/user/otpStatus.js";
 import { postOtpVerify } from "../../controllers/user/otpVerify.js";
-import { postOtpReauth } from "../../controllers/user/otpReauth.js";
 import { postUserPasswordChangeFinish } from "../../controllers/user/passwordChangeFinish.js";
 import { postUserPasswordChangeStart } from "../../controllers/user/passwordChangeStart.js";
 import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordChangeVerifyFinish.js";
