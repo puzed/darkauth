@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { deleteAdminUserOtp, getAdminUserOtp } from "../../controllers/admin/adminOtp.js";
 import { createAdminUserController } from "../../controllers/admin/adminUserCreate.js";
 import { deleteAdminUserController } from "../../controllers/admin/adminUserDelete.js";
 import { postAdminUserPasswordReset } from "../../controllers/admin/adminUserPasswordReset.js";
@@ -24,6 +25,14 @@ import { rotateJwks } from "../../controllers/admin/jwksRotate.js";
 import { postAdminLogout } from "../../controllers/admin/logout.js";
 import { postAdminOpaqueLoginFinish } from "../../controllers/admin/opaqueLoginFinish.js";
 import { postAdminOpaqueLoginStart } from "../../controllers/admin/opaqueLoginStart.js";
+import {
+  getAdminOtpStatus,
+  postAdminOtpBackupCodesRegenerate,
+  postAdminOtpDisable,
+  postAdminOtpSetupInit,
+  postAdminOtpSetupVerify,
+  postAdminOtpVerify,
+} from "../../controllers/admin/otp.js";
 import { postAdminPasswordChangeFinish } from "../../controllers/admin/passwordChangeFinish.js";
 import { postAdminPasswordChangeStart } from "../../controllers/admin/passwordChangeStart.js";
 import { createPermission } from "../../controllers/admin/permissionCreate.js";
@@ -37,6 +46,9 @@ import { createUser } from "../../controllers/admin/userCreate.js";
 import { deleteUser } from "../../controllers/admin/userDelete.js";
 import { getUserGroups } from "../../controllers/admin/userGroups.js";
 import { updateUserGroups } from "../../controllers/admin/userGroupsUpdate.js";
+import { getUserOtp } from "../../controllers/admin/userOtp.js";
+import { deleteUserOtp } from "../../controllers/admin/userOtpDelete.js";
+import { postUserOtpUnlock } from "../../controllers/admin/userOtpUnlock.js";
 import { postUserPasswordReset } from "../../controllers/admin/userPasswordReset.js";
 import { postUserPasswordSetFinish } from "../../controllers/admin/userPasswordSetFinish.js";
 import { postUserPasswordSetStart } from "../../controllers/admin/userPasswordSetStart.js";
@@ -167,6 +179,22 @@ export function createAdminRouter(context: Context) {
         }
       }
 
+      const userOtpMatch = pathname.match(/^\/admin\/users\/([^/]+)\/otp$/);
+      if (userOtpMatch) {
+        const userSub = userOtpMatch[1];
+        if (method === "GET")
+          return await getUserOtp(context, request, response, userSub as string);
+        if (method === "DELETE")
+          return await deleteUserOtp(context, request, response, userSub as string);
+      }
+
+      const userOtpUnlockMatch = pathname.match(/^\/admin\/users\/([^/]+)\/otp\/unlock$/);
+      if (userOtpUnlockMatch) {
+        const userSub = userOtpUnlockMatch[1];
+        if (method === "POST")
+          return await postUserOtpUnlock(context, request, response, userSub as string);
+      }
+
       if (pathname === "/admin/groups") {
         if (method === "GET") return await getGroups(context, request, response);
         if (method === "POST") return await createGroup(context, request, response);
@@ -213,6 +241,15 @@ export function createAdminRouter(context: Context) {
           return await updateAdminUserController(context, request, response, adminId as string);
         if (method === "DELETE")
           return await deleteAdminUserController(context, request, response, adminId as string);
+      }
+
+      const adminUserOtpMatch = pathname.match(/^\/admin\/admins\/([^/]+)\/otp$/);
+      if (adminUserOtpMatch) {
+        const adminId = adminUserOtpMatch[1];
+        if (method === "GET")
+          return await getAdminUserOtp(context, request, response, adminId as string);
+        if (method === "DELETE")
+          return await deleteAdminUserOtp(context, request, response, adminId as string);
       }
 
       const adminResetMatch = pathname.match(/^\/admin\/admin-users\/([^/]+)\/password\/reset$/);
@@ -267,6 +304,25 @@ export function createAdminRouter(context: Context) {
       if (pathname === "/admin/jwks") {
         if (method === "GET") return await getJwks(context, request, response);
         if (method === "POST") return await rotateJwks(context, request, response);
+      }
+
+      if (pathname === "/admin/otp/status" && method === "GET") {
+        return await getAdminOtpStatus(context, request, response);
+      }
+      if (pathname === "/admin/otp/setup/init" && method === "POST") {
+        return await postAdminOtpSetupInit(context, request, response);
+      }
+      if (pathname === "/admin/otp/setup/verify" && method === "POST") {
+        return await postAdminOtpSetupVerify(context, request, response);
+      }
+      if (pathname === "/admin/otp/verify" && method === "POST") {
+        return await postAdminOtpVerify(context, request, response);
+      }
+      if (pathname === "/admin/otp/disable" && method === "POST") {
+        return await postAdminOtpDisable(context, request, response);
+      }
+      if (pathname === "/admin/otp/backup-codes/regenerate" && method === "POST") {
+        return await postAdminOtpBackupCodesRegenerate(context, request, response);
       }
 
       if (pathname === "/admin/audit-logs") {

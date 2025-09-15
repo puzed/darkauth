@@ -25,7 +25,11 @@ async function updateGroupHandler(
   }
 
   const raw = await readBody(request);
-  const data = parseJsonSafely(raw) as { name?: string; enableLogin?: boolean };
+  const data = parseJsonSafely(raw) as {
+    name?: string;
+    enableLogin?: boolean;
+    requireOtp?: boolean;
+  };
   if (data.name !== undefined && typeof data.name !== "string") {
     sendJson(response, 400, { error: "Invalid name" });
     return;
@@ -34,13 +38,18 @@ async function updateGroupHandler(
     sendJson(response, 400, { error: "Invalid enableLogin" });
     return;
   }
-  if (data.name === undefined && data.enableLogin === undefined) {
+  if (data.requireOtp !== undefined && typeof data.requireOtp !== "boolean") {
+    sendJson(response, 400, { error: "Invalid requireOtp" });
+    return;
+  }
+  if (data.name === undefined && data.enableLogin === undefined && data.requireOtp === undefined) {
     sendJson(response, 400, { error: "No updates provided" });
     return;
   }
   const result = await updateGroup(context, key, {
     name: data.name,
     enableLogin: data.enableLogin,
+    requireOtp: data.requireOtp,
   });
   sendJson(response, 200, result);
 }
@@ -52,7 +61,11 @@ export const updateGroupController = withAudit({
 })(updateGroupHandler);
 
 export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({ name: z.string().min(1).optional(), enableLogin: z.boolean().optional() });
+  const Req = z.object({
+    name: z.string().min(1).optional(),
+    enableLogin: z.boolean().optional(),
+    requireOtp: z.boolean().optional(),
+  });
   registry.registerPath({
     method: "put",
     path: "/admin/groups/{key}",

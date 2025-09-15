@@ -28,10 +28,12 @@ export function constantTimeCompare(a: string, b: string): boolean {
 
 export function encryptAesGcm(
   plaintext: Buffer,
-  key: Buffer
+  key: Buffer,
+  aad?: Buffer
 ): { ciphertext: Buffer; iv: Buffer; tag: Buffer } {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
+  if (aad && aad.length > 0) cipher.setAAD(aad);
 
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
 
@@ -40,8 +42,15 @@ export function encryptAesGcm(
   return { ciphertext, iv, tag };
 }
 
-export function decryptAesGcm(ciphertext: Buffer, key: Buffer, iv: Buffer, tag: Buffer): Buffer {
+export function decryptAesGcm(
+  ciphertext: Buffer,
+  key: Buffer,
+  iv: Buffer,
+  tag: Buffer,
+  aad?: Buffer
+): Buffer {
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
+  if (aad && aad.length > 0) decipher.setAAD(aad);
   decipher.setAuthTag(tag);
 
   return Buffer.concat([decipher.update(ciphertext), decipher.final()]);

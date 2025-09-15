@@ -174,6 +174,25 @@ export async function requireSession(
     throw new UnauthorizedError("User session required");
   }
 
+  if (!isAdmin && sessionData.sub) {
+    const url = new URL(request.url || "", `http://${request.headers.host}`);
+    const path = url.pathname || "";
+    const otpAllowed = path.startsWith("/otp/") || path === "/logout" || path === "/session";
+    if (sessionData.otpRequired && !sessionData.otpVerified && !otpAllowed) {
+      throw new UnauthorizedError("OTP verification required");
+    }
+  }
+
+  if (isAdmin && sessionData.adminId) {
+    const url = new URL(request.url || "", `http://${request.headers.host}`);
+    const path = url.pathname || "";
+    const otpAllowed =
+      path.startsWith("/admin/otp/") || path === "/admin/session" || path === "/admin/logout";
+    if (sessionData.otpRequired && !sessionData.otpVerified && !otpAllowed) {
+      throw new UnauthorizedError("OTP verification required");
+    }
+  }
+
   await refreshSession(context, sessionId);
 
   return sessionData;

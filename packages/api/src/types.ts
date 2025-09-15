@@ -257,6 +257,8 @@ export interface SessionData {
   adminId?: string;
   adminRole?: "read" | "write";
   pendingAuthId?: string;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
 }
 
 export interface InstallRequest {
