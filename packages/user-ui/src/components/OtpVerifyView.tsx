@@ -2,8 +2,8 @@ import { useEffect, useId, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import api from "../services/api";
-import styles from "./LoginView.module.css";
 import btnStyles from "./Login.module.css";
+import styles from "./LoginView.module.css";
 import ThemeToggle from "./ThemeToggle";
 
 export default function OtpVerifyView() {
@@ -81,12 +81,16 @@ export default function OtpVerifyView() {
                 onChange={(e) => {
                   const v = e.target.value;
                   if (useBackup) {
-                    const raw = v.replace(/[^0-9a-zA-Z]/g, "").toUpperCase().slice(0, 12);
-                    const formatted = raw.length <= 4
-                      ? raw
-                      : raw.length <= 8
-                      ? `${raw.slice(0, 4)}-${raw.slice(4)}`
-                      : `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
+                    const raw = v
+                      .replace(/[^0-9a-zA-Z]/g, "")
+                      .toUpperCase()
+                      .slice(0, 12);
+                    const formatted =
+                      raw.length <= 4
+                        ? raw
+                        : raw.length <= 8
+                          ? `${raw.slice(0, 4)}-${raw.slice(4)}`
+                          : `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
                     setCode(formatted);
                   } else {
                     setCode(v);
@@ -112,7 +116,9 @@ export default function OtpVerifyView() {
             <button
               type="submit"
               className={btnStyles.primaryButton}
-              disabled={loading || (!useBackup && code.length < 6) || (useBackup && code.length < 14)}
+              disabled={
+                loading || (!useBackup && code.length < 6) || (useBackup && code.length < 14)
+              }
               style={{ width: "100%" }}
             >
               Verify
