@@ -8,6 +8,7 @@ interface UserLayoutProps {
   userName?: string | null;
   userEmail?: string | null;
   onChangePassword?: () => void;
+  onManageSecurity?: () => void;
   onLogout?: () => void;
   children: ReactNode;
 }
@@ -16,6 +17,7 @@ export default function UserLayout({
   userName,
   userEmail,
   onChangePassword,
+  onManageSecurity,
   onLogout,
   children,
 }: UserLayoutProps) {
@@ -80,6 +82,16 @@ export default function UserLayout({
                       }}
                     >
                       Change Password
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.dropdownItem}
+                      onClick={() => {
+                        setOpen(false);
+                        onManageSecurity?.();
+                      }}
+                    >
+                      Resetup OTP
                     </button>
                     <button
                       type="button"

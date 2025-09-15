@@ -5,6 +5,9 @@ import ChangePasswordView from "./components/ChangePasswordView";
 import Dashboard from "./components/Dashboard";
 import LoginView from "./components/LoginView";
 import RegisterView from "./components/RegisterView";
+import OtpSetupView from "./components/OtpSetupView";
+import OtpVerifyView from "./components/OtpVerifyView";
+import SettingsSecurityView from "./components/SettingsSecurityView";
 import apiService from "./services/api";
 import { clearAllExportKeys } from "./services/sessionKey";
 import "./App.css";
@@ -59,6 +62,9 @@ function AppContent() {
           email: session.email,
           passwordResetRequired: !!session.passwordResetRequired,
         });
+        try {
+          await apiService.getOtpStatus();
+        } catch {}
       }
     } catch (_error) {
       console.log("No existing session or auth request");
@@ -163,6 +169,28 @@ function AppContent() {
         }
       />
       <Route
+        path="/otp/setup"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <OtpSetupView sessionData={sessionData} onLogout={handleLogout} />
+          )
+        }
+      />
+      <Route path="/otp-setup" element={<Navigate to="/otp/setup" replace />} />
+      <Route path="/otp" element={<Navigate to="/otp/verify" replace />} />
+      <Route path="/otp/verify" element={<OtpVerifyView />} />
+      <Route
         path="/dashboard"
         element={
           loading ? (
@@ -202,7 +230,30 @@ function AppContent() {
               </div>
             </div>
           ) : (
-            <Dashboard sessionData={sessionData} onLogout={handleLogout} />
+            <OtpGate>
+              <Dashboard sessionData={sessionData} onLogout={handleLogout} />
+            </OtpGate>
+          )
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <OtpGate>
+              <SettingsSecurityView sessionData={sessionData} onLogout={handleLogout} />
+            </OtpGate>
           )
         }
       />
@@ -221,13 +272,45 @@ function AppContent() {
           ) : !sessionData ? (
             <Navigate to="/login" replace />
           ) : (
-            <ChangePasswordView sessionData={sessionData} onLogout={handleLogout} />
+            <OtpGate>
+              <ChangePasswordView sessionData={sessionData} onLogout={handleLogout} />
+            </OtpGate>
           )
         }
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+}
+
+function OtpGate({ children }: { children: React.ReactNode }) {
+  const [ready, setReady] = useState(false);
+  const [redirect, setRedirect] = useState<string | null>(null);
+  useEffect(() => {
+    (async () => {
+      try {
+        const session = await apiService.getSession();
+        const otpReq = !!session.otpRequired;
+        const otpVer = !!session.otpVerified;
+        if (otpReq && !otpVer) {
+          try {
+            const s = await apiService.getOtpStatus();
+            setRedirect(s.enabled ? "/otp/verify" : "/otp/setup?forced=1");
+          } catch {
+            setRedirect("/otp/verify");
+          }
+        }
+      } catch {
+      } finally {
+        setReady(true);
+      }
+    })();
+  }, []);
+  if (!ready) return (
+    <div className="loading-container"><div className="loading-spinner" /><p>Loading...</p></div>
+  );
+  if (redirect) return <Navigate to={redirect} replace />;
+  return <>{children}</>;
 }
 
 function App() {

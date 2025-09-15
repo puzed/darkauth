@@ -110,6 +110,23 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       });
       console.debug("[user-ui] login: finish response", loginFinishResponse);
 
+      if (loginFinishResponse.otpRequired) {
+        opaqueService.clearState(loginStart.state);
+        await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
+        cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
+        try {
+          const s = await apiService.getOtpStatus();
+          if (s.enabled && !s.verified) {
+            window.location.replace("/otp/verify");
+          } else {
+            window.location.replace("/otp/setup?forced=1");
+          }
+        } catch {
+          window.location.replace("/otp/setup?forced=1");
+        }
+        return;
+      }
+
       onLogin({
         sub: loginFinishResponse.sub,
         name: loginFinishResponse.user?.name || undefined,
