@@ -21,10 +21,20 @@ export async function listGroupsWithCounts(
     : baseCountQuery);
   const total = totalRows[0]?.count || 0;
 
-  let groupsData: Array<{ key: string; name: string; enableLogin?: boolean }> = [];
+  let groupsData: Array<{
+    key: string;
+    name: string;
+    enableLogin?: boolean;
+    requireOtp?: boolean;
+  }> = [];
   try {
     const q = context.db
-      .select({ key: groups.key, name: groups.name, enableLogin: groups.enableLogin })
+      .select({
+        key: groups.key,
+        name: groups.name,
+        enableLogin: groups.enableLogin,
+        requireOtp: groups.requireOtp,
+      })
       .from(groups);
     groupsData = await (searchCondition ? q.where(searchCondition) : q)
       .orderBy(sql`CASE WHEN ${groups.key} = 'default' THEN 0 ELSE 1 END`, groups.name)
@@ -59,7 +69,9 @@ export async function listGroupsWithCounts(
   const groupsWithCounts = groupsData.map((group) => ({
     key: group.key,
     name: group.name,
-    ...(includeEnable ? { enableLogin: Boolean(group.enableLogin) } : {}),
+    ...(includeEnable
+      ? { enableLogin: Boolean(group.enableLogin), requireOtp: Boolean(group.requireOtp) }
+      : {}),
     permissionCount: permissionCountMap.get(group.key) || 0,
     userCount: userCountMap.get(group.key) || 0,
   }));

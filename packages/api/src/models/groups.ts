@@ -64,7 +64,13 @@ export async function getGroupUsers(context: Context, groupKey: string) {
 
 export async function createGroup(
   context: Context,
-  data: { key: string; name: string; enableLogin?: boolean; permissionKeys?: string[] }
+  data: {
+    key: string;
+    name: string;
+    enableLogin?: boolean;
+    requireOtp?: boolean;
+    permissionKeys?: string[];
+  }
 ) {
   const { eq, inArray } = await import("drizzle-orm");
   const permissionKeys = data.permissionKeys || [];
@@ -86,9 +92,12 @@ export async function createGroup(
     }
   }
   await context.db.transaction(async (trx) => {
-    await trx
-      .insert(groups)
-      .values({ key: data.key, name: data.name, enableLogin: data.enableLogin ?? true });
+    await trx.insert(groups).values({
+      key: data.key,
+      name: data.name,
+      enableLogin: data.enableLogin ?? true,
+      requireOtp: data.requireOtp ?? false,
+    });
     if (permissionKeys.length > 0) {
       const { groupPermissions } = await import("../db/schema.js");
       await trx
@@ -108,6 +117,7 @@ export async function createGroup(
     key: createdGroup?.key as string,
     name: createdGroup?.name as string,
     enableLogin: Boolean(createdGroup?.enableLogin),
+    requireOtp: Boolean(createdGroup?.requireOtp),
     permissions: assignedPermissions,
     permissionCount: assignedPermissions.length,
     userCount: 0,
@@ -173,13 +183,14 @@ export async function getUserGroups(context: Context, userSub: string) {
 export async function updateGroup(
   context: Context,
   key: string,
-  data: { name?: string; enableLogin?: boolean }
+  data: { name?: string; enableLogin?: boolean; requireOtp?: boolean }
 ) {
   const group = await context.db.query.groups.findFirst({ where: eq(groups.key, key) });
   if (!group) throw new NotFoundError("Group not found");
-  const updates: { name?: string; enableLogin?: boolean } = {};
+  const updates: { name?: string; enableLogin?: boolean; requireOtp?: boolean } = {};
   if (typeof data.name === "string" && data.name.trim().length > 0) updates.name = data.name.trim();
   if (typeof data.enableLogin === "boolean") updates.enableLogin = data.enableLogin;
+  if (typeof data.requireOtp === "boolean") updates.requireOtp = data.requireOtp;
   if (Object.keys(updates).length === 0) return { success: true as const };
   await context.db.update(groups).set(updates).where(eq(groups.key, key));
   return { success: true as const };

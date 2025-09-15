@@ -112,7 +112,9 @@ export async function seedDefaultClients(context: Context, supportDeskSecretEnc:
 export async function seedDefaultGroups(context: Context) {
   const existing = await context.db.query.groups.findFirst({ where: eq(groups.key, "default") });
   if (!existing) {
-    await context.db.insert(groups).values({ key: "default", name: "Default", enableLogin: true });
+    await context.db
+      .insert(groups)
+      .values({ key: "default", name: "Default", enableLogin: true, requireOtp: true });
   }
 }
 
@@ -124,12 +126,46 @@ export async function ensureDefaultGroupAndSchema(context: Context) {
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "groups" ("key", "name", "enable_login") VALUES ('default','Default',true) ON CONFLICT ("key") DO NOTHING;`
+      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "require_otp" boolean NOT NULL DEFAULT false;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp") VALUES ('default','Default',true,true) ON CONFLICT ("key") DO NOTHING;`
     );
   } catch {}
   try {
     await context.db.execute(
       `INSERT INTO "user_groups" ("user_sub", "group_key") SELECT u.sub, 'default' FROM users u LEFT JOIN user_groups ug ON ug.user_sub = u.sub WHERE ug.user_sub IS NULL;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `CREATE TABLE IF NOT EXISTS "otp_configs" (
+        cohort text NOT NULL,
+        subject_id text NOT NULL,
+        secret_enc bytea NOT NULL,
+        verified boolean NOT NULL DEFAULT false,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now(),
+        last_used_at timestamp NULL,
+        last_used_step bigint NULL,
+        failure_count integer NOT NULL DEFAULT 0,
+        locked_until timestamp NULL,
+        PRIMARY KEY (cohort, subject_id)
+      );`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `CREATE TABLE IF NOT EXISTS "otp_backup_codes" (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        cohort text NOT NULL,
+        subject_id text NOT NULL,
+        code_hash text NOT NULL,
+        used_at timestamp NULL,
+        created_at timestamp NOT NULL DEFAULT now()
+      );`
     );
   } catch {}
 }
