@@ -114,7 +114,7 @@ export async function seedDefaultGroups(context: Context) {
   if (!existing) {
     await context.db
       .insert(groups)
-      .values({ key: "default", name: "Default", enableLogin: true, requireOtp: true });
+      .values({ key: "default", name: "Default", enableLogin: true, requireOtp: false });
   }
 }
 
@@ -131,7 +131,7 @@ export async function ensureDefaultGroupAndSchema(context: Context) {
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp") VALUES ('default','Default',true,true) ON CONFLICT ("key") DO NOTHING;`
+      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp") VALUES ('default','Default',true,false) ON CONFLICT ("key") DO NOTHING;`
     );
   } catch {}
   try {
