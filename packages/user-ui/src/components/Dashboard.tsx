@@ -51,6 +51,7 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
       userName={sessionData.name || null}
       userEmail={sessionData.email || null}
       onChangePassword={() => navigate("/change-password")}
+      onManageSecurity={() => navigate("/settings")}
       onLogout={onLogout}
     >
       <div className={styles.container}>

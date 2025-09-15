@@ -28,11 +28,21 @@ export interface OpaqueLoginFinishResponse {
   sub: string;
   refreshToken?: string;
   sessionKey?: string;
+  otpRequired?: boolean;
   user?: {
     sub: string;
     email: string | null;
     name: string | null;
   };
+}
+
+export interface OtpStatusResponse {
+  enabled: boolean;
+  verified: boolean;
+  created_at?: string | null;
+  last_used_at?: string | null;
+  backup_codes_remaining?: number;
+  required?: boolean;
 }
 
 export interface OpaqueRegisterStartRequest {
@@ -75,6 +85,8 @@ export interface SessionResponse {
   name?: string;
   email?: string;
   passwordResetRequired?: boolean;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
 }
 
 export interface WrappedDrkResponse {
@@ -324,6 +336,43 @@ class ApiService {
     });
     // Clear all tokens on logout
     this.clearTokens();
+  }
+
+  async getOtpStatus(): Promise<OtpStatusResponse> {
+    return this.request("/otp/status");
+  }
+
+  async otpSetupInit(): Promise<{ secret: string; provisioning_uri: string }> {
+    return this.request("/otp/setup/init", { method: "POST" });
+  }
+
+  async otpSetupVerify(code: string): Promise<{ success: boolean; backup_codes: string[] }> {
+    return this.request("/otp/setup/verify", { method: "POST", body: JSON.stringify({ code }) });
+  }
+
+  async otpVerify(code: string): Promise<{ success: boolean }> {
+    return this.request("/otp/verify", { method: "POST", body: JSON.stringify({ code }) });
+  }
+
+  async otpDisable(reauthToken: string): Promise<{ success: boolean }> {
+    return this.request("/otp/disable", {
+      method: "POST",
+      body: JSON.stringify({ reauth_token: reauthToken }),
+    });
+  }
+
+  async otpBackupCodesRegenerate(reauthToken: string): Promise<{ backup_codes: string[] }> {
+    return this.request("/otp/backup-codes/regenerate", {
+      method: "POST",
+      body: JSON.stringify({ reauth_token: reauthToken }),
+    });
+  }
+
+  async otpReauth(code: string): Promise<{ reauth_token: string }> {
+    return this.request("/otp/reauth", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
   }
 
   // Password change (self)
