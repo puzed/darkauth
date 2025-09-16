@@ -57,15 +57,37 @@ async function getOtpSettings(context: Context): Promise<OtpSettings> {
 export async function initOtp(context: Context, cohort: "user" | "admin", subjectId: string) {
   if (!context.services.kek?.isAvailable()) throw new ValidationError("KEK unavailable");
   const s = await getOtpSettings(context);
-  const secretB32 = generateTotpSecretBase32(20);
-  const enc = await context.services.kek.encrypt(Buffer.from(secretB32, "utf-8"));
-  await context.db
-    .insert(otpConfigs)
-    .values({ cohort, subjectId, secretEnc: enc, verified: false })
-    .onConflictDoUpdate({
-      target: [otpConfigs.cohort, otpConfigs.subjectId],
-      set: { secretEnc: enc, updatedAt: new Date(), verified: false },
-    });
+  const existing = await context.db.query.otpConfigs.findFirst({
+    where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
+  });
+
+  let secretB32: string;
+  if (existing && !existing.verified && existing.secretEnc) {
+    secretB32 = (await context.services.kek.decrypt(existing.secretEnc as Buffer)).toString("utf-8");
+  } else {
+    secretB32 = generateTotpSecretBase32(20);
+    const enc = await context.services.kek.encrypt(Buffer.from(secretB32, "utf-8"));
+    if (existing) {
+      await context.db
+        .update(otpConfigs)
+        .set({
+          secretEnc: enc,
+          verified: false,
+          updatedAt: new Date(),
+          lastUsedAt: null,
+          lastUsedStep: null,
+          failureCount: 0,
+          lockedUntil: null,
+        })
+        .where(and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)));
+      await context.db
+        .delete(otpBackupCodes)
+        .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
+    } else {
+      await context.db.insert(otpConfigs).values({ cohort, subjectId, secretEnc: enc, verified: false });
+    }
+  }
+
   let account = subjectId;
   if (cohort === "user") {
     const user = await context.db.query.users.findFirst({ where: eq(users.sub, subjectId) });
@@ -217,15 +239,17 @@ export async function getOtpStatusModel(
   const cfg = await context.db.query.otpConfigs.findFirst({
     where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
   });
-  if (!cfg) return { enabled: false, verified: false, backupCodesRemaining: 0 };
+  if (!cfg) return { enabled: false, pending: false, verified: false, backupCodesRemaining: 0 };
+  const isVerified = !!cfg.verified;
   const codes = await context.db
     .select({ id: otpBackupCodes.id, usedAt: otpBackupCodes.usedAt })
     .from(otpBackupCodes)
     .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
   const remaining = codes.filter((c) => !c.usedAt).length;
   return {
-    enabled: true,
-    verified: !!cfg.verified,
+    enabled: isVerified,
+    pending: !isVerified,
+    verified: isVerified,
     createdAt: cfg.createdAt,
     lastUsedAt: cfg.lastUsedAt,
     backupCodesRemaining: remaining,

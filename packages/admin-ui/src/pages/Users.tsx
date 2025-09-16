@@ -34,7 +34,7 @@ import adminOpaqueService from "@/services/opaque-cloudflare";
 interface UserWithDetails extends User {
   groups?: string[];
   permissions?: string[];
-  otp?: { enabled: boolean; verified: boolean };
+  otp?: { enabled: boolean; pending: boolean; verified: boolean };
 }
 
 export default function Users() {
@@ -59,7 +59,10 @@ export default function Users() {
         base.map(async (u) => {
           try {
             const s = await adminApiService.getUserOtpStatus(u.sub);
-            return { ...u, otp: { enabled: !!s.enabled, verified: !!s.verified } };
+            return {
+              ...u,
+              otp: { enabled: !!s.enabled, pending: !!s.pending, verified: !!s.verified },
+            };
           } catch {
             return { ...u };
           }
@@ -244,9 +247,9 @@ export default function Users() {
                   </td>
                   <td className={tableStyles.cell}>
                     {user.otp?.enabled ? (
-                      <Badge variant={user.otp.verified ? undefined : "secondary"}>
-                        {user.otp.verified ? "OTP" : "OTP Pending"}
-                      </Badge>
+                      <Badge>OTP</Badge>
+                    ) : user.otp?.pending ? (
+                      <Badge variant="secondary">OTP Pending</Badge>
                     ) : (
                       <span style={{ color: "hsl(var(--muted-foreground))" }}>None</span>
                     )}

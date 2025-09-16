@@ -22,6 +22,7 @@ export const getUserOtp = withAudit({ eventType: "ADMIN_USER_OTP_STATUS", resour
     });
     sendJson(response, 200, {
       enabled: status.enabled,
+      pending: status.pending,
       verified: status.verified,
       created_at: status.createdAt || null,
       last_used_at: status.lastUsedAt || null,

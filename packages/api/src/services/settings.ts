@@ -641,7 +641,7 @@ export async function seedDefaultSettings(
         backup_codes_count: 8,
         max_failures: 5,
         lockout_duration_minutes: 15,
-        require_for_admin: false,
+        require_for_admin: true,
         require_for_users: false,
       },
       value: {
@@ -654,7 +654,7 @@ export async function seedDefaultSettings(
         backup_codes_count: 8,
         max_failures: 5,
         lockout_duration_minutes: 15,
-        require_for_admin: false,
+        require_for_admin: true,
         require_for_users: false,
       },
     },

@@ -157,10 +157,10 @@ export async function createUserServer(context: Context) {
 
       if (
         pathname.startsWith("/api/") ||
-        pathname.startsWith("/otp/") ||
         pathname === "/authorize" ||
         pathname === "/token" ||
-        pathname.startsWith("/.well-known")
+        pathname.startsWith("/.well-known") ||
+        pathname.startsWith("/otp/")
       ) {
         setSecurityHeaders(response, context.config.isDevelopment);
         if (pathname.startsWith("/api/")) {
@@ -169,6 +169,16 @@ export async function createUserServer(context: Context) {
           request.url = apiPath + url.search;
         }
         if (pathname.startsWith("/otp/")) {
+          const isUiRoute =
+            request.method === "GET" && (pathname === "/otp/setup" || pathname === "/otp/verify");
+          if (isUiRoute) {
+            const userCandidates = [
+              join(__dirname, "../../../../user-ui/dist"),
+              join(__dirname, "../../../user-ui/dist"),
+            ];
+            await serveStaticFiles(request, response, resolveStaticBase(userCandidates));
+            return;
+          }
           request.url = pathname + url.search;
         }
         if (!initialized) {

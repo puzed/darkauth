@@ -79,7 +79,7 @@ Add to `settings` table:
     "backup_codes_count": 8,
     "max_failures": 5,
     "lockout_duration_minutes": 15,
-    "require_for_admin": false, // if true, all admins must have OTP
+    "require_for_admin": true, // toggleable in Admin UI; forced by default
     "require_for_users": false  // if true, all users must have OTP
   },
   "rate_limits": {
@@ -90,7 +90,7 @@ Add to `settings` table:
 ```
 
 Policy precedence when `otp.enabled = true`:
-- Admins must complete OTP when `require_for_admin = true`.
+- Admins must complete OTP when `require_for_admin = true` (default is forced `true`).
 - All users must complete OTP when `require_for_users = true`.
 - Otherwise, OTP is required when any login-enabled group requires OTP.
 
@@ -195,6 +195,7 @@ Response:
 ```json
 {
   "enabled": true,
+  "pending": false,
   "verified": true,
   "created_at": "2024-01-01T00:00:00Z",
   "last_used_at": "2024-01-15T12:00:00Z",
@@ -202,6 +203,9 @@ Response:
   "required": true
 }
 ```
+
+- `enabled` only becomes `true` after a code has been successfully verified and backup codes generated.
+- `pending` is `true` when a secret has been issued but `enabled` is still `false` because verification has not completed yet.
 
 **POST `/otp/disable`**
 - Requires recent password verification (reauth token)
@@ -327,14 +331,14 @@ Middleware must check:
 **Login finish handler (client):**
 1. If `otpRequired` is false → proceed as normal
 2. If `otpRequired` is true → call `/otp/status` and:
-   - If `enabled === true` and `verified === false` → `replace('/otp/verify')` (auth layout)
-   - If `enabled === false` → `replace('/otp/setup?forced=1')` (auth layout; cannot navigate away)
+   - If `enabled === true` → `replace('/otp/verify')` (auth layout)
+   - If `pending === true` or `enabled === false` → `replace('/otp/setup?forced=1')` (auth layout; cannot navigate away)
 
 **Route guards (client):**
 - Wrap all in-app routes (e.g. `/dashboard`, `/change-password`, settings pages) in an `OtpGate` component:
-  - Fetch `/otp/status`
-  - If `required && !verified && enabled` → `Navigate('/otp/verify')`
-  - If `required && !verified && !enabled` → `Navigate('/otp/setup?forced=1')`
+- Fetch `/otp/status`
+  - If `required && enabled` → `Navigate('/otp/verify')`
+  - If `required && (!enabled || pending)` → `Navigate('/otp/setup?forced=1')`
   - Otherwise render children
 - `/otp/setup` (without `forced=1`) remains available for optional/manage flow from dashboard
 - `/otp` redirects to `/otp/verify`
@@ -638,23 +642,18 @@ async function recordOtpSuccess(
 
 ### 7.1 Phased Rollout
 
-**Phase 1: Optional for all**
-- Deploy with `require_for_admin: false, require_for_users: false`
-- Users and admins can opt-in to OTP
-- Monitor adoption and issues
+**Phase 1: Default enforced for admins**
+- Deploy with `require_for_admin: true, require_for_users: false`
+- Admin UI keeps a toggle so operators can disable enforcement temporarily
+- New admins must complete OTP during first login before accessing dashboard
 
-**Phase 2: Required for admins**
-- Set `require_for_admin: true`
-- Grace period for existing admins to enable OTP
-- New admins must set up OTP on first login
-
-**Phase 3: Group-based requirement for users**
+**Phase 2: Group-based requirement for users**
 - Add `groups.require_otp boolean` with default false
 - Seed `Default` group with `require_otp = true`
 - Admin UI exposes Require OTP toggle on Group create/edit
 - Enforcement uses login-enabled groups to decide requirement
 
-**Phase 4: Required for all (optional)**
+**Phase 3: Required for all users (optional)**
 - Set `require_for_users: true`
 - Grace period for existing users
 - New users must set up OTP during onboarding
@@ -1006,21 +1005,21 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
 
 ### 14.8 UI Implementation
 - User UI: Settings page for OTP setup/management
-- Admin UI: Own OTP + user/admin management
+- Admin UI: Dedicated `/otp` route that mirrors user setup/verify flows, forces redirect when `require_for_admin` is true, and surfaces management tools for other principals
 - Client-side QR generation from provisioning URI
 - Use existing input-otp component if available
 
 ## 15. Acceptance Criteria
 
-### 15.1 Forced Group, OTP Configured but Not Verified
-- After login, user is taken to `/otp/verify` in the auth layout
-- All other app routes redirect back to `/otp/verify` until success
-- Entering valid code proceeds to `/dashboard`
-
-### 15.2 Forced Group, OTP Not Configured
+### 15.1 Forced Group, OTP Pending Setup
 - After login, user is taken to `/otp/setup?forced=1` in the auth layout
-- All other app routes redirect back to `/otp/setup?forced=1` until setup+verify completes
-- Successful setup+verify proceeds to `/dashboard`
+- Setup screen stays visible (QR + input) until a valid code is entered
+- Completing verification issues backup codes and redirects to `/dashboard`
+
+### 15.2 Forced Group, OTP Configured
+- After login, user is taken to `/otp/verify` in the auth layout
+- All other app routes redirect back to `/otp/verify` until session verification succeeds
+- Entering valid code proceeds to `/dashboard`
 
 ### 15.3 Not Forced
 - Normal login goes to `/dashboard`
@@ -1032,11 +1031,13 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
 
 ### 15.5 Test Checklist
 - Login finish redirect matrix:
-  - `(required=true, enabled=true, verified=false)` → `/otp/verify`
-  - `(required=true, enabled=false)` → `/otp/setup?forced=1`
+  - `(required=true, enabled=true)` → `/otp/verify`
+  - `(required=true, enabled=false, pending=true)` → `/otp/setup?forced=1`
+  - `(required=true, enabled=false, pending=false)` → `/otp/setup?forced=1`
   - `(required=false)` → `/dashboard`
 - Route gating:
-  - While required && !verified, navigating to `/dashboard` or `/change-password` redirects to the appropriate `/otp/*` page
+  - While required && enabled, navigating to `/dashboard` or `/change-password` redirects to `/otp/verify`
+  - While required && (!enabled || pending), navigation redirects to `/otp/setup?forced=1`
 - Setup flow:
   - `/otp/setup` shows QR; verify succeeds; backup codes appear; returns to dashboard
 - Verify flow:

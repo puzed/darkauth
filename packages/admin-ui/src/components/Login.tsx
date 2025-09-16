@@ -1,7 +1,7 @@
-import { Loader2, Lock, Moon, Shield, Sun } from "lucide-react";
+import { Loader2, Lock, Shield } from "lucide-react";
 import { useEffect, useId, useState } from "react";
+import AuthFrame from "@/components/auth/AuthFrame";
 import { Button } from "@/components/ui/button";
-import { setTheme as applyThemeSetting, getTheme } from "@/lib/theme";
 import adminApiService from "@/services/api";
 import authService from "@/services/auth";
 import adminOpaqueService, { type AdminOpaqueLoginState } from "@/services/opaque";
@@ -16,6 +16,8 @@ interface AdminLoginProps {
     sessionKey?: string;
     exportKey?: string;
     passwordResetRequired?: boolean;
+    otpRequired?: boolean;
+    otpVerified?: boolean;
   }) => void;
 }
 
@@ -40,28 +42,6 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<AdminOpaqueLoginState | null>(null);
-
-  const [mode, setMode] = useState<"light" | "dark">(() => {
-    const t = getTheme();
-    if (t === "system") {
-      const d = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
-      return d ? "dark" : "light";
-    }
-    return t;
-  });
-  useEffect(() => {
-    if (getTheme() !== "system") return;
-    const m = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      const t = getTheme();
-      if (t === "system") {
-        const d = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
-        setMode(d ? "dark" : "light");
-      }
-    };
-    m?.addEventListener?.("change", onChange);
-    return () => m?.removeEventListener?.("change", onChange);
-  }, []);
 
   useEffect(() => {
     // Pre-fill email from stored login info
@@ -161,6 +141,8 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
         passwordResetRequired,
         sessionKey: loginFinishResponse.sessionKey,
         exportKey: loginFinish.exportKey,
+        otpRequired: !!loginFinishResponse.otpRequired,
+        otpVerified: !!loginFinishResponse.otpVerified,
       });
 
       // Best-effort hydrate session details
@@ -174,6 +156,8 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
           passwordResetRequired: !!sessionData.passwordResetRequired,
           sessionKey: loginFinishResponse.sessionKey,
           exportKey: loginFinish.exportKey,
+          otpRequired: !!sessionData.otpRequired,
+          otpVerified: !!sessionData.otpVerified,
         });
       } catch {}
     } catch (error) {
@@ -210,97 +194,11 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   };
 
   return (
-    <div className={styles.container}>
-      <div className={styles.card}>
-        <div className={styles.themeToggle}>
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            className={styles.themeToggleBtn}
-            onClick={() => {
-              const next = mode === "dark" ? "light" : "dark";
-              setMode(next);
-              applyThemeSetting(next);
-            }}
-            title={mode === "dark" ? "Dark" : "Light"}
-          >
-            {mode === "dark" ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
-        </div>
-        <div className={styles.header}>
-          <div className={styles.brandWrap}>
-            <div className={styles.brand}>
-              <img src="/favicon.svg" alt="DarkAuth" />
-            </div>
-          </div>
-          <div className={styles.title}>DarkAuth Admin</div>
-          <p className={styles.description}>Secure Administration Panel</p>
-        </div>
-
-        <form onSubmit={handleSubmit} noValidate>
-          <div className={styles.content}>
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor={emailId}>
-                Admin Email
-              </label>
-              <input
-                className={`${styles.input} ${errors.email ? styles.error : ""}`}
-                type="email"
-                id={emailId}
-                name="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="admin@yourcompany.com"
-                disabled={loading}
-                autoComplete="email"
-                required
-              />
-              {errors.email && <p className={styles.errorText}>{errors.email}</p>}
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor={passwordId}>
-                Password
-              </label>
-              <input
-                className={`${styles.input} ${errors.password ? styles.error : ""}`}
-                type="password"
-                id={passwordId}
-                name="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="Your admin password"
-                disabled={loading}
-                autoComplete="current-password"
-                required
-              />
-              {errors.password && <p className={styles.errorText}>{errors.password}</p>}
-            </div>
-
-            {errors.general && <div className={styles.alert}>{errors.general}</div>}
-
-            <div className={styles.actions}>
-              <Button type="submit" size="lg" disabled={loading} style={{ width: "100%" }}>
-                {loading ? (
-                  <>
-                    <Loader2
-                      size={16}
-                      style={{ marginRight: 8, animation: "spin 1s linear infinite" }}
-                    />
-                    Authenticating...
-                  </>
-                ) : (
-                  <>
-                    <Lock size={16} style={{ marginRight: 8 }} />
-                    Sign In
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-        </form>
-
-        <div className={styles.footer}>
+    <AuthFrame
+      title="DarkAuth Admin"
+      description="Secure Administration Panel"
+      footer={
+        <>
           <div>
             <Shield size={16} style={{ marginRight: 6, verticalAlign: "text-bottom" }} />
             Protected with zero-knowledge OPAQUE authentication
@@ -308,8 +206,66 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
           <p className={styles.footerSmall}>
             Sessions last 15 minutes and will refresh automatically while active
           </p>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} noValidate>
+        <div className={styles.formGroup}>
+          <label className={styles.label} htmlFor={emailId}>
+            Admin Email
+          </label>
+          <input
+            className={`${styles.input} ${errors.email ? styles.error : ""}`}
+            type="email"
+            id={emailId}
+            name="email"
+            value={formData.email}
+            onChange={handleInputChange}
+            placeholder="admin@yourcompany.com"
+            disabled={loading}
+            autoComplete="email"
+            required
+          />
+          {errors.email && <p className={styles.errorText}>{errors.email}</p>}
         </div>
-      </div>
-    </div>
+
+        <div className={styles.formGroup}>
+          <label className={styles.label} htmlFor={passwordId}>
+            Password
+          </label>
+          <input
+            className={`${styles.input} ${errors.password ? styles.error : ""}`}
+            type="password"
+            id={passwordId}
+            name="password"
+            value={formData.password}
+            onChange={handleInputChange}
+            placeholder="Your admin password"
+            disabled={loading}
+            autoComplete="current-password"
+            required
+          />
+          {errors.password && <p className={styles.errorText}>{errors.password}</p>}
+        </div>
+
+        {errors.general && <div className={styles.alert}>{errors.general}</div>}
+
+        <div className={styles.actions}>
+          <Button type="submit" size="lg" disabled={loading} style={{ width: "100%" }}>
+            {loading ? (
+              <>
+                <Loader2 size={16} style={{ marginRight: 8, animation: "spin 1s linear infinite" }} />
+                Authenticating...
+              </>
+            ) : (
+              <>
+                <Lock size={16} style={{ marginRight: 8 }} />
+                Sign In
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </AuthFrame>
   );
 }
