@@ -19,6 +19,7 @@ export const getAdminUserOtp = withAudit({
   const status = await getOtpStatusModel(context, "admin", adminId);
   sendJson(response, 200, {
     enabled: status.enabled,
+    pending: status.pending,
     verified: status.verified,
     created_at: status.createdAt || null,
     last_used_at: status.lastUsedAt || null,

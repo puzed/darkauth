@@ -30,6 +30,8 @@ export interface AdminOpaqueLoginFinishResponse {
   sessionKey: string;
   accessToken: string;
   refreshToken?: string;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
   admin: {
     id: string;
     email: string;
@@ -485,6 +487,7 @@ class AdminApiService {
 
   async getOwnOtpStatus(): Promise<{
     enabled: boolean;
+    pending: boolean;
     verified: boolean;
     created_at?: string | null;
     last_used_at?: string | null;
@@ -734,6 +737,7 @@ class AdminApiService {
 
   async getUserOtpStatus(userSub: string): Promise<{
     enabled: boolean;
+    pending: boolean;
     verified: boolean;
     created_at?: string | null;
     last_used_at?: string | null;

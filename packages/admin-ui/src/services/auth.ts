@@ -6,6 +6,8 @@ interface StoredSession {
   timestamp: number;
   sessionKey?: string;
   exportKey?: string;
+  otpRequired?: boolean;
+  otpVerified?: boolean;
 }
 
 interface StoredLoginInfo {
