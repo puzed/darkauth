@@ -23,43 +23,35 @@ async function initAdminOtpSecret(
   authHeader: string
 ): Promise<string> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  const initRes = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
-    method: 'POST',
-    headers: {
-      Authorization: authHeader,
-      Origin: servers.adminUrl,
-      'Content-Type': 'application/json'
+  let initRes: Response | null = null;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const res = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
+      method: 'POST',
+      headers: {
+        Authorization: authHeader,
+        Origin: servers.adminUrl,
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.status !== 429) {
+      initRes = res;
+      break;
     }
-  });
-  if (!initRes.ok) {
-    throw new Error(`admin otp setup init failed: ${initRes.status}`);
+    const resetHeader = res.headers.get('X-RateLimit-Reset') ?? res.headers.get('Retry-After');
+    const nowSeconds = Math.ceil(Date.now() / 1000);
+    const parsed = resetHeader ? parseInt(resetHeader, 10) : NaN;
+    let waitMs = 500;
+    if (!Number.isNaN(parsed)) {
+      waitMs = parsed > nowSeconds ? (parsed - nowSeconds) * 1000 : parsed * 1000;
+    }
+    await new Promise((resolve) => setTimeout(resolve, Math.min(waitMs, 1000)));
+  }
+  if (!initRes || !initRes.ok) {
+    throw new Error(`admin otp setup init failed: ${initRes ? initRes.status : 'no-response'}`);
   }
   const initJson = await initRes.json() as { secret: string };
   adminOtpSecrets.set(cacheKey, initJson.secret);
   return initJson.secret;
-}
-
-export async function disableAdminOtp(
-  servers: TestServers,
-  admin: { email: string; password: string }
-): Promise<void> {
-  const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  let token = adminTokenCache.get(cacheKey)?.token;
-  if (!token) {
-    token = await getAdminBearerToken(servers, admin);
-  }
-  const res = await fetch(`${servers.adminUrl}/admin/otp/disable`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Origin: servers.adminUrl,
-    },
-  });
-  if (!res.ok && res.status !== 404) {
-    throw new Error(`admin otp disable failed: ${res.status}`);
-  }
-  adminOtpSecrets.delete(cacheKey);
-  adminTokenCache.delete(cacheKey);
 }
 
 export async function getAdminBearerToken(

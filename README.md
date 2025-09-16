@@ -254,16 +254,12 @@ rpId: "localhost"         # Relying party identifier
 - `POST /api/otp/setup/verify`
 - `GET /api/otp/status`
 - `POST /api/otp/verify`
-- `POST /api/otp/disable`
-- `POST /api/otp/backup-codes/regenerate`
 
 ### OTP (TOTP) — Admin
 - `POST /api/admin/otp/setup/init`
 - `POST /api/admin/otp/setup/verify`
 - `GET /api/admin/otp/status`
 - `POST /api/admin/otp/verify`
-- `POST /api/admin/otp/disable`
-- `POST /api/admin/otp/backup-codes/regenerate`
 
 ### DRK Management
 - `GET /api/crypto/wrapped-drk` - Retrieve wrapped DRK

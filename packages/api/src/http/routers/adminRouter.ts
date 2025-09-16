@@ -27,8 +27,6 @@ import { postAdminOpaqueLoginFinish } from "../../controllers/admin/opaqueLoginF
 import { postAdminOpaqueLoginStart } from "../../controllers/admin/opaqueLoginStart.js";
 import {
   getAdminOtpStatus,
-  postAdminOtpBackupCodesRegenerate,
-  postAdminOtpDisable,
   postAdminOtpSetupInit,
   postAdminOtpSetupVerify,
   postAdminOtpVerify,
@@ -318,13 +316,6 @@ export function createAdminRouter(context: Context) {
       if (pathname === "/admin/otp/verify" && method === "POST") {
         return await postAdminOtpVerify(context, request, response);
       }
-      if (pathname === "/admin/otp/disable" && method === "POST") {
-        return await postAdminOtpDisable(context, request, response);
-      }
-      if (pathname === "/admin/otp/backup-codes/regenerate" && method === "POST") {
-        return await postAdminOtpBackupCodesRegenerate(context, request, response);
-      }
-
       if (pathname === "/admin/audit-logs") {
         if (method === "GET") return await getAuditLogs(context, request, response);
       }

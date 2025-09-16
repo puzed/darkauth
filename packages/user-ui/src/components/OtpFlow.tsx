@@ -12,6 +12,8 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
   const [showManual, setShowManual] = useState(false);
   const [step, setStep] = useState<"status" | "setup" | "verify">("status");
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const setupCodeInputRef = useRef<HTMLInputElement | null>(null);
+  const verifyCodeInputRef = useRef<HTMLInputElement | null>(null);
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -48,6 +50,15 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
       } catch {}
     })();
   }, [provisioningUri]);
+
+  useEffect(() => {
+    if (step === "setup" && !backupCodes) {
+      setupCodeInputRef.current?.focus();
+    }
+    if (step === "verify" && !backupCodes) {
+      verifyCodeInputRef.current?.focus();
+    }
+  }, [step, backupCodes]);
 
   const doSetupVerify = async () => {
     try {
@@ -146,14 +157,21 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
             Enter the 6-digit code to verify:
           </div>
           <input
+            ref={setupCodeInputRef}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9]/g, "");
+              setCode(raw.slice(0, 6));
+            }}
             placeholder="123456"
             style={{
-              width: fullWidth ? "100%" : 192,
-              padding: 8,
+              width: fullWidth ? "100%" : 240,
+              padding: "12px 16px",
               margin: fullWidth ? "8px 0 10px" : "8px auto 10px",
               display: "block",
+              textAlign: "center",
+              fontSize: 28,
+              letterSpacing: 8,
             }}
             maxLength={6}
             inputMode="numeric"
@@ -161,7 +179,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
           />
           {!backupCodes && (
             <div style={{ width: fullWidth ? "100%" : 192, margin: fullWidth ? "0" : "0 auto" }}>
-              <Button onClick={doSetupVerify} fullWidth={true}>
+              <Button onClick={doSetupVerify} fullWidth={true} disabled={code.length !== 6}>
                 Verify
               </Button>
             </div>
@@ -244,14 +262,30 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
       {step === "verify" && (
         <div>
           <input
+            ref={verifyCodeInputRef}
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(event) => {
+              const raw = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
+              setCode(raw.slice(0, 14));
+            }}
             placeholder="123456 or BACKUP-CODE"
-            style={{ width: 192, padding: 8, margin: "8px auto 10px", display: "block" }}
-            maxLength={12}
+            style={{
+              width: fullWidth ? "100%" : 240,
+              padding: "12px 16px",
+              margin: fullWidth ? "8px 0 10px" : "8px auto 10px",
+              display: "block",
+              textAlign: "center",
+              fontSize: 24,
+              letterSpacing: 4,
+            }}
+            maxLength={14}
           />
           <div style={{ width: fullWidth ? "100%" : 192, margin: fullWidth ? "0" : "0 auto" }}>
-            <Button onClick={doVerify} fullWidth={true}>
+            <Button
+              onClick={doVerify}
+              fullWidth={true}
+              disabled={code.replace(/-/g, "").length < 6}
+            >
               Verify
             </Button>
           </div>

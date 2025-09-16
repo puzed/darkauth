@@ -1,7 +1,6 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../services/api";
-import opaqueService from "../services/opaque";
 
 export default function SettingsSecurity() {
   const [loading, setLoading] = useState(true);
@@ -59,49 +58,6 @@ export default function SettingsSecurity() {
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
-    }
-  };
-
-  const getReauthToken = async (): Promise<string> => {
-    try {
-      const session = await api.getSession();
-      const email = session.email || "";
-      if (!email) throw new Error("Session email unavailable");
-      const password = window.prompt("Enter your current password to continue") || "";
-      if (!password) throw new Error("Password required");
-      const start = await opaqueService.startLogin(email, password);
-      const startResp = await api.passwordVerifyStart(start.request);
-      const finish = await opaqueService.finishLogin(startResp.message, start.state);
-      opaqueService.clearState(start.state);
-      const finishResp = await api.passwordVerifyFinish(finish.request, startResp.sessionId);
-      return finishResp.reauth_token;
-    } catch (_e) {
-      const askOtp = window.prompt("Enter a current OTP or backup code") || "";
-      if (!askOtp) throw new Error("Verification required");
-      const res = await api.otpReauth(askOtp);
-      return res.reauth_token;
-    }
-  };
-
-  const doDisable = async () => {
-    try {
-      setError(null);
-      const token = await getReauthToken();
-      await api.otpDisable(token);
-      await reload();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Disable failed");
-    }
-  };
-
-  const doRegenerate = async () => {
-    try {
-      setError(null);
-      const token = await getReauthToken();
-      const res = await api.otpBackupCodesRegenerate(token);
-      setBackupCodes(res.backup_codes);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Regenerate failed");
     }
   };
 
@@ -303,18 +259,27 @@ export default function SettingsSecurity() {
           )}
           <input
             value={code}
-            onChange={(e) => setCode(e.target.value)}
+            onChange={(event) => {
+              const cleaned = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
+              setCode(cleaned.slice(0, 14));
+            }}
             placeholder="123456 or BACKUP-CODE"
             className="form-input"
-            style={{ width: 192, margin: "8px auto 10px" }}
-            maxLength={12}
+            style={{
+              width: 240,
+              margin: "8px auto 10px",
+              textAlign: "center",
+              fontSize: 24,
+              letterSpacing: 6,
+            }}
+            maxLength={14}
           />
           <div style={{ width: 192, margin: "0 auto" }}>
             <button
               type="button"
               className="primary-button"
               onClick={doSetupVerify}
-              disabled={code.length !== 6}
+              disabled={code.replace(/-/g, "").length !== 6}
               style={{ width: "100%" }}
             >
               Verify
@@ -327,12 +292,6 @@ export default function SettingsSecurity() {
           <div className="actions">
             <button type="button" className="primary-button" onClick={doResetup}>
               Resetup OTP
-            </button>
-            <button type="button" className="secondary-button" onClick={doRegenerate}>
-              Regenerate Backup Codes
-            </button>
-            <button type="button" className="danger-button" onClick={doDisable}>
-              Disable Two-Factor
             </button>
           </div>
         </div>

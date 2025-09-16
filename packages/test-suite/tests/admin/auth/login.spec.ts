@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { establishAdminSession, getAdminBearerToken, completeAdminOtpForPage, disableAdminOtp } from '../../../setup/helpers/auth.js';
+import { establishAdminSession, getAdminBearerToken } from '../../../setup/helpers/auth.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Authentication - Login', () => {
@@ -53,7 +53,6 @@ test.describe('Authentication - Login', () => {
   });
   
   test('admin can login with correct email and password', async ({ page }) => {
-    await disableAdminOtp(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
     await page.goto(`${servers.adminUrl}/`);
     await page.waitForLoadState('domcontentloaded');
     await waitForLoginForm(page);
@@ -68,32 +67,29 @@ test.describe('Authentication - Login', () => {
     await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
     const accessToken = await page.evaluate(() => window.localStorage.getItem('adminAccessToken'));
     if (!accessToken) throw new Error('admin access token missing after login');
-    const provisioningText = await page
-      .locator('text=/^otpauth:\/\//')
-      .first()
-      .textContent();
-    if (provisioningText && provisioningText.length > 0) {
-      const match = provisioningText.match(/secret=([^&]+)/);
-      if (!match) throw new Error('Secret not found in provisioning URI');
-      const secret = base32.decode(match[1]!);
-      const now = Math.floor(Date.now() / 1000);
-      const { code } = totp(secret, now, 30, 6, 'sha1');
-      const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/setup/verify`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-          Origin: servers.adminUrl,
-        },
-        body: JSON.stringify({ code }),
-      });
-      if (!verifyRes.ok) throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
-    } else {
-      await completeAdminOtpForPage(page, servers, {
-        email: FIXED_TEST_ADMIN.email,
-        password: FIXED_TEST_ADMIN.password,
-      });
-    }
+    const initRes = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        Origin: servers.adminUrl,
+      },
+    });
+    if (!initRes.ok) throw new Error(`admin otp setup init failed: ${initRes.status}`);
+    const initJson = (await initRes.json()) as { secret: string };
+    const secret = base32.decode(initJson.secret);
+    const now = Math.floor(Date.now() / 1000);
+    const { code } = totp(secret, now, 30, 6, 'sha1');
+    const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/setup/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        Origin: servers.adminUrl,
+      },
+      body: JSON.stringify({ code }),
+    });
+    if (!verifyRes.ok) throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
     await page.goto(`${servers.adminUrl}/`);
     await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Overview of activity and system health')).toBeVisible({ timeout: 15000 });

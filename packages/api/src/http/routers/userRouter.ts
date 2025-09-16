@@ -9,8 +9,6 @@ import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.js";
 import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.js";
 import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.js";
-import { postOtpBackupCodesRegenerate } from "../../controllers/user/otpBackupCodesRegenerate.js";
-import { postOtpDisable } from "../../controllers/user/otpDisable.js";
 import { postOtpReauth } from "../../controllers/user/otpReauth.js";
 import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.js";
 import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.js";
@@ -295,14 +293,6 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/otp/setup/verify") {
         return await postOtpSetupVerify(context, request, response);
-      }
-
-      if (method === "POST" && pathname === "/otp/disable") {
-        return await postOtpDisable(context, request, response);
-      }
-
-      if (method === "POST" && pathname === "/otp/backup-codes/regenerate") {
-        return await postOtpBackupCodesRegenerate(context, request, response);
       }
 
       if (method === "GET" && pathname === "/apps") {

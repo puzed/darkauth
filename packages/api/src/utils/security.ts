@@ -163,8 +163,20 @@ export async function getRateLimitConfig(
   let maxRequests = typeSettings.max_requests ?? defaultConfig.maxRequests;
   const enabled = typeSettings.enabled ?? defaultConfig.enabled;
 
-  if (context.config.isDevelopment && limitType === "opaque") {
-    if (maxRequests < 1000) maxRequests = 1000;
+  if (context.config.isDevelopment) {
+    if (limitType === "opaque" && maxRequests < 1000) {
+      maxRequests = 1000;
+    }
+    const otpTypes: RateLimitType[] = [
+      "otp",
+      "otp_setup",
+      "otp_verify",
+      "otp_disable",
+      "otp_regenerate",
+    ];
+    if (otpTypes.includes(limitType) && maxRequests < 1000) {
+      maxRequests = 1000;
+    }
   }
 
   return { windowMs, maxRequests, enabled };

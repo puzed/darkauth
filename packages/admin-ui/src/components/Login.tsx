@@ -254,7 +254,10 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
           <Button type="submit" size="lg" disabled={loading} style={{ width: "100%" }}>
             {loading ? (
               <>
-                <Loader2 size={16} style={{ marginRight: 8, animation: "spin 1s linear infinite" }} />
+                <Loader2
+                  size={16}
+                  style={{ marginRight: 8, animation: "spin 1s linear infinite" }}
+                />
                 Authenticating...
               </>
             ) : (
