@@ -44,6 +44,7 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
     }
     sendJson(response, 200, {
       enabled: status.enabled,
+      pending: status.pending,
       verified: status.verified,
       created_at: status.createdAt || null,
       last_used_at: status.lastUsedAt || null,

@@ -7,6 +7,7 @@ import AdminLogin from "@/components/Login";
 import { Toaster } from "@/components/ui/toaster";
 import adminApiService from "@/services/api";
 import authService from "@/services/auth";
+import AdminOtp from "./pages/AdminOtp";
 import AdminUserCreate from "./pages/AdminUserCreate";
 import AdminUserEdit from "./pages/AdminUserEdit";
 import AdminUsers from "./pages/AdminUsers";
@@ -162,6 +163,7 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
+            <Route path="/otp" element={<AdminOtp />} />
             <Route path="/preview" element={<Preview />} />
             <Route
               path="/install"
@@ -222,7 +224,6 @@ const App = () => {
   }
 
   if (adminSession.otpRequired && !adminSession.otpVerified) {
-    const AdminOtp = require("./pages/AdminOtp").default;
     return (
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
