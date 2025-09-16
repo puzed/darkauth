@@ -63,7 +63,9 @@ export async function initOtp(context: Context, cohort: "user" | "admin", subjec
 
   let secretB32: string;
   if (existing && !existing.verified && existing.secretEnc) {
-    secretB32 = (await context.services.kek.decrypt(existing.secretEnc as Buffer)).toString("utf-8");
+    secretB32 = (await context.services.kek.decrypt(existing.secretEnc as Buffer)).toString(
+      "utf-8"
+    );
   } else {
     secretB32 = generateTotpSecretBase32(20);
     const enc = await context.services.kek.encrypt(Buffer.from(secretB32, "utf-8"));
@@ -84,7 +86,9 @@ export async function initOtp(context: Context, cohort: "user" | "admin", subjec
         .delete(otpBackupCodes)
         .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
     } else {
-      await context.db.insert(otpConfigs).values({ cohort, subjectId, secretEnc: enc, verified: false });
+      await context.db
+        .insert(otpConfigs)
+        .values({ cohort, subjectId, secretEnc: enc, verified: false });
     }
   }
 

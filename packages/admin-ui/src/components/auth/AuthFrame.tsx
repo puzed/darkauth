@@ -1,6 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getTheme, setTheme as applyThemeSetting } from "@/lib/theme";
+import { setTheme as applyThemeSetting, getTheme } from "@/lib/theme";
 import styles from "../Login.module.css";
 
 interface AuthFrameProps {

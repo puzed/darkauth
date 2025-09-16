@@ -207,35 +207,6 @@ Response:
 - `enabled` only becomes `true` after a code has been successfully verified and backup codes generated.
 - `pending` is `true` when a secret has been issued but `enabled` is still `false` because verification has not completed yet.
 
-**POST `/otp/disable`**
-- Requires recent password verification (reauth token)
-- Removes OTP configuration and backup codes
-
-Request:
-```json
-{
-  "reauth_token": "..." // from password verification flow
-}
-```
-
-**POST `/otp/backup-codes/regenerate`**
-- Requires recent password verification
-- Invalidates old codes, generates new ones
-
-Request:
-```json
-{
-  "reauth_token": "..."
-}
-```
-
-Response:
-```json
-{
-  "backup_codes": ["XXXX-XXXX-XXXX", ...]
-}
-```
-
 ### 3.2 Admin OTP Endpoints (port 9081)
 
 Identical structure to user endpoints but under `/admin/otp/*` path:
@@ -243,8 +214,6 @@ Identical structure to user endpoints but under `/admin/otp/*` path:
 - `/admin/otp/setup/verify`
 - `/admin/otp/verify`
 - `/admin/otp/status`
-- `/admin/otp/disable`
-- `/admin/otp/backup-codes/regenerate`
 
 ### 3.3 Admin Management Endpoints (port 9081)
 
@@ -644,7 +613,6 @@ async function recordOtpSuccess(
 
 **Phase 1: Default enforced for admins**
 - Deploy with `require_for_admin: true, require_for_users: false`
-- Admin UI keeps a toggle so operators can disable enforcement temporarily
 - New admins must complete OTP during first login before accessing dashboard
 
 **Phase 2: Group-based requirement for users**
@@ -784,12 +752,6 @@ class DarkAuthClient {
   }>;
   
   async getOtpStatus(): Promise<OtpStatus>;
-  
-  async disableOtp(reauthToken: string): Promise<void>;
-  
-  async regenerateBackupCodes(reauthToken: string): Promise<{
-    backupCodes: string[];
-  }>;
 }
 ```
 
@@ -983,7 +945,6 @@ CREATE INDEX idx_otp_backup_codes_lookup ON otp_backup_codes(cohort, subject_id)
 - `/otp/setup/verify`: Verify code, mark verified, generate backup codes
 - `/otp/status`: Return enabled/verified/last_used/backup count
 - `/otp/verify`: Require partial session, verify code/backup, set session.data.otp_verified
-- `/otp/disable` and `/otp/backup-codes/regenerate`: Require reauth token
 
 ### 14.5 Admin Controllers (port 9081)
 - Mirror user endpoints under `/admin/otp/*`

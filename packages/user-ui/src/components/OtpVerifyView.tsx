@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import api from "../services/api";
@@ -14,6 +14,7 @@ export default function OtpVerifyView() {
   const [useBackup, setUseBackup] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -30,6 +31,14 @@ export default function OtpVerifyView() {
       } catch {}
     })();
   }, [navigate]);
+
+  useEffect(() => {
+    if (useBackup) {
+      inputRef.current?.focus();
+      return;
+    }
+    inputRef.current?.focus();
+  }, [useBackup]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,27 +86,35 @@ export default function OtpVerifyView() {
               <input
                 id={`${uid}-otp`}
                 className={btnStyles.formInput}
+                ref={inputRef}
                 value={code}
-                onChange={(e) => {
-                  const v = e.target.value;
+                onChange={(event) => {
+                  const value = event.target.value;
                   if (useBackup) {
-                    const raw = v
-                      .replace(/[^0-9a-zA-Z]/g, "")
+                    const cleaned = value
+                      .replace(/[^0-9A-Za-z]/g, "")
                       .toUpperCase()
                       .slice(0, 12);
                     const formatted =
-                      raw.length <= 4
-                        ? raw
-                        : raw.length <= 8
-                          ? `${raw.slice(0, 4)}-${raw.slice(4)}`
-                          : `${raw.slice(0, 4)}-${raw.slice(4, 8)}-${raw.slice(8)}`;
+                      cleaned.length <= 4
+                        ? cleaned
+                        : cleaned.length <= 8
+                          ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`
+                          : `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
                     setCode(formatted);
                   } else {
-                    setCode(v);
+                    const digits = value.replace(/[^0-9]/g, "").slice(0, 6);
+                    setCode(digits);
                   }
                 }}
                 placeholder={useBackup ? "1234-5678-9ABC" : "123456"}
-                maxLength={useBackup ? 14 : 12}
+                maxLength={useBackup ? 14 : 6}
+                inputMode={useBackup ? "text" : "numeric"}
+                style={{
+                  fontSize: useBackup ? 18 : 32,
+                  textAlign: "center",
+                  letterSpacing: useBackup ? undefined : 8,
+                }}
               />
             </div>
             <div className={btnStyles.formFooter}>
@@ -117,7 +134,9 @@ export default function OtpVerifyView() {
               type="submit"
               className={btnStyles.primaryButton}
               disabled={
-                loading || (!useBackup && code.length < 6) || (useBackup && code.length < 14)
+                loading ||
+                (!useBackup && code.length < 6) ||
+                (useBackup && code.replace(/-/g, "").length < 12)
               }
               style={{ width: "100%" }}
             >

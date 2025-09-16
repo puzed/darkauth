@@ -105,11 +105,11 @@
 }
 
 .content {
-  padding: 16px 24px 8px 24px;
+  padding: 16px 24px 24px 24px;
 }
 
 .formGroup {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .label {
@@ -134,7 +134,6 @@
 
 .errorText {
   margin-top: 6px;
-  font-size: 12px;
   color: hsl(var(--destructive, 0 84.2% 60.2%));
 }
 
@@ -145,6 +144,7 @@
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 14px;
+  margin-bottom: 20px;
 }
 
 :global(.dark) .alert {
@@ -153,7 +153,7 @@
 }
 
 .actions {
-  margin-top: 12px;
+  margin-top: 20px;
 }
 
 .footer {
