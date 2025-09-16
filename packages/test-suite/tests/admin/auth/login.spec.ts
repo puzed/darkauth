@@ -2,10 +2,24 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
+import { establishAdminSession, getAdminBearerToken, completeAdminOtpForPage, disableAdminOtp } from '../../../setup/helpers/auth.js';
+import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Authentication - Login', () => {
   let servers: TestServers;
+  
+  async function waitForLoginForm(page: import('@playwright/test').Page) {
+    const deadline = Date.now() + 30000;
+    while (Date.now() < deadline) {
+      if (page.url().includes('/error')) {
+        await page.goto(`${servers.adminUrl}/`);
+      }
+      const count = await page.locator('input[name="email"], input[type="email"]').count();
+      if (count > 0) return;
+      await page.waitForTimeout(200);
+    }
+    throw new Error('Login form did not render');
+  }
   
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-auth-login' });
@@ -16,6 +30,20 @@ test.describe('Authentication - Login', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
+    await getAdminBearerToken(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password
+    });
+    const deadline = Date.now() + 30000;
+    let ok = false;
+    while (Date.now() < deadline) {
+      try {
+        const res = await fetch(`${servers.adminUrl}/api/health`);
+        if (res.ok) { ok = true; break; }
+      } catch {}
+      await new Promise(r => setTimeout(r, 250));
+    }
+    if (!ok) throw new Error('Admin API did not become healthy in time');
   });
   
   test.afterAll(async () => {
@@ -25,45 +53,93 @@ test.describe('Authentication - Login', () => {
   });
   
   test('admin can login with correct email and password', async ({ page }) => {
+    await disableAdminOtp(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
     await page.goto(`${servers.adminUrl}/`);
-    await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
-    await expect(page.locator('input[name="password"], input[type="password"]')).toBeVisible();
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator('input[name="password"], input[type="password"]').first()).toBeVisible({ timeout: 10000 });
     await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email);
     await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/otp(?:\/(?:setup|verify))?(?:\?.*)?$/, { timeout: 15000 });
+    await expect(page.getByText('Two-Factor Authentication')).toBeVisible({ timeout: 10000 });
+
+    await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
+    const accessToken = await page.evaluate(() => window.localStorage.getItem('adminAccessToken'));
+    if (!accessToken) throw new Error('admin access token missing after login');
+    const provisioningText = await page
+      .locator('text=/^otpauth:\/\//')
+      .first()
+      .textContent();
+    if (provisioningText && provisioningText.length > 0) {
+      const match = provisioningText.match(/secret=([^&]+)/);
+      if (!match) throw new Error('Secret not found in provisioning URI');
+      const secret = base32.decode(match[1]!);
+      const now = Math.floor(Date.now() / 1000);
+      const { code } = totp(secret, now, 30, 6, 'sha1');
+      const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/setup/verify`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          Origin: servers.adminUrl,
+        },
+        body: JSON.stringify({ code }),
+      });
+      if (!verifyRes.ok) throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
+    } else {
+      await completeAdminOtpForPage(page, servers, {
+        email: FIXED_TEST_ADMIN.email,
+        password: FIXED_TEST_ADMIN.password,
+      });
+    }
+    await page.goto(`${servers.adminUrl}/`);
     await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText('Overview of activity and system health')).toBeVisible();
+    await expect(page.getByText('Overview of activity and system health')).toBeVisible({ timeout: 15000 });
   });
   
   test('admin cannot login with correct email but wrong password', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email);
     await page.fill('input[name="password"], input[type="password"]', 'WrongPassword123!');
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/invalid|error|incorrect|wrong|failed/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
   
   test('admin cannot login with wrong email but correct password', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="email"], input[type="email"]', 'wrong-admin@example.com');
     await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/no admin account found|not found|invalid|error|incorrect/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
   
   test('admin cannot login with both wrong email and wrong password', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="email"], input[type="email"]', 'wrong-admin@example.com');
     await page.fill('input[name="password"], input[type="password"]', 'WrongPassword123!');
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/no admin account found|not found|invalid|error|incorrect/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
   
   test('empty email field shows validation error', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="password"], input[type="password"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
     await page.click('button[type="submit"], button:has-text("Sign In")');
     const emailField = page.locator('input[name="email"], input[type="email"]');
@@ -78,6 +154,9 @@ test.describe('Authentication - Login', () => {
   
   test('empty password field shows validation error', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
+    await page.waitForLoadState('domcontentloaded');
+    await waitForLoginForm(page);
+    await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email);
     await page.click('button[type="submit"], button:has-text("Sign In")');
     const passwordField = page.locator('input[name="password"], input[type="password"]');
@@ -92,7 +171,10 @@ test.describe('Authentication - Login', () => {
   
   test('empty form shows validation errors', async ({ page }) => {
     await page.goto(`${servers.adminUrl}/`);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.waitForLoadState('domcontentloaded');
+    await page.waitForFunction(() => !!document.querySelector('button[type="submit"]'), null, { timeout: 20000 });
+    await expect(page.locator('button[type="submit"]').first()).toBeVisible({ timeout: 20000 });
+    await page.click('button[type="submit"]');
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"], input[type="password"]')).toBeVisible();
   });
