@@ -354,27 +354,6 @@ class ApiService {
     return this.request("/otp/verify", { method: "POST", body: JSON.stringify({ code }) });
   }
 
-  async otpDisable(reauthToken: string): Promise<{ success: boolean }> {
-    return this.request("/otp/disable", {
-      method: "POST",
-      body: JSON.stringify({ reauth_token: reauthToken }),
-    });
-  }
-
-  async otpBackupCodesRegenerate(reauthToken: string): Promise<{ backup_codes: string[] }> {
-    return this.request("/otp/backup-codes/regenerate", {
-      method: "POST",
-      body: JSON.stringify({ reauth_token: reauthToken }),
-    });
-  }
-
-  async otpReauth(code: string): Promise<{ reauth_token: string }> {
-    return this.request("/otp/reauth", {
-      method: "POST",
-      body: JSON.stringify({ code }),
-    });
-  }
-
   // Password change (self)
   async passwordChangeStart(
     requestB64Url: string

@@ -1,13 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { withRateLimit } from "../../middleware/rateLimit.js";
-import {
-  disableOtp,
-  getOtpStatusModel,
-  initOtp,
-  regenerateBackupCodes,
-  verifyOtpCode,
-  verifyOtpSetup,
-} from "../../models/otp.js";
+import { getOtpStatusModel, initOtp, verifyOtpCode, verifyOtpSetup } from "../../models/otp.js";
 import {
   getSessionIdFromAuthHeader,
   requireSession,
@@ -87,39 +80,5 @@ export const postAdminOtpVerify = withAudit({
     await verifyOtpCode(context, "admin", session.adminId as string, code);
     await updateSession(context, sid, { ...session, otpVerified: true });
     sendJson(response, 200, { success: true });
-  })
-);
-
-export const postAdminOtpDisable = withAudit({
-  eventType: "ADMIN_OTP_DISABLE",
-  resourceType: "admin",
-})(
-  withRateLimit("otp_disable")(async function postAdminOtpDisable(
-    context: Context,
-    request: IncomingMessage,
-    response: ServerResponse
-  ): Promise<void> {
-    const session = await requireSession(context, request, true);
-    await disableOtp(context, "admin", session.adminId as string);
-    sendJson(response, 200, { success: true });
-  })
-);
-
-export const postAdminOtpBackupCodesRegenerate = withAudit({
-  eventType: "ADMIN_OTP_BACKUP_REGENERATE",
-  resourceType: "admin",
-})(
-  withRateLimit("otp_regenerate")(async function postAdminOtpBackupCodesRegenerate(
-    context: Context,
-    request: IncomingMessage,
-    response: ServerResponse
-  ): Promise<void> {
-    const session = await requireSession(context, request, true);
-    const { backupCodes } = await regenerateBackupCodes(
-      context,
-      "admin",
-      session.adminId as string
-    );
-    sendJson(response, 200, { backup_codes: backupCodes });
   })
 );
