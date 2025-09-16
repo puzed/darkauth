@@ -1,6 +1,7 @@
-import type { BrowserContext } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { toBase64Url, fromBase64Url, sha256Base64Url } from '@DarkAuth/api/src/utils/crypto.ts';
+import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 import type { TestServers } from '../server.js';
 
 export interface BasicUser {
@@ -9,7 +10,57 @@ export interface BasicUser {
   name: string;
 }
 
-const adminTokenCache = new Map<string, string>();
+interface AdminTokenCacheEntry {
+  token: string;
+}
+
+const adminTokenCache = new Map<string, AdminTokenCacheEntry>();
+const adminOtpSecrets = new Map<string, string>();
+
+async function initAdminOtpSecret(
+  servers: TestServers,
+  admin: { email: string; password: string },
+  authHeader: string
+): Promise<string> {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  const initRes = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
+    method: 'POST',
+    headers: {
+      Authorization: authHeader,
+      Origin: servers.adminUrl,
+      'Content-Type': 'application/json'
+    }
+  });
+  if (!initRes.ok) {
+    throw new Error(`admin otp setup init failed: ${initRes.status}`);
+  }
+  const initJson = await initRes.json() as { secret: string };
+  adminOtpSecrets.set(cacheKey, initJson.secret);
+  return initJson.secret;
+}
+
+export async function disableAdminOtp(
+  servers: TestServers,
+  admin: { email: string; password: string }
+): Promise<void> {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  let token = adminTokenCache.get(cacheKey)?.token;
+  if (!token) {
+    token = await getAdminBearerToken(servers, admin);
+  }
+  const res = await fetch(`${servers.adminUrl}/admin/otp/disable`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Origin: servers.adminUrl,
+    },
+  });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`admin otp disable failed: ${res.status}`);
+  }
+  adminOtpSecrets.delete(cacheKey);
+  adminTokenCache.delete(cacheKey);
+}
 
 export async function getAdminBearerToken(
   servers: TestServers,
@@ -17,7 +68,7 @@ export async function getAdminBearerToken(
 ): Promise<string> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
   const cached = adminTokenCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return cached.token;
 
   const client = new OpaqueClient();
   await client.initialize();
@@ -52,8 +103,132 @@ export async function getAdminBearerToken(
   if (!finishRes.ok) throw new Error(`admin login finish failed: ${finishRes.status}`);
   const finishJson = await finishRes.json();
   const token = finishJson.accessToken as string;
-  adminTokenCache.set(cacheKey, token);
-  return token;
+  const entry: AdminTokenCacheEntry = { token };
+  await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
+  adminTokenCache.set(cacheKey, entry);
+  return entry.token;
+}
+
+export function getCachedAdminOtpSecret(
+  servers: TestServers,
+  admin: { email: string }
+): string | undefined {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  return adminOtpSecrets.get(cacheKey);
+}
+
+export async function completeAdminOtpForPage(
+  page: Page,
+  servers: TestServers,
+  admin: { email: string; password: string }
+): Promise<void> {
+  const accessToken = await page.evaluate(() => window.localStorage.getItem('adminAccessToken'));
+  if (!accessToken) throw new Error('admin access token missing in browser session');
+  let secret = getCachedAdminOtpSecret(servers, { email: admin.email });
+  if (!secret) {
+    if (accessToken) {
+      try {
+        secret = await initAdminOtpSecret(servers, admin, `Bearer ${accessToken}`);
+      } catch {
+        secret = undefined;
+      }
+    }
+    if (!secret) {
+      const token = await getAdminBearerToken(servers, admin);
+      secret = await initAdminOtpSecret(servers, admin, `Bearer ${token}`);
+    }
+  }
+  const secretBuf = base32.decode(secret);
+  const now = Math.floor(Date.now() / 1000);
+  const { code } = totp(secretBuf, now, 30, 6, 'sha1');
+  const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      Origin: servers.adminUrl,
+    },
+    body: JSON.stringify({ code }),
+  });
+  if (!verifyRes.ok) {
+    adminOtpSecrets.delete(`${servers.adminUrl}|${admin.email}`);
+    await getAdminBearerToken(servers, admin);
+    await completeAdminOtpForPage(page, servers, admin);
+    return;
+  }
+}
+
+async function ensureAdminOtpVerified(
+  servers: TestServers,
+  admin: { email: string; password: string },
+  entry: AdminTokenCacheEntry,
+  cacheKey: string
+): Promise<void> {
+  const sessionRes = await fetch(`${servers.adminUrl}/admin/session`, {
+    headers: {
+      Authorization: `Bearer ${entry.token}`,
+      Origin: servers.adminUrl,
+    },
+  });
+  if (!sessionRes.ok) {
+    throw new Error(`admin session read failed: ${sessionRes.status}`);
+  }
+  const session = await sessionRes.json() as {
+    otpRequired?: boolean;
+    otpVerified?: boolean;
+  };
+  if (!session.otpRequired || session.otpVerified) return;
+
+  let secret = adminOtpSecrets.get(cacheKey);
+  if (!secret) {
+    secret = await initAdminOtpSecret(servers, admin, `Bearer ${entry.token}`);
+    const secretBuf = base32.decode(secret);
+    const now = Math.floor(Date.now() / 1000);
+    const { code } = totp(secretBuf, now, 30, 6, 'sha1');
+    const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/setup/verify`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${entry.token}`,
+        Origin: servers.adminUrl,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+    if (!verifyRes.ok) {
+      throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
+    }
+  } else {
+    const secretBuf = base32.decode(secret);
+    const now = Math.floor(Date.now() / 1000);
+    const { code } = totp(secretBuf, now, 30, 6, 'sha1');
+    const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/verify`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${entry.token}`,
+        Origin: servers.adminUrl,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ code }),
+    });
+    if (!verifyRes.ok) {
+      adminOtpSecrets.delete(cacheKey);
+      await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
+      return;
+    }
+  }
+  const confirmRes = await fetch(`${servers.adminUrl}/admin/session`, {
+    headers: {
+      Authorization: `Bearer ${entry.token}`,
+      Origin: servers.adminUrl,
+    },
+  });
+  if (!confirmRes.ok) {
+    throw new Error(`admin session confirm failed: ${confirmRes.status}`);
+  }
+  const confirmJson = await confirmRes.json() as { otpVerified?: boolean };
+  if (!confirmJson.otpVerified) {
+    throw new Error('admin otp verification did not complete');
+  }
 }
 
 export async function registerUser(servers: TestServers, user: BasicUser): Promise<void> {
@@ -193,4 +368,20 @@ export async function createUserViaAdmin(
   });
   if (!setFinishRes.ok) throw new Error(`password set finish failed: ${setFinishRes.status}`);
   return { sub };
+}
+
+export async function establishAdminSession(
+  context: BrowserContext,
+  servers: TestServers,
+  admin: { email: string; password: string }
+): Promise<void> {
+  const token = await getAdminBearerToken(servers, admin);
+  const page = await context.newPage();
+  await page.goto(servers.adminUrl);
+  await page.evaluate(([accessToken]) => {
+    try {
+      localStorage.setItem('adminAccessToken', accessToken);
+    } catch {}
+  }, [token]);
+  await page.close();
 }

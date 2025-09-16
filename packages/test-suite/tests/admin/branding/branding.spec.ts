@@ -3,6 +3,7 @@ import { createTestServers, destroyTestServers, TestServers } from '../../../set
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
+import { establishAdminSession } from '../../../setup/helpers/auth.js';
 
 test.describe('Admin - Branding Settings', () => {
   let servers: TestServers;
@@ -24,13 +25,18 @@ test.describe('Admin - Branding Settings', () => {
     }
   });
 
-  test.beforeEach(async ({ page }) => {
-    // Login as admin before each test
+  test.beforeEach(async ({ page, context }) => {
     await page.goto(`${servers.adminUrl}/`);
-    await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email);
-    await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
-    await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+    try {
+      await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email, { timeout: 3000 });
+      await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
+      await page.click('button[type="submit"], button:has-text("Sign In")');
+      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+    } catch {
+      await establishAdminSession(context, servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+      await page.goto(`${servers.adminUrl}/`);
+      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+    }
     
     // Navigate to Branding page
     await page.click('a[href="/branding"], button:has-text("Branding")');
