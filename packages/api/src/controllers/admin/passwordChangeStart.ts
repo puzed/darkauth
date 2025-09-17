@@ -12,18 +12,6 @@ import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
-interface PasswordChangeStartRequest {
-  request: string;
-}
-
-function isPasswordChangeStartRequest(data: unknown): data is PasswordChangeStartRequest {
-  if (typeof data !== "object" || data === null) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return typeof obj.request === "string";
-}
-
 const PasswordChangeStartRequestSchema = z.object({
   request: z.string(),
 });
@@ -51,13 +39,15 @@ async function postAdminPasswordChangeStartHandler(
 
   const body = await readBody(request);
   const data = parseJsonSafely(body);
-
-  if (!isPasswordChangeStartRequest(data)) {
-    throw new ValidationError("Invalid request format. Expected request field.");
-  }
+  const parsed = PasswordChangeStartRequestSchema.safeParse(data);
+  if (!parsed.success)
+    throw new ValidationError(
+      "Invalid request format. Expected request field.",
+      parsed.error.flatten()
+    );
   let requestBuffer: Uint8Array;
   try {
-    requestBuffer = fromBase64Url(data.request);
+    requestBuffer = fromBase64Url(parsed.data.request);
   } catch {
     throw new ValidationError("Invalid base64url encoding in request");
   }

@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { verifyOtpCode } from "../../models/otp.js";
 import { signJWT } from "../../services/jwks.js";
@@ -15,9 +16,9 @@ export const postOtpReauth = withAudit({ eventType: "OTP_REAUTH", resourceType: 
   ): Promise<void> {
     const session = await requireSession(context, request, false);
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as { code?: string };
-    const code = typeof data.code === "string" ? data.code.trim() : "";
-    if (!code) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const raw = parseJsonSafely(body);
+    const Req = z.object({ code: z.string().min(1) });
+    const { code } = Req.parse(raw);
     await verifyOtpCode(context, "user", session.sub as string, code);
     const token = await signJWT(
       context,

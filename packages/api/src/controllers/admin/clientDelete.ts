@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { deleteClient } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
@@ -19,10 +19,8 @@ async function deleteClientHandler(
   response: ServerResponse,
   ...params: string[]
 ): Promise<void> {
-  const clientId = params[0];
-  if (!clientId) {
-    throw new ValidationError("Client ID is required");
-  }
+  const Params = z.object({ clientId: z.string() });
+  const { clientId } = Params.parse({ clientId: params[0] });
   const session = await requireSession(context, request, true);
   if (!session.adminRole || session.adminRole !== "write") {
     throw new ForbiddenError("Write access required");

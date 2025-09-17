@@ -25,32 +25,20 @@ async function updateGroupHandler(
   }
 
   const raw = await readBody(request);
-  const data = parseJsonSafely(raw) as {
-    name?: string;
-    enableLogin?: boolean;
-    requireOtp?: boolean;
-  };
-  if (data.name !== undefined && typeof data.name !== "string") {
-    sendJson(response, 400, { error: "Invalid name" });
-    return;
-  }
-  if (data.enableLogin !== undefined && typeof data.enableLogin !== "boolean") {
-    sendJson(response, 400, { error: "Invalid enableLogin" });
-    return;
-  }
-  if (data.requireOtp !== undefined && typeof data.requireOtp !== "boolean") {
-    sendJson(response, 400, { error: "Invalid requireOtp" });
-    return;
-  }
-  if (data.name === undefined && data.enableLogin === undefined && data.requireOtp === undefined) {
-    sendJson(response, 400, { error: "No updates provided" });
-    return;
-  }
-  const result = await updateGroup(context, key, {
-    name: data.name,
-    enableLogin: data.enableLogin,
-    requireOtp: data.requireOtp,
-  });
+  const Req = z
+    .object({
+      name: z.string().min(1).optional(),
+      enableLogin: z.boolean().optional(),
+      requireOtp: z.boolean().optional(),
+    })
+    .refine(
+      (d) => d.name !== undefined || d.enableLogin !== undefined || d.requireOtp !== undefined,
+      {
+        message: "No updates provided",
+      }
+    );
+  const data = Req.parse(parseJsonSafely(raw));
+  const result = await updateGroup(context, key, data);
   sendJson(response, 200, result);
 }
 

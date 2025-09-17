@@ -18,14 +18,14 @@ import { parseQueryParams } from "../../utils/http.js";
 import { validateP256PublicKeyJWK } from "../../utils/jwk.js";
 
 export const AuthorizationRequestSchema = z.object({
-  client_id: z.string().min(1),
-  redirect_uri: z.string().url(),
-  response_type: z.literal("code"),
-  scope: z.string().min(1),
+  client_id: z.string().min(1, { message: "client_id is required" }),
+  redirect_uri: z.string().min(1, { message: "redirect_uri is required" }),
+  response_type: z.string().min(1, { message: "response_type is required" }),
+  scope: z.string().optional(),
   state: z.string().optional(),
   nonce: z.string().optional(),
   code_challenge: z.string().optional(),
-  code_challenge_method: z.literal("S256").optional(),
+  code_challenge_method: z.string().optional(),
   zk_pub: z.string().optional(),
 });
 
@@ -37,26 +37,14 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   response: ServerResponse
 ): Promise<void> {
   const params = parseQueryParams(request.url || "");
-
+  const parsedParams = AuthorizationRequestSchema.safeParse(Object.fromEntries(params));
+  if (!parsedParams.success) {
+    throw new InvalidRequestError(parsedParams.error.issues[0]?.message || "Invalid request");
+  }
   const authRequest: AuthorizationRequest = {
-    client_id: params.get("client_id") || "",
-    redirect_uri: params.get("redirect_uri") || "",
-    response_type: params.get("response_type") || "",
-    scope: params.get("scope") || "",
-    state: params.get("state") || undefined,
-    nonce: params.get("nonce") || undefined,
-    code_challenge: params.get("code_challenge") || undefined,
-    code_challenge_method: params.get("code_challenge_method") || undefined,
-    zk_pub: params.get("zk_pub") || undefined,
+    ...parsedParams.data,
+    scope: parsedParams.data.scope ?? "",
   };
-
-  if (!authRequest.client_id) {
-    throw new InvalidRequestError("client_id is required");
-  }
-
-  if (!authRequest.redirect_uri) {
-    throw new InvalidRequestError("redirect_uri is required");
-  }
 
   if (authRequest.response_type !== "code") {
     throw new InvalidRequestError("Only response_type=code is supported");

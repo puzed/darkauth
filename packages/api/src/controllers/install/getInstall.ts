@@ -33,9 +33,9 @@ export async function getInstall(
   }
 
   const params = parseQueryParams(request.url || "");
-  const token = params.get("token");
-
-  if (!token || token !== context.services.install?.token) {
+  const Query = z.object({ token: z.string() });
+  const { token } = Query.parse(Object.fromEntries(params));
+  if (token !== context.services.install?.token) {
     throw new ForbiddenInstallTokenError();
   }
 

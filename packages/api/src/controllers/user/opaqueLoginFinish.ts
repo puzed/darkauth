@@ -48,29 +48,14 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
 
         // Read and parse request body (may be cached by rate limit middleware)
         const body = await getCachedBody(request);
-        const data = parseJsonSafely(body) as {
-          finish?: string;
-          message?: string;
-          sessionId?: string;
-          // Note: sub and email fields are ignored for security
-        };
-
-        // Validate request format
-        const finishB64: string | undefined =
-          typeof data.finish === "string"
-            ? data.finish
-            : typeof data.message === "string"
-              ? data.message
-              : undefined;
-        if (!finishB64) {
-          throw new ValidationError("Missing or invalid finish/message field");
-        }
-
-        const sessionId: string | undefined =
-          typeof data.sessionId === "string" ? data.sessionId : undefined;
-        if (!sessionId) {
-          throw new ValidationError("Missing or invalid sessionId field");
-        }
+        const data = parseJsonSafely(body);
+        const Req = z.union([
+          z.object({ finish: z.string(), sessionId: z.string() }),
+          z.object({ message: z.string(), sessionId: z.string() }),
+        ]);
+        const parsed = Req.parse(data);
+        const finishB64 = "finish" in parsed ? parsed.finish : parsed.message;
+        const sessionId = parsed.sessionId;
 
         let finishBuffer: Uint8Array;
         try {

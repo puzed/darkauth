@@ -30,21 +30,15 @@ async function postUserPasswordChangeFinishHandler(
   const userSub = session.sub;
 
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as {
-    record?: unknown;
-    export_key_hash?: unknown;
-    reauth_token?: unknown;
-  };
-  if (!data.record || typeof data.record !== "string") {
-    throw new ValidationError("Missing or invalid record field");
-  }
-  if (!data.export_key_hash || typeof data.export_key_hash !== "string") {
-    throw new ValidationError("Missing or invalid export_key_hash field");
-  }
-
-  // At this point, we know these fields are strings
-  const record = data.record as string;
-  const exportKeyHash = data.export_key_hash as string;
+  const raw = parseJsonSafely(body);
+  const Req = z.object({
+    record: z.string(),
+    export_key_hash: z.string(),
+    reauth_token: z.string(),
+  });
+  const parsed = Req.parse(raw);
+  const record = parsed.record;
+  const exportKeyHash = parsed.export_key_hash;
 
   let recordBuffer: Uint8Array;
   try {
@@ -53,11 +47,7 @@ async function postUserPasswordChangeFinishHandler(
     throw new ValidationError("Invalid base64url encoding in record");
   }
 
-  if (!data.reauth_token || typeof data.reauth_token !== "string") {
-    throw new ValidationError("Reauthentication required");
-  }
-
-  const reauthToken = data.reauth_token as string;
+  const reauthToken = parsed.reauth_token;
   const result = await userPasswordChangeFinish(context, {
     userSub,
     email: session.email,

@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { UnauthorizedError } from "../../errors.js";
 import { setEncPrivateWrapped } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
@@ -21,19 +21,19 @@ export async function putWrappedEncPrivateJwk(
   const sessionData = await requireSession(context, request, false);
   if (!sessionData.sub) throw new UnauthorizedError("User session required");
   const body = await readBody(request);
-  const data = parseJsonSafely(body);
-  if (!data || typeof data !== "object") throw new ValidationError("invalid body");
-  const wrapped = (data as { wrapped_enc_private_jwk?: unknown }).wrapped_enc_private_jwk;
-  if (!wrapped || typeof wrapped !== "string")
-    throw new ValidationError("wrapped_enc_private_jwk required");
-  let buf: Buffer;
-  try {
-    buf = fromBase64Url(wrapped);
-  } catch {
-    throw new ValidationError("invalid base64url");
-  }
-  if (buf.length === 0) throw new ValidationError("empty payload");
-  if (buf.length > 10240) throw new ValidationError("too large");
+  const raw = parseJsonSafely(body);
+  const Req = z.object({
+    wrapped_enc_private_jwk: z.string().refine((s) => {
+      try {
+        const b = fromBase64Url(s);
+        return b.length > 0 && b.length <= 10240;
+      } catch {
+        return false;
+      }
+    }),
+  });
+  const parsed = Req.parse(raw);
+  const buf = fromBase64Url(parsed.wrapped_enc_private_jwk);
   const result = await setEncPrivateWrapped(context, sessionData.sub, buf);
   sendJson(response, 200, result);
 }

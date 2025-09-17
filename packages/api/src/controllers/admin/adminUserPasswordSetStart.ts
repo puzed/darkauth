@@ -13,18 +13,6 @@ import type { Context } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
-interface PasswordSetStartRequest {
-  request: string;
-}
-
-function isPasswordSetStartRequest(data: unknown): data is PasswordSetStartRequest {
-  if (typeof data !== "object" || data === null) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return typeof obj.request === "string";
-}
-
 const PasswordSetStartRequestSchema = z.object({
   request: z.string(),
 });
@@ -50,11 +38,8 @@ async function postAdminUserPasswordSetStartHandler(
 
   const body = await readBody(request);
   const data = parseJsonSafely(body);
-
-  if (!isPasswordSetStartRequest(data)) {
-    throw new ValidationError("Invalid request format. Expected request field.");
-  }
-  const requestBuffer = fromBase64Url(data.request);
+  const parsed = PasswordSetStartRequestSchema.parse(data);
+  const requestBuffer = fromBase64Url(parsed.request);
   const registrationResponse = await context.services.opaque.startRegistration(
     requestBuffer,
     admin.email

@@ -22,9 +22,9 @@ export async function getAuditLogDetail(
   if (!sessionData.adminRole) {
     throw new ForbiddenError("Admin access required");
   }
-  if (!logId || typeof logId !== "string") {
-    throw new NotFoundError("Invalid audit log ID");
-  }
+  const Params = z.object({ id: z.string().min(1) });
+  const parsed = Params.safeParse({ id: logId });
+  if (!parsed.success) throw new NotFoundError("Invalid audit log ID");
   const enriched = await getAuditLogWithActor(context, logId);
   if (!enriched) {
     throw new NotFoundError("Audit log not found");

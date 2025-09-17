@@ -38,30 +38,19 @@ export const putWrappedDrk = withAudit({
 
       // Read and parse request body
       const body = await readBody(request);
-      const data = parseJsonSafely(body) as Record<string, unknown>;
-
-      if (!data.wrapped_drk || typeof data.wrapped_drk !== "string") {
-        throw new ValidationError("wrapped_drk is required and must be a string");
-      }
-
-      // Validate base64url format and decode to get binary data
-      let wrappedDrkBuffer: Buffer;
-      try {
-        wrappedDrkBuffer = fromBase64Url(data.wrapped_drk as string);
-      } catch (_error) {
-        throw new ValidationError("wrapped_drk must be valid base64url encoded data");
-      }
-
-      // Validate size - wrapped DRK should be reasonable size (not too large)
-      if (wrappedDrkBuffer.length === 0) {
-        throw new ValidationError("wrapped_drk cannot be empty");
-      }
-
-      if (wrappedDrkBuffer.length > 10240) {
-        // 10KB max
-        throw new ValidationError("wrapped_drk too large (max 10KB)");
-      }
-
+      const raw = parseJsonSafely(body);
+      const Req = z.object({
+        wrapped_drk: z.string().refine((s) => {
+          try {
+            const b = fromBase64Url(s);
+            return b.length > 0 && b.length <= 10240;
+          } catch {
+            return false;
+          }
+        }),
+      });
+      const parsed = Req.parse(raw);
+      const wrappedDrkBuffer = fromBase64Url(parsed.wrapped_drk);
       await setWrappedDrkModel(context, sessionData.sub, wrappedDrkBuffer);
 
       // Return success response

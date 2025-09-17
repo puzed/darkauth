@@ -29,30 +29,28 @@ export const postOpaqueRegisterStart = async (
     throw new ForbiddenError("Self-registration disabled");
   }
 
-  // Read and parse request body
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as {
-    request?: string;
-    email?: string;
-    __debug?: unknown;
-  };
+  const data = parseJsonSafely(body);
+  const Req = z.object({
+    request: z.string(),
+    email: z.string().email().optional(),
+    __debug: z.unknown().optional(),
+  });
+  const parsed = Req.safeParse(data);
+  if (!parsed.success)
+    throw new ValidationError("Missing or invalid request field", parsed.error.flatten());
   context.logger.debug(
     {
       rawLen: body?.length || 0,
-      hasEmail: typeof data?.email === "string",
-      debug: data?.__debug,
+      hasEmail: typeof parsed.data?.email === "string",
+      debug: parsed.data?.__debug,
     },
     "[opaque] controller.registerStart"
   );
 
-  // Validate request format
-  if (!data.request || typeof data.request !== "string") {
-    throw new ValidationError("Missing or invalid request field");
-  }
-
   let requestBuffer: Uint8Array;
   try {
-    requestBuffer = fromBase64Url(data.request);
+    requestBuffer = fromBase64Url(parsed.data.request);
   } catch {
     throw new ValidationError("Invalid base64url encoding in request");
   }
@@ -64,14 +62,12 @@ export const postOpaqueRegisterStart = async (
     "[opaque] controller.registerStart.decoded"
   );
 
-  // Call OPAQUE service (bind to user identity if provided)
   const registrationResponse = await context.services.opaque.startRegistration(
     requestBuffer,
-    typeof data.email === "string" ? data.email : "",
+    typeof parsed.data.email === "string" ? parsed.data.email : "",
     "DarkAuth"
   );
 
-  // Convert response to base64url for JSON transmission
   const responseData = {
     message: toBase64Url(Buffer.from(registrationResponse.message)),
     serverPublicKey: toBase64Url(Buffer.from(registrationResponse.serverPublicKey)),

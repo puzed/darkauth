@@ -5,7 +5,7 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { getUserGroups as getUserGroupsModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
@@ -23,12 +23,9 @@ export async function getUserGroups(
   if (!sessionData.adminRole) {
     throw new ForbiddenError("Admin access required");
   }
-
-  if (!userSub || typeof userSub !== "string") {
-    throw new ValidationError("Invalid user subject");
-  }
-
-  const result = await getUserGroupsModel(context, userSub);
+  const Params = z.object({ sub: z.string() });
+  const { sub } = Params.parse({ sub: userSub });
+  const result = await getUserGroupsModel(context, sub);
   sendJson(response, 200, result);
 }
 

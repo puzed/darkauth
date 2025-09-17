@@ -5,7 +5,7 @@ import { z } from "zod";
 extendZodWithOpenApi(z);
 
 import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { setAdminPasswordResetRequired } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
@@ -23,10 +23,8 @@ async function postAdminUserPasswordResetHandler(
   response: ServerResponse,
   ...params: string[]
 ) {
-  const adminId = params[0];
-  if (!adminId) {
-    throw new ValidationError("Admin ID is required");
-  }
+  const Params = z.object({ adminId: z.string() });
+  const { adminId } = Params.parse({ adminId: params[0] });
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") {
     throw new ForbiddenError("Write permission required");

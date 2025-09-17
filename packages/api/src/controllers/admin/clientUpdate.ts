@@ -19,8 +19,8 @@ async function updateClientHandler(
   response: ServerResponse,
   ...params: string[]
 ): Promise<void> {
-  const clientId = params[0];
-  if (!clientId) throw new ValidationError("Client ID is required");
+  const Params = z.object({ clientId: z.string() });
+  const { clientId } = Params.parse({ clientId: params[0] });
   const session = await requireSession(context, request, true);
   if (!session.adminRole || session.adminRole !== "write") {
     throw new ForbiddenError("Write access required");
@@ -28,87 +28,26 @@ async function updateClientHandler(
   const body = await readBody(request);
   const parsed = parseJsonSafely(body);
   if (!parsed || typeof parsed !== "object") throw new ValidationError("Invalid JSON body");
-  const data = parsed as Record<string, unknown>;
-
-  type ClientUpdateInput = {
-    name?: string;
-    type?: "public" | "confidential";
-    tokenEndpointAuthMethod?: "none" | "client_secret_basic";
-    requirePkce?: boolean;
-    zkDelivery?: "none" | "fragment-jwe";
-    zkRequired?: boolean;
-    showOnUserDashboard?: boolean;
-    allowedJweAlgs?: string[];
-    allowedJweEncs?: string[];
-    redirectUris?: string[];
-    postLogoutRedirectUris?: string[];
-    grantTypes?: string[];
-    responseTypes?: string[];
-    scopes?: string[];
-    allowedZkOrigins?: string[];
-    idTokenLifetimeSeconds?: number | null;
-    refreshTokenLifetimeSeconds?: number | null;
-  };
-
-  const updates: ClientUpdateInput = {};
-  if (typeof data.name === "string") updates.name = data.name;
-  if (data.type === "public" || data.type === "confidential") updates.type = data.type;
-  if (
-    data.tokenEndpointAuthMethod === "none" ||
-    data.tokenEndpointAuthMethod === "client_secret_basic"
-  )
-    updates.tokenEndpointAuthMethod = data.tokenEndpointAuthMethod;
-  if (typeof data.requirePkce === "boolean") updates.requirePkce = data.requirePkce;
-  if (data.zkDelivery === "none" || data.zkDelivery === "fragment-jwe")
-    updates.zkDelivery = data.zkDelivery;
-  if (typeof data.zkRequired === "boolean") updates.zkRequired = data.zkRequired;
-  if (typeof data.showOnUserDashboard === "boolean")
-    updates.showOnUserDashboard = data.showOnUserDashboard;
-  if (
-    Array.isArray(data.allowedJweAlgs) &&
-    data.allowedJweAlgs.every((item): item is string => typeof item === "string")
-  )
-    updates.allowedJweAlgs = data.allowedJweAlgs;
-  if (
-    Array.isArray(data.allowedJweEncs) &&
-    data.allowedJweEncs.every((item): item is string => typeof item === "string")
-  )
-    updates.allowedJweEncs = data.allowedJweEncs;
-  if (
-    Array.isArray(data.redirectUris) &&
-    data.redirectUris.every((item): item is string => typeof item === "string")
-  )
-    updates.redirectUris = data.redirectUris;
-  if (
-    Array.isArray(data.postLogoutRedirectUris) &&
-    data.postLogoutRedirectUris.every((item): item is string => typeof item === "string")
-  )
-    updates.postLogoutRedirectUris = data.postLogoutRedirectUris;
-  if (
-    Array.isArray(data.grantTypes) &&
-    data.grantTypes.every((item): item is string => typeof item === "string")
-  )
-    updates.grantTypes = data.grantTypes;
-  if (
-    Array.isArray(data.responseTypes) &&
-    data.responseTypes.every((item): item is string => typeof item === "string")
-  )
-    updates.responseTypes = data.responseTypes;
-  if (
-    Array.isArray(data.scopes) &&
-    data.scopes.every((item): item is string => typeof item === "string")
-  )
-    updates.scopes = data.scopes;
-  if (
-    Array.isArray(data.allowedZkOrigins) &&
-    data.allowedZkOrigins.every((item): item is string => typeof item === "string")
-  )
-    updates.allowedZkOrigins = data.allowedZkOrigins;
-  if (typeof data.idTokenLifetimeSeconds === "number")
-    updates.idTokenLifetimeSeconds = data.idTokenLifetimeSeconds;
-  if (typeof data.refreshTokenLifetimeSeconds === "number")
-    updates.refreshTokenLifetimeSeconds = data.refreshTokenLifetimeSeconds;
-
+  const Req = z.object({
+    name: z.string().optional(),
+    type: z.enum(["public", "confidential"]).optional(),
+    tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]).optional(),
+    requirePkce: z.boolean().optional(),
+    zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
+    zkRequired: z.boolean().optional(),
+    showOnUserDashboard: z.boolean().optional(),
+    allowedJweAlgs: z.array(z.string()).optional(),
+    allowedJweEncs: z.array(z.string()).optional(),
+    redirectUris: z.array(z.string()).optional(),
+    postLogoutRedirectUris: z.array(z.string()).optional(),
+    grantTypes: z.array(z.string()).optional(),
+    responseTypes: z.array(z.string()).optional(),
+    scopes: z.array(z.string()).optional(),
+    allowedZkOrigins: z.array(z.string()).optional(),
+    idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+    refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+  });
+  const updates = Req.parse(parsed as unknown);
   await updateClient(context, clientId, updates);
 
   sendJson(response, 200, { success: true });

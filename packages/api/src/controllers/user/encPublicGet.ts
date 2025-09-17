@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { UnauthorizedError } from "../../errors.js";
 import { getEncPublicJwkBySub } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
@@ -21,8 +21,8 @@ export async function getEncPublicJwk(
   const sessionData = await requireSession(context, request, false);
   if (!sessionData.sub) throw new UnauthorizedError("User session required");
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const sub = url.searchParams.get("sub");
-  if (!sub) throw new ValidationError("sub is required");
+  const Query = z.object({ sub: z.string() });
+  const { sub } = Query.parse(Object.fromEntries(url.searchParams));
   const setting = (await getSetting(context, "user_keys")) as {
     enc_public_visible_to_authenticated_users?: boolean;
   } | null;

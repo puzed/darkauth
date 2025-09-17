@@ -23,34 +23,23 @@ export async function getAuditLogExport(
   }
 
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const startDate = url.searchParams.get("startDate")
-    ? new Date(url.searchParams.get("startDate") || "")
-    : undefined;
-  const endDate = url.searchParams.get("endDate")
-    ? new Date(url.searchParams.get("endDate") || "")
-    : undefined;
-  const eventType = url.searchParams.get("eventType") || undefined;
-  const userId = url.searchParams.get("userId") || undefined;
-  const adminId = url.searchParams.get("adminId") || undefined;
-  const clientId = url.searchParams.get("clientId") || undefined;
-  const resourceType = url.searchParams.get("resourceType") || undefined;
-  const resourceId = url.searchParams.get("resourceId") || undefined;
-  const success = url.searchParams.get("success")
-    ? url.searchParams.get("success") === "true"
-    : undefined;
-  const search = url.searchParams.get("search") || undefined;
-
+  const Query = z.object({
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
+    eventType: z.string().optional(),
+    userId: z.string().optional(),
+    adminId: z.string().optional(),
+    clientId: z.string().optional(),
+    resourceType: z.string().optional(),
+    resourceId: z.string().optional(),
+    success: z.string().optional(),
+    search: z.string().optional(),
+  });
+  const rawFilters = Query.parse(Object.fromEntries(url.searchParams));
   const filters = {
-    startDate,
-    endDate,
-    eventType,
-    userId,
-    adminId,
-    clientId,
-    resourceType,
-    resourceId,
-    success,
-    search,
+    ...rawFilters,
+    success:
+      rawFilters.success === undefined ? undefined : rawFilters.success === "true",
   };
 
   const csvContent = await exportAuditLogsCsv(context, filters);

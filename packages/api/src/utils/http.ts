@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { URL } from "node:url";
+import { ZodError } from "zod";
 import { AppError, OAuthError, ValidationError } from "../errors.js";
 
 export function readBody(request: IncomingMessage): Promise<string> {
@@ -63,6 +64,12 @@ export function sendJsonValidated<T>(
 }
 
 export function sendError(response: ServerResponse, error: Error): void {
+  if (error instanceof ZodError) {
+    const message = error.issues[0]?.message || "Invalid request";
+    const validation = new ValidationError(message, error.flatten());
+    sendError(response, validation);
+    return;
+  }
   if (error instanceof AppError) {
     response.statusCode = error.statusCode;
     response.setHeader("Content-Type", "application/json");
