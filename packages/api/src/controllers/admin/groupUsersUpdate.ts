@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { setGroupUsers } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, HttpHandler } from "../../types.js";
@@ -23,25 +23,18 @@ async function updateGroupUsersHandler(
   if (sessionData.adminRole !== "write") {
     throw new ForbiddenError("Write access required");
   }
-  if (!groupKey || typeof groupKey !== "string") {
-    throw new ValidationError("Invalid group key");
-  }
+  const Params = z.object({ key: z.string() });
+  const { key } = Params.parse({ key: groupKey });
   const body = await readBody(request);
   const data = parseJsonSafely(body) as Record<string, unknown>;
-  const userSubs: string[] = Array.isArray(data.userSubs)
-    ? data.userSubs
-    : Array.isArray(data.users)
-      ? data.users
-      : [];
-  if (!Array.isArray(userSubs)) {
-    throw new ValidationError("userSubs must be an array");
-  }
-  for (const sub of userSubs) {
-    if (typeof sub !== "string") {
-      throw new ValidationError("All user subs must be strings");
-    }
-  }
-  const result = await setGroupUsers(context, groupKey, userSubs);
+  const Req = z
+    .object({ userSubs: z.array(z.string()).optional(), users: z.array(z.string()).optional() })
+    .refine((d) => d.userSubs !== undefined || d.users !== undefined, {
+      message: "Provide userSubs or users",
+    });
+  const parsed = Req.parse(data);
+  const userSubs = parsed.userSubs ?? parsed.users ?? [];
+  const result = await setGroupUsers(context, key, userSubs);
   sendJson(response, 200, result);
 }
 

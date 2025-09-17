@@ -30,9 +30,25 @@ export const postLogout = withAudit({
     const body = await readBody(request);
     const formData = parseFormBody(body);
 
-    const postLogoutRedirectUri = formData.get("post_logout_redirect_uri");
-    const clientId = formData.get("client_id");
-    const state = formData.get("state");
+    const input = {
+      post_logout_redirect_uri: formData.get("post_logout_redirect_uri") || undefined,
+      client_id: formData.get("client_id") || undefined,
+      state: formData.get("state") || undefined,
+    } as { post_logout_redirect_uri?: string; client_id?: string; state?: string };
+    const Req = z
+      .object({
+        post_logout_redirect_uri: z.string().optional(),
+        client_id: z.string().optional(),
+        state: z.string().optional(),
+      })
+      .refine((d) => !d.post_logout_redirect_uri || !!d.client_id, {
+        message: "client_id is required when post_logout_redirect_uri is provided",
+        path: ["client_id"],
+      });
+    const parsed = Req.safeParse(input);
+    if (!parsed.success)
+      throw new InvalidRequestError(parsed.error.issues[0]?.message || "Invalid request");
+    const { post_logout_redirect_uri, client_id, state } = parsed.data;
 
     // Clear session if it exists
     const sessionId = getSessionId(request);
@@ -41,25 +57,19 @@ export const postLogout = withAudit({
     }
 
     // Validate post_logout_redirect_uri if provided
-    if (postLogoutRedirectUri) {
-      if (!clientId) {
-        throw new InvalidRequestError(
-          "client_id is required when post_logout_redirect_uri is provided"
-        );
-      }
-
-      const client = await getClient(context, clientId);
+    if (post_logout_redirect_uri) {
+      const client = await getClient(context, client_id as string);
 
       if (!client) {
         throw new InvalidRequestError("Unknown client");
       }
 
-      if (!client.postLogoutRedirectUris.includes(postLogoutRedirectUri)) {
+      if (!client.postLogoutRedirectUris.includes(post_logout_redirect_uri)) {
         throw new InvalidRequestError("Invalid post_logout_redirect_uri");
       }
 
       // Prepare redirect URL with state if provided
-      const redirectUrl = new URL(postLogoutRedirectUri);
+      const redirectUrl = new URL(post_logout_redirect_uri);
       if (state) {
         redirectUrl.searchParams.set("state", state);
       }

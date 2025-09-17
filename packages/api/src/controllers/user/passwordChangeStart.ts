@@ -28,15 +28,12 @@ async function postUserPasswordChangeStartHandler(
   }
 
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as {
-    request?: unknown;
-  };
-  if (!data.request || typeof data.request !== "string") {
-    throw new ValidationError("Missing or invalid request field");
-  }
+  const raw = parseJsonSafely(body);
+  const Req = z.object({ request: z.string() });
+  const { request: requestString } = Req.parse(raw);
   let requestBuffer: Uint8Array;
   try {
-    requestBuffer = fromBase64Url(data.request as string);
+    requestBuffer = fromBase64Url(requestString);
   } catch {
     throw new ValidationError("Invalid base64url encoding in request");
   }

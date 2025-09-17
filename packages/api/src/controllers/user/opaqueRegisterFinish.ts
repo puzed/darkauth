@@ -43,42 +43,25 @@ export const postOpaqueRegisterFinish = withAudit({
 
       // Read and parse request body
       const body = await readBody(request);
-      const data = parseJsonSafely(body) as {
-        record?: unknown;
-        message?: unknown;
-        name?: unknown;
-        email?: unknown;
-        __debug?: unknown;
-      };
-
-      // Validate request format (accept both `record` and `message` for compatibility)
-      const recordBase64: string | undefined =
-        typeof data.record === "string"
-          ? data.record
-          : typeof data.message === "string"
-            ? data.message
-            : undefined;
-      if (!recordBase64) {
-        throw new ValidationError("Missing or invalid record/message field");
-      }
-
-      if (!data.email || typeof data.email !== "string") {
-        throw new ValidationError("Missing or invalid email field");
-      }
-
-      if (!data.name || typeof data.name !== "string") {
-        throw new ValidationError("Missing or invalid name field");
-      }
-
-      // At this point, we know email and name are strings
-      const email = data.email as string;
-      const name = data.name as string;
-
-      // Validate email format
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        throw new ValidationError("Invalid email format");
-      }
+      const raw = parseJsonSafely(body);
+      const Req = z.union([
+        z.object({
+          record: z.string(),
+          email: z.string().email(),
+          name: z.string(),
+          __debug: z.unknown().optional(),
+        }),
+        z.object({
+          message: z.string(),
+          email: z.string().email(),
+          name: z.string(),
+          __debug: z.unknown().optional(),
+        }),
+      ]);
+      const parsed = Req.parse(raw);
+      const recordBase64 = "record" in parsed ? parsed.record : parsed.message;
+      const email = parsed.email;
+      const name = parsed.name;
 
       let recordBuffer: Uint8Array;
       try {

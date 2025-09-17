@@ -5,7 +5,7 @@ import { z } from "zod";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { setUserPermissions } from "../../models/userPermissions.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, HttpHandler } from "../../types.js";
@@ -25,29 +25,18 @@ async function updateUserPermissionsHandler(
     throw new ForbiddenError("Write access required");
   }
 
-  if (!userSub || typeof userSub !== "string") {
-    throw new ValidationError("Invalid user subject");
-  }
+  const Params = z.object({ sub: z.string() });
+  const { sub } = Params.parse({ sub: userSub });
 
   // Read and parse request body
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as Record<string, unknown>;
-
-  if (!Array.isArray(data.permissionKeys)) {
-    throw new ValidationError("permissionKeys must be an array");
-  }
-
-  // Validate permission keys are strings
-  if (!data.permissionKeys.every((key): key is string => typeof key === "string")) {
-    throw new ValidationError("All permission keys must be strings");
-  }
-
-  // At this point, we know permissionKeys is string[]
-  const permissionKeys = data.permissionKeys as string[];
+  const raw = parseJsonSafely(body);
+  const Req = z.object({ permissionKeys: z.array(z.string()) });
+  const { permissionKeys } = Req.parse(raw);
 
   const responseData = {
     success: true,
-    ...(await setUserPermissions(context, userSub, permissionKeys)),
+    ...(await setUserPermissions(context, sub, permissionKeys)),
   };
 
   sendJson(response, 200, responseData);

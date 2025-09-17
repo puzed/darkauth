@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { getOtpStatusModel, initOtp, verifyOtpCode, verifyOtpSetup } from "../../models/otp.js";
 import {
@@ -51,9 +52,11 @@ export const postAdminOtpSetupVerify = withAudit({
   ): Promise<void> {
     const session = await requireSession(context, request, true);
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as { code?: string };
-    const code = typeof data.code === "string" ? data.code.trim() : "";
-    if (!code) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const data = parseJsonSafely(body);
+    const Req = z.object({ code: z.string().min(1) });
+    const parsed = Req.safeParse(data);
+    if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const code = parsed.data.code.trim();
     const { backupCodes } = await verifyOtpSetup(context, "admin", session.adminId as string, code);
     const sid = getSessionIdFromAuthHeader(request);
     if (sid) await updateSession(context, sid, { ...session, otpVerified: true });
@@ -72,9 +75,11 @@ export const postAdminOtpVerify = withAudit({
   ): Promise<void> {
     const session = await requireSession(context, request, true);
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as { code?: string };
-    const code = typeof data.code === "string" ? data.code.trim() : "";
-    if (!code) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const data = parseJsonSafely(body);
+    const Req = z.object({ code: z.string().min(1) });
+    const parsed = Req.safeParse(data);
+    if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const code = parsed.data.code.trim();
     const sid = getSessionIdFromAuthHeader(request);
     if (!sid) return sendJson(response, 401, { error: "No session token" });
     await verifyOtpCode(context, "admin", session.adminId as string, code);

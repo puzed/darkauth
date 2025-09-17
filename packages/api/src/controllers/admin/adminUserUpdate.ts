@@ -8,11 +8,13 @@ extendZodWithOpenApi(z);
 import { ForbiddenError, ValidationError } from "../../errors.js";
 import { updateAdminUser } from "../../models/adminUsers.js";
 export const AdminRoleSchema = z.enum(["read", "write"]);
-export const UpdateAdminUserSchema = z.object({
-  email: z.string().email().optional(),
-  name: z.string().min(1).max(100).optional(),
-  role: AdminRoleSchema.optional(),
-});
+export const UpdateAdminUserSchema = z
+  .object({
+    email: z.string().email().optional(),
+    name: z.string().min(1).max(100).optional(),
+    role: AdminRoleSchema.optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, { message: "No valid fields to update" });
 export const AdminUserSchema = z.object({
   id: z.string().uuid(),
   email: z.string().email(),
@@ -48,10 +50,6 @@ export async function updateAdminUserController(
   if (parsed.data.email !== undefined) updates.email = parsed.data.email.trim().toLowerCase();
   if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim();
   if (parsed.data.role !== undefined) updates.role = parsed.data.role;
-
-  if (Object.keys(updates).length === 0) {
-    throw new ValidationError("No valid fields to update");
-  }
 
   const adminUser = await updateAdminUser(context, adminId, updates);
   sendJson(response, 200, adminUser);

@@ -27,16 +27,15 @@ export async function postUserPasswordVerifyStart(
     if (!session.email) throw new ValidationError("Email not available for session");
 
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as {
-      request?: unknown;
-    };
-    if (!data.request || typeof data.request !== "string") {
-      throw new ValidationError("Missing or invalid request field");
-    }
+    const data = parseJsonSafely(body);
+    const Req = z.object({ request: z.string() });
+    const parsed = Req.safeParse(data);
+    if (!parsed.success)
+      throw new ValidationError("Missing or invalid request field", parsed.error.flatten());
 
     let requestBuffer: Uint8Array;
     try {
-      requestBuffer = fromBase64Url(data.request as string);
+      requestBuffer = fromBase64Url(parsed.data.request);
     } catch {
       throw new ValidationError("Invalid base64url encoding in request");
     }

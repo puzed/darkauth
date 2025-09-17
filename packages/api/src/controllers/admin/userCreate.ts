@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { createUser as createUserModel } from "../../models/users.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -27,17 +27,18 @@ async function createUserHandler(
   }
 
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as Record<string, unknown>;
-
-  const email = typeof data.email === "string" ? data.email.trim() : "";
-  const name = typeof data.name === "string" ? data.name.trim() : "";
-  const subInput = typeof data.sub === "string" ? data.sub.trim() : "";
-
-  if (!email) throw new ValidationError("Email is required");
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) throw new ValidationError("Invalid email format");
-
-  const result = await createUserModel(context, { email, name, sub: subInput });
+  const raw = parseJsonSafely(body);
+  const Req = z.object({
+    email: z.string().email(),
+    name: z.string().optional(),
+    sub: z.string().optional(),
+  });
+  const parsed = Req.parse(raw);
+  const result = await createUserModel(context, {
+    email: parsed.email.trim(),
+    name: parsed.name?.trim() || "",
+    sub: parsed.sub?.trim(),
+  });
   sendJson(response, 201, result);
 }
 

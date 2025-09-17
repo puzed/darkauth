@@ -45,12 +45,11 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       const body = await readBody(request);
       const formData = parseFormBody(body);
-
-      const requestId = formData.get("request_id");
-
-      if (!requestId) {
-        throw new InvalidRequestError("request_id is required");
-      }
+      const Req = z.object({ request_id: z.string().min(1), drk_hash: z.string().optional() });
+      const parsed = Req.parse(
+        Object.fromEntries(formData as unknown as Iterable<[string, string]>)
+      );
+      const requestId = parsed.request_id;
 
       // Look up pending auth request
       const pendingRequest = await getPendingAuth(context, requestId);
@@ -77,7 +76,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       let drkHash: string | undefined;
 
       // Check if this is a ZK-enabled request that includes drk_hash from client-side JWE creation
-      const drkHashFromClient = formData.get("drk_hash");
+      const drkHashFromClient = parsed.drk_hash;
 
       if (pendingRequest.zkPubKid && drkHashFromClient) {
         // ZK client has already created the JWE client-side and provided the hash

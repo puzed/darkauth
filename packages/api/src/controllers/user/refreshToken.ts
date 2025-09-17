@@ -19,13 +19,12 @@ async function postUserRefreshTokenHandler(
   ..._params: unknown[]
 ) {
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as {
-    refreshToken?: unknown;
-  };
-  if (!data.refreshToken || typeof data.refreshToken !== "string") {
-    throw new ValidationError("Missing or invalid refreshToken field");
-  }
-  const result = await refreshSessionWithToken(context, data.refreshToken);
+  const data = parseJsonSafely(body);
+  const Req = z.object({ refreshToken: z.string() });
+  const parsed = Req.safeParse(data);
+  if (!parsed.success)
+    throw new ValidationError("Missing or invalid refreshToken field", parsed.error.flatten());
+  const result = await refreshSessionWithToken(context, parsed.data.refreshToken);
   if (!result) {
     throw new ValidationError("Invalid or expired refresh token");
   }

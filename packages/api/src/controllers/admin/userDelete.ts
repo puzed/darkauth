@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { deleteUser as deleteUserModel } from "../../models/users.js";
 import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -18,10 +18,8 @@ async function deleteUserHandler(
   response: ServerResponse,
   ...params: string[]
 ): Promise<void> {
-  const sub = params[0];
-  if (!sub) {
-    throw new ValidationError("User sub is required");
-  }
+  const Params = z.object({ sub: z.string() });
+  const { sub } = Params.parse({ sub: params[0] });
   const sessionData = await (await import("../../services/sessions.js")).requireSession(
     context,
     request,
