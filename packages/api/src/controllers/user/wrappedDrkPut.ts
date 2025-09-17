@@ -29,14 +29,12 @@ export const putWrappedDrk = withAudit({
     ..._params: unknown[]
   ): Promise<void> => {
     try {
-      // Require authenticated session
       const sessionData = await requireSession(context, request, false);
 
       if (!sessionData.sub) {
         throw new UnauthorizedError("User session required");
       }
 
-      // Read and parse request body
       const body = await readBody(request);
       const raw = parseJsonSafely(body);
       const Req = z.object({
@@ -49,11 +47,13 @@ export const putWrappedDrk = withAudit({
           }
         }),
       });
-      const parsed = Req.parse(raw);
-      const wrappedDrkBuffer = fromBase64Url(parsed.wrapped_drk);
+      const parsed = Req.safeParse(raw);
+      if (!parsed.success) {
+        throw new ValidationError("Invalid request format", parsed.error.flatten());
+      }
+      const wrappedDrkBuffer = fromBase64Url(parsed.data.wrapped_drk);
       await setWrappedDrkModel(context, sessionData.sub, wrappedDrkBuffer);
 
-      // Return success response
       sendJson(response, 200, {
         success: true,
         message: "Wrapped DRK stored successfully",
