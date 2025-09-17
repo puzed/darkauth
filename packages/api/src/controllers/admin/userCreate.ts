@@ -55,7 +55,7 @@ export const createUser = withAudit({
 export function registerOpenApi(registry: OpenAPIRegistry) {
   const Req = z.object({
     email: z.string().email(),
-    name: z.string().min(1),
+    name: z.string().optional(),
     sub: z.string().optional(),
   });
   const Resp = z.object({
