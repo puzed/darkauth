@@ -74,15 +74,16 @@ export const postToken = withRateLimit("token")(
       const body = await getCachedBody(request);
       const formData = parseFormBody(body);
 
-      const tokenRequest: TokenRequest = {
-        grant_type: formData.get("grant_type") || "",
-        code: formData.get("code") || undefined,
-        redirect_uri: formData.get("redirect_uri") || undefined,
-        client_id: formData.get("client_id") || undefined,
-        client_secret: formData.get("client_secret") || undefined,
-        code_verifier: formData.get("code_verifier") || undefined,
-        refresh_token: formData.get("refresh_token") || undefined,
-      };
+      const rawRequest = Object.fromEntries(
+        formData as unknown as Iterable<[string, string]>
+      );
+      const parsedRequest = TokenRequestSchema.safeParse(rawRequest);
+      if (!parsedRequest.success) {
+        throw new InvalidRequestError(
+          parsedRequest.error.issues[0]?.message || "Invalid request"
+        );
+      }
+      const tokenRequest = parsedRequest.data as TokenRequest;
 
       if (tokenRequest.grant_type === "refresh_token") {
         if (!tokenRequest.refresh_token) throw new InvalidRequestError("refresh_token is required");

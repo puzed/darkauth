@@ -31,43 +31,29 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
 
     // Read and parse request body (may be cached by rate limit middleware)
     const body = await getCachedBody(request);
-    const data = parseJsonSafely(body) as {
-      email?: unknown;
-      request?: unknown;
-    };
+    const data = parseJsonSafely(body);
     context.logger.debug({ bodyLen: body?.length || 0 }, "parsed body");
 
     // Validate request format
-    if (!data.email || typeof data.email !== "string") {
-      throw new ValidationError("Missing or invalid email field");
-    }
-
-    if (!data.request || typeof data.request !== "string") {
-      throw new ValidationError("Missing or invalid request field");
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
-      throw new ValidationError("Invalid email format");
-    }
+    const Req = z.object({ email: z.string().email(), request: z.string() });
+    const parsed = Req.parse(data);
 
     let requestBuffer: Uint8Array;
     try {
-      requestBuffer = fromBase64Url(data.request as string);
+      requestBuffer = fromBase64Url(parsed.request);
     } catch {
       throw new ValidationError("Invalid base64url encoding in request");
     }
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
-    const userLookup = await getUserOpaqueRecordByEmail(context, data.email as string);
+    const userLookup = await getUserOpaqueRecordByEmail(context, parsed.email);
     context.logger.debug({ found: !!userLookup.user }, "user lookup");
 
     let loginResponse: OpaqueLoginResponse;
     if (!userLookup.user) {
       loginResponse = await context.services.opaque.startLoginWithDummy(
         requestBuffer,
-        data.email as string
+        parsed.email
       );
     } else {
       const envelopeBuffer = userLookup.envelope as unknown as Buffer | string | null;
@@ -84,7 +70,7 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
       if (!envelopeBuf || !serverPubkeyBuf || envelopeBuf.length === 0) {
         loginResponse = await context.services.opaque.startLoginWithDummy(
           requestBuffer,
-          data.email as string
+          parsed.email
         );
       } else {
         const opaqueRecord = {
@@ -94,7 +80,7 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
         loginResponse = await context.services.opaque.startLogin(
           requestBuffer,
           opaqueRecord,
-          data.email as string
+          parsed.email
         );
       }
     }

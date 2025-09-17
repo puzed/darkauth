@@ -19,7 +19,7 @@ import {
   markSystemInitialized,
   seedDefaultSettings,
 } from "../../services/settings.js";
-import type { Context, InstallRequest } from "../../types.js";
+import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { generateRandomString } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -49,7 +49,8 @@ async function _postInstallComplete(
   }
 
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as InstallRequest;
+  const raw = parseJsonSafely(body);
+  const data = InstallCompleteRequestSchema.parse(raw);
   context.logger.debug({ bodyLength: body.length }, "[install:post] received body");
   context.logger.debug(
     {
@@ -62,8 +63,7 @@ async function _postInstallComplete(
   );
 
   // Validate install token (must match and be fresh) unless admin was already created
-  const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const providedToken = (data?.token as string | undefined) || url.searchParams.get("token") || "";
+  const providedToken = data.token;
   const adminFinished = !!context.services.install?.adminCreated;
   if (!adminFinished) {
     if (!providedToken || providedToken !== context.services.install?.token) {
@@ -77,10 +77,6 @@ async function _postInstallComplete(
         throw new ExpiredInstallTokenError();
       }
     }
-  }
-
-  if (!data.adminEmail || !data.adminName) {
-    throw new ValidationError("Admin email and name are required");
   }
 
   if (!context.config.kekPassphrase) {

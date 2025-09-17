@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod";
 import { ValidationError } from "../../errors.js";
 import { adminPasswordChangeFinish } from "../../models/adminPasswords.js";
 import { requireSession } from "../../services/sessions.js";
@@ -7,18 +8,7 @@ import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
-interface PasswordChangeFinishRequest {
-  record: string;
-  export_key_hash: string;
-}
-
-function isPasswordChangeFinishRequest(data: unknown): data is PasswordChangeFinishRequest {
-  if (typeof data !== "object" || data === null) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return typeof obj.record === "string" && typeof obj.export_key_hash === "string";
-}
+const Req = z.object({ record: z.string(), export_key_hash: z.string() });
 
 async function postAdminPasswordChangeFinishHandler(
   context: Context,
@@ -38,16 +28,16 @@ async function postAdminPasswordChangeFinishHandler(
 
     const body = await readBody(request);
     const data = parseJsonSafely(body);
-
-    if (!isPasswordChangeFinishRequest(data)) {
+    const parsed = Req.safeParse(data);
+    if (!parsed.success)
       throw new ValidationError(
-        "Invalid request format. Expected record and export_key_hash fields."
+        "Invalid request format. Expected record and export_key_hash fields.",
+        parsed.error.flatten()
       );
-    }
 
     let recordBuffer: Uint8Array;
     try {
-      recordBuffer = fromBase64Url(data.record);
+      recordBuffer = fromBase64Url(parsed.data.record);
     } catch {
       throw new ValidationError("Invalid base64url encoding in record");
     }
@@ -56,7 +46,7 @@ async function postAdminPasswordChangeFinishHandler(
       adminId,
       email: session.email,
       recordBuffer,
-      exportKeyHash: data.export_key_hash,
+      exportKeyHash: parsed.data.export_key_hash,
     });
     sendJson(response, 200, result);
   } catch (error) {

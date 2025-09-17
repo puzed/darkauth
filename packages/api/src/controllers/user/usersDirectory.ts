@@ -28,8 +28,10 @@ export async function getUserDirectoryEntry(
   } else {
     await requireSession(context, request, false);
   }
-  console.log("[api] user directory get", { sub });
-  const row = await getDirectoryEntry(context, sub);
+  const Params = z.object({ sub: z.string() });
+  const { sub: parsedSub } = Params.parse({ sub });
+  console.log("[api] user directory get", { sub: parsedSub });
+  const row = await getDirectoryEntry(context, parsedSub);
   if (!row) {
     sendJson(response, 404, { error: "user_not_found" });
     return;
@@ -53,7 +55,9 @@ export async function searchUserDirectory(
     await requireSession(context, request, false);
   }
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const q = (url.searchParams.get("q") || "").trim();
+  const Query = z.object({ q: z.string().optional() });
+  const { q: rawQ } = Query.parse(Object.fromEntries(url.searchParams));
+  const q = (rawQ || "").trim();
   if (!q) {
     sendJson(response, 200, { users: [] });
     return;

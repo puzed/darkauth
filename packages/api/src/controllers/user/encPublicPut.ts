@@ -21,11 +21,10 @@ export async function putEncPublicJwk(
   if (!sessionData.sub) throw new UnauthorizedError("User session required");
   const body = await readBody(request);
   const data = parseJsonSafely(body);
-  if (!data || typeof data !== "object") throw new ValidationError("invalid body");
-  const encPublicJwk = (data as { enc_public_jwk?: unknown }).enc_public_jwk;
-  if (!encPublicJwk || typeof encPublicJwk !== "object")
-    throw new ValidationError("enc_public_jwk required");
-  const result = await setEncPublicJwk(context, sessionData.sub, encPublicJwk);
+  const Req = z.object({ enc_public_jwk: z.object({}).passthrough() });
+  const parsed = Req.safeParse(data);
+  if (!parsed.success) throw new ValidationError("Invalid body", parsed.error.flatten());
+  const result = await setEncPublicJwk(context, sessionData.sub, parsed.data.enc_public_jwk);
   sendJson(response, 200, result);
 }
 

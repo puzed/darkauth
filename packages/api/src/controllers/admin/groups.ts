@@ -46,15 +46,14 @@ export async function getGroups(
   if (!sessionData.adminRole) {
     throw new ForbiddenError("Admin access required");
   }
-
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const page = Math.max(1, Number.parseInt(url.searchParams.get("page") || "1", 10));
-  const limit = Math.min(
-    100,
-    Math.max(1, Number.parseInt(url.searchParams.get("limit") || "20", 10))
-  );
-  const search = url.searchParams.get("search") || undefined;
-  const responseData = await listGroupsWithCounts(context, { page, limit, search });
+  const Query = z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: z.string().optional(),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const responseData = await listGroupsWithCounts(context, parsed);
   sendJsonValidated(response, 200, responseData, GroupsListResponseSchema);
 }
 

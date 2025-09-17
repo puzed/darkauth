@@ -6,7 +6,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 
 extendZodWithOpenApi(z);
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { getGroupUsers as getGroupUsersModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
@@ -22,10 +22,9 @@ export async function getGroupUsers(
   if (!sessionData.adminRole) {
     throw new ForbiddenError("Admin access required");
   }
-  if (!groupKey || typeof groupKey !== "string") {
-    throw new ValidationError("Invalid group key");
-  }
-  const result = await getGroupUsersModel(context, groupKey);
+  const Params = z.object({ key: z.string() });
+  const { key } = Params.parse({ key: groupKey });
+  const result = await getGroupUsersModel(context, key);
   sendJson(response, 200, result);
 }
 

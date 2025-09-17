@@ -27,25 +27,18 @@ export async function postUserPasswordVerifyFinish(
     if (!session.email || !session.sub) throw new ValidationError("Invalid user session");
 
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as {
-      finish?: unknown;
-      sessionId?: unknown;
-    };
-    if (!data.finish || typeof data.finish !== "string") {
-      throw new ValidationError("Missing or invalid finish field");
-    }
-    if (!data.sessionId || typeof data.sessionId !== "string") {
-      throw new ValidationError("Missing or invalid sessionId field");
-    }
+    const raw = parseJsonSafely(body);
+    const Req = z.object({ finish: z.string(), sessionId: z.string() });
+    const parsed = Req.parse(raw);
 
     let finishBuffer: Uint8Array;
     try {
-      finishBuffer = fromBase64Url(data.finish as string);
+      finishBuffer = fromBase64Url(parsed.finish);
     } catch {
       throw new ValidationError("Invalid base64url encoding in finish");
     }
 
-    await context.services.opaque.finishLogin(finishBuffer, data.sessionId as string);
+    await context.services.opaque.finishLogin(finishBuffer, parsed.sessionId);
 
     const token = await signJWT(
       context,

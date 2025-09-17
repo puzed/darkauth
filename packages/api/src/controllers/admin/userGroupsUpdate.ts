@@ -37,10 +37,8 @@ async function updateUserGroupsHandler(
   response: ServerResponse,
   ...params: string[]
 ): Promise<void> {
-  const userSub = params[0];
-  if (!userSub) {
-    throw new ValidationError("User sub is required");
-  }
+  const Params = z.object({ userSub: z.string() });
+  const { userSub } = Params.parse({ userSub: params[0] });
   // Require admin session with write permission
   const sessionData = await requireSession(context, request, true);
 

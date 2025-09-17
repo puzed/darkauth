@@ -15,19 +15,6 @@ import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
-interface PasswordSetFinishRequest {
-  record: string;
-  export_key_hash: string;
-}
-
-function isPasswordSetFinishRequest(data: unknown): data is PasswordSetFinishRequest {
-  if (typeof data !== "object" || data === null) {
-    return false;
-  }
-  const obj = data as Record<string, unknown>;
-  return typeof obj.record === "string" && typeof obj.export_key_hash === "string";
-}
-
 const PasswordSetFinishRequestSchema = z.object({
   record: z.string(),
   export_key_hash: z.string(),
@@ -43,10 +30,8 @@ async function postAdminUserPasswordSetFinishHandler(
   response: ServerResponse,
   ..._params: string[]
 ) {
-  const adminId = _params[0];
-  if (!adminId) {
-    throw new ValidationError("Admin ID is required");
-  }
+  const Params = z.object({ adminId: z.string() });
+  const { adminId } = Params.parse({ adminId: _params[0] });
   if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") throw new ValidationError("Write permission required");
@@ -56,19 +41,19 @@ async function postAdminUserPasswordSetFinishHandler(
 
   const body = await readBody(request);
   const data = parseJsonSafely(body);
-
-  if (!isPasswordSetFinishRequest(data)) {
+  const parsed = PasswordSetFinishRequestSchema.safeParse(data);
+  if (!parsed.success)
     throw new ValidationError(
-      "Invalid request format. Expected record and export_key_hash fields."
+      "Invalid request format. Expected record and export_key_hash fields.",
+      parsed.error.flatten()
     );
-  }
 
-  const recordBuffer = fromBase64Url(data.record);
+  const recordBuffer = fromBase64Url(parsed.data.record);
   const result = await adminUserPasswordSetFinish(context, {
     adminId,
     email: admin.email,
     recordBuffer,
-    exportKeyHash: data.export_key_hash,
+    exportKeyHash: parsed.data.export_key_hash,
   });
   sendJson(response, 200, result);
 }

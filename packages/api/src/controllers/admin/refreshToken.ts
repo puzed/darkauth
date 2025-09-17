@@ -20,15 +20,12 @@ async function postAdminRefreshTokenHandler(
 ): Promise<void> {
   // Read and parse request body
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as Record<string, unknown>;
-
-  // Validate request format
-  if (!data.refreshToken || typeof data.refreshToken !== "string") {
-    throw new ValidationError("Missing or invalid refreshToken field");
-  }
+  const raw = parseJsonSafely(body);
+  const Req = z.object({ refreshToken: z.string() });
+  const { refreshToken } = Req.parse(raw);
 
   // Attempt to refresh the session
-  const result = await refreshSessionWithToken(context, data.refreshToken);
+  const result = await refreshSessionWithToken(context, refreshToken);
 
   if (!result) {
     throw new ValidationError("Invalid or expired refresh token");
