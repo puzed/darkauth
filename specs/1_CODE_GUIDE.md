@@ -1,4 +1,4 @@
-# Functional Node.js Project Guide
+# NodeJS Code Guide
 
 ## Overview
 
@@ -6,55 +6,72 @@ This guide describes how to build a functional, minimal dependency Node.js proje
 
 ## Project Structure
 
-```
+```markdown
 project/
-├── src/
-│   ├── main.ts
-│   ├── createServer.ts
-│   ├── createContext.ts
-│   ├── types.ts
-│   ├── errors.ts
-│   ├── db/
-│   │   ├── schema.ts
-│   │   └── migrate.ts
-│   ├── schemas/
-│   │   ├── users.ts
-│   │   └── posts.ts
-│   ├── utils/
-│   │   └── http.ts
-│   ├── models/
-│   │   ├── users.ts
-│   │   └── posts.ts
-│   ├── services/
-│   │   ├── auth.ts
-│   │   └── email.ts
-│   └── controllers/
-│       ├── users/
-│       │   ├── get.ts
-│       │   └── create.ts
-│       └── posts/
-│           ├── list.ts
-│           └── create.ts
-├── ui/                     
-│   ├── src/                
-│   ├── index.html          
-│   └── vite.config.ts      
-├── admin-ui/               
-│   ├── src/                
-│   ├── index.html          
-│   └── vite.config.ts      
-├── tests/
-│   ├── helpers/
-│   │   └── createTestServer.ts
-│   ├── models/
-│   │   └── users.test.ts
-│   └── controllers/
-│       └── users/
-│          ├── get.test.ts
-│          └── create.test.ts
-├── drizzle/
-│   └── migrations/
-├── drizzle.config.ts
+├── packages/
+│   ├── api/
+│   │   ├── src/
+│   │   │   ├── main.ts
+│   │   │   ├── createServer.ts
+│   │   │   ├── createContext.ts
+│   │   │   ├── types.ts
+│   │   │   ├── errors.ts
+│   │   │   ├── db/
+│   │   │   │   ├── schema.ts
+│   │   │   │   └── migrate.ts
+│   │   │   ├── schemas/
+│   │   │   │   ├── users.ts
+│   │   │   │   └── posts.ts
+│   │   │   ├── utils/
+│   │   │   │   └── http.ts
+│   │   │   ├── models/
+│   │   │   │   ├── users.ts
+│   │   │   │   └── posts.ts
+│   │   │   ├── services/
+│   │   │   │   ├── auth.ts
+│   │   │   │   └── email.ts
+│   │   │   └── controllers/
+│   │   │       ├── users/
+│   │   │       │   ├── get.ts
+│   │   │       │   ├── post.ts
+│   │   │       │   └── [id]/
+│   │   │       │       ├── get.ts
+│   │   │       │       └── post.ts
+│   │   │       └── posts/
+│   │   │           ├── get.ts
+│   │   │           ├── post.ts
+│   │   │           └── [id]/
+│   │   │               ├── get.ts
+│   │   │               └── post.ts
+│   │   ├── tests/
+│   │   │   ├── helpers/
+│   │   │   │   └── createTestServer.ts
+│   │   │   ├── models/
+│   │   │   │   └── users.test.ts
+│   │   │   └── controllers/
+│   │   │       └── users/
+│   │   │           ├── get.test.ts
+│   │   │           ├── post.test.ts
+│   │   │           └── [id]/
+│   │   │               ├── get.test.ts
+│   │   │               └── post.test.ts
+│   │   ├── drizzle/
+│   │   │   └── migrations/
+│   │   ├── drizzle.config.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   ├── ui/
+│   │   ├── src/
+│   │   ├── index.html
+│   │   ├── vite.config.ts
+│   │   ├── package.json
+│   │   └── tsconfig.json
+│   └── admin-ui/
+│       ├── src/
+│       ├── index.html
+│       ├── vite.config.ts
+│       ├── package.json
+│       └── tsconfig.json
 ├── package.json
 └── tsconfig.json
 ```
@@ -67,7 +84,8 @@ project/
 - Never abbreviate anything, variables, functions, etc.
 - Prefer built in Node functionality over third party libraries.
 - Only mock external systems, not the internal ones this project needs. For example, don't mock our postgres database, use a real one in the tests. But it would be okay to mock the Twilio API, it's a third party.
- - Auth UI and Admin UI are built with React + TypeScript + CSS Modules and compiled to static assets served by the Node HTTP server. Do not introduce server-side rendering frameworks.
+ - UI packages (ui and admin-ui) are built with React + TypeScript + CSS Modules and compiled to static assets served by the Node HTTP server. Do not introduce server-side rendering frameworks.
+- Use npm workspaces to manage the monorepo structure with separate packages for api, ui, and admin-ui.
 
 ### Server Lifecycle And Portability
 
@@ -88,12 +106,14 @@ Readiness and health:
 
 ### Controllers And Models
 
+- Controllers live in files following `controllers/{entity}/{optionalSegment}/{method}.ts`, for example `controllers/users/[id]/get.ts`.
 - Controllers are thin HTTP adapters. They parse input, enforce authentication and authorization, call models and services, and shape HTTP responses. They contain no database logic.
+- HTTP routing uses `URLPattern` objects instead of manual string matching. Each route declares a method and a `URLPattern` for the pathname, and handlers receive parsed parameters from the pattern match.
 - Models encapsulate domain and data logic. They validate inputs relevant to the domain, perform all database access, apply invariants, and return plain data objects. They contain no HTTP concerns.
 - Controllers register OpenAPI via zod schemas and map domain data from models to the response. OpenAPI types describe the external shape; model types describe the internal domain.
 - Types used by models are defined with zod and inferred types near the model functions, or shared in `schemas/` when reused by multiple callers. Controllers import those types to validate I/O, but do not redefine domain types.
 - Permissions and cohort checks exist only in controllers (or dedicated auth middleware). Models should assume the caller is authorized.
-- Services handle external protocols or multi-step processes (e.g., OPAQUE, crypto, email). Models may call services when needed but remain focused on the domain state.
+- Services handle external protocols or multi-step processes (e.g. email or payments). Prefer orchestrating services from controllers (or dedicated service/orchestrator functions). Models should not trigger cross-boundary side effects (email, queues, third-party APIs). If a workflow requires side effects alongside data changes, expose a service like `registerUser` that composes model calls and invokes side effects explicitly.
 
 Rules:
 - No direct `context.db` usage in controllers. All reads and writes go through a model or service.
@@ -120,6 +140,7 @@ Models should NOT:
 - Manage authentication/authorization
 - Deal with OpenAPI specifications
 - Parse query parameters or request bodies
+ - Trigger external side effects (email, queues, third‑party APIs)
 
 #### Controller Responsibilities
 
@@ -146,7 +167,7 @@ Pattern:
 
 ```typescript
 // Controller (HTTP layer)
-export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+export async function getUsersController(context: Context, request: IncomingMessage, response: ServerResponse) {
   const sessionData = await requireSession(context, request, true);
   if (!sessionData.adminRole) throw new ForbiddenError("Admin access required");
 
@@ -191,8 +212,8 @@ export async function listUsers(context: Context, options: ListUsersOptions): Pr
   // ...
 }
 
-// controllers/users.ts – HTTP handling
-export async function getUsers(context: Context, request: IncomingMessage, response: ServerResponse) {
+// controllers/users/get.ts – HTTP handling
+export async function getUsersController(context: Context, request: IncomingMessage, response: ServerResponse) {
   const result = await listUsers(context, options);
   sendJsonValidated(response, 200, result, UsersListResponseSchema);
 }
@@ -212,7 +233,7 @@ export async function getUsers(context: Context, request: IncomingMessage, respo
 ### 1. Context Pattern
 
 The context object contains all dependencies (database, services, config) and is passed to every function. This enables:
-- Easy testing by mocking dependencies
+- Easy testing by mocking (external) dependencies
 - No global state
 - Explicit dependencies
 - Simple dependency injection
@@ -494,38 +515,100 @@ export function createContext(config: Config) {
 ```
 
 ### createServer.ts
+Node.js `URLPattern` as a global, so no import is required.
+
 ```typescript
 import { createServer as createHttpServer, IncomingMessage, ServerResponse } from 'http';
+import { ZodError } from 'zod';
 import { Context } from './types';
-import { AppError } from './errors';
-import { getUser } from './controllers/users/get';
-import { createUser } from './controllers/users/create';
-import { listPosts } from './controllers/posts/list';
-import { createPost } from './controllers/posts/create';
+import { AppError, ValidationError } from './errors';
+import { getUsersController } from './controllers/users/get';
+import { postUsersController } from './controllers/users/post';
+import { getUserController } from './controllers/users/[id]/get';
+import { postUserController } from './controllers/users/[id]/post';
+import { getPostsController } from './controllers/posts/get';
+import { postPostsController } from './controllers/posts/post';
+import { getPostController } from './controllers/posts/[id]/get';
+import { postPostController } from './controllers/posts/[id]/post';
+
+type RouteMatch = Exclude<ReturnType<URLPattern['exec']>, null>;
+
+type Route = {
+  method: 'GET' | 'POST';
+  pattern: URLPattern;
+  handler: (
+    context: Context,
+    request: IncomingMessage,
+    response: ServerResponse,
+    match: RouteMatch
+  ) => Promise<void> | void;
+};
+
+const routes: Route[] = [
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/users' }),
+    handler: getUsersController,
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/users' }),
+    handler: postUsersController,
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/users/:userId' }),
+    handler: (context, request, response, match) =>
+      getUserController(context, request, response, match.pathname.groups.userId),
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/users/:userId' }),
+    handler: (context, request, response, match) =>
+      postUserController(context, request, response, match.pathname.groups.userId),
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/posts' }),
+    handler: getPostsController,
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/posts' }),
+    handler: postPostsController,
+  },
+  {
+    method: 'GET',
+    pattern: new URLPattern({ pathname: '/posts/:postId' }),
+    handler: (context, request, response, match) =>
+      getPostController(context, request, response, match.pathname.groups.postId),
+  },
+  {
+    method: 'POST',
+    pattern: new URLPattern({ pathname: '/posts/:postId' }),
+    handler: (context, request, response, match) =>
+      postPostController(context, request, response, match.pathname.groups.postId),
+  },
+];
 
 export function createServer(context: Context) {
   return createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const url = new URL(request.url || '', `http://${request.headers.host}`);
-      const method = request.method || 'GET';
+      const method = (request.method || 'GET').toUpperCase() as Route['method'];
 
-      // User routes
-      const userMatch = url.pathname.match(/^\/users\/([^\/]+)$/);
-      if (method === 'GET' && userMatch) {
-        return await getUser(context, request, response, userMatch[1]);
-      }
+      for (const route of routes) {
+        if (route.method !== method) {
+          continue;
+        }
 
-      if (method === 'POST' && url.pathname === '/users') {
-        return await createUser(context, request, response);
-      }
+        const match = route.pattern.exec(url);
+        if (!match) {
+          continue;
+        }
 
-      // Post routes
-      if (method === 'GET' && url.pathname === '/posts') {
-        return await listPosts(context, request, response);
-      }
-
-      if (method === 'POST' && url.pathname === '/posts') {
-        return await createPost(context, request, response);
+        await route.handler(context, request, response, match);
+        return;
       }
 
       response.statusCode = 404;
@@ -558,6 +641,8 @@ export function createServer(context: Context) {
   });
 }
 ```
+
+Each handler receives the `URLPattern` match, which exposes named parameters under `match.pathname.groups`. The `[id]` controllers keep their existing `userId`/`postId` arguments; the router extracts the identifier from the groups and forwards it to the controller.
 
 ### main.ts
 ```typescript
@@ -648,16 +733,35 @@ export async function deleteUser(context: Context, userId: string) {
 ### controllers/users/get.ts
 ```typescript
 import { IncomingMessage, ServerResponse } from 'http';
-import { z } from 'zod';
 import { Context } from '../../types';
-import { ValidationError, NotFoundError } from '../../errors';
-import { findUserById } from '../../models/users';
+import { listUsers } from '../../models/users';
+
+export async function getUsersController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse
+) {
+  const users = await listUsers(context, { limit: 50, offset: 0 });
+
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(users));
+}
+```
+
+### controllers/users/[id]/get.ts
+```typescript
+import { IncomingMessage, ServerResponse } from 'http';
+import { z } from 'zod';
+import { Context } from '../../../types';
+import { ValidationError, NotFoundError } from '../../../errors';
+import { findUserById } from '../../../models/users';
 
 const ParamsSchema = z.object({
   userId: z.string().uuid(),
 });
 
-export async function getUser(
+export async function getUserController(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse,
@@ -677,21 +781,79 @@ export async function getUser(
 
   response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
-  response.end(JSON.stringify(user));
+response.end(JSON.stringify(user));
 }
 ```
 
-### controllers/users/create.ts
+### controllers/users/[id]/post.ts
 ```typescript
 import { IncomingMessage, ServerResponse } from 'http';
 import { z } from 'zod';
+import { Context } from '../../../types';
+import { ValidationError, NotFoundError } from '../../../errors';
+import { updateUser } from '../../../models/users';
+import { readBody } from '../../../utils/http';
+
+const ParamsSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+const BodySchema = z
+  .object({
+    email: z.string().email().optional(),
+    name: z.string().min(1).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export async function postUserController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  userId: string
+) {
+  const parseParams = ParamsSchema.safeParse({ userId });
+  if (!parseParams.success) {
+    throw new ValidationError('Invalid user ID format', parseParams.error.errors);
+  }
+
+  const body = await readBody(request);
+
+  let rawData;
+  try {
+    rawData = JSON.parse(body);
+  } catch {
+    throw new ValidationError('Invalid JSON');
+  }
+
+  const parseBody = BodySchema.safeParse(rawData);
+  if (!parseBody.success) {
+    throw new ValidationError('Validation error', parseBody.error.errors);
+  }
+
+  const updatedUser = await updateUser(context, parseParams.data.userId, parseBody.data);
+
+  if (!updatedUser) {
+    throw new NotFoundError('User not found');
+  }
+
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(updatedUser));
+}
+```
+
+### controllers/users/post.ts
+```typescript
+import { IncomingMessage, ServerResponse } from 'http';
 import { Context } from '../../types';
 import { ValidationError } from '../../errors';
 import { createUser } from '../../models/users';
 import { CreateUserSchema } from '../../schemas/users';
 import { readBody } from '../../utils/http';
 
-export async function createUserController(
+export async function postUsersController(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
@@ -720,16 +882,16 @@ export async function createUserController(
 }
 ```
 
-### controllers/posts/list.ts
+### controllers/posts/get.ts
 ```typescript
 import { IncomingMessage, ServerResponse } from 'http';
 import { z } from 'zod';
 import { Context } from '../../types';
 import { ValidationError } from '../../errors';
-import { listPosts} from '../../models/posts';
+import { listPosts } from '../../models/posts';
 import { ListPostsQuerySchema } from '../../schemas/posts';
 
-export async function listPostsController(
+export async function getPostsController(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
@@ -755,17 +917,111 @@ export async function listPostsController(
 }
 ```
 
-### controllers/posts/create.ts
+### controllers/posts/[id]/get.ts
 ```typescript
 import { IncomingMessage, ServerResponse } from 'http';
 import { z } from 'zod';
+import { Context } from '../../../types';
+import { ValidationError, NotFoundError } from '../../../errors';
+import { findPostById } from '../../../models/posts';
+
+const ParamsSchema = z.object({
+  postId: z.string().uuid(),
+});
+
+export async function getPostController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  postId: string
+) {
+  const parseParams = ParamsSchema.safeParse({ postId });
+  if (!parseParams.success) {
+    throw new ValidationError('Invalid post ID format', parseParams.error.errors);
+  }
+
+  const post = await findPostById(context, parseParams.data.postId);
+
+  if (!post) {
+    throw new NotFoundError('Post not found');
+  }
+
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(post));
+}
+```
+
+### controllers/posts/[id]/post.ts
+```typescript
+import { IncomingMessage, ServerResponse } from 'http';
+import { z } from 'zod';
+import { Context } from '../../../types';
+import { ValidationError, NotFoundError } from '../../../errors';
+import { updatePost } from '../../../models/posts';
+import { readBody } from '../../../utils/http';
+
+const ParamsSchema = z.object({
+  postId: z.string().uuid(),
+});
+
+const BodySchema = z
+  .object({
+    title: z.string().min(1).optional(),
+    content: z.string().optional(),
+    published: z.boolean().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: 'At least one field must be provided',
+  });
+
+export async function postPostController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  postId: string
+) {
+  const parseParams = ParamsSchema.safeParse({ postId });
+  if (!parseParams.success) {
+    throw new ValidationError('Invalid post ID format', parseParams.error.errors);
+  }
+
+  const body = await readBody(request);
+
+  let rawData;
+  try {
+    rawData = JSON.parse(body);
+  } catch {
+    throw new ValidationError('Invalid JSON');
+  }
+
+  const parseBody = BodySchema.safeParse(rawData);
+  if (!parseBody.success) {
+    throw new ValidationError('Validation error', parseBody.error.errors);
+  }
+
+  const updatedPost = await updatePost(context, parseParams.data.postId, parseBody.data);
+
+  if (!updatedPost) {
+    throw new NotFoundError('Post not found');
+  }
+
+  response.statusCode = 200;
+  response.setHeader('Content-Type', 'application/json');
+  response.end(JSON.stringify(updatedPost));
+}
+```
+
+### controllers/posts/post.ts
+```typescript
+import { IncomingMessage, ServerResponse } from 'http';
 import { Context } from '../../types';
 import { ValidationError } from '../../errors';
 import { createPost } from '../../models/posts';
 import { CreatePostSchema } from '../../schemas/posts';
 import { readBody } from '../../utils/http';
 
-export async function createPostController(
+export async function postPostsController(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
@@ -977,7 +1233,7 @@ export TEST_DATABASE_URL="postgresql://localhost/myapp_test"
 DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
 ```
 
-### tests/helpers/createTestServer.ts
+### packages/api/tests/helpers/createTestServer.ts
 ```typescript
 import { createServer } from '../../src/createServer';
 import { createContext } from '../../src/createContext';
@@ -1001,51 +1257,18 @@ export function createTestServer(context: Context) {
   return createServer(context);
 }
 
-export async function request(
-  server: http.Server,
-  options: {
-    method: string;
-    path: string;
-    body?: any;
-    headers?: Record<string, string>;
-  }
-) {
-  const port = (server.address() as any).port;
-  const response = await fetch(`http://localhost:${port}${options.path}`, {
-    method: options.method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined
-  });
-
-  const text = await response.text();
-  let body;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
-
-  return {
-    status: response.status,
-    body
-  };
-}
-
 export async function cleanupDatabase(context: Context) {
   await context.db.delete(schema.posts);
   await context.db.delete(schema.users);
 }
 ```
 
-### tests/controllers/users/get.test.ts
+### packages/api/tests/controllers/users/[id]/get.test.ts
 ```typescript
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import http from 'node:http';
-import { createTestServer, createTestContext, request, cleanupDatabase } from '../../helpers/createTestServer';
+import { createTestServer, createTestContext, cleanupDatabase } from '../../helpers/createTestServer';
 import { Context } from '../../../src/types';
 import { createUser } from '../../../src/models/users';
 
@@ -1079,45 +1302,39 @@ describe('GET /users/:id', () => {
       name: 'Test User',
     });
 
-    const response = await request(server, {
-      method: 'GET',
-      path: `/users/${user.id}`,
-    });
-
+    const port = (server.address() as any).port;
+    const response = await fetch(`http://localhost:${port}/users/${user.id}`);
     assert.strictEqual(response.status, 200);
-    assert.strictEqual(response.body.id, user.id);
-    assert.strictEqual(response.body.email, 'test@example.com');
-    assert.strictEqual(response.body.name, 'Test User');
-    assert.ok(response.body.createdAt);
+    const body = await response.json();
+    assert.strictEqual(body.id, user.id);
+    assert.strictEqual(body.email, 'test@example.com');
+    assert.strictEqual(body.name, 'Test User');
+    assert.ok(body.createdAt);
   });
 
   it('should return 404 when user not found', async () => {
-    const response = await request(server, {
-      method: 'GET',
-      path: '/users/550e8400-e29b-41d4-a716-446655440000',
-    });
-
+    const port = (server.address() as any).port;
+    const response = await fetch(`http://localhost:${port}/users/550e8400-e29b-41d4-a716-446655440000`);
     assert.strictEqual(response.status, 404);
-    assert.deepStrictEqual(response.body, {
+    const body = await response.json();
+    assert.deepStrictEqual(body, {
       error: 'User not found',
       code: 'NOT_FOUND',
     });
   });
 
   it('should return 400 for invalid UUID', async () => {
-    const response = await request(server, {
-      method: 'GET',
-      path: '/users/invalid-uuid',
-    });
-
+    const port = (server.address() as any).port;
+    const response = await fetch(`http://localhost:${port}/users/invalid-uuid`);
     assert.strictEqual(response.status, 400);
-    assert.strictEqual(response.body.error, 'Invalid user ID format');
-    assert.strictEqual(response.body.code, 'VALIDATION_ERROR');
+    const body = await response.json();
+    assert.strictEqual(body.error, 'Invalid user ID format');
+    assert.strictEqual(body.code, 'VALIDATION_ERROR');
   });
 });
 ```
 
-### tests/models/users.test.ts
+### packages/api/tests/models/users.test.ts
 ```typescript
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
@@ -1242,14 +1459,28 @@ const price = formatCurrency(order.amount); // vs inline formatting
 - Functions that are only used once
 - Complex multi-step operations
 
+### 2a. Service Patterns & Libraries
+Use the simplest reliable building block for cross-cutting concerns (events, caching, rate limiting).
+
+- Built-ins first: prefer Node primitives (`events`, timers, `Map`, `Set`).
+- Small, pure libraries: when needed, choose single-responsibility libraries with no framework tie-ins and minimal side effects (easy to replace).
+- Build vs buy:
+  - Build tiny helpers (e.g., `removeDuplicates`) in `utils/`.
+  - Do not reimplement complex, well-solved components without a clear reason (e.g., event emitters).
+  - Rate limiting: in-memory, per-process limiters are fine for simple cases; for production or multi-instance needs, use a focused library or a store-backed approach (e.g., Redis).
+- Events: prefer Node’s `events` module for simple pub/sub; consider `emittery` for a small, promise-friendly API. Avoid inventing custom emitters unless requirements are minimal.
+
+### 2b. Packaging Guidelines (Monorepo)
+Decide where code lives based on scope and responsibility.
+
+- Keep small, pure utilities in `utils/` within the app/package that uses them.
+- Promote larger “service patterns” (cache, rate limiter, event bus) to their own workspace package under `packages/<name>` when they grow beyond trivial use. This keeps boundaries clean and enables extraction.
+- Avoid catch-all umbrella packages (e.g., `@CompanyLtdUtilLibrary`). Create narrowly scoped packages with clear, focused APIs.
+
 ### 3. Error Handling
-Use AppError classes for application-specific errors that bubble up to the HTTP layer.
+Use `AppError` classes for application-specific errors that bubble up to the HTTP layer. Controllers translate those errors into HTTP responses so we only throw and let them bubble.
 
 ```typescript
-export type Result<T, E = Error> =
-  | { ok: true; value: T }
-  | { ok: false; error: E };
-
 export async function authenticateUser(
   context: Context,
   email: string,
@@ -1349,7 +1580,6 @@ export async function processPayment(
 - Payment processors (Stripe, PayPal, etc.)
 - SMS services (Twilio, etc.)
 - External APIs (weather, geocoding, etc.)
-- Cloud storage services (AWS S3, etc.)
 
 #### Using Node.js Built-in Test Runner
 ```bash
@@ -1371,7 +1601,6 @@ tsx --test src/models/users.test.ts
 #### Test Structure
 - Use `describe`, `it`, `beforeEach`, `afterEach` from `node:test`
 - Use `assert` from `node:assert` for assertions
-- Use `mock` from `node:test` for mocking
 - Keep tests close to the code they test
 
 #### Example Test Pattern for External Services
@@ -1432,7 +1661,7 @@ describe('Email Service Integration', () => {
 
 **Resist dependencies.** Less is more. Every dependency is a liability—more attack surface, more breaking changes, more complexity.
 
-**Don't be insane.** Don't rewrite React, Zod, or database drivers. Use mature, battle-tested libraries for complex problems.
+**Don't be over the top.** Don't rewrite React, Zod, or database drivers. Use mature, battle-tested libraries for complex problems.
 
 **You probably don't need lodash.** Modern JavaScript has most of what you need built-in.
 
@@ -1455,19 +1684,19 @@ Instead of:
 
 ### Middleware is an Anti-Pattern
 
-Middleware encourages mutation of objects you don't control. Why does `req.body` magically appear?
+Middleware encourages mutation of objects you don't control. Why does `request.body` magically appear?
 
 ```javascript
 // Bad: Mysterious mutation
 app.use(bodyParser.json())
-app.post('/api', (req, res) => {
-  // Where did req.body come from?
-  console.log(req.body)
+app.post('/api', (request, response) => {
+  // Where did request.body come from?
+  console.log(request.body)
 })
 
 // Good: Explicit and testable
-app.post('/api', (req, res) => {
-  const body = parseJsonBody(req)
+app.post('/api', (request, response) => {
+  const body = parseJsonBody(request)
   console.log(body)
 })
 ```
@@ -1476,7 +1705,7 @@ Explicit is better than implicit. Functions are better than magic.
 
 ## Database Configuration
 
-### drizzle.config.ts
+### packages/api/drizzle.config.ts
 ```typescript
 import { defineConfig } from 'drizzle-kit';
 
@@ -1490,7 +1719,7 @@ export default defineConfig({
 });
 ```
 
-### db/migrate.ts
+### packages/api/src/db/migrate.ts
 ```typescript
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
@@ -1543,23 +1772,100 @@ tsx src/main.ts
 DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
 ```
 
-### package.json Scripts for Applications
+### Root package.json (Workspace Configuration)
 ```json
 {
+  "name": "project-root",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "tsx src/main.ts",
-    "start": "tsx src/main.ts",
-    "test": "tsx --test src/**/*.test.ts",
-    "db:migrate": "tsx src/db/migrate.ts",
-    "db:generate": "drizzle-kit generate"
-  },
-  "dependencies": {
-    "tsx": "^4.0.0"
+    "dev": "npm run dev --workspace=@project/api",
+    "dev:ui": "npm run dev --workspace=@project/ui",
+    "dev:admin": "npm run dev --workspace=@project/admin-ui",
+    "dev:all": "npm run dev --workspace=@project/api & npm run dev --workspace=@project/ui & npm run dev --workspace=@project/admin-ui",
+    "build:ui": "npm run build --workspace=@project/ui",
+    "build:admin": "npm run build --workspace=@project/admin-ui",
+    "test": "npm run test --workspaces",
+    "install": "npm install --workspaces"
   }
 }
 ```
 
-### package.json Scripts for Libraries
+### packages/api/package.json
+```json
+{
+  "name": "@project/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "tsx --test tests/**/*.test.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "tsx": "^4.0.0",
+    "drizzle-orm": "^0.29.0",
+    "pg": "^8.11.0",
+    "zod": "^3.22.0"
+  }
+}
+```
+
+### packages/ui/package.json
+```json
+{
+  "name": "@project/ui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
+```
+
+### packages/admin-ui/package.json
+```json
+{
+  "name": "@project/admin-ui",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^5.0.0"
+  }
+}
+```
+
+### Libraries package.json (if building libraries)
 ```json
 {
   "scripts": {
@@ -1630,13 +1936,17 @@ Create an `/openapi` endpoint that collects all controller schemas:
 ```typescript
 // In createServer.ts
 import { OpenAPIGenerator } from '@asteasolutions/zod-to-openapi';
-import { openApiSchema as getUserSchema } from './controllers/users/get';
-import { openApiSchema as createUserSchema } from './controllers/users/create';
+import { openApiSchema as listUsersSchema } from './controllers/users/get';
+import { openApiSchema as postUsersSchema } from './controllers/users/post';
+import { openApiSchema as getUserSchema } from './controllers/users/[id]/get';
+import { openApiSchema as postUserSchema } from './controllers/users/[id]/post';
 
 function generateOpenApiDocument() {
   const generator = new OpenAPIGenerator([
+    listUsersSchema,
+    postUsersSchema,
     getUserSchema,
-    createUserSchema,
+    postUserSchema,
     // ... other controller schemas
   ]);
 
@@ -1651,14 +1961,16 @@ function generateOpenApiDocument() {
   });
 }
 
-// In router:
-if (method === 'GET' && url.pathname === '/openapi') {
-  const openApiDoc = generateOpenApiDocument();
-  response.statusCode = 200;
-  response.setHeader('Content-Type', 'application/json');
-  response.end(JSON.stringify(openApiDoc, null, 2));
-  return;
-}
+routes.push({
+  method: 'GET',
+  pattern: new URLPattern({ pathname: '/openapi' }),
+  handler: async (_context, _request, response) => {
+    const openApiDoc = generateOpenApiDocument();
+    response.statusCode = 200;
+    response.setHeader('Content-Type', 'application/json');
+    response.end(JSON.stringify(openApiDoc, null, 2));
+  },
+});
 ```
 
 ### Best Practices
@@ -1672,7 +1984,7 @@ if (method === 'GET' && url.pathname === '/openapi') {
 ## Summary
 
 This approach provides:
-- **Testability**: Easy to mock dependencies via context
+- **Testability**: Easy to mock external dependencies via context
 - **Simplicity**: No frameworks, minimal dependencies
 - **Explicitness**: All dependencies are visible
 - **Flexibility**: Easy to add new features or change implementations
@@ -1708,3 +2020,4 @@ The context pattern combined with single function exports creates a clean, maint
 4. **No Abbreviations**:
    - Use full names: `request` instead of `req`, `response` instead of `res`
    - Improves code readability and maintainability
+
