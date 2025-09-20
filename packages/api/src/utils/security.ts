@@ -5,7 +5,7 @@ import type { Context } from "../types.js";
  * Security headers configuration as per CORE.md spec
  * CSP: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;
  *      connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self';
- *      object-src 'none'; require-trusted-types-for 'script'
+ *      object-src 'none'
  */
 export function setSecurityHeaders(response: ServerResponse, isDevelopment = false): void {
   // Content Security Policy - strict CSP as specified
@@ -20,11 +20,6 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
     "form-action 'self'",
     "object-src 'none'",
   ];
-
-  // Only add trusted-types in production to avoid dev tool issues
-  if (!isDevelopment) {
-    csp.push("require-trusted-types-for 'script'");
-  }
 
   response.setHeader("Content-Security-Policy", csp.join("; "));
 
