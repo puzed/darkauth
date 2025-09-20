@@ -222,7 +222,7 @@
 
 .userSection {
   margin-top: auto;
-  padding: 16px;
+  padding: 12px 14px;
   border-top: 1px solid hsl(var(--border) / 0.5);
 }
 
@@ -234,13 +234,15 @@
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 12px;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 6px 10px;
   background: transparent;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  text-align: left;
 }
 
 .userMenuButton:hover {
@@ -248,8 +250,8 @@
 }
 
 .userAvatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: hsl(var(--primary));
   display: flex;
@@ -257,23 +259,24 @@
   justify-content: center;
   color: white;
   font-weight: 600;
-  font-size: 14px;
-  border: 2px solid hsl(var(--border));
+  font-size: 13px;
+  border: 1px solid hsl(var(--border));
 }
 
 .userMeta {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .userName {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: hsl(var(--foreground));
 }
 
 .userEmail {
-  font-size: 12px;
+  font-size: 11px;
   color: hsl(var(--muted-foreground));
 }
 
