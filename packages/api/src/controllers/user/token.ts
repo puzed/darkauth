@@ -74,14 +74,10 @@ export const postToken = withRateLimit("token")(
       const body = await getCachedBody(request);
       const formData = parseFormBody(body);
 
-      const rawRequest = Object.fromEntries(
-        formData as unknown as Iterable<[string, string]>
-      );
+      const rawRequest = Object.fromEntries(formData as unknown as Iterable<[string, string]>);
       const parsedRequest = TokenRequestSchema.safeParse(rawRequest);
       if (!parsedRequest.success) {
-        throw new InvalidRequestError(
-          parsedRequest.error.issues[0]?.message || "Invalid request"
-        );
+        throw new InvalidRequestError(parsedRequest.error.issues[0]?.message || "Invalid request");
       }
       const tokenRequest = parsedRequest.data as TokenRequest;
 

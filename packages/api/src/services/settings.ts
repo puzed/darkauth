@@ -304,8 +304,8 @@ export async function seedDefaultSettings(
       category: "Security / Rate Limits / General",
       description: "Maximum requests per window",
       tags: ["ratelimit"],
-      defaultValue: 100,
-      value: 100,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -335,8 +335,8 @@ export async function seedDefaultSettings(
       category: "Security / Rate Limits / Auth",
       description: "Maximum requests per window",
       tags: ["ratelimit"],
-      defaultValue: 20,
-      value: 20,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -364,8 +364,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OPAQUE",
       tags: ["ratelimit"],
-      defaultValue: 10,
-      value: 10,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -392,8 +392,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / Token",
       tags: ["ratelimit"],
-      defaultValue: 30,
-      value: 30,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -420,8 +420,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OTP",
       tags: ["ratelimit"],
-      defaultValue: 10,
-      value: 10,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -448,8 +448,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OTP",
       tags: ["ratelimit"],
-      defaultValue: 3,
-      value: 3,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -476,8 +476,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OTP",
       tags: ["ratelimit"],
-      defaultValue: 10,
-      value: 10,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -504,8 +504,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OTP",
       tags: ["ratelimit"],
-      defaultValue: 5,
-      value: 5,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -532,8 +532,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / OTP",
       tags: ["ratelimit"],
-      defaultValue: 5,
-      value: 5,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -560,8 +560,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / Admin",
       tags: ["ratelimit"],
-      defaultValue: 50,
-      value: 50,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {
@@ -588,8 +588,8 @@ export async function seedDefaultSettings(
       type: "number",
       category: "Security / Rate Limits / Install",
       tags: ["ratelimit"],
-      defaultValue: 3,
-      value: 3,
+      defaultValue: 1000,
+      value: 1000,
     },
 
     {

@@ -38,8 +38,7 @@ export async function getAuditLogExport(
   const rawFilters = Query.parse(Object.fromEntries(url.searchParams));
   const filters = {
     ...rawFilters,
-    success:
-      rawFilters.success === undefined ? undefined : rawFilters.success === "true",
+    success: rawFilters.success === undefined ? undefined : rawFilters.success === "true",
   };
 
   const csvContent = await exportAuditLogsCsv(context, filters);
