@@ -124,6 +124,7 @@ const App = () => {
       await adminApiService.logout();
       setAdminSession(null);
       authService.clearSession();
+      window.location.assign("/");
     } catch (error) {
       console.error("Logout failed:", error);
     }
@@ -163,7 +164,7 @@ const App = () => {
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <Routes>
-            <Route path="/otp" element={<AdminOtp />} />
+            <Route path="/otp" element={<Navigate to="/" replace />} />
             <Route path="/preview" element={<Preview />} />
             <Route
               path="/install"
@@ -251,6 +252,14 @@ const App = () => {
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                   <Dashboard />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/otp"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <AdminOtp />
                 </DashboardLayout>
               }
             />

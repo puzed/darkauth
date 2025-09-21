@@ -169,9 +169,16 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
                 <p className={styles.userEmail}>{adminSession?.email}</p>
                 {adminSession?.role && <p className={styles.userRole}>Role: {adminSession.role}</p>}
               </div>
-              <button type="button" className={styles.userMenuItem}>
-                Profile
-              </button>
+              <NavLink
+                to="/otp?manage=1"
+                className={styles.userMenuItem}
+                onClick={() => {
+                  if (onClose) onClose();
+                  setOpen(false);
+                }}
+              >
+                Two-Factor Authentication
+              </NavLink>
               <div className={styles.appearanceRow}>
                 <span className={styles.appearanceLabel}>Appearance</span>
                 <div className={styles.appearanceControls}>
@@ -207,7 +214,10 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
               <NavLink
                 to="/reset-password"
                 className={styles.userMenuItem}
-                onClick={handleNavClick}
+                onClick={() => {
+                  handleNavClick();
+                  setOpen(false);
+                }}
               >
                 Change Password
               </NavLink>

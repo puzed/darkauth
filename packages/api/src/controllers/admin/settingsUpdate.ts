@@ -37,6 +37,7 @@ const ALLOWED_SETTINGS = [
   "ui_user",
   "ui_admin",
   "ui_demo",
+  "otp",
 ];
 
 async function updateSettingsHandler(

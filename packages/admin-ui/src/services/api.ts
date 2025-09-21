@@ -503,6 +503,12 @@ class AdminApiService {
   async ownOtpVerify(code: string): Promise<{ success: boolean }> {
     return this.request("/otp/verify", { method: "POST", body: JSON.stringify({ code }) });
   }
+  async ownOtpDisable(code: string): Promise<{ success: boolean }> {
+    return this.request("/otp/disable", { method: "POST", body: JSON.stringify({ code }) });
+  }
+  async ownOtpReset(code: string): Promise<{ secret: string; provisioning_uri: string }> {
+    return this.request("/otp/reset", { method: "POST", body: JSON.stringify({ code }) });
+  }
 
   async logout(): Promise<void> {
     await this.request("/logout", {

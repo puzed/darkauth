@@ -4,6 +4,7 @@ import { opaqueLoginSessions } from "../../db/schema.js";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
+import { getOtpStatusModel } from "../../models/otp.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -126,14 +127,19 @@ async function postAdminOpaqueLoginFinishHandler(
 
     // Create admin session
     let otpRequired = false;
+    let otpInventory = { enabled: false, pending: false };
+    try {
+      otpInventory = await getOtpStatusModel(context, "admin", adminUser.id);
+    } catch {}
     try {
       const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
-      if (
+      const forced = !!(
         s &&
         typeof s === "object" &&
-        (s as { require_for_admin?: boolean }).require_for_admin === true
-      )
-        otpRequired = true;
+        (s as { require_for_admin?: unknown }).require_for_admin
+      );
+      const configured = otpInventory.enabled || otpInventory.pending;
+      otpRequired = forced || configured;
     } catch {}
 
     const { sessionId, refreshToken } = await createSession(context, "admin", {
