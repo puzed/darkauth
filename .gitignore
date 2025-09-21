@@ -11,3 +11,5 @@ config.yaml
 test-data
 packages/api/data
 packages/demo-app/data
+packages/brochureware/public/changelog.json
+packages/brochureware/public/whitepaper.pdf
