@@ -9,3 +9,4 @@ Rules:
 - Don't try and run the project. It's already running in another shell.
 - ALWAYS follow the [specs/1_CODE_GUIDE.md](specs/1_CODE_GUIDE.md)
 - If you are running the test-suite you must use the dot reporter or the tests will hang as they start an http server
+- ALWAYS run the `npm run tidy` and `npm run build` when you have finished.
