@@ -10,6 +10,25 @@ interface ChangelogEntry {
   filename: string;
 }
 
+function parseVersionParts(value: string) {
+  return value
+    .replace(/\.md$/, "")
+    .replace(/^v/, "")
+    .split(".")
+    .map((part) => Number(part) || 0);
+}
+
+function compareChangelogEntries(left: ChangelogEntry, right: ChangelogEntry) {
+  const leftParts = parseVersionParts(left.filename);
+  const rightParts = parseVersionParts(right.filename);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const diff = (rightParts[index] || 0) - (leftParts[index] || 0);
+    if (diff !== 0) return diff;
+  }
+  return right.filename.localeCompare(left.filename);
+}
+
 function parseInlineMarkdown(text: string) {
   const parts: (string | JSX.Element)[] = [];
   let current = text;
@@ -101,9 +120,10 @@ const Changelog = () => {
         const response = await fetch("/changelog.json");
         if (!response.ok) throw new Error(String(response.status));
         const data = await response.json();
-        const es = data.entries || [];
-        setEntries(es);
-        if (es.length > 1) setCollapsedEntries(new Set(es.slice(1).map((e: ChangelogEntry) => e.filename)));
+        const es = Array.isArray(data.entries) ? data.entries : [];
+        const sorted = [...es].sort(compareChangelogEntries);
+        setEntries(sorted);
+        if (sorted.length > 1) setCollapsedEntries(new Set(sorted.slice(1).map((e: ChangelogEntry) => e.filename)));
         setLoading(false);
       } catch {
         setError("Failed to load changelog");
