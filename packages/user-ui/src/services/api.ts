@@ -239,7 +239,7 @@ class ApiService {
 
         // Handle other auth errors without refresh token
         if ((response.status === 401 || response.status === 403) && !this.refreshToken) {
-          if (this.onSessionExpired) {
+          if (this.accessToken && this.onSessionExpired) {
             this.onSessionExpired();
           }
         }

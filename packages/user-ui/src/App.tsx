@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, BrowserRouter as Router, Routes, useNavigate } from "react-router-dom";
+import {
+  Navigate,
+  Route,
+  BrowserRouter as Router,
+  Routes,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Authorize from "./components/Authorize";
 import ChangePasswordView from "./components/ChangePasswordView";
 import Dashboard from "./components/Dashboard";
@@ -14,12 +21,6 @@ import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
 import { useBranding } from "./hooks/useBranding";
 
-declare global {
-  interface Window {
-    authRequest?: AuthRequest;
-  }
-}
-
 interface SessionData {
   sub: string;
   name?: string;
@@ -32,28 +33,24 @@ interface AuthRequest {
   clientName: string;
   scopes: string[];
   hasZk: boolean;
+  clientId?: string;
+  redirectUri?: string;
+  state?: string;
+  zkPub?: string;
 }
 
 function AppContent() {
   const branding = useBranding();
   const navigate = useNavigate();
+  const location = useLocation();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [authRequest, setAuthRequest] = useState<AuthRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authRequestSearch, setAuthRequestSearch] = useState<string | null>(null);
   const selfRegistrationEnabled = !!window.__APP_CONFIG__?.features?.selfRegistrationEnabled;
 
   const initializeApp = useCallback(async () => {
     try {
-      const url = new URL(window.location.href);
-      const reqId = url.searchParams.get("request_id");
-      if (reqId) {
-        const clientName = url.searchParams.get("client_name") || "Application";
-        const scopes = (url.searchParams.get("scopes") || "").split(/\s+/).filter(Boolean);
-        const hasZk = url.searchParams.get("has_zk") === "1";
-        setAuthRequest({ requestId: reqId, clientName, scopes, hasZk });
-      }
-
-      // Check existing session
       const session = await apiService.getSession();
       if (session.authenticated) {
         setSessionData({
@@ -67,32 +64,74 @@ function AppContent() {
         } catch {}
       }
     } catch (_error) {
-      console.log("No existing session or auth request");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    // Set up session expiration callback
-    apiService.setSessionExpiredCallback(() => {
-      setSessionData(null);
+    const search = location.search;
+    const params = new URLSearchParams(search);
+    const reqId = params.get("request_id");
+    if (!reqId) {
       setAuthRequest(null);
-      // Clear all export keys when session expires
-      clearAllExportKeys();
-      // Clear any auth request from window
-      if (window.authRequest) {
-        window.authRequest = undefined;
+      setAuthRequestSearch(null);
+      return;
+    }
+    const clientName = params.get("client_name") || "Application";
+    const scopes = (params.get("scopes") || "").split(/\s+/).filter(Boolean);
+    const hasZk = params.get("has_zk") === "1";
+    const clientId = params.get("client_id") || undefined;
+    const redirectUri = params.get("redirect_uri") || undefined;
+    const state = params.get("state") || undefined;
+    const zkPub = params.get("zk_pub") || undefined;
+    setAuthRequest((current) => {
+      if (
+        current &&
+        current.requestId === reqId &&
+        current.clientName === clientName &&
+        current.hasZk === hasZk &&
+        current.clientId === clientId &&
+        current.redirectUri === redirectUri &&
+        current.state === state &&
+        current.zkPub === zkPub &&
+        current.scopes.join(" ") === scopes.join(" ")
+      ) {
+        return current;
       }
+      return {
+        requestId: reqId,
+        clientName,
+        scopes,
+        hasZk,
+        clientId,
+        redirectUri,
+        state,
+        zkPub,
+      };
     });
+    setAuthRequestSearch(search);
+  }, [location.search]);
 
+  useEffect(() => {
     initializeApp();
   }, [initializeApp]);
 
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setSessionData(null);
+      setAuthRequest(null);
+      setAuthRequestSearch(null);
+      clearAllExportKeys();
+    };
+
+    apiService.setSessionExpiredCallback(handleSessionExpired);
+  }, []);
+
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
-    if (authRequest) {
-      // Stay on current page to handle auth request
+    if (authRequest && authRequestSearch) {
+      navigate(`/authorize${authRequestSearch}`);
     } else {
       navigate("/dashboard");
     }
@@ -100,8 +139,8 @@ function AppContent() {
 
   const handleRegister = (userData: SessionData) => {
     setSessionData(userData);
-    if (authRequest) {
-      // Stay on current page to handle auth request
+    if (authRequest && authRequestSearch) {
+      navigate(`/authorize${authRequestSearch}`);
     } else {
       navigate("/dashboard");
     }
@@ -110,21 +149,15 @@ function AppContent() {
   const handleLogout = async () => {
     try {
       await apiService.logout();
-      // Clear all export keys for comprehensive cleanup
       clearAllExportKeys();
       setSessionData(null);
       setAuthRequest(null);
-      // Clear any auth request from window
-      if (window.authRequest) {
-        window.authRequest = undefined;
-      }
+      setAuthRequestSearch(null);
       navigate("/login");
     } catch (error) {
       console.error("Logout failed:", error);
     }
   };
-
-  // Handle routing
   return (
     <Routes>
       <Route
@@ -140,17 +173,24 @@ function AppContent() {
               </div>
             </div>
           ) : sessionData ? (
-            <Navigate to="/dashboard" replace />
+            authRequest ? (
+              <Navigate to={`/authorize${authRequestSearch ?? location.search}`} replace />
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
           )
         }
       />
       <Route
         path="/login"
         element={
-          sessionData && !authRequest ? (
-            <Navigate to="/dashboard" replace />
+          sessionData ? (
+            <Navigate
+              to={authRequest ? `/authorize${authRequestSearch ?? location.search}` : "/dashboard"}
+              replace
+            />
           ) : (
             <LoginView onLogin={handleLogin} onSwitchToRegister={() => navigate("/signup")} />
           )
@@ -159,12 +199,15 @@ function AppContent() {
       <Route
         path="/signup"
         element={
-          sessionData && !authRequest ? (
-            <Navigate to="/dashboard" replace />
+          sessionData ? (
+            <Navigate
+              to={authRequest ? `/authorize${authRequestSearch ?? location.search}` : "/dashboard"}
+              replace
+            />
           ) : selfRegistrationEnabled ? (
             <RegisterView onRegister={handleRegister} onSwitchToLogin={() => navigate("/login")} />
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
           )
         }
       />
@@ -191,7 +234,7 @@ function AppContent() {
       <Route path="/otp" element={<Navigate to="/otp/verify" replace />} />
       <Route path="/otp/verify" element={<OtpVerifyView />} />
       <Route
-        path="/dashboard"
+        path="/authorize"
         element={
           loading ? (
             <div className="app da-app">
@@ -203,10 +246,12 @@ function AppContent() {
               </div>
             </div>
           ) : !sessionData ? (
-            <Navigate to="/login" replace />
+            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
+          ) : !authRequest ? (
+            <Navigate to="/dashboard" replace />
           ) : sessionData.passwordResetRequired ? (
             <Navigate to="/change-password" replace />
-          ) : authRequest ? (
+          ) : (
             <div className="app da-app">
               <div className="container da-container">
                 <div
@@ -229,6 +274,27 @@ function AppContent() {
                 <Authorize authRequest={authRequest} sessionData={sessionData} />
               </div>
             </div>
+          )
+        }
+      />
+      <Route
+        path="/dashboard"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : sessionData.passwordResetRequired ? (
+            <Navigate to="/change-password" replace />
+          ) : authRequest ? (
+            <Navigate to={`/authorize${authRequestSearch ?? ""}`} replace />
           ) : (
             <OtpGate>
               <Dashboard sessionData={sessionData} onLogout={handleLogout} />
