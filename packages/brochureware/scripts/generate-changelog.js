@@ -8,11 +8,30 @@ async function ensureDir(p) {
   } catch {}
 }
 
+function parseVersion(filename) {
+  const base = filename.replace(/\.md$/, "");
+  return base
+    .replace(/^v/, "")
+    .split(".")
+    .map((value) => Number(value) || 0);
+}
+
 function buildChangelog() {
   try {
     const changelogDir = join(process.cwd(), "../../changelog");
     if (!existsSync(changelogDir)) return JSON.stringify({ generatedAt: new Date().toISOString(), entries: [] }, null, 2);
-    const files = readdirSync(changelogDir).filter((f) => f.endsWith(".md")).sort((a, b) => b.localeCompare(a));
+    const files = readdirSync(changelogDir)
+      .filter((f) => f.endsWith(".md"))
+      .sort((a, b) => {
+        const left = parseVersion(a);
+        const right = parseVersion(b);
+        const length = Math.max(left.length, right.length);
+        for (let index = 0; index < length; index += 1) {
+          const diff = (right[index] || 0) - (left[index] || 0);
+          if (diff !== 0) return diff;
+        }
+        return b.localeCompare(a);
+      });
     const entries = files.map((filename) => {
       const filePath = join(changelogDir, filename);
       const content = readFileSync(filePath, "utf8");

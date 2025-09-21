@@ -34,7 +34,6 @@
     "db:migrate": "npm run db:migrate -w @DarkAuth/api",
     "db:wipe": "npm run db:wipe -w @DarkAuth/api",
     "install:script": "npm run install:script -w @DarkAuth/api",
-    "generate-changelog-entries": "node generate-changelog-entries.js",
     "demodb:wipe": "npm run demodb:wipe -w @DarkAuth/demo-app",
     "demodb:push": "npm run demodb:push -w @DarkAuth/demo-app",
     "demo:dev": "concurrently \"npm run dev -w @DarkAuth/demo-app\" \"npm run server -w @DarkAuth/demo-app\"",

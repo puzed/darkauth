@@ -1,6 +1,14 @@
 {
-  "generatedAt": "2025-09-20T16:06:24.305Z",
+  "generatedAt": "2025-09-21T10:58:54.656Z",
   "entries": [
+    {
+      "date": "2025-09-20",
+      "title": "v1.0.10",
+      "changes": [
+        "This release delivers full OTP two-factor coverage across the platform, introduces default group login gating, refreshes the whitepaper pipeline, and hardens rate limiting and authentication flows.\n\n## ✨ Features\n\n### 🛡️ One-Time Password Two-Factor\n- Added TOTP, backup code, reauth, and administrative OTP APIs with new models and services\n- Shipped Admin UI management page with enrollment controls and refined user views\n- Delivered User UI setup, verification, and security settings experiences backed by OTP API\n- Integrated OTP state into install, group, and session flows to keep provisioning consistent\n\n### 👥 Group Access Controls\n- Seed a default group, auto-assign new users, and gate logins when no enabled groups exist\n- Surface enable-login toggle throughout Admin UI forms and user listings\n\n### 📄 Document Generation\n- Added markdown-to-PDF workspace package and wired brochure whitepaper generation to use it\n\n## 🛠️ Improvements\n\n### ⚙️ Rate Limiting\n- Raised default rate limit thresholds and aligned token issuance with new limits\n\n### 🔐 Authentication Hardening\n- Enforced consistent request validation across admin and user controllers\n- Tightened OTP enrollment enforcement and fixed wrapped DRK validation edge cases\n\n### 🧰 Tooling And Maintenance\n- Added repository clean script, refreshed dependency versions, and simplified Trusted Types usage\n- Iterated on build pipeline and package metadata to keep new OTP work compiling cleanly\n\n## 🧪 Tests\n\n- Expanded test-suite coverage for default group seeding, login gating, and OTP setup, verify, and backup flows\n- Updated helper utilities and specs to exercise new authentication policies end-to-end\n\n## 📚 Documentation\n\n- Published Default User Group and OTP specifications with updated testing architecture guidance\n- Refreshed README, code guide, and marketing content including whitepaper and site pages"
+      ],
+      "filename": "v1.0.10.md"
+    },
     {
       "date": "2025-09-12",
       "title": "v1.0.9",
