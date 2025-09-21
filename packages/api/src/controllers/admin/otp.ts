@@ -1,7 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
 import { withRateLimit } from "../../middleware/rateLimit.js";
-import { getOtpStatusModel, initOtp, verifyOtpCode, verifyOtpSetup } from "../../models/otp.js";
+import {
+  disableOtp,
+  getOtpStatusModel,
+  initOtp,
+  verifyOtpCode,
+  verifyOtpSetup,
+} from "../../models/otp.js";
 import {
   getSessionIdFromAuthHeader,
   requireSession,
@@ -85,5 +91,55 @@ export const postAdminOtpVerify = withAudit({
     await verifyOtpCode(context, "admin", session.adminId as string, code);
     await updateSession(context, sid, { ...session, otpVerified: true });
     sendJson(response, 200, { success: true });
+  })
+);
+
+export const postAdminOtpDisable = withAudit({
+  eventType: "ADMIN_OTP_DISABLE",
+  resourceType: "admin",
+})(
+  withRateLimit("otp_verify")(async function postAdminOtpDisable(
+    context: Context,
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    const session = await requireSession(context, request, true);
+    const body = await readBody(request);
+    const data = parseJsonSafely(body);
+    const Req = z.object({ code: z.string().min(1) });
+    const parsed = Req.safeParse(data);
+    if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const code = parsed.data.code.trim();
+    await verifyOtpCode(context, "admin", session.adminId as string, code);
+    await disableOtp(context, "admin", session.adminId as string);
+    const sid = getSessionIdFromAuthHeader(request);
+    if (sid)
+      await updateSession(context, sid, { ...session, otpRequired: false, otpVerified: false });
+    sendJson(response, 200, { success: true });
+  })
+);
+
+export const postAdminOtpReset = withAudit({
+  eventType: "ADMIN_OTP_RESET",
+  resourceType: "admin",
+})(
+  withRateLimit("otp_setup")(async function postAdminOtpReset(
+    context: Context,
+    request: IncomingMessage,
+    response: ServerResponse
+  ): Promise<void> {
+    const session = await requireSession(context, request, true);
+    const body = await readBody(request);
+    const data = parseJsonSafely(body);
+    const Req = z.object({ code: z.string().min(1) });
+    const parsed = Req.safeParse(data);
+    if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
+    const code = parsed.data.code.trim();
+    await verifyOtpCode(context, "admin", session.adminId as string, code);
+    const { secret, provisioningUri } = await initOtp(context, "admin", session.adminId as string);
+    const sid = getSessionIdFromAuthHeader(request);
+    if (sid)
+      await updateSession(context, sid, { ...session, otpRequired: true, otpVerified: false });
+    sendJson(response, 200, { secret, provisioning_uri: provisioningUri });
   })
 );
