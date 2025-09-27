@@ -55,8 +55,7 @@ export function sendJsonValidated<T>(
     response.statusCode = statusCode;
     response.setHeader("Content-Type", "application/json");
     response.end(JSON.stringify(validatedData));
-  } catch (error) {
-    console.error("Response validation failed:", error);
+  } catch {
     response.statusCode = 500;
     response.setHeader("Content-Type", "application/json");
     response.end(JSON.stringify({ error: "Internal server error" }));
@@ -92,7 +91,6 @@ export function sendError(response: ServerResponse, error: Error): void {
     return;
   }
 
-  console.error("Unexpected error:", error);
   response.statusCode = 500;
   response.setHeader("Content-Type", "application/json");
   response.end(JSON.stringify({ error: "Internal server error" }));

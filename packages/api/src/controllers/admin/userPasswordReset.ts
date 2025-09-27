@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { setUserPasswordResetRequired } from "../../models/users.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -40,27 +35,23 @@ export const postUserPasswordReset = withAudit({
   extractResourceId: (_body, params) => params[0],
 })(postUserPasswordResetHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/users/{userSub}/password-reset",
-    tags: ["Users"],
-    summary: "Mark user for password reset",
-    request: {
-      params: z.object({
-        userSub: z.string(),
-      }),
-    },
-    responses: {
-      200: {
-        description: "User marked for password reset",
-        content: {
-          "application/json": {
-            schema: SuccessResponseSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/users/{userSub}/password-reset",
+  tags: ["Users"],
+  summary: "Mark user for password reset",
+  params: z.object({
+    userSub: z.string(),
+  }),
+  responses: {
+    200: {
+      description: "User marked for password reset",
+      content: {
+        "application/json": {
+          schema: SuccessResponseSchema,
         },
       },
-      ...genericErrors,
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

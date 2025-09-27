@@ -305,11 +305,11 @@ export function withAudit(config: AuditConfig | string) {
           try {
             await auditCall;
           } catch (err) {
-            console.error("Audit log failed:", err);
+            context.logger.error({ err }, "Audit log failed");
           }
         } else {
           auditCall.catch((err) => {
-            console.error("Audit log failed:", err);
+            context.logger.error({ err }, "Audit log failed");
           });
         }
 
@@ -323,7 +323,7 @@ export function withAudit(config: AuditConfig | string) {
               await context.restart();
             }
           } catch (err) {
-            context.logger?.error?.({ err }, "[auditWrapper] restart after install failed");
+            context.logger.error({ err }, "Restart after install failed");
             try {
               process.exit(1);
             } catch {}

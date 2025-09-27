@@ -1,15 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
-extendZodWithOpenApi(z);
-
 import { deleteGroup } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -35,13 +31,11 @@ export const deleteGroupController = withAudit({
   skipBodyCapture: true,
 })(deleteGroupHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/groups/{key}",
-    tags: ["Groups"],
-    summary: "Delete group",
-    request: { params: z.object({ key: z.string() }) },
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "DELETE",
+  path: "/admin/groups/{key}",
+  tags: ["Groups"],
+  summary: "Delete group",
+  params: z.object({ key: z.string() }),
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;

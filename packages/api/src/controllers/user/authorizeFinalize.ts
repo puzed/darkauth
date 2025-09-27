@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { InvalidRequestError, NotFoundError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { createAuthCode } from "../../models/authCodes.js";
 import {
@@ -16,7 +11,7 @@ import {
 } from "../../models/authorize.js";
 import { getWrappedDrk } from "../../models/wrappedRootKeys.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { generateRandomString } from "../../utils/crypto.js";
 import { parseFormBody, readBody, sendJson } from "../../utils/http.js";
@@ -84,7 +79,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         drkHash = drkHashFromClient;
       } else if (pendingRequest.zkPubKid) {
         // Legacy support: server-side check for DRK existence
-        // In the proper ZK flow, client handles DRK unwrapping and JWE creation
+        // In the proper ZK flow, client-side handles DRK unwrapping and JWE creation
         try {
           await getWrappedDrk(context, sessionData.sub);
           hasZk = true;
@@ -121,25 +116,26 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
   )
 );
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({
-    request_id: z.string().min(1),
-    drk_hash: z.string().optional(),
-  });
-  const Resp = z.object({
-    code: z.string(),
-    state: z.string().optional(),
-    redirect_uri: z.string().url(),
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/authorize/finalize",
-    tags: ["Auth"],
-    summary: "Finalize authorization after login",
-    request: { body: { content: { "application/x-www-form-urlencoded": { schema: Req } } } },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const Req = z.object({ request_id: z.string().min(1), drk_hash: z.string().optional() });
+const Resp = z.object({
+  code: z.string(),
+  state: z.string().optional(),
+  redirect_uri: z.string().url(),
+});
+
+export const schema = {
+  method: "POST",
+  path: "/authorize/finalize",
+  tags: ["Auth"],
+  summary: "Finalize authorization after login",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/x-www-form-urlencoded",
+    schema: Req,
+  },
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { UnauthorizedError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getUserBySub } from "../../models/users.js";
 import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getSession(
@@ -56,23 +51,22 @@ export async function getSession(
   sendJson(response, 200, sessionInfo);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({
-    authenticated: z.boolean(),
-    sub: z.string().optional(),
-    email: z.string().nullable().optional(),
-    name: z.string().nullable().optional(),
-    otpRequired: z.boolean().optional(),
-    otpVerified: z.boolean().optional(),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/session",
-    tags: ["Auth"],
-    summary: "Get user session",
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const Resp = z.object({
+  authenticated: z.boolean(),
+  sub: z.string().optional(),
+  email: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+  otpRequired: z.boolean().optional(),
+  otpVerified: z.boolean().optional(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/session",
+  tags: ["Auth"],
+  summary: "Get user session",
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

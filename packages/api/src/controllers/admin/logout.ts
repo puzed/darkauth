@@ -1,13 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
-extendZodWithOpenApi(z);
-
 import { deleteSession, getSessionId } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -37,22 +33,20 @@ export const postAdminLogout = withAudit({
   skipBodyCapture: true,
 })(postAdminLogoutHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/logout",
-    tags: ["Auth"],
-    summary: "Admin logout",
-    responses: {
-      ...genericErrors,
-      200: {
-        description: "OK",
-        content: {
-          "application/json": {
-            schema: z.object({ success: z.boolean(), message: z.string().optional() }),
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/logout",
+  tags: ["Auth"],
+  summary: "Admin logout",
+  responses: {
+    ...genericErrors,
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: z.object({ success: z.boolean(), message: z.string().optional() }),
         },
       },
     },
-  });
-}
+  },
+} as const satisfies ControllerSchema;

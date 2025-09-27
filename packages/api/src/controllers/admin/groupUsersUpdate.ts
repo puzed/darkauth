@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { setGroupUsers } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context, HttpHandler } from "../../types.js";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -44,38 +39,41 @@ export const updateGroupUsers = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateGroupUsersHandler as HttpHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const UpdateGroupUsersRequestSchema = z
-    .object({ userSubs: z.array(z.string()).optional(), users: z.array(z.string()).optional() })
-    .refine((d) => d.userSubs !== undefined || d.users !== undefined, {
-      message: "Provide userSubs or users",
-    });
-  const UpdateGroupUsersResponseSchema = z.object({
-    success: z.boolean(),
-    users: z.array(
-      z.object({
-        sub: z.string(),
-        email: z.string().nullable().optional(),
-        name: z.string().nullable().optional(),
-      })
-    ),
+// OpenAPI schema definitions
+const UpdateGroupUsersRequestSchema = z
+  .object({ userSubs: z.array(z.string()).optional(), users: z.array(z.string()).optional() })
+  .refine((d) => d.userSubs !== undefined || d.users !== undefined, {
+    message: "Provide userSubs or users",
   });
 
-  registry.registerPath({
-    method: "put",
-    path: "/admin/groups/{key}/users",
-    tags: ["Groups"],
-    summary: "Update group users",
-    request: {
-      params: z.object({ key: z.string() }),
-      body: { content: { "application/json": { schema: UpdateGroupUsersRequestSchema } } },
+const UpdateGroupUsersResponseSchema = z.object({
+  success: z.boolean(),
+  users: z.array(
+    z.object({
+      sub: z.string(),
+      email: z.string().nullable().optional(),
+      name: z.string().nullable().optional(),
+    })
+  ),
+});
+
+export const schema = {
+  method: "PUT",
+  path: "/admin/groups/{key}/users",
+  tags: ["Groups"],
+  summary: "Update group users",
+  params: z.object({ key: z.string() }),
+  body: {
+    description: undefined,
+    required: true,
+    contentType: "application/json",
+    schema: UpdateGroupUsersRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: UpdateGroupUsersResponseSchema } },
     },
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: UpdateGroupUsersResponseSchema } },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

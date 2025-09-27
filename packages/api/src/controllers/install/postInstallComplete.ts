@@ -1,10 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
@@ -19,7 +15,7 @@ import {
   markSystemInitialized,
   seedDefaultSettings,
 } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { generateRandomString } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -236,31 +232,26 @@ export const postInstallComplete = withAudit({
   },
 })(_postInstallComplete);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/install",
-    tags: ["Installation"],
-    summary: "Complete system installation",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: InstallCompleteRequestSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/install",
+  tags: ["Installation"],
+  summary: "Complete system installation",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: InstallCompleteRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Installation completed successfully",
+      content: {
+        "application/json": {
+          schema: InstallCompleteResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Installation completed successfully",
-        content: {
-          "application/json": {
-            schema: InstallCompleteResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

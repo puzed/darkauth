@@ -1,14 +1,17 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
-const AuditLogSchema = z.object({
+import type { AuditLogFilters } from "../../models/auditLogs.js";
+import { attachActorInfo, countAuditLogs, listAuditLogs } from "../../models/auditLogs.js";
+import { requireSession } from "../../services/sessions.js";
+import type { Context, ControllerSchema } from "../../types.js";
+import { sendJsonValidated } from "../../utils/http.js";
+import { getPaginationFromUrl } from "../../utils/pagination.js";
+
+export const AuditLogSchema = z.object({
   id: z.string(),
   timestamp: z.string(),
   eventType: z.string(),
@@ -50,13 +53,6 @@ export const AuditLogsListResponseSchema = z.object({
     search: z.string().optional(),
   }),
 });
-
-import type { AuditLogFilters } from "../../models/auditLogs.js";
-import { attachActorInfo, countAuditLogs, listAuditLogs } from "../../models/auditLogs.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
-import { sendJsonValidated } from "../../utils/http.js";
-import { getPaginationFromUrl } from "../../utils/pagination.js";
 
 export async function getAuditLogs(
   context: Context,
@@ -143,34 +139,30 @@ export async function getAuditLogs(
   sendJsonValidated(response, 200, responseData, AuditLogsListResponseSchema);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/admin/audit-logs",
-    tags: ["Audit Logs"],
-    summary: "List audit logs",
-    request: {
-      query: z.object({
-        page: z.number().int().positive().optional(),
-        limit: z.number().int().positive().optional(),
-        startDate: z.string().optional(),
-        endDate: z.string().optional(),
-        eventType: z.string().optional(),
-        userId: z.string().optional(),
-        adminId: z.string().optional(),
-        clientId: z.string().optional(),
-        resourceType: z.string().optional(),
-        resourceId: z.string().optional(),
-        success: z.boolean().optional(),
-        search: z.string().optional(),
-      }),
+export const schema = {
+  method: "GET",
+  path: "/admin/audit-logs",
+  tags: ["Audit Logs"],
+  summary: "List audit logs",
+  query: z.object({
+    page: z.number().int().positive().optional(),
+    limit: z.number().int().positive().optional(),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    eventType: z.string().optional(),
+    userId: z.string().optional(),
+    adminId: z.string().optional(),
+    clientId: z.string().optional(),
+    resourceType: z.string().optional(),
+    resourceId: z.string().optional(),
+    success: z.boolean().optional(),
+    search: z.string().optional(),
+  }),
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: AuditLogsListResponseSchema } },
     },
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: AuditLogsListResponseSchema } },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

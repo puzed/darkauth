@@ -133,9 +133,7 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
       details: event.details || null,
     });
   } catch (error) {
-    // Don't fail the request if audit logging fails
-    console.error("Failed to log audit event:", error);
-    console.error("Event was:", JSON.stringify(event, null, 2));
+    context.logger.error({ error, event }, "audit log failed");
   }
 }
 

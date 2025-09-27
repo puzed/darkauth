@@ -1,13 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
 import { getSetting } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getWellKnownOpenidConfiguration(
@@ -50,32 +45,31 @@ export async function getWellKnownOpenidConfiguration(
   sendJson(response, 200, configuration);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({
-    issuer: z.string().url(),
-    authorization_endpoint: z.string().url(),
-    token_endpoint: z.string().url(),
-    jwks_uri: z.string().url(),
-    response_types_supported: z.array(z.string()),
-    grant_types_supported: z.array(z.string()),
-    subject_types_supported: z.array(z.string()),
-    id_token_signing_alg_values_supported: z.array(z.string()),
-    scopes_supported: z.array(z.string()),
-    token_endpoint_auth_methods_supported: z.array(z.string()),
-    claims_supported: z.array(z.string()),
-    code_challenge_methods_supported: z.array(z.string()),
-    request_parameter_supported: z.boolean(),
-    request_uri_parameter_supported: z.boolean(),
-    require_request_uri_registration: z.boolean(),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/.well-known/openid-configuration",
-    tags: ["Well-Known"],
-    summary: "OpenID Provider Configuration",
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const Resp = z.object({
+  issuer: z.string().url(),
+  authorization_endpoint: z.string().url(),
+  token_endpoint: z.string().url(),
+  jwks_uri: z.string().url(),
+  response_types_supported: z.array(z.string()),
+  grant_types_supported: z.array(z.string()),
+  subject_types_supported: z.array(z.string()),
+  id_token_signing_alg_values_supported: z.array(z.string()),
+  scopes_supported: z.array(z.string()),
+  token_endpoint_auth_methods_supported: z.array(z.string()),
+  claims_supported: z.array(z.string()),
+  code_challenge_methods_supported: z.array(z.string()),
+  request_parameter_supported: z.boolean(),
+  request_uri_parameter_supported: z.boolean(),
+  require_request_uri_registration: z.boolean(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/.well-known/openid-configuration",
+  tags: ["Well-Known"],
+  summary: "OpenID Provider Configuration",
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { requireSession } from "../../services/sessions.js";
 import { getSetting, setSetting } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 import { clearRateLimitCache } from "../../utils/security.js";
@@ -166,23 +161,28 @@ export const updateSettings = withAudit({
     body && typeof body === "object" && "key" in body ? (body as { key?: string }).key : undefined,
 })(updateSettingsHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({ key: z.string(), value: z.any() });
-  const Resp = z.object({
-    success: z.boolean(),
-    key: z.string(),
-    oldValue: z.any().optional(),
-    newValue: z.any(),
-  });
-  registry.registerPath({
-    method: "put",
-    path: "/admin/settings",
-    tags: ["Settings"],
-    summary: "Update setting",
-    request: { body: { content: { "application/json": { schema: Req } } } },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema definition
+const Req = z.object({ key: z.string(), value: z.any() });
+const Resp = z.object({
+  success: z.boolean(),
+  key: z.string(),
+  oldValue: z.any().optional(),
+  newValue: z.any(),
+});
+
+export const schema = {
+  method: "PUT",
+  path: "/admin/settings",
+  tags: ["Settings"],
+  summary: "Update setting",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

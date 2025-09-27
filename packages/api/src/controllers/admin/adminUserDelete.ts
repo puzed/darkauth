@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { deleteAdminUser } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function deleteAdminUserController(
@@ -29,19 +24,17 @@ export async function deleteAdminUserController(
   sendJson(response, 200, result);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/admin-users/{adminId}",
-    tags: ["Admin Users"],
-    summary: "Delete admin user",
-    request: { params: z.object({ adminId: z.string().uuid() }) },
-    responses: {
-      ...genericErrors,
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: z.object({ message: z.string() }) } },
-      },
+export const schema = {
+  method: "DELETE",
+  path: "/admin/admin-users/{adminId}",
+  tags: ["Admin Users"],
+  summary: "Delete admin user",
+  params: z.object({ adminId: z.string().uuid() }),
+  responses: {
+    ...genericErrors,
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.object({ message: z.string() }) } },
     },
-  });
-}
+  },
+} as const satisfies ControllerSchema;

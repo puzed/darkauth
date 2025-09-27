@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { exportAuditLogsCsv } from "../../models/auditLogs.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 
 export async function getAuditLogExport(
   context: Context,
@@ -51,28 +46,28 @@ export async function getAuditLogExport(
   response.end(csvContent);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Query = z.object({
-    startDate: z.string().optional(),
-    endDate: z.string().optional(),
-    eventType: z.string().optional(),
-    userId: z.string().optional(),
-    adminId: z.string().optional(),
-    clientId: z.string().optional(),
-    resourceType: z.string().optional(),
-    resourceId: z.string().optional(),
-    success: z.boolean().optional(),
-    search: z.string().optional(),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/admin/audit-logs/export",
-    tags: ["Audit Logs"],
-    summary: "Export audit logs CSV",
-    request: { query: Query },
-    responses: {
-      200: { description: "OK", content: { "text/csv": { schema: z.string() } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema definition
+const Query = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  eventType: z.string().optional(),
+  userId: z.string().optional(),
+  adminId: z.string().optional(),
+  clientId: z.string().optional(),
+  resourceType: z.string().optional(),
+  resourceId: z.string().optional(),
+  success: z.boolean().optional(),
+  search: z.string().optional(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/admin/audit-logs/export",
+  tags: ["Audit Logs"],
+  summary: "Export audit logs CSV",
+  query: Query,
+  responses: {
+    200: { description: "OK", content: { "text/csv": { schema: z.string() } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

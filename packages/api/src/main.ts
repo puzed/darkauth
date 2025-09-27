@@ -1,3 +1,4 @@
+import pino from "pino";
 import { hasConfigFile, loadRootConfig } from "./config/loadConfig.js";
 import { createContext } from "./context/createContext.js";
 import { createServer } from "./createServer.js";
@@ -5,7 +6,8 @@ import { getLatestSigningKey } from "./services/jwks.js";
 import { getSetting, isSystemInitialized } from "./services/settings.js";
 import type { Config } from "./types.js";
 import { generateRandomString } from "./utils/crypto.js";
-import { printBox, printInfoTable } from "./utils/terminal.js";
+
+const rootLogger = pino();
 
 async function main() {
   const root = loadRootConfig();
@@ -22,9 +24,11 @@ async function main() {
     issuer: `http://localhost:${root.userPort}`,
     rpId: "localhost",
     inInstallMode: !hasConfigFile(),
+    logLevel: process.env.DARKAUTH_LOG_LEVEL ?? process.env.LOG_LEVEL,
   };
 
   const context = await createContext(config);
+  const { logger } = context;
 
   try {
     const initialized = await isSystemInitialized(context);
@@ -32,16 +36,7 @@ async function main() {
     if (!initialized) {
       const installToken = context.config.installToken || generateRandomString(32);
       const installUrl = `http://localhost:${config.adminPort}/install?token=${installToken}`;
-
-      printBox([
-        "DarkAuth - First Run Setup",
-        "",
-        "System is not initialized. Please complete setup:",
-        `Install URL: ${installUrl}`,
-        "",
-        "This token expires in 10 minutes.",
-      ]);
-
+      logger.warn({ installUrl }, "System not initialized; setup required");
       context.services.install = { token: installToken, createdAt: Date.now() };
     } else {
       const dbIssuer = (await getSetting(context, "issuer")) as string | undefined;
@@ -55,23 +50,15 @@ async function main() {
       });
       if (kekKdf) {
         if (!config.kekPassphrase) {
-          printBox([
-            "DarkAuth - Secure Mode",
-            "",
-            "KEK passphrase is required for secure operation.",
-            "Please set `kekPassphrase` in config.yaml.",
-          ]);
+          logger.fatal("KEK passphrase is required for secure operation");
+          await context.destroy();
           process.exit(1);
         }
         try {
           await getLatestSigningKey(context);
         } catch {
-          printBox([
-            "DarkAuth - Invalid KEK",
-            "",
-            "Failed to decrypt signing key with provided KEK.",
-            "Ensure config.yaml kekPassphrase matches the one used at install.",
-          ]);
+          logger.fatal("Failed to decrypt signing key with provided KEK");
+          await context.destroy();
           process.exit(1);
         }
       }
@@ -80,34 +67,35 @@ async function main() {
     const app = await createServer(context);
     await app.start();
 
-    printInfoTable("DarkAuth v1.0.0", [
-      ["User/OIDC API:", `http://localhost:${config.userPort}`],
-      ["Admin API:", `http://localhost:${config.adminPort}`],
-      ["Mode:", "SECURE"],
-      ["UI Proxy:", config.proxyUi ? "ENABLED" : "DISABLED"],
-    ]);
+    logger.info(
+      {
+        userApi: `http://localhost:${context.config.userPort}`,
+        adminApi: `http://localhost:${context.config.adminPort}`,
+        mode: config.kekPassphrase ? "SECURE" : "INSECURE",
+        proxyUi: context.config.proxyUi,
+      },
+      "DarkAuth server started"
+    );
 
-    process.on("SIGINT", async () => {
-      console.log("\nShutting down gracefully...");
+    const shutdown = async (signal: NodeJS.Signals) => {
+      logger.info({ signal }, "Shutting down");
       await app.stop();
+      await context.destroy();
       process.exit(0);
-    });
+    };
 
-    process.on("SIGTERM", async () => {
-      console.log("\nShutting down gracefully...");
-      await app.stop();
-      process.exit(0);
-    });
+    process.on("SIGINT", shutdown);
+    process.on("SIGTERM", shutdown);
   } catch (error) {
-    console.error("Failed to start server:", error);
+    logger.error({ error }, "Failed to start server");
     await context.destroy();
-    process.exit(1);
+    throw error;
   }
 }
 
 declare global {}
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  rootLogger.error({ error }, "Fatal error");
   process.exit(1);
 });

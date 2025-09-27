@@ -1,13 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
+import { z } from "zod/v4";
 
 import { rotateJwks as rotateJwksModel } from "../../models/jwks.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -32,13 +28,12 @@ export const rotateJwks = withAudit({
   skipBodyCapture: true,
 })(rotateJwksHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({ kid: z.string(), message: z.string() });
-  registry.registerPath({
-    method: "post",
-    path: "/admin/jwks",
-    tags: ["JWKS"],
-    summary: "Rotate signing key",
-    responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
-  });
-}
+const Resp = z.object({ kid: z.string(), message: z.string() });
+
+export const schema = {
+  method: "POST",
+  path: "/admin/jwks",
+  tags: ["JWKS"],
+  summary: "Rotate signing key",
+  responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
+} as const satisfies ControllerSchema;

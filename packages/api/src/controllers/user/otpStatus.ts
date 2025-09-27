@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod/v4";
 import { groups, userGroups } from "../../db/schema.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getOtpStatusModel } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -53,3 +55,27 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
     });
   }
 );
+
+const UserOtpStatusResponseSchema = z.object({
+  enabled: z.boolean(),
+  pending: z.boolean(),
+  verified: z.boolean(),
+  created_at: z.string().nullable(),
+  last_used_at: z.string().nullable(),
+  backup_codes_remaining: z.number(),
+  required: z.boolean(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/otp/status",
+  tags: ["OTP"],
+  summary: "Get OTP status",
+  responses: {
+    200: {
+      description: "OTP status",
+      content: { "application/json": { schema: UserOtpStatusResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { deleteUser as deleteUserModel } from "../../models/users.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -40,17 +35,16 @@ export const deleteUser = withAudit({
   skipBodyCapture: true,
 })(deleteUserHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({ message: z.string() });
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/users/{sub}",
-    tags: ["Users"],
-    summary: "Delete user",
-    request: { params: z.object({ sub: z.string() }) },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const Resp = z.object({ message: z.string() });
+
+export const schema = {
+  method: "DELETE",
+  path: "/admin/users/{sub}",
+  tags: ["Users"],
+  summary: "Delete user",
+  params: z.object({ sub: z.string() }),
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

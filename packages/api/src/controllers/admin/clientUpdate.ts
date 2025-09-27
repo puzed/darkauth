@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { updateClient } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -66,39 +61,43 @@ export const updateClientController = withAudit({
   },
 })(updateClientHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({
-    name: z.string().optional(),
-    type: z.enum(["public", "confidential"]).optional(),
-    tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]).optional(),
-    requirePkce: z.boolean().optional(),
-    zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
-    zkRequired: z.boolean().optional(),
-    showOnUserDashboard: z.boolean().optional(),
-    allowedJweAlgs: z.array(z.string()).optional(),
-    allowedJweEncs: z.array(z.string()).optional(),
-    redirectUris: z.array(z.string()).optional(),
-    postLogoutRedirectUris: z.array(z.string()).optional(),
-    grantTypes: z.array(z.string()).optional(),
-    responseTypes: z.array(z.string()).optional(),
-    scopes: z.array(z.string()).optional(),
-    allowedZkOrigins: z.array(z.string()).optional(),
-    idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
-    refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
-  });
-  const Resp = z.object({ success: z.boolean() });
-  registry.registerPath({
-    method: "put",
-    path: "/admin/clients/{clientId}",
-    tags: ["Clients"],
-    summary: "Update OAuth client",
-    request: {
-      params: z.object({ clientId: z.string() }),
-      body: { content: { "application/json": { schema: Req } } },
-    },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema definition
+const Req = z.object({
+  name: z.string().optional(),
+  type: z.enum(["public", "confidential"]).optional(),
+  tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]).optional(),
+  requirePkce: z.boolean().optional(),
+  zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
+  zkRequired: z.boolean().optional(),
+  showOnUserDashboard: z.boolean().optional(),
+  allowedJweAlgs: z.array(z.string()).optional(),
+  allowedJweEncs: z.array(z.string()).optional(),
+  redirectUris: z.array(z.string()).optional(),
+  postLogoutRedirectUris: z.array(z.string()).optional(),
+  grantTypes: z.array(z.string()).optional(),
+  responseTypes: z.array(z.string()).optional(),
+  scopes: z.array(z.string()).optional(),
+  allowedZkOrigins: z.array(z.string()).optional(),
+  idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+  refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+});
+
+const Resp = z.object({ success: z.boolean() });
+
+export const schema = {
+  method: "PUT",
+  path: "/admin/clients/{clientId}",
+  tags: ["Clients"],
+  summary: "Update OAuth client",
+  params: z.object({ clientId: z.string() }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

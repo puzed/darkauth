@@ -14,7 +14,7 @@ Complete guide to schema design patterns used throughout the project:
 
 ### [OpenAPI Patterns](./openapi-patterns.md)
 How to add OpenAPI documentation to new endpoints:
-- Controller integration with `@asteasolutions/zod-to-openapi`
+- Controller metadata collected via `ControllerSchema` exports and `zod/v4` `toJSONSchema`
 - Request/response specification patterns
 - Error response standardization
 - Schema registration and documentation generation

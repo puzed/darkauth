@@ -109,17 +109,15 @@ export async function updateSession(
 
 export async function deleteSession(context: Context, sessionId: string): Promise<void> {
   try {
-    // Ensure sessionId is a valid string
     if (!sessionId || typeof sessionId !== "string") {
-      console.error("Invalid sessionId for deletion:", sessionId);
+      context.logger.error({ sessionId }, "Invalid sessionId for deletion");
       return;
     }
 
     // Use execute instead of the query builder to avoid prepared statement issues
     await context.db.delete(sessions).where(eq(sessions.id, sessionId));
   } catch (error) {
-    console.error("Error deleting session:", error);
-    // Don't throw the error to prevent logout from failing
+    context.logger.error(error);
   }
 }
 

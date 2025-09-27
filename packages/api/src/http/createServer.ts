@@ -7,16 +7,6 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { getBrandingConfig, sanitizeCSS } from "../services/branding.js";
-// Temporarily disabled OpenAPI imports
-// import { OpenAPIGenerator } from "@asteasolutions/zod-to-openapi";
-// import { openApiSchema as adminCreateUserSchema } from "../controllers/admin/adminUserCreate.js";
-// import { openApiSchema as adminListUsersSchema } from "../controllers/admin/users.js";
-// import { openApiSchema as adminUsersListSchema } from "../controllers/admin/adminUsers.js";
-// import { openApiSchema as adminUserUpdateSchema } from "../controllers/admin/adminUserUpdate.js";
-// import { openApiSchema as adminUserDeleteSchema } from "../controllers/admin/adminUserDelete.js";
-// import { openApiSchema as groupsListSchema } from "../controllers/admin/groups.js";
-// import { openApiSchema as clientsListSchema } from "../controllers/admin/clients.js";
-// import { openApiSchema as adminSessionSchema } from "../controllers/admin/session.js";
 import { getSetting, isSystemInitialized } from "../services/settings.js";
 import type { Context } from "../types.js";
 import { sendError } from "../utils/http.js";
@@ -200,12 +190,13 @@ export async function createUserServer(context: Context) {
         await serveStaticFiles(request, response, resolveStaticBase(userCandidates));
       }
     } catch (error) {
+      context.logger.error(error);
       sendError(response, error as Error);
     }
   });
-  server.on("upgrade", (req, socket, head) => {
+  server.on("upgrade", (upgradeRequest, socket, head) => {
     if (context.config.proxyUi) {
-      proxyWebSocketToVite(req, socket, head, 5173);
+      proxyWebSocketToVite(upgradeRequest, socket, head, 5173);
     } else {
       socket.destroy();
     }
@@ -387,12 +378,13 @@ export async function createAdminServer(context: Context) {
         await serveStaticFiles(request, response, resolveStaticBase(adminCandidates));
       }
     } catch (error) {
+      context.logger.error(error);
       sendError(response, error as Error);
     }
   });
-  server.on("upgrade", (req, socket, head) => {
+  server.on("upgrade", (upgradeRequest, socket, head) => {
     if (context.config.proxyUi) {
-      proxyWebSocketToVite(req, socket, head, 5174);
+      proxyWebSocketToVite(upgradeRequest, socket, head, 5174);
     } else {
       socket.destroy();
     }
@@ -408,8 +400,8 @@ async function serveStaticFiles(
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   let filePath = url.pathname;
   if (filePath === "/") filePath = "/index.html";
-  const relPath = filePath.replace(/^\/+/, "");
-  const fullPath = join(basePath, relPath);
+  const relativePath = filePath.replace(/^\/+/, "");
+  const fullPath = join(basePath, relativePath);
   if (!fullPath.startsWith(basePath)) {
     response.statusCode = 403;
     response.end("Forbidden");
@@ -432,9 +424,9 @@ async function serveStaticFiles(
   }
 
   try {
-    const stat = fs.statSync(fullPath);
+    const fileStats = fs.statSync(fullPath);
     const hasFileExtension = /\.[^/]+$/.test(filePath);
-    if (stat.isDirectory()) {
+    if (fileStats.isDirectory()) {
       if (!hasFileExtension) {
         serveIndex(response, basePath);
         return;
@@ -444,8 +436,8 @@ async function serveStaticFiles(
       return;
     }
     const stream = createReadStream(fullPath);
-    const ext = fullPath.split(".").pop();
-    const contentType = getContentType(ext || "");
+    const extension = fullPath.split(".").pop();
+    const contentType = getContentType(extension || "");
     response.setHeader("Content-Type", contentType);
     stream.pipe(response);
     stream.on("error", () => {
@@ -458,7 +450,7 @@ async function serveStaticFiles(
   }
 }
 
-function getContentType(ext: string): string {
+function getContentType(extension: string): string {
   const types: Record<string, string> = {
     html: "text/html",
     js: "application/javascript",
@@ -472,14 +464,14 @@ function getContentType(ext: string): string {
     ico: "image/x-icon",
   };
 
-  return types[ext] || "application/octet-stream";
+  return types[extension] || "application/octet-stream";
 }
 
 function resolveStaticBase(candidates: string[]): string {
-  for (const dir of candidates) {
+  for (const directory of candidates) {
     try {
-      const p = join(dir, "index.html");
-      if (fs.existsSync(p)) return dir;
+      const indexPath = join(directory, "index.html");
+      if (fs.existsSync(indexPath)) return directory;
     } catch {}
   }
   return candidates[0] || "";

@@ -27,7 +27,6 @@
 		"argon2": "^0.44.0",
 		"drizzle-orm": "^0.44.5",
 		"drizzle-zod": "^0.8.3",
-		"@asteasolutions/zod-to-openapi": "^8.1.0",
 		"jose": "^6.1.0",
 		"opaque-ts": "file:../opaque-ts",
     "pg": "^8.16.3",

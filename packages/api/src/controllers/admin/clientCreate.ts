@@ -1,8 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
+import { z } from "zod/v4";
 
 import { ForbiddenError, ValidationError } from "../../errors.js";
 export const CreateClientSchema = z.object({
@@ -48,11 +45,11 @@ export const ClientResponseSchema = z.object({
   clientSecret: z.string().optional(),
 });
 
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { createClient as createClientModel } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
 
@@ -93,19 +90,22 @@ export const createClient = withAudit({
   },
 })(createClientHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/clients",
-    tags: ["Clients"],
-    summary: "Create OAuth client",
-    request: { body: { content: { "application/json": { schema: CreateClientSchema } } } },
-    responses: {
-      201: {
-        description: "Created",
-        content: { "application/json": { schema: ClientResponseSchema } },
-      },
-      ...genericErrors,
+export const schema = {
+  method: "POST",
+  path: "/admin/clients",
+  tags: ["Clients"],
+  summary: "Create OAuth client",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: CreateClientSchema,
+  },
+  responses: {
+    201: {
+      description: "Created",
+      content: { "application/json": { schema: ClientResponseSchema } },
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

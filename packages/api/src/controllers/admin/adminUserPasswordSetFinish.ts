@@ -1,16 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { adminUserPasswordSetFinish } from "../../models/adminPasswords.js";
 import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
@@ -64,34 +59,29 @@ export const postAdminUserPasswordSetFinish = withAudit({
   extractResourceId: (_body, params) => params[0],
 })(postAdminUserPasswordSetFinishHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/admin-users/{adminId}/password-set-finish",
-    tags: ["Admin Users"],
-    summary: "Finish setting admin user password",
-    request: {
-      params: z.object({
-        adminId: z.string(),
-      }),
-      body: {
-        content: {
-          "application/json": {
-            schema: PasswordSetFinishRequestSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/admin-users/{adminId}/password-set-finish",
+  tags: ["Admin Users"],
+  summary: "Finish setting admin user password",
+  params: z.object({
+    adminId: z.string(),
+  }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: PasswordSetFinishRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Password set successfully",
+      content: {
+        "application/json": {
+          schema: SuccessResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Password set successfully",
-        content: {
-          "application/json": {
-            schema: SuccessResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

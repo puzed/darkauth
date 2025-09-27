@@ -20,11 +20,10 @@ type OtpSettings = {
 };
 
 async function getOtpSettings(context: Context): Promise<OtpSettings> {
-  const raw = await getSetting(context, "otp");
-  const s = (raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}) as Record<
-    string,
-    unknown
-  >;
+  const rawSettings = await getSetting(context, "otp");
+  const settingsRecord = (
+    rawSettings && typeof rawSettings === "object" ? (rawSettings as Record<string, unknown>) : {}
+  ) as Record<string, unknown>;
   type RawSettings = Partial<{
     algorithm: string;
     enabled: boolean;
@@ -36,27 +35,34 @@ async function getOtpSettings(context: Context): Promise<OtpSettings> {
     max_failures: number;
     lockout_duration_minutes: number;
   }>;
-  const sr = s as RawSettings;
-  const algoStr = typeof sr.algorithm === "string" ? sr.algorithm : "SHA1";
+  const rawSettingsObject = settingsRecord as RawSettings;
+  const algorithmString =
+    typeof rawSettingsObject.algorithm === "string" ? rawSettingsObject.algorithm : "SHA1";
   const algorithm: OtpSettings["algorithm"] =
-    algoStr === "SHA256" ? "SHA256" : algoStr === "SHA512" ? "SHA512" : "SHA1";
+    algorithmString === "SHA256" ? "SHA256" : algorithmString === "SHA512" ? "SHA512" : "SHA1";
   return {
-    enabled: typeof sr.enabled === "boolean" ? sr.enabled : true,
-    issuer: typeof sr.issuer === "string" ? sr.issuer : "DarkAuth",
+    enabled: typeof rawSettingsObject.enabled === "boolean" ? rawSettingsObject.enabled : true,
+    issuer: typeof rawSettingsObject.issuer === "string" ? rawSettingsObject.issuer : "DarkAuth",
     algorithm,
-    digits: typeof sr.digits === "number" ? sr.digits : 6,
-    period: typeof sr.period === "number" ? sr.period : 30,
-    window: typeof sr.window === "number" ? sr.window : 1,
-    backup_codes_count: typeof sr.backup_codes_count === "number" ? sr.backup_codes_count : 8,
-    max_failures: typeof sr.max_failures === "number" ? sr.max_failures : 5,
+    digits: typeof rawSettingsObject.digits === "number" ? rawSettingsObject.digits : 6,
+    period: typeof rawSettingsObject.period === "number" ? rawSettingsObject.period : 30,
+    window: typeof rawSettingsObject.window === "number" ? rawSettingsObject.window : 1,
+    backup_codes_count:
+      typeof rawSettingsObject.backup_codes_count === "number"
+        ? rawSettingsObject.backup_codes_count
+        : 8,
+    max_failures:
+      typeof rawSettingsObject.max_failures === "number" ? rawSettingsObject.max_failures : 5,
     lockout_duration_minutes:
-      typeof sr.lockout_duration_minutes === "number" ? sr.lockout_duration_minutes : 15,
+      typeof rawSettingsObject.lockout_duration_minutes === "number"
+        ? rawSettingsObject.lockout_duration_minutes
+        : 15,
   };
 }
 
 export async function initOtp(context: Context, cohort: "user" | "admin", subjectId: string) {
   if (!context.services.kek?.isAvailable()) throw new ValidationError("KEK unavailable");
-  const s = await getOtpSettings(context);
+  const settings = await getOtpSettings(context);
   const existing = await context.db.query.otpConfigs.findFirst({
     where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
   });
@@ -68,12 +74,12 @@ export async function initOtp(context: Context, cohort: "user" | "admin", subjec
     );
   } else {
     secretB32 = generateTotpSecretBase32(20);
-    const enc = await context.services.kek.encrypt(Buffer.from(secretB32, "utf-8"));
+    const encryptedSecret = await context.services.kek.encrypt(Buffer.from(secretB32, "utf-8"));
     if (existing) {
       await context.db
         .update(otpConfigs)
         .set({
-          secretEnc: enc,
+          secretEnc: encryptedSecret,
           verified: false,
           updatedAt: new Date(),
           lastUsedAt: null,
@@ -88,7 +94,7 @@ export async function initOtp(context: Context, cohort: "user" | "admin", subjec
     } else {
       await context.db
         .insert(otpConfigs)
-        .values({ cohort, subjectId, secretEnc: enc, verified: false });
+        .values({ cohort, subjectId, secretEnc: encryptedSecret, verified: false });
     }
   }
 
@@ -97,10 +103,10 @@ export async function initOtp(context: Context, cohort: "user" | "admin", subjec
     const user = await context.db.query.users.findFirst({ where: eq(users.sub, subjectId) });
     account = user?.email || subjectId;
   }
-  const uri = provisioningUri(s.issuer, account, secretB32, {
-    algorithm: s.algorithm,
-    digits: s.digits,
-    period: s.period,
+  const uri = provisioningUri(settings.issuer, account, secretB32, {
+    algorithm: settings.algorithm,
+    digits: settings.digits,
+    period: settings.period,
   });
   return { secret: secretB32, provisioningUri: uri };
 }
@@ -111,24 +117,26 @@ export async function verifyOtpSetup(
   subjectId: string,
   code: string
 ) {
-  const cfg = await context.db.query.otpConfigs.findFirst({
+  const otpConfig = await context.db.query.otpConfigs.findFirst({
     where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
   });
-  if (!cfg) throw new ValidationError("OTP not initialized");
+  if (!otpConfig) throw new ValidationError("OTP not initialized");
   if (!context.services.kek?.isAvailable()) throw new ValidationError("KEK unavailable");
-  const s = await getOtpSettings(context);
-  if (!cfg.secretEnc) throw new ValidationError("OTP not initialized");
-  const secretB32 = (await context.services.kek.decrypt(cfg.secretEnc as Buffer)).toString("utf-8");
+  const settings = await getOtpSettings(context);
+  if (!otpConfig.secretEnc) throw new ValidationError("OTP not initialized");
+  const secretB32 = (await context.services.kek.decrypt(otpConfig.secretEnc as Buffer)).toString(
+    "utf-8"
+  );
   const algorithm =
-    s.algorithm === "SHA1" ? "sha1" : s.algorithm === "SHA256" ? "sha256" : "sha512";
-  const res = verifyTotp(code, secretB32, {
-    period: s.period,
-    window: s.window,
-    digits: s.digits,
+    settings.algorithm === "SHA1" ? "sha1" : settings.algorithm === "SHA256" ? "sha256" : "sha512";
+  const verificationResult = verifyTotp(code, secretB32, {
+    period: settings.period,
+    window: settings.window,
+    digits: settings.digits,
     algorithm,
     lastUsedStep: null,
   });
-  if (!res.valid) throw new ValidationError("Invalid OTP code");
+  if (!verificationResult.valid) throw new ValidationError("Invalid OTP code");
   await context.db
     .update(otpConfigs)
     .set({
@@ -136,26 +144,26 @@ export async function verifyOtpSetup(
       failureCount: 0,
       lockedUntil: null,
       lastUsedAt: new Date(),
-      lastUsedStep: BigInt(res.timestep || 0),
+      lastUsedStep: BigInt(verificationResult.timestep || 0),
       updatedAt: new Date(),
     })
     .where(and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)));
-  const codes: string[] = [];
-  for (let i = 0; i < s.backup_codes_count; i++) {
-    const raw = randomBytes(8);
-    const str = raw
+  const backupCodes: string[] = [];
+  for (let i = 0; i < settings.backup_codes_count; i++) {
+    const randomValue = randomBytes(8);
+    const formattedCode = randomValue
       .toString("hex")
       .toUpperCase()
       .slice(0, 12)
       .replace(/(.{4})/g, "$1-")
       .slice(0, 14);
-    codes.push(str);
+    backupCodes.push(formattedCode);
   }
-  for (const c of codes) {
-    const h = await hash(c);
-    await context.db.insert(otpBackupCodes).values({ cohort, subjectId, codeHash: h });
+  for (const codeValue of backupCodes) {
+    const codeHash = await hash(codeValue);
+    await context.db.insert(otpBackupCodes).values({ cohort, subjectId, codeHash });
   }
-  return { backupCodes: codes };
+  return { backupCodes };
 }
 
 export async function verifyOtpCode(
@@ -164,20 +172,22 @@ export async function verifyOtpCode(
   subjectId: string,
   code: string
 ) {
-  const cfg = await context.db.query.otpConfigs.findFirst({
+  const otpConfig = await context.db.query.otpConfigs.findFirst({
     where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
   });
-  if (!cfg) throw new ValidationError("OTP not configured");
-  if (cfg.lockedUntil && cfg.lockedUntil > new Date()) throw new ValidationError("Locked out");
-  const s = await getOtpSettings(context);
+  if (!otpConfig) throw new ValidationError("OTP not configured");
+  if (otpConfig.lockedUntil && otpConfig.lockedUntil > new Date()) {
+    throw new ValidationError("Locked out");
+  }
+  const settings = await getOtpSettings(context);
   if (/^[A-Z0-9-]{14}$/.test(code)) {
-    const codes = await context.db
+    const backupCodes = await context.db
       .select({ id: otpBackupCodes.id, codeHash: otpBackupCodes.codeHash })
       .from(otpBackupCodes)
       .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
-    for (const bc of codes) {
-      const ok = await argonVerify(bc.codeHash, code).catch(() => false);
-      if (ok) {
+    for (const backupCode of backupCodes) {
+      const isMatch = await argonVerify(backupCode.codeHash, code).catch(() => false);
+      if (isMatch) {
         await context.db
           .update(otpConfigs)
           .set({
@@ -190,43 +200,47 @@ export async function verifyOtpCode(
         await context.db
           .update(otpBackupCodes)
           .set({ usedAt: new Date() })
-          .where(eq(otpBackupCodes.id, bc.id));
+          .where(eq(otpBackupCodes.id, backupCode.id));
         return { success: true };
       }
     }
   } else {
     if (!context.services.kek?.isAvailable()) throw new ValidationError("KEK unavailable");
-    if (!cfg.secretEnc) throw new ValidationError("OTP not configured");
-    const secretB32 = (await context.services.kek.decrypt(cfg.secretEnc as Buffer)).toString(
+    if (!otpConfig.secretEnc) throw new ValidationError("OTP not configured");
+    const secretB32 = (await context.services.kek.decrypt(otpConfig.secretEnc as Buffer)).toString(
       "utf-8"
     );
     const algorithm =
-      s.algorithm === "SHA1" ? "sha1" : s.algorithm === "SHA256" ? "sha256" : "sha512";
-    const res = verifyTotp(code, secretB32, {
-      period: s.period,
-      window: s.window,
-      digits: s.digits,
+      settings.algorithm === "SHA1"
+        ? "sha1"
+        : settings.algorithm === "SHA256"
+          ? "sha256"
+          : "sha512";
+    const verificationResult = verifyTotp(code, secretB32, {
+      period: settings.period,
+      window: settings.window,
+      digits: settings.digits,
       algorithm,
-      lastUsedStep: cfg.lastUsedStep ? Number(cfg.lastUsedStep) : null,
+      lastUsedStep: otpConfig.lastUsedStep ? Number(otpConfig.lastUsedStep) : null,
     });
-    if (res.valid) {
+    if (verificationResult.valid) {
       await context.db
         .update(otpConfigs)
         .set({
           failureCount: 0,
           lockedUntil: null,
           lastUsedAt: new Date(),
-          lastUsedStep: BigInt(res.timestep || 0),
+          lastUsedStep: BigInt(verificationResult.timestep || 0),
           updatedAt: new Date(),
         })
         .where(and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)));
       return { success: true };
     }
   }
-  const failures = (cfg.failureCount || 0) + 1;
+  const failures = (otpConfig.failureCount || 0) + 1;
   const lockoutDate =
-    failures >= s.max_failures
-      ? new Date(Date.now() + s.lockout_duration_minutes * 60 * 1000)
+    failures >= settings.max_failures
+      ? new Date(Date.now() + settings.lockout_duration_minutes * 60 * 1000)
       : null;
   await context.db
     .update(otpConfigs)
@@ -240,22 +254,23 @@ export async function getOtpStatusModel(
   cohort: "user" | "admin",
   subjectId: string
 ) {
-  const cfg = await context.db.query.otpConfigs.findFirst({
+  const otpConfig = await context.db.query.otpConfigs.findFirst({
     where: and(eq(otpConfigs.cohort, cohort), eq(otpConfigs.subjectId, subjectId)),
   });
-  if (!cfg) return { enabled: false, pending: false, verified: false, backupCodesRemaining: 0 };
-  const isVerified = !!cfg.verified;
-  const codes = await context.db
+  if (!otpConfig)
+    return { enabled: false, pending: false, verified: false, backupCodesRemaining: 0 };
+  const isVerified = !!otpConfig.verified;
+  const backupCodes = await context.db
     .select({ id: otpBackupCodes.id, usedAt: otpBackupCodes.usedAt })
     .from(otpBackupCodes)
     .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
-  const remaining = codes.filter((c) => !c.usedAt).length;
+  const remaining = backupCodes.filter((codeEntry) => !codeEntry.usedAt).length;
   return {
     enabled: isVerified,
     pending: !isVerified,
     verified: isVerified,
-    createdAt: cfg.createdAt,
-    lastUsedAt: cfg.lastUsedAt,
+    createdAt: otpConfig.createdAt,
+    lastUsedAt: otpConfig.lastUsedAt,
     backupCodesRemaining: remaining,
   };
 }
@@ -274,24 +289,24 @@ export async function regenerateBackupCodes(
   cohort: "user" | "admin",
   subjectId: string
 ) {
-  const s = await getOtpSettings(context);
+  const settings = await getOtpSettings(context);
   await context.db
     .delete(otpBackupCodes)
     .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
-  const codes: string[] = [];
-  for (let i = 0; i < s.backup_codes_count; i++) {
-    const raw = randomBytes(8);
-    const str = raw
+  const backupCodes: string[] = [];
+  for (let i = 0; i < settings.backup_codes_count; i++) {
+    const randomValue = randomBytes(8);
+    const formattedCode = randomValue
       .toString("hex")
       .toUpperCase()
       .slice(0, 12)
       .replace(/(.{4})/g, "$1-")
       .slice(0, 14);
-    codes.push(str);
+    backupCodes.push(formattedCode);
   }
-  for (const c of codes) {
-    const h = await hash(c);
-    await context.db.insert(otpBackupCodes).values({ cohort, subjectId, codeHash: h });
+  for (const codeValue of backupCodes) {
+    const codeHash = await hash(codeValue);
+    await context.db.insert(otpBackupCodes).values({ cohort, subjectId, codeHash });
   }
-  return { backupCodes: codes };
+  return { backupCodes };
 }

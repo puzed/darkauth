@@ -1,17 +1,19 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
 import { updateGroup } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+
+// Request body schema used in both handler validation and OpenAPI schema
+const Req = z.object({
+  name: z.string().min(1).optional(),
+  enableLogin: z.boolean().optional(),
+  requireOtp: z.boolean().optional(),
+});
 
 async function updateGroupHandler(
   context: Context,
@@ -25,18 +27,6 @@ async function updateGroupHandler(
   }
 
   const raw = await readBody(request);
-  const Req = z
-    .object({
-      name: z.string().min(1).optional(),
-      enableLogin: z.boolean().optional(),
-      requireOtp: z.boolean().optional(),
-    })
-    .refine(
-      (d) => d.name !== undefined || d.enableLogin !== undefined || d.requireOtp !== undefined,
-      {
-        message: "No updates provided",
-      }
-    );
   const data = Req.parse(parseJsonSafely(raw));
   const result = await updateGroup(context, key, data);
   sendJson(response, 200, result);
@@ -48,21 +38,17 @@ export const updateGroupController = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateGroupHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({
-    name: z.string().min(1).optional(),
-    enableLogin: z.boolean().optional(),
-    requireOtp: z.boolean().optional(),
-  });
-  registry.registerPath({
-    method: "put",
-    path: "/admin/groups/{key}",
-    tags: ["Groups"],
-    summary: "Update group",
-    request: {
-      params: z.object({ key: z.string() }),
-      body: { content: { "application/json": { schema: Req } } },
-    },
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "PUT",
+  path: "/admin/groups/{key}",
+  tags: ["Groups"],
+  summary: "Update group",
+  params: z.object({ key: z.string() }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;

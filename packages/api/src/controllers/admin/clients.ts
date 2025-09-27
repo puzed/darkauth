@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 
 const ClientResponseSchema = z.object({
   clientId: z.string(),
@@ -37,7 +32,7 @@ export const ClientsListResponseSchema = z.object({
 
 import { listClients } from "../../models/clients.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
 
 export async function getClients(
@@ -60,63 +55,16 @@ export async function getClients(
   sendJsonValidated(response, 200, responseData, ClientsListResponseSchema);
 }
 
-// export const openApiSchema = createRouteSpec({
-//   method: "get",
-//   path: "/admin/clients",
-//   tags: ["Clients"],
-//   summary: "List OAuth clients",
-//   responses: {
-//     200: {
-//       description: "OK",
-//       content: {
-//         "application/json": {
-//           schema: ClientsListResponseSchema,
-//         , ...genericErrors },
-//       },
-//     },
-//     401: {
-//       description: "Unauthorized",
-//       content: {
-//         "application/json": {
-//           schema: UnauthorizedResponseSchema,
-//         },
-//       },
-//     },
-//     403: {
-//       description: "Forbidden",
-//       content: {
-//         "application/json": {
-//           schema: ForbiddenResponseSchema,
-//           example: {
-//             error: "FORBIDDEN",
-//             message: "Admin access required",
-//             code: "FORBIDDEN"
-//           },
-//         },
-//       },
-//     },
-//     500: {
-//       description: "Internal Server Error",
-//       content: {
-//         "application/json": {
-//           schema: ErrorResponseSchema,
-//         },
-//       },
-//     },
-//   },
-// });
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/admin/clients",
-    tags: ["Clients"],
-    summary: "List OAuth clients",
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: ClientsListResponseSchema } },
-      },
-      ...genericErrors,
+export const schema = {
+  method: "GET",
+  path: "/admin/clients",
+  tags: ["Clients"],
+  summary: "List OAuth clients",
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: ClientsListResponseSchema } },
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

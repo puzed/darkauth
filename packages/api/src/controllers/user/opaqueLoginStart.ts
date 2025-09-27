@@ -1,17 +1,20 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserOpaqueRecordByEmail } from "../../models/users.js";
-import type { Context, OpaqueLoginResponse } from "../../types.js";
+import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendJson } from "../../utils/http.js";
+
+export const schema = {
+  method: "POST",
+  path: "/opaque/login/start",
+  tags: ["OPAQUE"],
+  summary: "opaqueLoginStart",
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;
 
 export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
   body && typeof body === "object" && "email" in body
@@ -96,13 +99,3 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     sendJson(response, 200, responseData);
   }
 );
-
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/opaque/login/start",
-    tags: ["OPAQUE"],
-    summary: "opaqueLoginStart",
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}

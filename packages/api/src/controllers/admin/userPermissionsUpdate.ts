@@ -1,14 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
+import { z } from "zod/v4";
 
 import { ForbiddenError } from "../../errors.js";
 import { setUserPermissions } from "../../models/userPermissions.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context, HttpHandler } from "../../types.js";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -48,26 +44,34 @@ export const updateUserPermissions = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateUserPermissionsHandler as HttpHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({ permissionKeys: z.array(z.string()) });
-  const Resp = z.object({
-    success: z.boolean(),
-    user: z.object({
-      sub: z.string(),
-      email: z.string().nullable().optional(),
-      name: z.string().nullable().optional(),
-    }),
-    directPermissions: z.array(z.object({ key: z.string(), description: z.string() })),
-  });
-  registry.registerPath({
-    method: "put",
-    path: "/admin/users/{sub}/permissions",
-    tags: ["Users"],
-    summary: "Update user permissions",
-    request: {
-      params: z.object({ sub: z.string() }),
-      body: { content: { "application/json": { schema: Req } } },
+// OpenAPI schema definition
+const Req = z.object({ permissionKeys: z.array(z.string()) });
+const Resp = z.object({
+  success: z.boolean(),
+  user: z.object({
+    sub: z.string(),
+    email: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+  }),
+  directPermissions: z.array(z.object({ key: z.string(), description: z.string() })),
+});
+
+export const schema = {
+  method: "PUT",
+  path: "/admin/users/{sub}/permissions",
+  tags: ["Users"],
+  summary: "Update user permissions",
+  params: z.object({ sub: z.string() }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: Resp } },
     },
-    responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
-  });
-}
+  },
+} as const satisfies ControllerSchema;

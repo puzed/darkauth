@@ -1,8 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod/v4";
 import { UnauthorizedError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { listVisibleApps } from "../../models/clients.js";
 import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendError, sendJson } from "../../utils/http.js";
 
 export async function getUserApps(
@@ -32,3 +34,29 @@ export async function getUserApps(
     return sendError(response, new Error("Internal server error"));
   }
 }
+
+const UserDashboardAppSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  logoUrl: z.string().optional(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/apps",
+  tags: ["Apps"],
+  summary: "List dashboard apps",
+  responses: {
+    200: {
+      description: "Visible applications",
+      content: {
+        "application/json": {
+          schema: z.object({ apps: z.array(UserDashboardAppSchema) }),
+        },
+      },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
