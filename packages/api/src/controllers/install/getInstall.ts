@@ -1,10 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
@@ -12,7 +8,7 @@ import {
 } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { isSystemInitialized } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { parseQueryParams, sendJson } from "../../utils/http.js";
 
 const InstallResponseSchema = z.object({
@@ -52,27 +48,23 @@ export async function getInstall(
   sendJson(response, 200, { ok: true, hasKek, dbReady });
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/install",
-    tags: ["Installation"],
-    summary: "Get installation status",
-    request: {
-      query: z.object({
-        token: z.string(),
-      }),
-    },
-    responses: {
-      200: {
-        description: "Installation status",
-        content: {
-          "application/json": {
-            schema: InstallResponseSchema,
-          },
+export const schema = {
+  method: "GET",
+  path: "/install",
+  tags: ["Installation"],
+  summary: "Get installation status",
+  query: z.object({
+    token: z.string(),
+  }),
+  responses: {
+    200: {
+      description: "Installation status",
+      content: {
+        "application/json": {
+          schema: InstallResponseSchema,
         },
       },
-      ...genericErrors,
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

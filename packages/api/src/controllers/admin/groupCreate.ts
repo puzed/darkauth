@@ -1,12 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
+import { createGroup as createGroupModel } from "../../models/groups.js";
+import { requireSession } from "../../services/sessions.js";
+import type { Context, ControllerSchema } from "../../types.js";
+import { withAudit } from "../../utils/auditWrapper.js";
+import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
+
 export const CreateGroupSchema = z.object({
   key: z
     .string()
@@ -32,12 +33,6 @@ export const CreateGroupResponseSchema = z.object({
     userCount: z.number().int().nonnegative(),
   }),
 });
-
-import { createGroup as createGroupModel } from "../../models/groups.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
 
 async function createGroupHandler(
   context: Context,
@@ -85,19 +80,22 @@ export const createGroup = withAudit({
   },
 })(createGroupHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/groups",
-    tags: ["Groups"],
-    summary: "Create group",
-    request: { body: { content: { "application/json": { schema: CreateGroupSchema } } } },
-    responses: {
-      201: {
-        description: "Created",
-        content: { "application/json": { schema: CreateGroupResponseSchema } },
-      },
-      ...genericErrors,
+export const schema = {
+  method: "POST",
+  path: "/admin/groups",
+  tags: ["Groups"],
+  summary: "Create group",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: CreateGroupSchema,
+  },
+  responses: {
+    201: {
+      description: "Created",
+      content: { "application/json": { schema: CreateGroupResponseSchema } },
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

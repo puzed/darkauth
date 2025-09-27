@@ -1,10 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
@@ -13,7 +8,7 @@ import {
 import { storeOpaqueAdmin } from "../../models/install.js";
 import { createOpaqueService } from "../../services/opaque.js";
 import { isSystemInitialized } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
@@ -122,12 +117,10 @@ export async function postInstallOpaqueRegisterFinish(
   }
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/install/opaque/finish",
-    tags: ["Installation"],
-    summary: "Finish OPAQUE registration for bootstrap admin",
-    responses: { 201: { description: "Created" } },
-  });
-}
+export const schema = {
+  method: "POST",
+  path: "/install/opaque/finish",
+  tags: ["Installation"],
+  summary: "Finish OPAQUE registration for bootstrap admin",
+  responses: { 201: { description: "Created" } },
+} as const satisfies ControllerSchema;

@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
 import { getUserPermissionsDetails } from "../../models/userPermissions.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getUserPermissions(
@@ -37,27 +32,27 @@ export async function getUserPermissions(
   });
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Group = z.object({ key: z.string(), name: z.string() });
-  const Perm = z.object({ key: z.string(), description: z.string() });
-  const Resp = z.object({
-    user: z.object({
-      sub: z.string(),
-      email: z.string().nullable().optional(),
-      name: z.string().nullable().optional(),
-    }),
-    directPermissions: z.array(Perm),
-    inheritedPermissions: z.array(
-      z.object({ key: z.string(), description: z.string(), groups: z.array(Group) })
-    ),
-    availablePermissions: z.array(Perm),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/admin/users/{sub}/permissions",
-    tags: ["Users"],
-    summary: "Get user permissions",
-    request: { params: z.object({ sub: z.string() }) },
-    responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
-  });
-}
+// Zod schemas for OpenAPI description
+const Group = z.object({ key: z.string(), name: z.string() });
+const Perm = z.object({ key: z.string(), description: z.string() });
+const Resp = z.object({
+  user: z.object({
+    sub: z.string(),
+    email: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+  }),
+  directPermissions: z.array(Perm),
+  inheritedPermissions: z.array(
+    z.object({ key: z.string(), description: z.string(), groups: z.array(Group) })
+  ),
+  availablePermissions: z.array(Perm),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/admin/users/{sub}/permissions",
+  tags: ["Users"],
+  summary: "Get user permissions",
+  params: z.object({ sub: z.string() }),
+  responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
+} as const satisfies ControllerSchema;

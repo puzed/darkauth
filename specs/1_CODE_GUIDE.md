@@ -34,13 +34,13 @@ project/
 │   │   │       ├── users/
 │   │   │       │   ├── get.ts
 │   │   │       │   ├── post.ts
-│   │   │       │   └── [id]/
+│   │   │       │   └── [userId]/
 │   │   │       │       ├── get.ts
 │   │   │       │       └── post.ts
 │   │   │       └── posts/
 │   │   │           ├── get.ts
 │   │   │           ├── post.ts
-│   │   │           └── [id]/
+│   │   │           └── [postId]/
 │   │   │               ├── get.ts
 │   │   │               └── post.ts
 │   │   ├── tests/
@@ -52,7 +52,7 @@ project/
 │   │   │       └── users/
 │   │   │           ├── get.test.ts
 │   │   │           ├── post.test.ts
-│   │   │           └── [id]/
+│   │   │           └── [postId]/
 │   │   │               ├── get.test.ts
 │   │   │               └── post.test.ts
 │   │   ├── drizzle/
@@ -106,9 +106,9 @@ Readiness and health:
 
 ### Controllers And Models
 
-- Controllers live in files following `controllers/{entity}/{optionalSegment}/{method}.ts`, for example `controllers/users/[id]/get.ts`.
+- Controllers live in files following `controllers/{entity}/{optionalSegment}/{method}.ts`, for example `controllers/users/[userId]/get.ts`.
 - Controllers are thin HTTP adapters. They parse input, enforce authentication and authorization, call models and services, and shape HTTP responses. They contain no database logic.
-- HTTP routing uses `URLPattern` objects instead of manual string matching. Each route declares a method and a `URLPattern` for the pathname, and handlers receive parsed parameters from the pattern match.
+- HTTP routing uses `URLPattern` objects for declarative matching. Each route declares a method and `URLPattern`, and handlers receive parsed parameters from the pattern match.
 - Models encapsulate domain and data logic. They validate inputs relevant to the domain, perform all database access, apply invariants, and return plain data objects. They contain no HTTP concerns.
 - Controllers register OpenAPI via zod schemas and map domain data from models to the response. OpenAPI types describe the external shape; model types describe the internal domain.
 - Types used by models are defined with zod and inferred types near the model functions, or shared in `schemas/` when reused by multiple callers. Controllers import those types to validate I/O, but do not redefine domain types.
@@ -285,6 +285,7 @@ export interface Context {
   db: NodePgDatabase<typeof schema>;
   config: Config;
   services: Services;
+  destroy: () => Promise<void>;
 }
 
 export interface Services {
@@ -384,7 +385,7 @@ export const postsRelations = relations(posts, ({ one }) => ({
 
 ### schemas/users.ts
 ```typescript
-import { z } from 'zod';
+import { z } from 'zod/v4';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { users } from '../db/schema';
 
@@ -515,134 +516,169 @@ export function createContext(config: Config) {
 ```
 
 ### createServer.ts
-Node.js `URLPattern` as a global, so no import is required.
 
 ```typescript
-import { createServer as createHttpServer, IncomingMessage, ServerResponse } from 'http';
-import { ZodError } from 'zod';
+import http, { IncomingMessage, ServerResponse } from 'node:http';
+import { z } from 'zod';
 import { Context } from './types';
-import { AppError, ValidationError } from './errors';
-import { getUsersController } from './controllers/users/get';
-import { postUsersController } from './controllers/users/post';
-import { getUserController } from './controllers/users/[id]/get';
-import { postUserController } from './controllers/users/[id]/post';
-import { getPostsController } from './controllers/posts/get';
-import { postPostsController } from './controllers/posts/post';
-import { getPostController } from './controllers/posts/[id]/get';
-import { postPostController } from './controllers/posts/[id]/post';
+import { AppError } from './errors';
+import { readBody, parseJsonSafely } from './utils/http';
 
-type RouteMatch = Exclude<ReturnType<URLPattern['exec']>, null>;
+type AnyZod = z.ZodTypeAny;
+
+type InferField<TSchema extends AnyZod, K extends 'params' | 'body' | 'query'> =
+  K extends keyof z.infer<TSchema> ? z.infer<TSchema>[K] : undefined;
+
+export type Handler<
+  TSchema extends AnyZod,
+  TContext = Context,
+  TRequest extends IncomingMessage = IncomingMessage,
+  TResponse extends ServerResponse<TRequest> = ServerResponse<TRequest>
+> = {
+  context: TContext;
+  request: TRequest;
+  response: TResponse;
+  params: InferField<TSchema, 'params'>;
+  body: InferField<TSchema, 'body'>;
+  query: InferField<TSchema, 'query'>;
+};
+
+type ControllerModule<TSchema extends AnyZod = AnyZod> = {
+  schema: TSchema;
+  handler: (args: Handler<TSchema>) => unknown | Promise<unknown>;
+};
 
 type Route = {
-  method: 'GET' | 'POST';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   pattern: URLPattern;
-  handler: (
-    context: Context,
-    request: IncomingMessage,
-    response: ServerResponse,
-    match: RouteMatch
-  ) => Promise<void> | void;
+  controller: Promise<ControllerModule>;
 };
 
 const routes: Route[] = [
   {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/users' }),
-    handler: getUsersController,
+    controller: import('./controllers/users/get'),
   },
   {
     method: 'POST',
     pattern: new URLPattern({ pathname: '/users' }),
-    handler: postUsersController,
+    controller: import('./controllers/users/post'),
   },
   {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/users/:userId' }),
-    handler: (context, request, response, match) =>
-      getUserController(context, request, response, match.pathname.groups.userId),
+    controller: import('./controllers/users/[userId]/get'),
   },
   {
-    method: 'POST',
+    method: 'PUT',
     pattern: new URLPattern({ pathname: '/users/:userId' }),
-    handler: (context, request, response, match) =>
-      postUserController(context, request, response, match.pathname.groups.userId),
+    controller: import('./controllers/users/[userId]/put'),
   },
   {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/posts' }),
-    handler: getPostsController,
+    controller: import('./controllers/posts/get'),
   },
   {
     method: 'POST',
     pattern: new URLPattern({ pathname: '/posts' }),
-    handler: postPostsController,
+    controller: import('./controllers/posts/post'),
   },
   {
     method: 'GET',
     pattern: new URLPattern({ pathname: '/posts/:postId' }),
-    handler: (context, request, response, match) =>
-      getPostController(context, request, response, match.pathname.groups.postId),
+    controller: import('./controllers/posts/[postId]/get'),
   },
   {
-    method: 'POST',
+    method: 'PUT',
     pattern: new URLPattern({ pathname: '/posts/:postId' }),
-    handler: (context, request, response, match) =>
-      postPostController(context, request, response, match.pathname.groups.postId),
+    controller: import('./controllers/posts/[postId]/put'),
   },
 ];
 
+function handleError(error: unknown, response: ServerResponse) {
+  if (error instanceof z.ZodError) {
+    response.writeHead(400, { 'Content-Type': 'application/json' });
+    response.end(
+      JSON.stringify({
+        error: 'Validation failed',
+        code: 'VALIDATION_ERROR',
+        details: error.issues,
+      }),
+    );
+    return;
+  }
+
+  if (error instanceof AppError) {
+    response.writeHead(error.statusCode, { 'Content-Type': 'application/json' });
+    response.end(JSON.stringify({ error: error.message, code: error.code }));
+    return;
+  }
+
+  console.error('Unhandled error', error);
+  response.writeHead(500, { 'Content-Type': 'application/json' });
+  response.end(JSON.stringify({ error: 'Internal server error', code: 'INTERNAL_SERVER_ERROR' }));
+}
+
 export function createServer(context: Context) {
-  return createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
+  return http.createServer(async (request, response) => {
     try {
-      const url = new URL(request.url || '', `http://${request.headers.host}`);
-      const method = (request.method || 'GET').toUpperCase() as Route['method'];
+      if (!request.url) {
+        response.writeHead(400, { 'Content-Type': 'application/json' });
+        response.end(JSON.stringify({ error: 'Invalid request URL', code: 'INVALID_REQUEST' }));
+        return;
+      }
+
+      const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
 
       for (const route of routes) {
-        if (route.method !== method) {
-          continue;
+        if (request.method !== route.method) continue;
+
+        const match = route.pattern.exec({ pathname: url.pathname });
+        if (!match) continue;
+
+        const controller = await route.controller;
+        const schema = controller.schema as z.ZodObject<any> | undefined;
+        const paramsSchema = schema?.shape?.params as z.ZodTypeAny | undefined;
+        const querySchema = schema?.shape?.query as z.ZodTypeAny | undefined;
+        const bodySchema = schema?.shape?.body as z.ZodTypeAny | undefined;
+
+        const params = paramsSchema
+          ? paramsSchema.parse(match.pathname.groups ?? {})
+          : {};
+
+        const query = querySchema
+          ? querySchema.parse(Object.fromEntries(url.searchParams.entries()))
+          : {};
+
+        let body: unknown = undefined;
+        if (bodySchema) {
+          const rawBody = await readBody(request);
+          body = bodySchema.parse(parseJsonSafely(rawBody));
         }
 
-        const match = route.pattern.exec(url);
-        if (!match) {
-          continue;
-        }
-
-        await route.handler(context, request, response, match);
+        await controller.handler({
+          context,
+          request,
+          response,
+          params,
+          query,
+          body,
+        } as Handler<typeof controller.schema>);
         return;
       }
 
-      response.statusCode = 404;
-      response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ error: 'Not found' }));
+      response.writeHead(404, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Not Found', code: 'NOT_FOUND' }));
     } catch (error) {
-      if (error instanceof AppError) {
-        response.statusCode = error.statusCode;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({
-          error: error.message,
-          code: error.code,
-          ...(error instanceof ValidationError && error.details ? { details: error.details } : {})
-        }));
-        return;
-      }
-
-      if (error instanceof ZodError) {
-        response.statusCode = 400;
-        response.setHeader('Content-Type', 'application/json');
-        response.end(JSON.stringify({ error: error.message, details: error.errors }));
-        return;
-      }
-
-      console.error('Unexpected error:', error);
-      response.statusCode = 500;
-      response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ error: 'Internal server error' }));
+      handleError(error, response);
     }
   });
 }
 ```
 
-Each handler receives the `URLPattern` match, which exposes named parameters under `match.pathname.groups`. The `[id]` controllers keep their existing `userId`/`postId` arguments; the router extracts the identifier from the groups and forwards it to the controller.
+The new routing system uses dynamic imports for controllers and provides strongly typed handler functions. Each controller exports a `schema` object with `params` and `body` validation, and a `handler` function that receives validated data.
 
 ### main.ts
 ```typescript
@@ -669,383 +705,295 @@ main().catch(console.error);
 
 ### models/users.ts
 ```typescript
-import { eq } from 'drizzle-orm';
+import { eq, ilike, or } from 'drizzle-orm';
 import { Context } from '../types';
-import { NotFoundError, ConflictError } from '../errors';
+import { ConflictError } from '../errors';
 import { users } from '../db/schema';
-import { User, CreateUser, toApiUser } from '../schemas/users';
+import {
+  User,
+  CreateUser,
+  UpdateUser,
+  CreateUserSchema,
+  UpdateUserSchema,
+  toApiUser,
+} from '../schemas/users';
 
-export async function findUserById(context: Context, userId: string) {
-  const result = await context.db.query.users.findFirst({
-    where: eq(users.id, userId),
-  });
+export async function listUsers(
+  context: Context,
+  options: { limit?: number; offset?: number; search?: string } = {},
+): Promise<User[]> {
+  const limit = Math.min(100, Math.max(1, options.limit ?? 20));
+  const offset = Math.max(0, options.offset ?? 0);
 
-  return result ? toApiUser(result) : null;
+  const where = options.search
+    ? or(
+        ilike(users.email, `%${options.search}%`),
+        ilike(users.name, `%${options.search}%`),
+      )
+    : undefined;
+
+  const rows = await context.db
+    .select()
+    .from(users)
+    .where(where)
+    .limit(limit)
+    .offset(offset);
+
+  return rows.map(toApiUser);
 }
 
-export async function findUserByEmail(context: Context, email: string) {
-  const result = await context.db.query.users.findFirst({
-    where: eq(users.email, email),
-  });
-
-  return result ? toApiUser(result) : null;
+export async function findUserById(context: Context, userId: string): Promise<User | null> {
+  const row = await context.db.query.users.findFirst({ where: eq(users.id, userId) });
+  return row ? toApiUser(row) : null;
 }
 
-export async function createUser(context: Context, data: CreateUser) {
-  const validUser = CreateUserSchema.parse(data);
+export async function findUserByEmail(context: Context, email: string): Promise<User | null> {
+  const row = await context.db.query.users.findFirst({ where: eq(users.email, email) });
+  return row ? toApiUser(row) : null;
+}
 
-  const [result] = await context.db
-    .insert(users)
-    .values(validUser)
-    .returning();
+export async function createUser(context: Context, data: CreateUser): Promise<User> {
+  const valid = CreateUserSchema.parse(data);
 
-  return toApiUser(result);
+  const existing = await findUserByEmail(context, valid.email);
+  if (existing) {
+    throw new ConflictError('Email already exists');
+  }
+
+  const [row] = await context.db.insert(users).values(valid).returning();
+  return toApiUser(row);
 }
 
 export async function updateUser(
   context: Context,
   userId: string,
-  data: { name?: string; email?: string }
-) {
-  const validUser = UpdateUserSchema.parse(data);
+  data: UpdateUser,
+): Promise<User | null> {
+  const valid = UpdateUserSchema.parse(data);
 
-  const [result] = await context.db
-    .update(validUser)
-    .set({
-      ...data,
-      updatedAt: new Date(),
-    })
+  const [row] = await context.db
+    .update(users)
+    .set({ ...valid, updatedAt: new Date() })
     .where(eq(users.id, userId))
     .returning();
 
-  return result ? toApiUser(result) : null;
+  return row ? toApiUser(row) : null;
 }
 
-export async function deleteUser(context: Context, userId: string) {
-  const result = await context.db
+export async function deleteUser(context: Context, userId: string): Promise<boolean> {
+  const [row] = await context.db
     .delete(users)
-    .where(eq(users.id, userId));
+    .where(eq(users.id, userId))
+    .returning({ id: users.id });
 
-  return result.rowCount > 0;
+  return Boolean(row);
 }
 ```
 
 ### controllers/users/get.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { Context } from '../../types';
+import { z } from 'zod';
+import type { Handler } from '../../createServer';
 import { listUsers } from '../../models/users';
 
-export async function getUsersController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse
-) {
-  const users = await listUsers(context, { limit: 50, offset: 0 });
+export const schema = z.object({
+  params: z.object({}),
+  query: z
+    .object({
+      search: z.string().optional(),
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+      offset: z.coerce.number().int().min(0).optional(),
+    })
+    .optional(),
+});
 
-  response.statusCode = 200;
+export async function handler({ context, response, query }: Handler<typeof schema>) {
+  const users = await listUsers(context, query ?? {});
+
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(200);
   response.end(JSON.stringify(users));
 }
 ```
 
-### controllers/users/[id]/get.ts
+### controllers/users/[userId]/get.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
 import { z } from 'zod';
-import { Context } from '../../../types';
-import { ValidationError, NotFoundError } from '../../../errors';
+import type { Handler } from '../../../createServer';
+import { NotFoundError } from '../../../errors';
 import { findUserById } from '../../../models/users';
 
-const ParamsSchema = z.object({
-  userId: z.string().uuid(),
+export const schema = z.object({
+  params: z.object({
+    userId: z.string().uuid({ message: 'Invalid user ID format' }),
+  }),
 });
 
-export async function getUserController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse,
-  userId: string
-) {
-  // Validate params
-  const parseResult = ParamsSchema.safeParse({ userId });
-  if (!parseResult.success) {
-    throw new ValidationError('Invalid user ID format', parseResult.error.errors);
-  }
-
-  const user = await findUserById(context, parseResult.data.userId);
+export async function handler({ context, params, response }: Handler<typeof schema>) {
+  const user = await findUserById(context, params.userId);
 
   if (!user) {
     throw new NotFoundError('User not found');
   }
 
-  response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
-response.end(JSON.stringify(user));
+  response.writeHead(200);
+  response.end(JSON.stringify(user));
 }
 ```
 
-### controllers/users/[id]/post.ts
+### controllers/users/[userId]/put.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { z } from 'zod';
-import { Context } from '../../../types';
-import { ValidationError, NotFoundError } from '../../../errors';
-import { updateUser } from '../../../models/users';
-import { readBody } from '../../../utils/http';
+import { z } from "zod";
+import type { Handler } from "../../../createServer";
+import { updateUser } from "../../../models/users";
+import { NotFoundError } from "../../../errors";
+import { UpdateUserSchema } from "../../../schemas/users";
 
-const ParamsSchema = z.object({
-  userId: z.string().uuid(),
+export const schema = z.object({
+  params: z.object({
+    userId: z.string().uuid({ message: 'Invalid user ID format' }),
+  }),
+  body: UpdateUserSchema,
 });
 
-const BodySchema = z
-  .object({
-    email: z.string().email().optional(),
-    name: z.string().min(1).optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field must be provided',
-  });
-
-export async function postUserController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse,
-  userId: string
-) {
-  const parseParams = ParamsSchema.safeParse({ userId });
-  if (!parseParams.success) {
-    throw new ValidationError('Invalid user ID format', parseParams.error.errors);
-  }
-
-  const body = await readBody(request);
-
-  let rawData;
-  try {
-    rawData = JSON.parse(body);
-  } catch {
-    throw new ValidationError('Invalid JSON');
-  }
-
-  const parseBody = BodySchema.safeParse(rawData);
-  if (!parseBody.success) {
-    throw new ValidationError('Validation error', parseBody.error.errors);
-  }
-
-  const updatedUser = await updateUser(context, parseParams.data.userId, parseBody.data);
+export async function handler({ context, params, body, response }: Handler<typeof schema>) {
+  const updatedUser = await updateUser(context, params.userId, body);
 
   if (!updatedUser) {
     throw new NotFoundError('User not found');
   }
 
-  response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(200);
   response.end(JSON.stringify(updatedUser));
 }
 ```
 
 ### controllers/users/post.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { Context } from '../../types';
-import { ValidationError } from '../../errors';
-import { createUser } from '../../models/users';
-import { CreateUserSchema } from '../../schemas/users';
-import { readBody } from '../../utils/http';
+import { z } from "zod";
+import type { Handler } from "../../createServer";
+import { createUser } from "../../models/users";
+import { CreateUserSchema } from "../../schemas/users";
 
-export async function postUsersController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse
-) {
-  const body = await readBody(request);
+export const schema = z.object({
+  params: z.object({}),
+  body: CreateUserSchema,
+});
 
-  let rawData;
-  try {
-    rawData = JSON.parse(body);
-  } catch {
-    throw new ValidationError('Invalid JSON');
-  }
+export async function handler({ context, body, response }: Handler<typeof schema>) {
+  const user = await createUser(context, body);
 
-  // Validate input
-  const parseResult = CreateUserSchema.safeParse(rawData);
-  if (!parseResult.success) {
-    throw new ValidationError('Validation error', parseResult.error.errors);
-  }
-
-  // Create user
-  const user = await createUser(context, parseResult.data);
-
-  response.statusCode = 201;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(201);
   response.end(JSON.stringify(user));
 }
 ```
 
 ### controllers/posts/get.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { z } from 'zod';
-import { Context } from '../../types';
-import { ValidationError } from '../../errors';
-import { listPosts } from '../../models/posts';
-import { ListPostsQuerySchema } from '../../schemas/posts';
+import { z } from "zod";
+import type { Handler } from "../../createServer";
+import { listPosts } from "../../models/posts";
 
-export async function getPostsController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse
-) {
-  const url = new URL(request.url || '', `http://${request.headers.host}`);
+export const schema = z.object({
+  params: z.object({}),
+  query: z
+    .object({
+      published: z.enum(['true', 'false']).transform((value) => value === 'true').optional(),
+      limit: z.coerce.number().int().min(1).max(100).optional(),
+      offset: z.coerce.number().int().min(0).optional(),
+    })
+    .optional(),
+});
 
-  // Parse and validate query parameters
-  const parseResult = ListPostsQuerySchema.safeParse({
-    limit: url.searchParams.get('limit'),
-    offset: url.searchParams.get('offset'),
-    published: url.searchParams.get('published'),
-  });
+export async function handler({ context, response, query }: Handler<typeof schema>) {
+  const normalizedQuery = {
+    limit: query?.limit ?? 50,
+    offset: query?.offset ?? 0,
+    published: query?.published,
+  };
 
-  if (!parseResult.success) {
-    throw new ValidationError('Invalid query parameters', parseResult.error.errors);
-  }
+  const posts = await listPosts(context, normalizedQuery);
 
-  const posts = await listPosts(context, parseResult.data);
-
-  response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(200);
   response.end(JSON.stringify(posts));
 }
 ```
 
-### controllers/posts/[id]/get.ts
+### controllers/posts/[postId]/get.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { z } from 'zod';
-import { Context } from '../../../types';
-import { ValidationError, NotFoundError } from '../../../errors';
-import { findPostById } from '../../../models/posts';
+import { z } from "zod";
+import type { Handler } from "../../../createServer";
+import { NotFoundError } from "../../../errors";
+import { findPostById } from "../../../models/posts";
 
-const ParamsSchema = z.object({
-  postId: z.string().uuid(),
+export const schema = z.object({
+  params: z.object({
+    postId: z.string().uuid(),
+  }),
 });
 
-export async function getPostController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse,
-  postId: string
-) {
-  const parseParams = ParamsSchema.safeParse({ postId });
-  if (!parseParams.success) {
-    throw new ValidationError('Invalid post ID format', parseParams.error.errors);
-  }
-
-  const post = await findPostById(context, parseParams.data.postId);
+export async function handler({ context, params, response }: Handler<typeof schema>) {
+  const post = await findPostById(context, params.postId);
 
   if (!post) {
     throw new NotFoundError('Post not found');
   }
 
-  response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(200);
   response.end(JSON.stringify(post));
 }
 ```
 
-### controllers/posts/[id]/post.ts
+### controllers/posts/[postId]/put.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { z } from 'zod';
-import { Context } from '../../../types';
-import { ValidationError, NotFoundError } from '../../../errors';
-import { updatePost } from '../../../models/posts';
-import { readBody } from '../../../utils/http';
+import { z } from "zod";
+import type { Handler } from "../../../createServer";
+import { updatePost } from "../../../models/posts";
+import { NotFoundError } from "../../../errors";
+import { UpdatePostSchema } from "../../../schemas/posts";
 
-const ParamsSchema = z.object({
-  postId: z.string().uuid(),
+export const schema = z.object({
+  params: z.object({
+    postId: z.string().uuid({ message: 'Invalid post ID format' }),
+  }),
+  body: UpdatePostSchema,
 });
 
-const BodySchema = z
-  .object({
-    title: z.string().min(1).optional(),
-    content: z.string().optional(),
-    published: z.boolean().optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field must be provided',
-  });
-
-export async function postPostController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse,
-  postId: string
-) {
-  const parseParams = ParamsSchema.safeParse({ postId });
-  if (!parseParams.success) {
-    throw new ValidationError('Invalid post ID format', parseParams.error.errors);
-  }
-
-  const body = await readBody(request);
-
-  let rawData;
-  try {
-    rawData = JSON.parse(body);
-  } catch {
-    throw new ValidationError('Invalid JSON');
-  }
-
-  const parseBody = BodySchema.safeParse(rawData);
-  if (!parseBody.success) {
-    throw new ValidationError('Validation error', parseBody.error.errors);
-  }
-
-  const updatedPost = await updatePost(context, parseParams.data.postId, parseBody.data);
+export async function handler({ context, params, body, response }: Handler<typeof schema>) {
+  const updatedPost = await updatePost(context, params.postId, body);
 
   if (!updatedPost) {
     throw new NotFoundError('Post not found');
   }
 
-  response.statusCode = 200;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(200);
   response.end(JSON.stringify(updatedPost));
 }
 ```
 
 ### controllers/posts/post.ts
 ```typescript
-import { IncomingMessage, ServerResponse } from 'http';
-import { Context } from '../../types';
-import { ValidationError } from '../../errors';
-import { createPost } from '../../models/posts';
-import { CreatePostSchema } from '../../schemas/posts';
-import { readBody } from '../../utils/http';
+import { z } from "zod";
+import type { Handler } from "../../createServer";
+import { createPost } from "../../models/posts";
+import { CreatePostSchema } from "../../schemas/posts";
 
-export async function postPostsController(
-  context: Context,
-  request: IncomingMessage,
-  response: ServerResponse
-) {
-  const body = await readBody(request);
+export const schema = z.object({
+  params: z.object({}),
+  body: CreatePostSchema,
+});
 
-  let rawData;
-  try {
-    rawData = JSON.parse(body);
-  } catch {
-    throw new ValidationError('Invalid JSON');
-  }
+export async function handler({ context, body, response }: Handler<typeof schema>) {
+  const post = await createPost(context, body);
 
-  // Validate input
-  const parseResult = CreatePostSchema.safeParse(rawData);
-  if (!parseResult.success) {
-    throw new ValidationError('Validation error', parseResult.error.errors);
-  }
-
-  // Create post
-  const post = await createPost(context, parseResult.data);
-
-  response.statusCode = 201;
   response.setHeader('Content-Type', 'application/json');
+  response.writeHead(201);
   response.end(JSON.stringify(post));
 }
 ```
@@ -1053,23 +1001,55 @@ export async function postPostsController(
 ### utils/http.ts
 ```typescript
 import { IncomingMessage } from 'http';
+import { z } from 'zod/v4';
 import { ValidationError } from '../errors';
+import { ControllerSchema } from '../types';
 
 export function readBody(request: IncomingMessage) {
   return new Promise<string>((resolve, reject) => {
     let body = '';
-    request.on('data', chunk => body += chunk);
+    request.setEncoding('utf8');
+    request.on('data', (chunk) => {
+      body += chunk;
+    });
     request.on('end', () => resolve(body));
     request.on('error', reject);
   });
 }
 
-export function parseJsonSafely(jsonString: string): any {
+export function parseJsonSafely(jsonString: string): unknown {
   try {
     return JSON.parse(jsonString);
   } catch {
     throw new ValidationError('Invalid JSON');
   }
+}
+
+export async function getBodyFromRequest<
+  TSchema extends ControllerSchema & { body: { schema: z.ZodTypeAny } }
+>(request: IncomingMessage, schema: TSchema) {
+  if (!request.headers['content-type']?.includes(schema.body.contentType)) {
+    throw new ValidationError(`Unsupported content type. Expected ${schema.body.contentType}`);
+  }
+
+  const rawBody = await readBody(request);
+  if (rawBody.length === 0) {
+    throw new ValidationError('Request body is required');
+  }
+
+  const parsedBody = parseJsonSafely(rawBody);
+  return schema.body.schema.parse(parsedBody);
+}
+```
+
+### Using URLPattern
+```typescript
+const pattern = new URLPattern({ pathname: '/users/:userId' });
+const match = pattern.exec({ pathname });
+
+if (match) {
+  const { userId } = match.pathname.groups;
+  // Use userId with full TypeScript support
 }
 ```
 
@@ -1263,7 +1243,7 @@ export async function cleanupDatabase(context: Context) {
 }
 ```
 
-### packages/api/tests/controllers/users/[id]/get.test.ts
+### packages/api/tests/controllers/users/[userId]/get.test.ts
 ```typescript
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
@@ -1272,7 +1252,7 @@ import { createTestServer, createTestContext, cleanupDatabase } from '../../help
 import { Context } from '../../../src/types';
 import { createUser } from '../../../src/models/users';
 
-describe('GET /users/:id', () => {
+describe('GET /users/:userId', () => {
   let context: Context;
   let server: http.Server;
 
@@ -1566,6 +1546,10 @@ export async function processPayment(
 
 ### 6. Testing Strategy
 
+The Node Test Runner `node:test` is now included in the latest stable version of node. Therefore we don't need to use any testing framework.
+
+Do not install a testing framework. The built in node test is good enough.
+
 #### What to Mock vs What Not to Mock
 
 **DO NOT MOCK (use real implementations):**
@@ -1659,7 +1643,7 @@ describe('Email Service Integration', () => {
 
 ### Core Principles
 
-**Resist dependencies.** Less is more. Every dependency is a liability—more attack surface, more breaking changes, more complexity.
+**Resist dependencies.** Less is more. Every dependency is a liability, more attack surface, more breaking changes, more complexity.
 
 **Don't be over the top.** Don't rewrite React, Zod, or database drivers. Use mature, battle-tested libraries for complex problems.
 
@@ -1827,12 +1811,12 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
@@ -1852,12 +1836,12 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.0.0",
     "typescript": "^5.0.0",
     "vite": "^5.0.0"
@@ -1888,23 +1872,21 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
 
 ### Controller Schema Exports
 
-Each controller should export an OpenAPI schema using `zod-to-openapi`:
+Each controller should export a `schema` object that mirrors the OpenAPI path definition while reusing the same Zod validators used for runtime validation:
 
 ```typescript
-import { z } from 'zod';
-import { createRouteSpec } from '@asteasolutions/zod-to-openapi';
+import { z } from 'zod/v4';
+import { ControllerDefinition, ControllerSchema, Handler } from '../../types';
 import { UserSchema } from '../../schemas/users';
 
-export const openApiSchema = createRouteSpec({
-  method: 'get',
+export const schema = {
+  method: 'GET',
   path: '/users/{userId}',
-  tags: ['Users'],
+  tags: ['Users'] as const,
   summary: 'Get user by ID',
-  request: {
-    params: z.object({
-      userId: z.string().uuid().openapi({ example: '550e8400-e29b-41d4-a716-446655440000' })
-    })
-  },
+  params: z.object({
+    userId: z.string().uuid({ message: 'Invalid user ID format' })
+  }),
   responses: {
     200: {
       description: 'User found',
@@ -1926,7 +1908,18 @@ export const openApiSchema = createRouteSpec({
       }
     }
   }
-});
+} as const satisfies ControllerSchema;
+
+type Schema = typeof schema;
+
+export const handler: Handler<Schema> = async ({ context, response, params }) => {
+  // ...handler logic
+};
+
+export const controller: ControllerDefinition<Schema> = {
+  schema,
+  handler,
+};
 ```
 
 ### OpenAPI Endpoint
@@ -1935,47 +1928,129 @@ Create an `/openapi` endpoint that collects all controller schemas:
 
 ```typescript
 // In createServer.ts
-import { OpenAPIGenerator } from '@asteasolutions/zod-to-openapi';
-import { openApiSchema as listUsersSchema } from './controllers/users/get';
-import { openApiSchema as postUsersSchema } from './controllers/users/post';
-import { openApiSchema as getUserSchema } from './controllers/users/[id]/get';
-import { openApiSchema as postUserSchema } from './controllers/users/[id]/post';
+import { z, toJSONSchema } from 'zod/v4';
+import { controller as listUsersController } from './controllers/users/get';
+import { controller as createUserController } from './controllers/users/post';
+import { controller as getUserController } from './controllers/users/[userId]/get';
 
-function generateOpenApiDocument() {
-  const generator = new OpenAPIGenerator([
-    listUsersSchema,
-    postUsersSchema,
-    getUserSchema,
-    postUserSchema,
-    // ... other controller schemas
-  ]);
+const documentedControllers = [
+  listUsersController,
+  createUserController,
+  getUserController,
+];
 
-  return generator.generateDocument({
-    openapi: '3.0.0',
+function zodObjectToParameters(
+  object: z.ZodObject<Record<string, z.ZodTypeAny>>,
+  location: 'path' | 'query',
+) {
+  const shape = object.shape;
+  return Object.entries(shape).map(([name, definition]) => ({
+    name,
+    in: location,
+    required: location === 'path' || !definition.isOptional?.(),
+    schema: toJSONSchema(definition),
+  }));
+}
+
+function generateOpenApiDocument(config: Config) {
+  const paths: Record<string, Record<string, unknown>> = {};
+
+  for (const { schema } of documentedControllers) {
+    const method = schema.method.toLowerCase();
+    const pathItem = paths[schema.path] ?? (paths[schema.path] = {});
+
+    const parameters = [
+      ...(schema.params ? zodObjectToParameters(schema.params, 'path') : []),
+      ...(schema.query ? zodObjectToParameters(schema.query, 'query') : []),
+    ];
+
+    const responses = Object.fromEntries(
+      Object.entries(schema.responses).map(([status, response]) => [
+        status,
+        {
+          description: response.description,
+          ...(response.content
+            ? {
+                content: {
+                  'application/json': {
+                    schema: toJSONSchema(response.content['application/json'].schema),
+                  },
+                },
+              }
+            : {}),
+        },
+      ]),
+    );
+
+    const requestBody = schema.body
+      ? {
+          description: schema.body.description,
+          required: schema.body.required ?? true,
+          content: {
+            [schema.body.contentType]: {
+              schema: toJSONSchema(schema.body.schema),
+            },
+          },
+        }
+      : undefined;
+
+    pathItem[method] = {
+      summary: schema.summary,
+      description: schema.description,
+      tags: schema.tags,
+      ...(parameters.length > 0 ? { parameters } : {}),
+      ...(requestBody ? { requestBody } : {}),
+      responses,
+    };
+  }
+
+  return {
+    openapi: '3.1.0',
     info: {
       version: '1.0.0',
       title: 'API Documentation',
-      description: 'Generated API documentation'
+      description: 'Generated API documentation',
     },
-    servers: [{ url: 'http://localhost:3000' }]
-  });
+    servers: [{ url: `http://${config.host}:${config.port}` }],
+    paths,
+  };
 }
 
-routes.push({
+const openApiRoute: Route = {
   method: 'GET',
   pattern: new URLPattern({ pathname: '/openapi' }),
-  handler: async (_context, _request, response) => {
-    const openApiDoc = generateOpenApiDocument();
-    response.statusCode = 200;
-    response.setHeader('Content-Type', 'application/json');
-    response.end(JSON.stringify(openApiDoc, null, 2));
-  },
-});
+  controller: Promise.resolve({
+    schema: {
+      method: 'GET',
+      path: '/openapi',
+      params: z.object({}),
+      responses: {
+        200: {
+          description: 'OpenAPI document',
+          content: {
+            'application/json': {
+              schema: z.object({}).passthrough(),
+            },
+          },
+        },
+      },
+    },
+    handler: async ({ context, response }) => {
+      response.writeHead(200, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify(generateOpenApiDocument(context.config)));
+    },
+  }),
+};
+
+const routes: Route[] = [
+  // ...other routes
+  openApiRoute,
+];
 ```
 
 ### Best Practices
 
-- Export `openApiSchema` from each controller file
+- Keep controller `schema` metadata in sync with the HTTP handler implementation
 - Use descriptive tags and summaries
 - Include example values for better documentation
 - Document all response codes including error cases
@@ -2020,4 +2095,3 @@ The context pattern combined with single function exports creates a clean, maint
 4. **No Abbreviations**:
    - Use full names: `request` instead of `req`, `response` instead of `res`
    - Improves code readability and maintainability
-

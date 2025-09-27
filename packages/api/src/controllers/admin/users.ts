@@ -1,12 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
+import type { Context, ControllerSchema } from "../../types.js";
 
 const UserSchema = z.object({
   sub: z.string(),
@@ -31,7 +27,6 @@ export const UsersListResponseSchema = z.object({
 
 import { listUsers } from "../../models/users.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
 import { getPaginationFromUrl } from "../../utils/pagination.js";
 
@@ -55,78 +50,21 @@ export async function getUsers(
   sendJsonValidated(response, 200, responseData, UsersListResponseSchema);
 }
 
-// export const openApiSchema = createRouteSpec({
-//   method: "get",
-//   path: "/admin/users",
-//   tags: ["Users"],
-//   summary: "List users",
-//   request: {
-//     query: {
-//       page: { type: "number", required: false, description: "Page number" },
-//       limit: { type: "number", required: false, description: "Items per page" },
-//       search: { type: "string", required: false, description: "Search term for email or name" },
-//     },
-//   },
-//   responses: {
-//     200: {
-//       description: "OK",
-//       content: {
-//         "application/json": {
-//           schema: UsersListResponseSchema,
-//         , ...genericErrors },
-//       },
-//     },
-//     401: {
-//       description: "Unauthorized",
-//       content: {
-//         "application/json": {
-//           schema: UnauthorizedResponseSchema,
-//         },
-//       },
-//     },
-//     403: {
-//       description: "Forbidden",
-//       content: {
-//         "application/json": {
-//           schema: ForbiddenResponseSchema,
-//           example: {
-//             error: "FORBIDDEN",
-//             message: "Admin access required",
-//             code: "FORBIDDEN"
-//           },
-//         },
-//       },
-//     },
-//     500: {
-//       description: "Internal Server Error",
-//       content: {
-//         "application/json": {
-//           schema: ErrorResponseSchema,
-//         },
-//       },
-//     },
-//   },
-// });
-
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/admin/users",
-    tags: ["Users"],
-    summary: "List users",
-    request: {
-      query: z.object({
-        page: z.number().int().positive().optional(),
-        limit: z.number().int().positive().optional(),
-        search: z.string().optional(),
-      }),
+export const schema = {
+  method: "GET",
+  path: "/admin/users",
+  tags: ["Users"],
+  summary: "List users",
+  query: z.object({
+    page: z.number().int().positive().optional(),
+    limit: z.number().int().positive().optional(),
+    search: z.string().optional(),
+  }),
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: UsersListResponseSchema } },
     },
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: UsersListResponseSchema } },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

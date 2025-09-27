@@ -1,17 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { InvalidRequestError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getClient } from "../../models/clients.js";
 import { deleteSession, getSessionId } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseFormBody, readBody, redirect, sendJson } from "../../utils/http.js";
+
+// Response schema used in OpenAPI definition
+const Resp = z.object({ success: z.boolean().optional() });
 
 export const postLogout = withAudit({
   eventType: "USER_LOGOUT",
@@ -85,16 +83,14 @@ export const postLogout = withAudit({
   }
 );
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({ success: z.boolean().optional() });
-  registry.registerPath({
-    method: "post",
-    path: "/logout",
-    tags: ["Auth"],
-    summary: "User logout",
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// Export OpenAPI schema definition
+export const schema = {
+  method: "POST",
+  path: "/logout",
+  tags: ["Auth"],
+  summary: "User logout",
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

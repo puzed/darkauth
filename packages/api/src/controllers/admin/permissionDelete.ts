@@ -1,13 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.js";
 
-extendZodWithOpenApi(z);
-
 import { deletePermissionByKey } from "../../models/permissions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -28,13 +24,11 @@ export const deletePermission = withAudit({
   skipBodyCapture: true,
 })(deletePermissionHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "delete",
-    path: "/admin/permissions/{key}",
-    tags: ["Permissions"],
-    summary: "Delete permission",
-    request: { params: z.object({ key: z.string() }) },
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "DELETE",
+  path: "/admin/permissions/{key}",
+  tags: ["Permissions"],
+  summary: "Delete permission",
+  params: z.object({ key: z.string() }),
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;

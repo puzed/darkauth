@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -66,31 +61,26 @@ async function postAdminPasswordChangeStartHandler(
 
 export const postAdminPasswordChangeStart = postAdminPasswordChangeStartHandler;
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/password-change-start",
-    tags: ["Admin Authentication"],
-    summary: "Start admin password change process",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: PasswordChangeStartRequestSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/password-change-start",
+  tags: ["Admin Authentication"],
+  summary: "Start admin password change process",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: PasswordChangeStartRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Password change process started",
+      content: {
+        "application/json": {
+          schema: PasswordChangeStartResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Password change process started",
-        content: {
-          "application/json": {
-            schema: PasswordChangeStartResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

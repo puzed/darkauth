@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { createUser as createUserModel } from "../../models/users.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -52,27 +47,33 @@ export const createUser = withAudit({
   },
 })(createUserHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({
-    email: z.string().email(),
-    name: z.string().optional(),
-    sub: z.string().optional(),
-  });
-  const Resp = z.object({
-    sub: z.string(),
-    email: z.string().email(),
-    name: z.string().nullable().optional(),
-    createdAt: z.string(),
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/admin/users",
-    tags: ["Users"],
-    summary: "Create user",
-    request: { body: { content: { "application/json": { schema: Req } } } },
-    responses: {
-      201: { description: "Created", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema definition
+const Req = z.object({
+  email: z.string().email(),
+  name: z.string().optional(),
+  sub: z.string().optional(),
+});
+
+const Resp = z.object({
+  sub: z.string(),
+  email: z.string().email(),
+  name: z.string().nullable().optional(),
+  createdAt: z.string(),
+});
+
+export const schema = {
+  method: "POST",
+  path: "/admin/users",
+  tags: ["Users"],
+  summary: "Create user",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    201: { description: "Created", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

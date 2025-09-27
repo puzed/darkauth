@@ -1,10 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 export const UpdateUserGroupsSchema = z.object({
@@ -27,7 +23,7 @@ export const UpdateUserGroupsResponseSchema = z.object({
 
 import { setUserGroups } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
 
@@ -72,34 +68,29 @@ export const updateUserGroups = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateUserGroupsHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "put",
-    path: "/admin/users/{userSub}/groups",
-    tags: ["Users"],
-    summary: "Update user groups",
-    request: {
-      params: z.object({
-        userSub: z.string(),
-      }),
-      body: {
-        content: {
-          "application/json": {
-            schema: UpdateUserGroupsSchema,
-          },
+export const schema = {
+  method: "PUT",
+  path: "/admin/users/{userSub}/groups",
+  tags: ["Users"],
+  summary: "Update user groups",
+  params: z.object({
+    userSub: z.string(),
+  }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: UpdateUserGroupsSchema,
+  },
+  responses: {
+    200: {
+      description: "User groups updated successfully",
+      content: {
+        "application/json": {
+          schema: UpdateUserGroupsResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "User groups updated successfully",
-        content: {
-          "application/json": {
-            schema: UpdateUserGroupsResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

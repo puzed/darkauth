@@ -1,18 +1,15 @@
+// Imports
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { startUserPasswordSetForAdmin } from "../../models/passwords.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
+// Schemas
 const PasswordSetStartRequestSchema = z.object({
   request: z.string(),
 });
@@ -23,6 +20,7 @@ const PasswordSetStartResponseSchema = z.object({
   identityU: z.string(),
 });
 
+// Handler
 async function postUserPasswordSetStartHandler(
   context: Context,
   request: IncomingMessage,
@@ -39,7 +37,7 @@ async function postUserPasswordSetStartHandler(
     if (!data.request || typeof data.request !== "string") {
       throw new ValidationError("Missing or invalid request field");
     }
-    const requestBuffer = fromBase64Url(data.request);
+    const requestBuffer = fromBase64Url(data.request as string);
     const { registrationResponse, identityU } = await startUserPasswordSetForAdmin(
       context,
       userSub,
@@ -58,34 +56,30 @@ async function postUserPasswordSetStartHandler(
 
 export const postUserPasswordSetStart = postUserPasswordSetStartHandler;
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/users/{userSub}/password-set-start",
-    tags: ["Users"],
-    summary: "Start setting user password",
-    request: {
-      params: z.object({
-        userSub: z.string(),
-      }),
-      body: {
-        content: {
-          "application/json": {
-            schema: PasswordSetStartRequestSchema,
-          },
+// OpenAPI schema
+export const schema = {
+  method: "POST",
+  path: "/admin/users/{userSub}/password-set-start",
+  tags: ["Users"],
+  summary: "Start setting user password",
+  params: z.object({
+    userSub: z.string(),
+  }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: PasswordSetStartRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Password set started",
+      content: {
+        "application/json": {
+          schema: PasswordSetStartResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Password set started",
-        content: {
-          "application/json": {
-            schema: PasswordSetStartResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

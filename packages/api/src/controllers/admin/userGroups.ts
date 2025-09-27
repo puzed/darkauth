@@ -1,14 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
+import { z } from "zod/v4";
 
 import { ForbiddenError } from "../../errors.js";
 import { getUserGroups as getUserGroupsModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getUserGroups(
@@ -29,24 +25,24 @@ export async function getUserGroups(
   sendJson(response, 200, result);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Group = z.object({ key: z.string(), name: z.string() });
-  const User = z.object({
-    sub: z.string(),
-    email: z.string().nullable().optional(),
-    name: z.string().nullable().optional(),
-  });
-  const Resp = z.object({
-    user: User,
-    userGroups: z.array(Group),
-    availableGroups: z.array(Group),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/admin/users/{sub}/groups",
-    tags: ["Users"],
-    summary: "Get user groups",
-    request: { params: z.object({ sub: z.string() }) },
-    responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
-  });
-}
+// OpenAPI schema definition
+const Group = z.object({ key: z.string(), name: z.string() });
+const User = z.object({
+  sub: z.string(),
+  email: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+});
+const Resp = z.object({
+  user: User,
+  userGroups: z.array(Group),
+  availableGroups: z.array(Group),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/admin/users/{sub}/groups",
+  tags: ["Users"],
+  summary: "Get user groups",
+  params: z.object({ sub: z.string() }),
+  responses: { 200: { description: "OK", content: { "application/json": { schema: Resp } } } },
+} as const satisfies ControllerSchema;

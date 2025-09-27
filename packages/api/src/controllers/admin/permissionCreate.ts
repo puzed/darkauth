@@ -1,12 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import type { Context, ControllerSchema } from "../../types.js";
 
-extendZodWithOpenApi(z);
-
-import type { Context } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -31,14 +27,18 @@ export const createPermission = withAudit({
   },
 })(createPermissionHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z.object({ key: z.string(), description: z.string() });
-  registry.registerPath({
-    method: "post",
-    path: "/admin/permissions",
-    tags: ["Permissions"],
-    summary: "Create permission",
-    request: { body: { content: { "application/json": { schema: Req } } } },
-    responses: { 201: { description: "Created" }, ...genericErrors },
-  });
-}
+const Req = z.object({ key: z.string(), description: z.string() });
+
+export const schema = {
+  method: "POST",
+  path: "/admin/permissions",
+  tags: ["Permissions"],
+  summary: "Create permission",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: { 201: { description: "Created" }, ...genericErrors },
+} as const satisfies ControllerSchema;

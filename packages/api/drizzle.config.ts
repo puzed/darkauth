@@ -15,8 +15,8 @@ function loadDbUrl(): string {
   ];
   for (const p of candidates) if (fs.existsSync(p)) {
     const raw = fs.readFileSync(p, "utf8");
-    const cfg = parse(raw) as any;
-    const url: string | undefined = cfg?.postgresUri;
+    const configuration = parse(raw) as Record<string, unknown> | undefined;
+    const url: string | undefined = configuration?.postgresUri as string | undefined;
     if (url) return url;
   }
   return "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth";

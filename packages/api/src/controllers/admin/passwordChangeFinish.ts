@@ -1,14 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { adminPasswordChangeFinish } from "../../models/adminPasswords.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
 
 const Req = z.object({ record: z.string(), export_key_hash: z.string() });
+const AdminPasswordChangeFinishResponseSchema = z.object({ success: z.boolean() });
 
 async function postAdminPasswordChangeFinishHandler(
   context: Context,
@@ -58,3 +60,23 @@ export const postAdminPasswordChangeFinish = withAudit({
   eventType: "ADMIN_PASSWORD_CHANGE",
   resourceType: "admin",
 })(postAdminPasswordChangeFinishHandler);
+
+export const schema = {
+  method: "POST",
+  path: "/admin/password/change/finish",
+  tags: ["Auth"],
+  summary: "Complete admin password change",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    200: {
+      description: "Password updated",
+      content: { "application/json": { schema: AdminPasswordChangeFinishResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

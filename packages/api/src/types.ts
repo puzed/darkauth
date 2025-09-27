@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
-// Use a flexible type to support both node-postgres and pglite drizzle databases
 import type { JWTPayload as JoseJWTPayload } from "jose";
+import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
 import type * as schema from "./db/schema.js";
 
 export type Database = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
@@ -196,6 +196,69 @@ export interface IdTokenClaims extends JoseJWTPayload {
   permissions?: string[];
   groups?: string[];
   [key: string]: unknown;
+}
+
+export type ControllerSchemaObject = ZodTypeAny | Record<string, unknown>;
+
+export type ControllerResponseContent = Record<
+  string,
+  {
+    schema: ControllerSchemaObject;
+  }
+>;
+
+export interface ControllerResponse {
+  description: string;
+  content?: ControllerResponseContent;
+}
+
+export interface ControllerBody {
+  description?: string;
+  contentType: string;
+  required?: boolean;
+  schema: ControllerSchemaObject;
+}
+
+export interface ControllerSchema {
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
+  path: string;
+  summary: string;
+  description?: string;
+  tags?: readonly string[];
+  params?: ZodObject<ZodRawShape>;
+  query?: ZodObject<ZodRawShape>;
+  body?: ControllerBody;
+  responses: Record<string, ControllerResponse>;
+}
+
+export interface ControllerDefinition<TSchema extends ControllerSchema> {
+  schema: TSchema;
+  handler: (args: HandlerArgs<TSchema>) => unknown | Promise<unknown>;
+}
+
+type InferParams<TSchema extends ControllerSchema> = TSchema["params"] extends ZodTypeAny
+  ? TSchema["params"]["_output"]
+  : undefined;
+
+type InferQuery<TSchema extends ControllerSchema> = TSchema["query"] extends ZodTypeAny
+  ? TSchema["query"]["_output"]
+  : undefined;
+
+type InferBody<TSchema extends ControllerSchema> = TSchema["body"] extends { schema: infer Schema }
+  ? Schema extends ZodTypeAny
+    ? Schema["_output"]
+    : Schema extends Record<string, unknown>
+      ? Schema
+      : undefined
+  : undefined;
+
+export interface HandlerArgs<TSchema extends ControllerSchema> {
+  context: Context;
+  request: IncomingMessage;
+  response: ServerResponse;
+  params: InferParams<TSchema>;
+  query: InferQuery<TSchema>;
+  body: InferBody<TSchema>;
 }
 
 export interface JWTPayload extends JoseJWTPayload {

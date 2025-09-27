@@ -4,61 +4,60 @@ import { request as httpRequest } from "node:http";
 import type { Duplex } from "node:stream";
 
 export async function proxyToVite(
-  req: IncomingMessage,
-  res: ServerResponse,
+  request: IncomingMessage,
+  response: ServerResponse,
   vitePort: number
 ): Promise<void> {
   const inDocker = fs.existsSync("/.dockerenv");
   const hostname = inDocker ? "host.docker.internal" : "localhost";
-  const headers = { ...req.headers } as Record<string, string | string[] | undefined>;
+  const headers = { ...request.headers } as Record<string, string | string[] | undefined>;
   headers.host = `${hostname}:${vitePort}`;
   const options = {
     hostname,
     port: vitePort,
-    path: req.url,
-    method: req.method,
+    path: request.url,
+    method: request.method,
     headers,
   };
 
-  const proxyReq = httpRequest(options, (proxyRes) => {
-    res.writeHead(proxyRes.statusCode || 200, proxyRes.headers);
-    proxyRes.pipe(res);
+  const proxyRequest = httpRequest(options, (proxyResponse) => {
+    response.writeHead(proxyResponse.statusCode || 200, proxyResponse.headers);
+    proxyResponse.pipe(response);
   });
 
-  proxyReq.on("error", (error) => {
-    console.error("Proxy error:", error);
-    res.statusCode = 502;
-    res.end("Bad Gateway - Vite dev server not running");
+  proxyRequest.on("error", (_error) => {
+    response.statusCode = 502;
+    response.end("Bad Gateway - Vite dev server not running");
   });
 
-  req.pipe(proxyReq);
+  request.pipe(proxyRequest);
 }
 
 export function proxyWebSocketToVite(
-  req: IncomingMessage,
+  request: IncomingMessage,
   socket: Duplex,
   head: Buffer,
   vitePort: number
 ): void {
   const inDocker = fs.existsSync("/.dockerenv");
   const hostname = inDocker ? "host.docker.internal" : "localhost";
-  const headers = { ...req.headers } as Record<string, string | string[] | undefined>;
+  const headers = { ...request.headers } as Record<string, string | string[] | undefined>;
   headers.host = `${hostname}:${vitePort}`;
   const options = {
     hostname,
     port: vitePort,
-    path: req.url || "/",
+    path: request.url || "/",
     method: "GET",
     headers,
   };
-  const proxyReq = httpRequest(options);
-  proxyReq.on("upgrade", (proxyRes, proxySocket, proxyHead) => {
-    const lines: string[] = [`HTTP/1.1 ${proxyRes.statusCode || 101} Switching Protocols`];
-    for (const [k, v] of Object.entries(proxyRes.headers)) {
-      if (Array.isArray(v)) {
-        for (const vv of v) lines.push(`${k}: ${vv}`);
-      } else if (v !== undefined) {
-        lines.push(`${k}: ${v}`);
+  const proxyRequest = httpRequest(options);
+  proxyRequest.on("upgrade", (proxyResponse, proxySocket, proxyHead) => {
+    const lines: string[] = [`HTTP/1.1 ${proxyResponse.statusCode || 101} Switching Protocols`];
+    for (const [headerName, headerValue] of Object.entries(proxyResponse.headers)) {
+      if (Array.isArray(headerValue)) {
+        for (const value of headerValue) lines.push(`${headerName}: ${value}`);
+      } else if (headerValue !== undefined) {
+        lines.push(`${headerName}: ${headerValue}`);
       }
     }
     lines.push("\r\n");
@@ -80,10 +79,10 @@ export function proxyWebSocketToVite(
     proxySocket.on("end", () => socket.end());
     socket.on("end", () => proxySocket.end());
   });
-  proxyReq.on("error", () => {
+  proxyRequest.on("error", () => {
     try {
       socket.destroy();
     } catch {}
   });
-  proxyReq.end();
+  proxyRequest.end();
 }

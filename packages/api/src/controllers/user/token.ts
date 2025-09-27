@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { signJWT } from "../../services/jwks.js";
 import {
@@ -15,7 +10,13 @@ import {
   refreshSessionWithToken,
 } from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
-import type { Context, IdTokenClaims, TokenRequest, TokenResponse } from "../../types.js";
+import type {
+  Context,
+  ControllerSchema,
+  IdTokenClaims,
+  TokenRequest,
+  TokenResponse,
+} from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { constantTimeCompare } from "../../utils/crypto.js";
 import {
@@ -157,15 +158,13 @@ export const postToken = withRateLimit("token")(
             ? client.idTokenLifetimeSeconds
             : defaultIdTtl;
         let amr: string[] | undefined = ["pwd"];
-        try {
-          const { sessions } = await import("../../db/schema.js");
-          const { eq } = await import("drizzle-orm");
-          const sess = await context.db.query.sessions.findFirst({
-            where: eq(sessions.refreshToken, tokenRequest.refresh_token),
-          });
-          const data = (sess?.data || {}) as Record<string, unknown>;
-          if (data && data.otpVerified === true) amr = ["pwd", "otp"];
-        } catch {}
+        const { sessions } = await import("../../db/schema.js");
+        const { eq } = await import("drizzle-orm");
+        const sess = await context.db.query.sessions.findFirst({
+          where: eq(sessions.refreshToken, tokenRequest.refresh_token),
+        });
+        const data = (sess?.data || {}) as Record<string, unknown>;
+        if (data && data.otpVerified === true) amr = ["pwd", "otp"];
         const idTokenClaims: IdTokenClaims = {
           iss: context.config.issuer,
           sub: user.sub,
@@ -216,7 +215,7 @@ export const postToken = withRateLimit("token")(
       );
 
       if (!authCode) {
-        console.warn("[token] code not found", tokenRequest.code);
+        context.logger.warn({ code: tokenRequest.code }, "token code not found");
         throw new InvalidGrantError("Invalid authorization code");
       }
 
@@ -351,15 +350,13 @@ export const postToken = withRateLimit("token")(
           ? client.idTokenLifetimeSeconds
           : defaultIdTtl;
       let amr: string[] | undefined = ["pwd"];
-      try {
-        const { sessions } = await import("../../db/schema.js");
-        const { and, eq, gt } = await import("drizzle-orm");
-        const row = await context.db.query.sessions.findFirst({
-          where: and(eq(sessions.userSub, user.sub), gt(sessions.expiresAt, new Date())),
-        });
-        const data = (row?.data || {}) as Record<string, unknown>;
-        if (data && data.otpVerified === true) amr = ["pwd", "otp"];
-      } catch {}
+      const { sessions } = await import("../../db/schema.js");
+      const { and, eq, gt } = await import("drizzle-orm");
+      const row = await context.db.query.sessions.findFirst({
+        where: and(eq(sessions.userSub, user.sub), gt(sessions.expiresAt, new Date())),
+      });
+      const data = (row?.data || {}) as Record<string, unknown>;
+      if (data && data.otpVerified === true) amr = ["pwd", "otp"];
       const idTokenClaims: IdTokenClaims = {
         iss: context.config.issuer,
         sub: user.sub,
@@ -392,7 +389,7 @@ export const postToken = withRateLimit("token")(
       // Handle ZK delivery (include zk_drk_hash if applicable)
       if (authCode.hasZk) {
         if (authCode.drkHash) tokenResponse.zk_drk_hash = authCode.drkHash;
-        console.log("[token] ZK delivery - drk_hash included, JWE handled client-side");
+        context.logger.info("token zk delivery: drk_hash included");
       }
 
       const sessionData = {
@@ -411,24 +408,26 @@ export const postToken = withRateLimit("token")(
   )
 );
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Resp = z.object({
-    id_token: z.string().optional(),
-    token_type: z.literal("Bearer"),
-    expires_in: z.number().int().positive(),
-    refresh_token: z.string().optional(),
-  });
-  registry.registerPath({
-    method: "post",
-    path: "/token",
-    tags: ["Auth"],
-    summary: "Token endpoint",
-    request: {
-      body: { content: { "application/x-www-form-urlencoded": { schema: TokenRequestSchema } } },
-    },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const TokenResponseSchema = z.object({
+  id_token: z.string().optional(),
+  token_type: z.literal("Bearer"),
+  expires_in: z.number().int().positive(),
+  refresh_token: z.string().optional(),
+});
+
+export const schema = {
+  method: "POST",
+  path: "/token",
+  tags: ["Auth"],
+  summary: "Token endpoint",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/x-www-form-urlencoded",
+    schema: TokenRequestSchema,
+  },
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: TokenResponseSchema } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
