@@ -1,0 +1,140 @@
+.header {
+  background-color: var(--background, #fff);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 0.75rem 1rem;
+}
+
+.inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.menuButton {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.logoBox {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoText {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.search {
+  flex: 1 1 auto;
+  max-width: 40rem;
+  margin: 0 2rem;
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .search {
+    display: block;
+  }
+}
+
+.searchInner {
+  position: relative;
+}
+
+.searchInput {
+  width: 100%;
+  padding-left: 2.5rem;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.iconButton {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.avatarButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #a855f7, #ec4899);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.userMenu {
+  position: absolute;
+  right: 0;
+  margin-top: 0.5rem;
+  width: 14rem;
+  background: var(--background, #fff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+  z-index: 50;
+}
+
+.userMenuHeader {
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.danger {
+  color: #dc2626;
+}

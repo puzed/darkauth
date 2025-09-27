@@ -1,0 +1,35 @@
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  flex-wrap: wrap;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.5rem;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+.groupLast {
+  border-right: 0;
+  padding-right: 0;
+}
+.btn {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+.btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+.active {
+  background: rgba(0, 0, 0, 0.06);
+}
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,24 +1,23 @@
-import React from "react";
-import { Editor } from "@tiptap/react";
+import type { Editor } from "@tiptap/react";
+import clsx from "clsx";
 import {
   Bold,
-  Italic,
-  Underline,
-  Strikethrough,
   Code,
-  List,
-  ListOrdered,
-  Quote,
-  Undo,
-  Redo,
-  Link2,
-  Unlink,
   Heading1,
   Heading2,
   Heading3,
+  Italic,
+  Link2,
+  List,
+  ListOrdered,
+  Quote,
+  Redo,
+  Strikethrough,
   Type,
+  Underline,
+  Undo,
+  Unlink,
 } from "lucide-react";
-import clsx from "clsx";
 
 interface EditorToolbarProps {
   editor: Editor;
@@ -38,191 +37,154 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
       return;
     }
 
-    editor
-      .chain()
-      .focus()
-      .extendMarkRange("link")
-      .setLink({ href: url })
-      .run();
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
 
   return (
-    <div className="flex items-center gap-1 p-2 flex-wrap">
-      <div className="flex items-center gap-1 pr-2 border-r border-gray-200 dark:border-dark-700">
+    <div className={styles.toolbar}>
+      <div className={styles.group}>
         <button
+          type="button"
           onClick={() => editor.chain().focus().undo().run()}
           disabled={!editor.can().undo()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            !editor.can().undo() && "opacity-50 cursor-not-allowed"
-          )}
+          className={clsx(styles.btn, !editor.can().undo() && styles.disabled)}
           title="Undo"
         >
-          <Undo className="w-4 h-4" />
+          <Undo width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().redo().run()}
           disabled={!editor.can().redo()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            !editor.can().redo() && "opacity-50 cursor-not-allowed"
-          )}
+          className={clsx(styles.btn, !editor.can().redo() && styles.disabled)}
           title="Redo"
         >
-          <Redo className="w-4 h-4" />
+          <Redo width={16} height={16} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200 dark:border-dark-700">
+      <div className={styles.group}>
         <button
+          type="button"
           onClick={() => editor.chain().focus().setParagraph().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("paragraph") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("paragraph") && styles.active)}
           title="Paragraph"
         >
-          <Type className="w-4 h-4" />
+          <Type width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("heading", { level: 1 }) && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("heading", { level: 1 }) && styles.active)}
           title="Heading 1"
         >
-          <Heading1 className="w-4 h-4" />
+          <Heading1 width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("heading", { level: 2 }) && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("heading", { level: 2 }) && styles.active)}
           title="Heading 2"
         >
-          <Heading2 className="w-4 h-4" />
+          <Heading2 width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("heading", { level: 3 }) && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("heading", { level: 3 }) && styles.active)}
           title="Heading 3"
         >
-          <Heading3 className="w-4 h-4" />
+          <Heading3 width={16} height={16} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200 dark:border-dark-700">
+      <div className={styles.group}>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("bold") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("bold") && styles.active)}
           title="Bold"
         >
-          <Bold className="w-4 h-4" />
+          <Bold width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleItalic().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("italic") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("italic") && styles.active)}
           title="Italic"
         >
-          <Italic className="w-4 h-4" />
+          <Italic width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("underline") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("underline") && styles.active)}
           title="Underline"
         >
-          <Underline className="w-4 h-4" />
+          <Underline width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleStrike().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("strike") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("strike") && styles.active)}
           title="Strikethrough"
         >
-          <Strikethrough className="w-4 h-4" />
+          <Strikethrough width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleCode().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("code") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("code") && styles.active)}
           title="Code"
         >
-          <Code className="w-4 h-4" />
+          <Code width={16} height={16} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1 px-2 border-r border-gray-200 dark:border-dark-700">
+      <div className={styles.group}>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("bulletList") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("bulletList") && styles.active)}
           title="Bullet List"
         >
-          <List className="w-4 h-4" />
+          <List width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("orderedList") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("orderedList") && styles.active)}
           title="Ordered List"
         >
-          <ListOrdered className="w-4 h-4" />
+          <ListOrdered width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("blockquote") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("blockquote") && styles.active)}
           title="Quote"
         >
-          <Quote className="w-4 h-4" />
+          <Quote width={16} height={16} />
         </button>
       </div>
 
-      <div className="flex items-center gap-1 pl-2">
+      <div className={`${styles.group} ${styles.groupLast}`}>
         <button
+          type="button"
           onClick={setLink}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            editor.isActive("link") && "bg-gray-100 dark:bg-dark-700"
-          )}
+          className={clsx(styles.btn, editor.isActive("link") && styles.active)}
           title="Add Link"
         >
-          <Link2 className="w-4 h-4" />
+          <Link2 width={16} height={16} />
         </button>
         <button
+          type="button"
           onClick={() => editor.chain().focus().unsetLink().run()}
           disabled={!editor.isActive("link")}
-          className={clsx(
-            "p-2 rounded hover:bg-gray-100 dark:hover:bg-dark-700",
-            !editor.isActive("link") && "opacity-50 cursor-not-allowed"
-          )}
+          className={clsx(styles.btn, !editor.isActive("link") && styles.disabled)}
           title="Remove Link"
         >
-          <Unlink className="w-4 h-4" />
+          <Unlink width={16} height={16} />
         </button>
       </div>
     </div>

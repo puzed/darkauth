@@ -5,11 +5,13 @@ import "./styles/globals.css";
 import { setConfig, setHooks } from "@DarkAuth/client";
 import { api } from "./services/api";
 
-const appCfg = (window as any).__APP_CONFIG__ || {};
+type RuntimeConfig = { issuer?: string; clientId?: string; redirectUri?: string };
+const appConfiguration =
+  (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ || {};
 setConfig({
-  issuer: appCfg.issuer || "http://localhost:9080",
-  clientId: appCfg.clientId || "app-web",
-  redirectUri: appCfg.redirectUri || window.location.origin + "/callback",
+  issuer: appConfiguration.issuer || "http://localhost:9080",
+  clientId: appConfiguration.clientId || "app-web",
+  redirectUri: appConfiguration.redirectUri || `${window.location.origin}/callback`,
 });
 
 setHooks({
@@ -17,7 +19,9 @@ setHooks({
   fetchWrappedEncPrivateJwk: () => api.getWrappedEncPrivateJwk(),
 });
 
-ReactDOM.createRoot(document.getElementById("app")!).render(
+const rootEl = document.getElementById("app");
+if (!rootEl) throw new Error("app root not found");
+ReactDOM.createRoot(rootEl).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>

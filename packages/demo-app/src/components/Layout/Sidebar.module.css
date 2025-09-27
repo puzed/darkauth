@@ -1,0 +1,82 @@
+.aside {
+  background: var(--background, #f9fafb);
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  height: 100%;
+  overflow-y: auto;
+  transition: transform 0.3s ease;
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 16rem;
+  z-index: 40;
+}
+
+.asideOpen {
+  transform: translateX(0);
+}
+
+.asideClosed {
+  transform: translateX(-100%);
+}
+
+@media (min-width: 1024px) {
+  .aside {
+    position: static;
+    transform: none;
+  }
+}
+
+.section {
+  padding: 1rem;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7280;
+  margin-bottom: 0.5rem;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  color: #374151;
+  text-decoration: none;
+}
+
+.navLink:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.navLinkActive {
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+}
+
+.buttonLikeLink {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  color: #374151;
+  cursor: pointer;
+}
+
+.count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #6b7280;
+}

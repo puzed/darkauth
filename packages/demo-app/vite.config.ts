@@ -1,7 +1,7 @@
-import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import wasm from "vite-plugin-wasm";
+import { defineConfig } from "vite";
 import topLevelAwait from "vite-plugin-top-level-await";
+import wasm from "vite-plugin-wasm";
 
 export default defineConfig({
   server: {
@@ -20,17 +20,17 @@ export default defineConfig({
     {
       name: "demo-app-config-fallback",
       configureServer(server) {
-        server.middlewares.use((req, res, next) => {
-          if (req.url === "/config.js") {
+        server.middlewares.use((request, response, next) => {
+          if (request.url === "/config.js") {
             const payload = {
               issuer: "http://localhost:9080",
               clientId: "app-web",
               redirectUri: "http://localhost:9092/callback",
               demoApi: "http://localhost:9094",
             };
-            res.statusCode = 200;
-            res.setHeader("Content-Type", "application/javascript; charset=utf-8");
-            res.end(`window.__APP_CONFIG__=${JSON.stringify(payload)};`);
+            response.statusCode = 200;
+            response.setHeader("Content-Type", "application/javascript; charset=utf-8");
+            response.end(`window.__APP_CONFIG__=${JSON.stringify(payload)};`);
             return;
           }
           next();

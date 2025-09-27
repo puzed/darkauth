@@ -1,6 +1,6 @@
+import { handleCallback } from "@DarkAuth/client";
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { handleCallback } from "@DarkAuth/client";
 import { useAuthStore } from "../../stores/authStore";
 
 export function LoginCallback() {
@@ -8,11 +8,7 @@ export function LoginCallback() {
   const { setSession } = useAuthStore();
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    processCallback();
-  }, []);
-
-  const processCallback = async () => {
+  const processCallback = React.useCallback(async () => {
     try {
       const session = await handleCallback();
       if (session) {
@@ -24,7 +20,11 @@ export function LoginCallback() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     }
-  };
+  }, [navigate, setSession]);
+
+  React.useEffect(() => {
+    void processCallback();
+  }, [processCallback]);
 
   if (error) {
     return (
@@ -39,7 +39,10 @@ export function LoginCallback() {
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">{error}</p>
             <button
-              onClick={() => (window.location.href = "/")}
+              type="button"
+              onClick={() => {
+                window.location.href = "/";
+              }}
               className="btn-primary w-full"
             >
               Try Again

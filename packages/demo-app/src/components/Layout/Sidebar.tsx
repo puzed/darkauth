@@ -1,17 +1,18 @@
-import React from "react";
-import { NavLink } from "react-router-dom";
-import { 
-  FileText, 
-  Clock, 
-  Star, 
-  Users, 
+import clsx from "clsx";
+import {
+  ChevronDown,
+  ChevronRight,
+  Clock,
+  FileText,
   FolderOpen,
   Hash,
   Plus,
-  ChevronDown,
-  ChevronRight
+  Star,
+  Users,
 } from "lucide-react";
-import clsx from "clsx";
+import React from "react";
+import { NavLink } from "react-router-dom";
+import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,79 +26,53 @@ export function Sidebar({ isOpen }: SidebarProps) {
   });
 
   const toggleSection = (section: keyof typeof expandedSections) => {
-    setExpandedSections(prev => ({
+    setExpandedSections((prev) => ({
       ...prev,
       [section]: !prev[section],
     }));
   };
 
   return (
-    <aside
-      className={clsx(
-        "bg-gray-50 dark:bg-dark-900 border-r border-gray-200 dark:border-dark-700 h-full overflow-y-auto transition-all duration-300",
-        "fixed lg:static inset-y-0 left-0 z-40",
-        isOpen ? "w-64 translate-x-0" : "w-64 -translate-x-full lg:translate-x-0"
-      )}
-    >
-      <div className="p-4">
+    <aside className={clsx(styles.aside, isOpen ? styles.asideOpen : styles.asideClosed)}>
+      <div className={styles.section}>
         {/* Personal Section */}
         <div className="mb-6">
           <button
+            type="button"
             onClick={() => toggleSection("personal")}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+            className={styles.sectionTitle}
           >
             <span>Personal</span>
             {expandedSections.personal ? (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown width={16} height={16} />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight width={16} height={16} />
             )}
           </button>
-          
+
           {expandedSections.personal && (
-            <div className="space-y-1">
+            <div>
               <NavLink
                 to="/"
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg",
-                    isActive
-                      ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                      : "hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300"
-                  )
-                }
+                className={({ isActive }) => clsx(styles.navLink, isActive && styles.navLinkActive)}
               >
-                <FileText className="w-4 h-4" />
+                <FileText width={16} height={16} />
                 <span>All Notes</span>
               </NavLink>
-              
+
               <NavLink
                 to="/recent"
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg",
-                    isActive
-                      ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                      : "hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300"
-                  )
-                }
+                className={({ isActive }) => clsx(styles.navLink, isActive && styles.navLinkActive)}
               >
-                <Clock className="w-4 h-4" />
+                <Clock width={16} height={16} />
                 <span>Recent</span>
               </NavLink>
-              
+
               <NavLink
                 to="/starred"
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg",
-                    isActive
-                      ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                      : "hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300"
-                  )
-                }
+                className={({ isActive }) => clsx(styles.navLink, isActive && styles.navLinkActive)}
               >
-                <Star className="w-4 h-4" />
+                <Star width={16} height={16} />
                 <span>Starred</span>
               </NavLink>
             </div>
@@ -107,41 +82,35 @@ export function Sidebar({ isOpen }: SidebarProps) {
         {/* Shared Section */}
         <div className="mb-6">
           <button
+            type="button"
             onClick={() => toggleSection("shared")}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+            className={styles.sectionTitle}
           >
             <span>Shared</span>
             {expandedSections.shared ? (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown width={16} height={16} />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight width={16} height={16} />
             )}
           </button>
-          
+
           {expandedSections.shared && (
-            <div className="space-y-1">
+            <div>
               <NavLink
                 to="/shared/with-me"
-                className={({ isActive }) =>
-                  clsx(
-                    "flex items-center gap-3 px-3 py-2 rounded-lg",
-                    isActive
-                      ? "bg-primary-100 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400"
-                      : "hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300"
-                  )
-                }
+                className={({ isActive }) => clsx(styles.navLink, isActive && styles.navLinkActive)}
               >
-                <Users className="w-4 h-4" />
+                <Users width={16} height={16} />
                 <span>Shared with Me</span>
               </NavLink>
-              
-              <button className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300 w-full text-left">
-                <FolderOpen className="w-4 h-4" />
+
+              <button type="button" className={styles.buttonLikeLink}>
+                <FolderOpen width={16} height={16} />
                 <span>Team Notes</span>
               </button>
-              
-              <button className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300 w-full text-left">
-                <Plus className="w-4 h-4" />
+
+              <button type="button" className={styles.buttonLikeLink}>
+                <Plus width={16} height={16} />
                 <span>Create Collection</span>
               </button>
             </div>
@@ -151,35 +120,36 @@ export function Sidebar({ isOpen }: SidebarProps) {
         {/* Tags Section */}
         <div className="mb-6">
           <button
+            type="button"
             onClick={() => toggleSection("tags")}
-            className="flex items-center justify-between w-full text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 hover:text-gray-700 dark:hover:text-gray-300"
+            className={styles.sectionTitle}
           >
             <span>Tags</span>
             {expandedSections.tags ? (
-              <ChevronDown className="w-4 h-4" />
+              <ChevronDown width={16} height={16} />
             ) : (
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight width={16} height={16} />
             )}
           </button>
-          
+
           {expandedSections.tags && (
-            <div className="space-y-1">
-              <button className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300 w-full text-left">
-                <Hash className="w-4 h-4 text-blue-500" />
+            <div>
+              <button type="button" className={styles.buttonLikeLink}>
+                <Hash width={16} height={16} />
                 <span>work</span>
-                <span className="ml-auto text-xs text-gray-500">12</span>
+                <span className={styles.count}>12</span>
               </button>
-              
-              <button className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300 w-full text-left">
-                <Hash className="w-4 h-4 text-green-500" />
+
+              <button type="button" className={styles.buttonLikeLink}>
+                <Hash width={16} height={16} />
                 <span>ideas</span>
-                <span className="ml-auto text-xs text-gray-500">8</span>
+                <span className={styles.count}>8</span>
               </button>
-              
-              <button className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors hover:bg-gray-100 dark:hover:bg-dark-800 text-gray-700 dark:text-gray-300 w-full text-left">
-                <Hash className="w-4 h-4 text-purple-500" />
+
+              <button type="button" className={styles.buttonLikeLink}>
+                <Hash width={16} height={16} />
                 <span>personal</span>
-                <span className="ml-auto text-xs text-gray-500">5</span>
+                <span className={styles.count}>5</span>
               </button>
             </div>
           )}

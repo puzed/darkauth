@@ -37,7 +37,7 @@
     "demodb:wipe": "npm run demodb:wipe -w @DarkAuth/demo-app",
     "demodb:push": "npm run demodb:push -w @DarkAuth/demo-app",
     "demo:dev": "concurrently \"npm run dev -w @DarkAuth/demo-app\" \"npm run server -w @DarkAuth/demo-app\"",
-    "clean": "rm -rf packages/api/data && rm -rf packages/demoapp/data && rm config.yaml"
+    "clean": "rm -rf packages/api/data && rm -rf packages/demo-app/data && rm config.yaml"
   },
   "engines": {
     "node": ">=20.0.0"
