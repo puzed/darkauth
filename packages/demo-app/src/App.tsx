@@ -1,17 +1,12 @@
-import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { getStoredSession, initiateLogin, refreshSession } from "@DarkAuth/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Layout } from "./components/Layout/Layout";
+import React from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { LoginCallback } from "./components/Auth/LoginCallback";
 import { Dashboard } from "./components/Dashboard/Dashboard";
 import { NoteEditor } from "./components/Editor/NoteEditor";
-import { LoginCallback } from "./components/Auth/LoginCallback";
+import { Layout } from "./components/Layout/Layout";
 import { useAuthStore } from "./stores/authStore";
-import {
-  getStoredSession,
-  refreshSession,
-  initiateLogin,
-  handleCallback,
-} from "@DarkAuth/client";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -27,11 +22,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRedirecting, setIsRedirecting] = React.useState(false);
 
-  React.useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
+  const checkAuth = React.useCallback(async () => {
     // Don't process callback here - let the /callback route handle it
     if (location.search.includes("code=")) {
       // We're on the wrong route with a code, redirect to callback
@@ -42,12 +33,12 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // Check for stored session
     let session = getStoredSession();
-    
+
     if (!session) {
       // Try to refresh the session
       session = await refreshSession();
     }
-    
+
     if (session) {
       setSession(session);
       setIsLoading(false);
@@ -57,7 +48,11 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       await initiateLogin();
     }
-  };
+  }, [isRedirecting, setSession]);
+
+  React.useEffect(() => {
+    void checkAuth();
+  }, [checkAuth]);
 
   if (isLoading) {
     return (
@@ -76,7 +71,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     initiateLogin();
     return null;
   }
-  
+
   if (isRedirecting) {
     return null; // Redirecting to login
   }
@@ -118,7 +113,10 @@ export function App() {
             <Route path="recent" element={<Dashboard />} />
             <Route path="starred" element={<Dashboard />} />
             <Route path="shared/with-me" element={<Dashboard />} />
-            <Route path="profile" element={<div className="p-6">Profile Settings (Coming Soon)</div>} />
+            <Route
+              path="profile"
+              element={<div className="p-6">Profile Settings (Coming Soon)</div>}
+            />
           </Route>
         </Routes>
       </BrowserRouter>

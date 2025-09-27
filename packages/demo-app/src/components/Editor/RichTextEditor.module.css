@@ -1,0 +1,12 @@
+.container {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+}
+.divider {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+.content {
+  min-height: 400px;
+  padding: 1rem;
+}

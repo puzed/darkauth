@@ -1,0 +1,110 @@
+.card {
+  position: relative;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.link {
+  display: block;
+  padding: 1.25rem;
+  text-decoration: none;
+  color: inherit;
+}
+.header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badges {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  opacity: 0;
+}
+.card:hover .badges {
+  opacity: 1;
+}
+
+.preview {
+  color: #4b5563;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.footerGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+}
+.menuButton {
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+}
+.card:hover .menuButton {
+  opacity: 1;
+}
+.menuPanel {
+  position: absolute;
+  right: 0;
+  margin-top: 0.25rem;
+  width: 12rem;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);
+  padding: 0.25rem 0;
+  z-index: 10;
+}
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.separator {
+  height: 1px;
+  margin: 0.25rem 0;
+  background: rgba(0, 0, 0, 0.08);
+  border: 0;
+}
+.danger {
+  color: #dc2626;
+}

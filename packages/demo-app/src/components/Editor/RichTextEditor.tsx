@@ -1,10 +1,11 @@
-import React from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import { StarterKit } from "./extensions";
-import Placeholder from "@tiptap/extension-placeholder";
 import Link from "@tiptap/extension-link";
+import Placeholder from "@tiptap/extension-placeholder";
 import Underline from "@tiptap/extension-underline";
+import { EditorContent, useEditor } from "@tiptap/react";
+import React from "react";
 import { EditorToolbar } from "./EditorToolbar";
+import { StarterKit } from "./extensions";
+import styles from "./RichTextEditor.module.css";
 
 interface RichTextEditorProps {
   content: string;
@@ -39,7 +40,7 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
-        class: "prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[400px] px-4 py-3",
+        class: styles.content,
       },
     },
   });
@@ -55,9 +56,9 @@ export function RichTextEditor({
   }
 
   return (
-    <div className={`bg-white dark:bg-dark-800 rounded-lg border border-gray-200 dark:border-dark-700 ${className}`}>
+    <div className={`${styles.container} ${className}`}>
       <EditorToolbar editor={editor} />
-      <div className="border-t border-gray-200 dark:border-dark-700">
+      <div className={styles.divider}>
         <EditorContent editor={editor} />
       </div>
     </div>

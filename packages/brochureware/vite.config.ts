@@ -1,8 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path, { join } from "path";
-import tailwind from "@tailwindcss/postcss";
-import autoprefixer from "autoprefixer";
 import { readFileSync } from "fs";
 
 // https://vitejs.dev/config/
@@ -10,12 +8,6 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-  },
-  css: {
-    transformer: "postcss",
-    postcss: {
-      plugins: [tailwind(), autoprefixer()],
-    },
   },
   build: {
     cssMinify: "esbuild",
