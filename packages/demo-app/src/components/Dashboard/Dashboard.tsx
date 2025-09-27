@@ -1,30 +1,29 @@
-import React from "react";
-import { Plus } from "lucide-react";
-import { NoteCard } from "./NoteCard";
-import { useNotesStore } from "../../stores/notesStore";
-import { useAuthStore } from "../../stores/authStore";
-import { api } from "../../services/api";
 import { decryptNote, decryptNoteWithDek, resolveDek } from "@DarkAuth/client";
+import { Plus } from "lucide-react";
+import React from "react";
+import { api } from "../../services/api";
+import { useAuthStore } from "../../stores/authStore";
+import { useNotesStore } from "../../stores/notesStore";
+import styles from "./Dashboard.module.css";
+import { NoteCard } from "./NoteCard";
 
 export function Dashboard() {
   const { notes, setNotes, removeNote, isLoading, setLoading, setError } = useNotesStore();
   const { session } = useAuthStore();
-  const [decryptedNotes, setDecryptedNotes] = React.useState<Map<string, { title: string; preview: string }>>(new Map());
+  const [decryptedNotes, setDecryptedNotes] = React.useState<
+    Map<string, { title: string; preview: string }>
+  >(new Map());
   const [decryptFailed, setDecryptFailed] = React.useState(false);
   const [wiping, setWiping] = React.useState(false);
 
-  React.useEffect(() => {
-    loadNotes();
-  }, []);
-
-  const loadNotes = async () => {
+  const loadNotes = React.useCallback(async () => {
     if (!session?.drk) return;
-    
+
     setLoading(true);
     try {
       const notesList = await api.listNotes();
       setNotes(notesList);
-      
+
       // Decrypt note content for previews
       const decrypted = new Map();
       let anyFailed = false;
@@ -51,16 +50,16 @@ export function Dashboard() {
                 lastChange.aad
               );
             }
-            
+
             try {
               // Try to parse as JSON (new format)
               const noteData = JSON.parse(decryptedContent);
-              if (typeof noteData === 'object' && noteData.title !== undefined) {
+              if (typeof noteData === "object" && noteData.title !== undefined) {
                 const title = noteData.title || "Untitled";
                 // Strip HTML tags from content for preview
                 const plainContent = noteData.content
-                  .replace(/<[^>]*>/g, '')
-                  .replace(/\s+/g, ' ')
+                  .replace(/<[^>]*>/g, "")
+                  .replace(/\s+/g, " ")
                   .trim();
                 const preview = plainContent.substring(0, 150);
                 decrypted.set(note.note_id, { title, preview });
@@ -70,7 +69,7 @@ export function Dashboard() {
             } catch {
               // Fallback for old format or plain text
               const lines = decryptedContent.split("\n");
-              const title = lines[0]?.replace(/^#\s+/, "").replace(/<[^>]*>/g, '') || "Untitled";
+              const title = lines[0]?.replace(/^#\s+/, "").replace(/<[^>]*>/g, "") || "Untitled";
               const preview = lines.slice(1).join(" ").substring(0, 150);
               decrypted.set(note.note_id, { title, preview });
             }
@@ -87,7 +86,11 @@ export function Dashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [session?.drk, setLoading, setNotes, setError]);
+
+  React.useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
 
   const handleCreateNote = async () => {
     try {
@@ -101,7 +104,7 @@ export function Dashboard() {
 
   const handleDeleteNote = async (noteId: string) => {
     if (!confirm("Are you sure you want to delete this note?")) return;
-    
+
     try {
       await api.deleteNote(noteId);
       removeNote(noteId);
@@ -116,7 +119,9 @@ export function Dashboard() {
     try {
       const list = await api.listNotes();
       for (const n of list) {
-        try { await api.deleteNote(n.note_id); } catch {}
+        try {
+          await api.deleteNote(n.note_id);
+        } catch {}
       }
       setNotes([]);
       setDecryptedNotes(new Map());
@@ -130,40 +135,47 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className={styles.loading}>
+        <div className={styles.spinner}></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className={styles.container}>
       {decryptFailed && (
-        <div className="mb-6 p-4 border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20 rounded-lg">
-          <div className="flex items-start justify-between gap-4">
+        <div className={styles.alert}>
+          <div className={styles.alertHeader}>
             <div>
-              <h2 className="font-semibold text-red-800 dark:text-red-300 mb-1">Decryption failed</h2>
-              <p className="text-sm text-red-700 dark:text-red-400">Your encryption key does not match older notes. The only safe option is to wipe your notes and start fresh.</p>
+              <h2 className={styles.alertTitle}>Decryption failed</h2>
+              <p className={styles.alertText}>
+                Your encryption key does not match older notes. The only safe option is to wipe your
+                notes and start fresh.
+              </p>
             </div>
-            <button onClick={handleWipeAll} disabled={wiping} className="px-4 py-2 rounded-md bg-red-600 hover:bg-red-700 text-white font-medium">
+            <button
+              type="button"
+              onClick={handleWipeAll}
+              disabled={wiping}
+              className={styles.dangerButton}
+            >
               {wiping ? "Wiping..." : "Wipe All Notes"}
             </button>
           </div>
         </div>
       )}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Welcome back!
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400">
+      <div className={styles.heading}>
+        <h1 className={styles.title}>Welcome back!</h1>
+        <p className={styles.subtitle}>
           You have {notes.length} {notes.length === 1 ? "note" : "notes"}
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div className={styles.grid}>
         {notes.map((note) => {
           const decrypted = decryptedNotes.get(note.note_id);
-          const canDelete = note.owner_sub && session?.drk && useAuthStore.getState().user?.sub === note.owner_sub;
+          const canDelete =
+            note.owner_sub && session?.drk && useAuthStore.getState().user?.sub === note.owner_sub;
           return (
             <NoteCard
               key={note.note_id}
@@ -176,16 +188,11 @@ export function Dashboard() {
           );
         })}
 
-        <button
-          onClick={handleCreateNote}
-          className="w-full h-full p-5 rounded-xl border-2 border-dashed border-gray-300 dark:border-dark-600 hover:border-primary-500 dark:hover:border-primary-500 flex flex-col items-center justify-center gap-3 group"
-        >
-          <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-dark-700 group-hover:bg-primary-100 dark:group-hover:bg-primary-900/20 flex items-center justify-center">
-            <Plus className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400" />
+        <button type="button" onClick={handleCreateNote} className={styles.newCard}>
+          <div className={styles.newIcon}>
+            <Plus width={24} height={24} />
           </div>
-          <span className="text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 font-medium">
-            Create New Note
-          </span>
+          <span className={styles.newText}>Create New Note</span>
         </button>
       </div>
     </div>

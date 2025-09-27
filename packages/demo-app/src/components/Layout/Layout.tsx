@@ -1,33 +1,28 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
-import { Header } from "./Header";
 import { useAuthStore } from "../../stores/authStore";
+import { Header } from "./Header";
+import styles from "./Layout.module.css";
 import { Sidebar } from "./Sidebar";
-import clsx from "clsx";
 
 export function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(false);
-  const { session } = useAuthStore();
+  useAuthStore();
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-dark-900">
-      <Header 
-        onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} 
-        isSidebarOpen={isSidebarOpen}
-      />
-      
-      <div className="flex-1 flex overflow-hidden">
+    <div className={styles.root}>
+      <Header onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <div className={styles.contentRow}>
         <Sidebar isOpen={isSidebarOpen} />
-        
-        {/* Mobile sidebar overlay */}
         {isSidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          <button
+            type="button"
+            aria-label="Close sidebar"
+            className={styles.overlay}
             onClick={() => setIsSidebarOpen(false)}
           />
         )}
-        
-        <main className="flex-1 overflow-y-auto bg-white dark:bg-dark-900">
+        <main className={styles.main}>
           <Outlet />
         </main>
       </div>

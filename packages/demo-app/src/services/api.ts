@@ -1,8 +1,11 @@
 import { refreshSession } from "@DarkAuth/client";
+import { z } from "zod";
 
-const runtimeCfg = (window as any).__APP_CONFIG__ || {};
-const demoApi = runtimeCfg.demoApi || "http://localhost:9094";
-const darkauthApi = (runtimeCfg.issuer || "http://localhost:9080") + "/api";
+type RuntimeConfig = { demoApi?: string; issuer?: string };
+const runtimeConfiguration =
+  (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ || {};
+const demoApiBaseUrl = runtimeConfiguration.demoApi || "http://localhost:9094";
+const darkauthApiBaseUrl = `${runtimeConfiguration.issuer || "http://localhost:9080"}/api`;
 
 export interface Note {
   note_id: string;
@@ -16,7 +19,7 @@ export interface Note {
 export interface NoteChange {
   seq: number;
   ciphertext_b64: string;
-  aad: any;
+  aad: unknown;
 }
 
 export interface UserProfile {
@@ -28,30 +31,27 @@ export interface UserProfile {
 }
 
 class ApiClient {
-  private async request<T>(
-    path: string,
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const idToken = sessionStorage.getItem("id_token");
     if (!idToken) throw new Error("No authentication token");
-    
+
     const headers = {
       ...options.headers,
-      "Authorization": `Bearer ${idToken}`,
+      Authorization: `Bearer ${idToken}`,
       "Content-Type": "application/json",
     };
-    
-    let response = await fetch(`${demoApi}${path}`, {
+
+    let response = await fetch(`${demoApiBaseUrl}${path}`, {
       ...options,
       headers,
     });
-    
+
     if (response.status === 401) {
       // Try to refresh token
       const newSession = await refreshSession();
       if (newSession) {
-        headers["Authorization"] = `Bearer ${newSession.idToken}`;
-        response = await fetch(`${demoApi}${path}`, {
+        headers.Authorization = `Bearer ${newSession.idToken}`;
+        response = await fetch(`${demoApiBaseUrl}${path}`, {
           ...options,
           headers,
         });
@@ -59,7 +59,7 @@ class ApiClient {
         throw new Error("Authentication expired");
       }
     }
-    
+
     if (!response.ok) {
       let errText = "";
       try {
@@ -68,96 +68,132 @@ class ApiClient {
       try {
         const parsed = errText ? JSON.parse(errText) : null;
         const msg = parsed?.error || `HTTP ${response.status}`;
-        console.error("[demo-api] request failed", { path, method: options.method || "GET", status: response.status, body: parsed || errText || null });
+        console.error("[demo-api] request failed", {
+          path,
+          method: options.method || "GET",
+          status: response.status,
+          body: parsed || errText || null,
+        });
         throw new Error(msg);
       } catch {
-        console.error("[demo-api] request failed", { path, method: options.method || "GET", status: response.status, body: errText || null });
+        console.error("[demo-api] request failed", {
+          path,
+          method: options.method || "GET",
+          status: response.status,
+          body: errText || null,
+        });
         throw new Error(`HTTP ${response.status}`);
       }
     }
-    
+
     return response.json();
   }
-  
+
   // User profile endpoints
   async getProfile(sub: string): Promise<UserProfile> {
     return this.request<UserProfile>(`/demo/users/${sub}`);
   }
-  
+
   async updateProfile(profile: Partial<UserProfile>): Promise<{ success: boolean }> {
-    return this.request("/demo/users/me", {
+    const Resp = z.object({ success: z.boolean() });
+    const response = await this.request<unknown>("/demo/users/me", {
       method: "PUT",
       body: JSON.stringify(profile),
     });
+    return Resp.parse(response);
   }
-  
+
   async searchUsers(query: string): Promise<UserProfile[]> {
-    const url = `${darkauthApi}/users/search?q=${encodeURIComponent(query)}`;
     const idToken = sessionStorage.getItem("id_token");
-    const resp = await fetch(url, {
+    const url = `${darkauthApiBaseUrl}/users/search?q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
       headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
     });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const data = await resp.json();
-    return (data.users || []).map((u: any) => ({
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const UsersResp = z.object({
+      users: z
+        .array(
+          z.object({
+            sub: z.string(),
+            name: z.string().optional(),
+            display_name: z.string().optional(),
+            avatar_url: z.string().optional(),
+            public_key_jwk: z.unknown(),
+          })
+        )
+        .default([]),
+    });
+    const parsed = UsersResp.parse(await response.json());
+    return parsed.users.map((u) => ({
       sub: u.sub,
       display_name: u.display_name || u.name,
-      avatar_url: u.avatar_url || undefined,
-      public_key_jwk: u.public_key_jwk,
+      avatar_url: u.avatar_url,
+      public_key_jwk: u.public_key_jwk as JsonWebKey,
     }));
   }
-  
+
   // Notes endpoints
   async listNotes(): Promise<Note[]> {
-    const response = await this.request<{ notes: Note[] }>("/demo/notes");
-    return response.notes;
+    const NoteSchema = z.object({
+      note_id: z.string(),
+      owner_sub: z.string(),
+      created_at: z.string(),
+      updated_at: z.string(),
+      title: z.string().optional(),
+      collection_id: z.string().optional(),
+    });
+    const Resp = z.object({ notes: z.array(NoteSchema) });
+    const response = await this.request<unknown>("/demo/notes");
+    const parsed = Resp.parse(response);
+    return parsed.notes;
   }
-  
+
   async createNote(collectionId?: string): Promise<string> {
-    const response = await this.request<{ note_id: string }>("/demo/notes", {
+    const Resp = z.object({ note_id: z.string() });
+    const response = await this.request<unknown>("/demo/notes", {
       method: "POST",
       body: JSON.stringify({ collection_id: collectionId }),
     });
-    return response.note_id;
+    return Resp.parse(response).note_id;
   }
-  
+
   async deleteNote(noteId: string): Promise<void> {
     await this.request(`/demo/notes/${noteId}`, {
       method: "DELETE",
     });
   }
-  
+
   async getNoteChanges(noteId: string, since = 0): Promise<NoteChange[]> {
-    const response = await this.request<{ changes: NoteChange[] }>(
-      `/demo/notes/${noteId}/changes?since=${since}`
-    );
-    return response.changes;
+    const Change = z.object({ seq: z.number(), ciphertext_b64: z.string(), aad: z.unknown() });
+    const Resp = z.object({ changes: z.array(Change) });
+    const response = await this.request<unknown>(`/demo/notes/${noteId}/changes?since=${since}`);
+    return Resp.parse(response).changes as NoteChange[];
   }
-  
+
   async appendNoteChange(
     noteId: string,
     ciphertextBase64: string,
-    aad: any
+    additionalAuthenticatedData: unknown
   ): Promise<void> {
     await this.request(`/demo/notes/${noteId}/changes`, {
       method: "POST",
       body: JSON.stringify({
         ciphertext_b64: ciphertextBase64,
-        aad,
+        aad: additionalAuthenticatedData,
       }),
     });
   }
-  
+
   async updateNoteMetadata(
     noteId: string,
     metadata: { title_ciphertext?: string; tags_ciphertext?: string }
   ): Promise<void> {
-    await this.request(`/demo/notes/${noteId}/metadata`, {
+    const _ = await this.request<unknown>(`/demo/notes/${noteId}/metadata`, {
       method: "PUT",
       body: JSON.stringify(metadata),
     });
   }
-  
+
   // Sharing endpoints
   async shareNote(
     noteId: string,
@@ -165,7 +201,8 @@ class ApiClient {
     dekJwe: string,
     grants: "read" | "write"
   ): Promise<void> {
-    await this.request(`/demo/notes/${noteId}/share`, {
+    const Resp = z.object({ success: z.boolean() }).catch(() => ({ success: true }));
+    const response = await this.request<unknown>(`/demo/notes/${noteId}/share`, {
       method: "POST",
       body: JSON.stringify({
         recipient_sub: recipientSub,
@@ -173,61 +210,93 @@ class ApiClient {
         grants,
       }),
     });
+    void Resp.parse(response);
   }
-  
+
   async revokeNoteAccess(noteId: string, recipientSub: string): Promise<void> {
-    await this.request(`/demo/notes/${noteId}/share/${encodeURIComponent(recipientSub)}`, {
-      method: "DELETE",
-    });
-  }
-  
-  async getNoteDek(noteId: string): Promise<string> {
-    const response = await this.request<{ dek_jwe: string }>(
-      `/demo/notes/${noteId}/dek`
+    const Resp = z.object({ success: z.boolean() }).catch(() => ({ success: true }));
+    const response = await this.request<unknown>(
+      `/demo/notes/${noteId}/share/${encodeURIComponent(recipientSub)}`,
+      {
+        method: "DELETE",
+      }
     );
-    return response.dek_jwe;
+    void Resp.parse(response);
+  }
+
+  async getNoteDek(noteId: string): Promise<string> {
+    const Resp = z.object({ dek_jwe: z.string() });
+    const response = await this.request<unknown>(`/demo/notes/${noteId}/dek`);
+    return Resp.parse(response).dek_jwe;
   }
 
   async getWrappedEncPrivateJwk(): Promise<string> {
     const idToken = sessionStorage.getItem("id_token");
     if (!idToken) throw new Error("No authentication token");
-    const url = `${darkauthApi}/crypto/wrapped-enc-priv`;
-    const resp = await fetch(url, {
+    const url = `${darkauthApiBaseUrl}/crypto/wrapped-enc-priv`;
+    const response = await fetch(url, {
       headers: { Authorization: `Bearer ${idToken}` },
     });
-    if (!resp.ok) {
-      const txt = await resp.text().catch(() => "");
-      console.error("[demo-api] request failed", { path: "/crypto/wrapped-enc-priv", method: "GET", status: resp.status, body: txt });
-      throw new Error(`HTTP ${resp.status}`);
+    if (!response.ok) {
+      const txt = await response.text().catch(() => "");
+      console.error("[demo-api] request failed", {
+        path: "/crypto/wrapped-enc-priv",
+        method: "GET",
+        status: response.status,
+        body: txt,
+      });
+      throw new Error(`HTTP ${response.status}`);
     }
-    const data = await resp.json();
+    const data = await response.json();
     return data.wrapped_enc_private_jwk as string;
   }
-  
-  async getNoteAccessList(noteId: string): Promise<Array<{
-    recipient_sub: string;
-    grants: string;
-    created_at: string;
-  }>> {
-    const response = await this.request<{ access: Array<any> }>(
-      `/demo/notes/${noteId}/access`
-    );
-    return response.access;
+
+  async getNoteAccessList(noteId: string): Promise<
+    Array<{
+      recipient_sub: string;
+      grants: string;
+      created_at: string;
+    }>
+  > {
+    const Resp = z.object({
+      access: z.array(
+        z.object({
+          recipient_sub: z.string(),
+          grants: z.string(),
+          created_at: z.string(),
+        })
+      ),
+    });
+    const response = await this.request<unknown>(`/demo/notes/${noteId}/access`);
+    return Resp.parse(response).access;
   }
-  
+
   // Collections endpoints
-  async listCollections(): Promise<Array<{
-    collection_id: string;
-    name_ciphertext: string;
-    icon?: string;
-    color?: string;
-  }>> {
-    const response = await this.request<{ collections: Array<any> }>("/demo/collections");
-    return response.collections;
+  async listCollections(): Promise<
+    Array<{
+      collection_id: string;
+      name_ciphertext: string;
+      icon?: string;
+      color?: string;
+    }>
+  > {
+    const Resp = z.object({
+      collections: z.array(
+        z.object({
+          collection_id: z.string(),
+          name_ciphertext: z.string(),
+          icon: z.string().optional(),
+          color: z.string().optional(),
+        })
+      ),
+    });
+    const response = await this.request<unknown>("/demo/collections");
+    return Resp.parse(response).collections;
   }
-  
+
   async createCollection(nameCiphertext: string, icon?: string, color?: string): Promise<string> {
-    const response = await this.request<{ collection_id: string }>("/demo/collections", {
+    const Resp = z.object({ collection_id: z.string() });
+    const response = await this.request<unknown>("/demo/collections", {
       method: "POST",
       body: JSON.stringify({
         name_ciphertext: nameCiphertext,
@@ -235,13 +304,15 @@ class ApiClient {
         color,
       }),
     });
-    return response.collection_id;
+    return Resp.parse(response).collection_id;
   }
-  
+
   async deleteCollection(collectionId: string): Promise<void> {
-    await this.request(`/demo/collections/${collectionId}`, {
+    const Resp = z.object({ success: z.boolean() }).catch(() => ({ success: true }));
+    const response = await this.request<unknown>(`/demo/collections/${collectionId}`, {
       method: "DELETE",
     });
+    void Resp.parse(response);
   }
 }
 

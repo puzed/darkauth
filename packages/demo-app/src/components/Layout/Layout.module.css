@@ -1,0 +1,25 @@
+.root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--background, #f9fafb);
+}
+
+.contentRow {
+  flex: 1 1 auto;
+  display: flex;
+  overflow: hidden;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 30;
+}
+
+.main {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  background: var(--background, #fff);
+}

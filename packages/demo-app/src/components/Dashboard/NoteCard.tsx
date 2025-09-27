@@ -1,8 +1,8 @@
+import { format } from "date-fns";
+import { Clock, MoreVertical, Share2, Star, Trash2, User } from "lucide-react";
 import React from "react";
 import { Link } from "react-router-dom";
-import { MoreVertical, Star, Share2, Trash2, Clock, User } from "lucide-react";
-import { format } from "date-fns";
-import clsx from "clsx";
+import styles from "./NoteCard.module.css";
 
 interface NoteCardProps {
   noteId: string;
@@ -12,20 +12,10 @@ interface NoteCardProps {
   isStarred?: boolean;
   isShared?: boolean;
   ownerName?: string;
-  color?: string;
   onDelete?: () => void;
   onStar?: () => void;
   onShare?: () => void;
 }
-
-const noteColors = {
-  default: "bg-white dark:bg-dark-800",
-  blue: "bg-blue-50 dark:bg-blue-900/20",
-  green: "bg-green-50 dark:bg-green-900/20",
-  yellow: "bg-yellow-50 dark:bg-yellow-900/20",
-  purple: "bg-purple-50 dark:bg-purple-900/20",
-  pink: "bg-pink-50 dark:bg-pink-900/20",
-};
 
 export function NoteCard({
   noteId,
@@ -35,7 +25,6 @@ export function NoteCard({
   isStarred = false,
   isShared = false,
   ownerName,
-  color = "default",
   onDelete,
   onStar,
   onShare,
@@ -43,96 +32,86 @@ export function NoteCard({
   const [showMenu, setShowMenu] = React.useState(false);
 
   return (
-    <div
-      className={clsx(
-        "relative group rounded-xl shadow-sm hover:shadow-md border border-gray-200 dark:border-dark-700",
-        noteColors[color as keyof typeof noteColors] || noteColors.default
-      )}
-    >
-      <Link to={`/notes/${noteId}`} className="block p-5">
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 line-clamp-1">
-            {title || "Untitled Note"}
-          </h3>
-          
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
-            {isStarred && (
-              <Star className="w-4 h-4 text-yellow-500 fill-current" />
-            )}
-            {isShared && (
-              <Share2 className="w-4 h-4 text-blue-500" />
-            )}
+    <div className={styles.card}>
+      <Link to={`/notes/${noteId}`} className={styles.link}>
+        <div className={styles.header}>
+          <h3 className={styles.title}>{title || "Untitled Note"}</h3>
+          <div className={styles.badges}>
+            {isStarred && <Star width={16} height={16} />}
+            {isShared && <Share2 width={16} height={16} />}
           </div>
         </div>
-        
-        <p className="text-gray-600 dark:text-gray-400 line-clamp-3 text-sm mb-4">
-          {preview || "No content yet..."}
-        </p>
-        
-        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-500">
-          <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3" />
+
+        <p className={styles.preview}>{preview || "No content yet..."}</p>
+
+        <div className={styles.footer}>
+          <div className={styles.footerGroup}>
+            <Clock width={12} height={12} />
             <span>{format(new Date(updatedAt), "MMM d, yyyy")}</span>
           </div>
-          
+
           {ownerName && (
-            <div className="flex items-center gap-1">
-              <User className="w-3 h-3" />
+            <div className={styles.footerGroup}>
+              <User width={12} height={12} />
               <span>{ownerName}</span>
             </div>
           )}
         </div>
       </Link>
-      
-      <div className="absolute top-4 right-4">
+
+      <div className={styles.menu}>
         <button
+          type="button"
           onClick={(e) => {
             e.preventDefault();
             setShowMenu(!showMenu);
           }}
-          className="p-1 rounded hover:bg-gray-100 dark:hover:bg-dark-700 opacity-0 group-hover:opacity-100"
+          className={styles.menuButton}
         >
-          <MoreVertical className="w-4 h-4" />
+          <MoreVertical width={16} height={16} />
         </button>
-        
+
         {showMenu && (
-          <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg border border-gray-200 dark:border-dark-700 py-1 z-10">
+          <div className={styles.menuPanel}>
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 onStar?.();
                 setShowMenu(false);
               }}
-              className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-700 w-full text-left text-sm"
+              className={styles.menuItem}
             >
-              <Star className="w-4 h-4" />
+              <Star width={16} height={16} />
               <span>{isStarred ? "Unstar" : "Star"}</span>
             </button>
-            
+
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 onShare?.();
                 setShowMenu(false);
               }}
-              className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-700 w-full text-left text-sm"
+              className={styles.menuItem}
             >
-              <Share2 className="w-4 h-4" />
+              <Share2 width={16} height={16} />
               <span>Share</span>
             </button>
-            
-            <hr className="my-1 border-gray-200 dark:border-dark-700" />
-            
+
+            <hr className={styles.separator} />
+
             {onDelete && (
               <button
+                type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   onDelete?.();
                   setShowMenu(false);
                 }}
-                className="flex items-center gap-3 px-4 py-2 hover:bg-gray-100 dark:hover:bg-dark-700 w-full text-left text-sm text-red-600 dark:text-red-400"
+                className={`${styles.menuItem} ${styles.danger}`}
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 width={16} height={16} />
                 <span>Delete</span>
               </button>
             )}

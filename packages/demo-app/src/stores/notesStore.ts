@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { Note } from "../services/api";
+import type { Note } from "../services/api";
 
 interface NotesStore {
   notes: Note[];
@@ -7,7 +7,7 @@ interface NotesStore {
   searchQuery: string;
   isLoading: boolean;
   error: string | null;
-  
+
   setNotes: (notes: Note[]) => void;
   addNote: (note: Note) => void;
   removeNote: (noteId: string) => void;
@@ -24,29 +24,30 @@ export const useNotesStore = create<NotesStore>((set) => ({
   searchQuery: "",
   isLoading: false,
   error: null,
-  
+
   setNotes: (notes) => set({ notes }),
-  
-  addNote: (note) => set((state) => ({
-    notes: [note, ...state.notes],
-  })),
-  
-  removeNote: (noteId) => set((state) => ({
-    notes: state.notes.filter(n => n.note_id !== noteId),
-    selectedNoteId: state.selectedNoteId === noteId ? null : state.selectedNoteId,
-  })),
-  
-  updateNote: (noteId, updates) => set((state) => ({
-    notes: state.notes.map(n => 
-      n.note_id === noteId ? { ...n, ...updates } : n
-    ),
-  })),
-  
+
+  addNote: (note) =>
+    set((state) => ({
+      notes: [note, ...state.notes],
+    })),
+
+  removeNote: (noteId) =>
+    set((state) => ({
+      notes: state.notes.filter((n) => n.note_id !== noteId),
+      selectedNoteId: state.selectedNoteId === noteId ? null : state.selectedNoteId,
+    })),
+
+  updateNote: (noteId, updates) =>
+    set((state) => ({
+      notes: state.notes.map((n) => (n.note_id === noteId ? { ...n, ...updates } : n)),
+    })),
+
   selectNote: (noteId) => set({ selectedNoteId: noteId }),
-  
+
   setSearchQuery: (query) => set({ searchQuery: query }),
-  
+
   setLoading: (isLoading) => set({ isLoading }),
-  
+
   setError: (error) => set({ error }),
 }));
