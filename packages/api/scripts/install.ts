@@ -28,9 +28,9 @@ function readConfigFile(): any | null {
   return parse(fs.readFileSync(p, "utf8")) as any;
 }
 
-function writeConfigFile(cfg: Record<string, unknown>): void {
+function writeConfigFile(configuration: Record<string, unknown>): void {
   const p = resolveConfigPath();
-  const out = stringify(cfg);
+  const out = stringify(configuration);
   fs.writeFileSync(p, out, "utf8");
 }
 

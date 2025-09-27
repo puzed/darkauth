@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
 import { createRemoteJWKSet, jwtVerify } from "jose";
+import { z } from "zod/v4";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getUserDirectoryEntry(
@@ -30,7 +25,7 @@ export async function getUserDirectoryEntry(
   }
   const Params = z.object({ sub: z.string() });
   const { sub: parsedSub } = Params.parse({ sub });
-  console.log("[api] user directory get", { sub: parsedSub });
+  context.logger.info({ sub: parsedSub }, "user directory get");
   const row = await getDirectoryEntry(context, parsedSub);
   if (!row) {
     sendJson(response, 404, { error: "user_not_found" });
@@ -63,7 +58,7 @@ export async function searchUserDirectory(
     return;
   }
 
-  console.log("[api] users search", { q });
+  context.logger.info({ q }, "users search");
   const rows = await searchDirectory(context, q);
 
   type JwkLike = { kty?: unknown };
@@ -74,41 +69,44 @@ export async function searchUserDirectory(
   const invalid = rows
     .filter((r) => r.public_key_jwk && !isJwkWithStringKty(r.public_key_jwk))
     .map((r) => r.sub);
-  console.log("[api] users search results", {
-    count: rows.length,
-    returned: filtered.length,
-    missing_pubkey_count: missing.length,
-    invalid_pubkey_count: invalid.length,
-  });
+  context.logger.info(
+    {
+      count: rows.length,
+      returned: filtered.length,
+      missing_pubkey_count: missing.length,
+      invalid_pubkey_count: invalid.length,
+    },
+    "users search results"
+  );
   sendJson(response, 200, { users: filtered });
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const User = z.object({
-    sub: z.string(),
-    email: z.string().nullable().optional(),
-    name: z.string().nullable().optional(),
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/users/search",
-    tags: ["Users Directory"],
-    summary: "Search users",
-    request: { query: z.object({ q: z.string().optional() }) },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: z.array(User) } } },
-      ...genericErrors,
-    },
-  });
-  registry.registerPath({
-    method: "get",
-    path: "/users/{sub}",
-    tags: ["Users Directory"],
-    summary: "Get user",
-    request: { params: z.object({ sub: z.string() }) },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: User } } },
-      ...genericErrors,
-    },
-  });
-}
+const User = z.object({
+  sub: z.string(),
+  email: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/users/search",
+  tags: ["Users Directory"],
+  summary: "Search users",
+  query: z.object({ q: z.string().optional() }),
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: z.array(User) } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const getUserSchema = {
+  method: "GET",
+  path: "/users/{sub}",
+  tags: ["Users Directory"],
+  summary: "Get user",
+  params: z.object({ sub: z.string() }),
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: User } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

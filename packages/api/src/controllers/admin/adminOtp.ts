@@ -1,7 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { z } from "zod/v4";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { disableOtp, getOtpStatusModel } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -41,3 +43,43 @@ export const deleteAdminUserOtp = withAudit({
   await disableOtp(context, "admin", adminId);
   sendJson(response, 200, { success: true });
 });
+
+const AdminOtpStatusResponseSchema = z.object({
+  enabled: z.boolean(),
+  pending: z.boolean(),
+  verified: z.boolean(),
+  created_at: z.string().nullable(),
+  last_used_at: z.string().nullable(),
+});
+
+const AdminOtpDeleteResponseSchema = z.object({ success: z.boolean() });
+
+export const getAdminUserOtpSchema = {
+  method: "GET",
+  path: "/admin/admin-users/{adminId}/otp",
+  tags: ["Admin Users"],
+  summary: "Get admin OTP status",
+  params: z.object({ adminId: z.string() }),
+  responses: {
+    200: {
+      description: "OTP status",
+      content: { "application/json": { schema: AdminOtpStatusResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const deleteAdminUserOtpSchema = {
+  method: "DELETE",
+  path: "/admin/admin-users/{adminId}/otp",
+  tags: ["Admin Users"],
+  summary: "Disable admin OTP",
+  params: z.object({ adminId: z.string() }),
+  responses: {
+    200: {
+      description: "OTP disabled",
+      content: { "application/json": { schema: AdminOtpDeleteResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

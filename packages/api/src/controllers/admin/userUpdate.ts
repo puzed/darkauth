@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { updateUserBasic } from "../../models/users.js";
-import type { Context, HttpHandler } from "../../types.js";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -43,32 +38,36 @@ export const updateUser = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateUserHandler as HttpHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Req = z
-    .object({
-      email: z.string().email().nullable().optional(),
-      name: z.string().nullable().optional(),
-    })
-    .partial();
-  const Resp = z
-    .object({
-      sub: z.string(),
-      email: z.string().nullable().optional(),
-      name: z.string().nullable().optional(),
-    })
-    .partial();
-  registry.registerPath({
-    method: "put",
-    path: "/admin/users/{sub}",
-    tags: ["Users"],
-    summary: "Update user",
-    request: {
-      params: z.object({ sub: z.string() }),
-      body: { content: { "application/json": { schema: Req } } },
-    },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema definition
+const Req = z
+  .object({
+    email: z.string().email().nullable().optional(),
+    name: z.string().nullable().optional(),
+  })
+  .partial();
+
+const Resp = z
+  .object({
+    sub: z.string(),
+    email: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+  })
+  .partial();
+
+export const schema = {
+  method: "PUT",
+  path: "/admin/users/{sub}",
+  tags: ["Users"],
+  summary: "Update user",
+  params: z.object({ sub: z.string() }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: Req,
+  },
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

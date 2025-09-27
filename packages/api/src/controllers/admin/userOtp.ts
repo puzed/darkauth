@@ -1,9 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
+import { z } from "zod/v4";
 import { otpConfigs } from "../../db/schema.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getOtpStatusModel } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
@@ -17,7 +19,7 @@ export const getUserOtp = withAudit({ eventType: "ADMIN_USER_OTP_STATUS", resour
     const session = await requireSession(context, request, true);
     if (session.adminRole !== "write" && session.adminRole !== "read") throw new Error("Forbidden");
     const status = await getOtpStatusModel(context, "user", userSub);
-    const cfg = await context.db.query.otpConfigs.findFirst({
+    const otpConfig = await context.db.query.otpConfigs.findFirst({
       where: and(eq(otpConfigs.cohort, "user"), eq(otpConfigs.subjectId, userSub)),
     });
     sendJson(response, 200, {
@@ -26,8 +28,33 @@ export const getUserOtp = withAudit({ eventType: "ADMIN_USER_OTP_STATUS", resour
       verified: status.verified,
       created_at: status.createdAt || null,
       last_used_at: status.lastUsedAt || null,
-      failure_count: cfg?.failureCount ?? 0,
-      locked_until: cfg?.lockedUntil || null,
+      failure_count: otpConfig?.failureCount ?? 0,
+      locked_until: otpConfig?.lockedUntil || null,
     });
   }
 );
+
+const UserOtpStatusResponseSchema = z.object({
+  enabled: z.boolean(),
+  pending: z.boolean(),
+  verified: z.boolean(),
+  created_at: z.string().nullable(),
+  last_used_at: z.string().nullable(),
+  failure_count: z.number(),
+  locked_until: z.string().nullable(),
+});
+
+export const schema = {
+  method: "GET",
+  path: "/admin/users/{userSub}/otp",
+  tags: ["Users"],
+  summary: "Get user OTP status",
+  params: z.object({ userSub: z.string() }),
+  responses: {
+    200: {
+      description: "OTP status",
+      content: { "application/json": { schema: UserOtpStatusResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { UnauthorizedError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 export const AdminSessionResponseSchema = z.object({
   authenticated: z.boolean(),
   adminId: z.string().uuid(),
@@ -20,7 +15,7 @@ export const AdminSessionResponseSchema = z.object({
 
 import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
 
 export async function getAdminSession(
@@ -59,63 +54,16 @@ export async function getAdminSession(
   sendJsonValidated(response, 200, responseData, AdminSessionResponseSchema);
 }
 
-// export const openApiSchema = createRouteSpec({
-//   method: "get",
-//   path: "/admin/session",
-//   tags: ["Admin Session"],
-//   summary: "Get current admin session information",
-//   responses: {
-//     200: {
-//       description: "OK",
-//       content: {
-//         "application/json": {
-//           schema: AdminSessionResponseSchema,
-//           example: {
-//             authenticated: true,
-//             adminId: "123e4567-e89b-12d3-a456-426614174000",
-//             email: "admin@example.com",
-//             name: "Admin User",
-//             role: "write",
-//             passwordResetRequired: false
-//           , ...genericErrors },
-//         },
-//       },
-//     },
-//     401: {
-//       description: "Unauthorized",
-//       content: {
-//         "application/json": {
-//           schema: UnauthorizedResponseSchema,
-//           example: {
-//             error: "UNAUTHORIZED",
-//             message: "Invalid admin session",
-//             code: "UNAUTHORIZED"
-//           },
-//         },
-//       },
-//     },
-//     500: {
-//       description: "Internal Server Error",
-//       content: {
-//         "application/json": {
-//           schema: ErrorResponseSchema,
-//         },
-//       },
-//     },
-//   },
-// });
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/admin/session",
-    tags: ["Session"],
-    summary: "Get current admin session information",
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: AdminSessionResponseSchema } },
-      },
-      ...genericErrors,
+export const schema = {
+  method: "GET",
+  path: "/admin/session",
+  tags: ["Session"],
+  summary: "Get current admin session information",
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: AdminSessionResponseSchema } },
     },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

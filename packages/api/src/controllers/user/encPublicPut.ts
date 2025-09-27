@@ -1,16 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { UnauthorizedError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { setEncPublicJwk } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+
+// Request schema
+const EncPublicJwkReq = z.object({
+  enc_public_jwk: z.object({}).passthrough(),
+});
 
 export async function putEncPublicJwk(
   context: Context,
@@ -21,19 +21,22 @@ export async function putEncPublicJwk(
   if (!sessionData.sub) throw new UnauthorizedError("User session required");
   const body = await readBody(request);
   const data = parseJsonSafely(body);
-  const Req = z.object({ enc_public_jwk: z.object({}).passthrough() });
-  const parsed = Req.safeParse(data);
+  const parsed = EncPublicJwkReq.safeParse(data);
   if (!parsed.success) throw new ValidationError("Invalid body", parsed.error.flatten());
   const result = await setEncPublicJwk(context, sessionData.sub, parsed.data.enc_public_jwk);
   sendJson(response, 200, result);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "put",
-    path: "/crypto/enc-pub",
-    tags: ["Crypto"],
-    summary: "encPublicPut",
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "PUT",
+  path: "/crypto/enc-pub",
+  tags: ["Crypto"],
+  summary: "encPublicPut",
+  responses: { 200: { description: "OK" }, ...genericErrors },
+  body: {
+    description: "Request body",
+    required: true,
+    contentType: "application/json",
+    schema: EncPublicJwkReq,
+  },
+} as const satisfies ControllerSchema;

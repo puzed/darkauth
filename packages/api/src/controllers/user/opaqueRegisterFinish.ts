@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { userOpaqueRegisterFinish } from "../../models/registration.js";
 import { getSetting } from "../../services/settings.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
@@ -78,12 +73,10 @@ export const postOpaqueRegisterFinish = withAudit({
   }
 );
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/opaque/register/finish",
-    tags: ["OPAQUE"],
-    summary: "opaqueRegisterFinish",
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "POST",
+  path: "/opaque/register/finish",
+  tags: ["OPAQUE"],
+  summary: "opaqueRegisterFinish",
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;

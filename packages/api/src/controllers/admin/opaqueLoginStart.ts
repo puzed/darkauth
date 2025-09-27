@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
-import type { Context, OpaqueLoginResponse } from "../../types.js";
+import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 
@@ -122,31 +117,26 @@ export const postAdminOpaqueLoginStart = withRateLimit("opaque", (body) =>
     : undefined
 )(postAdminOpaqueLoginStartHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/opaque-login-start",
-    tags: ["Admin Authentication"],
-    summary: "Start OPAQUE admin login process",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: OpaqueLoginStartRequestSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/opaque-login-start",
+  tags: ["Admin Authentication"],
+  summary: "Start OPAQUE admin login process",
+  body: {
+    description: "",
+    required: false,
+    contentType: "application/json",
+    schema: OpaqueLoginStartRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Login process started",
+      content: {
+        "application/json": {
+          schema: OpaqueLoginStartResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Login process started",
-        content: {
-          "application/json": {
-            schema: OpaqueLoginStartResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { UnauthorizedError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { setEncPrivateWrapped } from "../../models/userEncryptionKeys.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -38,12 +33,10 @@ export async function putWrappedEncPrivateJwk(
   sendJson(response, 200, result);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "put",
-    path: "/crypto/wrapped-enc-priv",
-    tags: ["Crypto"],
-    summary: "wrappedEncPrivPut",
-    responses: { 200: { description: "OK" }, ...genericErrors },
-  });
-}
+export const schema = {
+  method: "PUT",
+  path: "/crypto/wrapped-enc-priv",
+  tags: ["Crypto"],
+  summary: "wrappedEncPrivPut",
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;

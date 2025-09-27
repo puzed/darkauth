@@ -1,10 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { listAdminUsers } from "../../models/adminUsers.js";
 
@@ -31,7 +26,7 @@ export const AdminUsersListResponseSchema = z.object({
 });
 
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
 import { getPaginationFromUrl } from "../../utils/pagination.js";
 
@@ -103,32 +98,28 @@ export async function getAdminUsers(
 //     },
 //   },
 // });
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/admin/admin-users",
-    tags: ["Admin Users"],
-    summary: "List admin users",
-    request: {
-      query: z.object({
-        page: z.number().int().positive().optional(),
-        limit: z.number().int().positive().optional(),
-        search: z.string().optional(),
-      }),
+export const schema = {
+  method: "GET",
+  path: "/admin/admin-users",
+  tags: ["Admin Users"],
+  summary: "List admin users",
+  query: z.object({
+    page: z.number().int().positive().optional(),
+    limit: z.number().int().positive().optional(),
+    search: z.string().optional(),
+  }),
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: AdminUsersListResponseSchema } },
     },
-    responses: {
-      200: {
-        description: "OK",
-        content: { "application/json": { schema: AdminUsersListResponseSchema } },
-      },
-      401: {
-        description: "Unauthorized",
-        content: { "application/json": { schema: z.object({ error: z.string() }) } },
-      },
-      403: {
-        description: "Forbidden",
-        content: { "application/json": { schema: z.object({ error: z.string() }) } },
-      },
+    401: {
+      description: "Unauthorized",
+      content: { "application/json": { schema: z.object({ error: z.string() }) } },
     },
-  });
-}
+    403: {
+      description: "Forbidden",
+      content: { "application/json": { schema: z.object({ error: z.string() }) } },
+    },
+  },
+} as const satisfies ControllerSchema;

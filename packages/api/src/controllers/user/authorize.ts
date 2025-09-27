@@ -1,21 +1,17 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { createPendingAuth } from "../../models/authorize.js";
 import { getClient } from "../../models/clients.js";
 import { getSession, getSessionId } from "../../services/sessions.js";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.js";
-import type { AuthorizationRequest, Context } from "../../types.js";
+import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.js";
 import { generateRandomString, toBase64Url } from "../../utils/crypto.js";
 import { parseQueryParams } from "../../utils/http.js";
 import { validateP256PublicKeyJWK } from "../../utils/jwk.js";
+import { validateCodeChallenge } from "../../utils/pkce.js";
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1, { message: "client_id is required" }),
@@ -28,8 +24,6 @@ export const AuthorizationRequestSchema = z.object({
   code_challenge_method: z.string().optional(),
   zk_pub: z.string().optional(),
 });
-
-import { validateCodeChallenge } from "../../utils/pkce.js";
 
 export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   context: Context,
@@ -135,13 +129,11 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   response.end();
 });
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "get",
-    path: "/authorize",
-    tags: ["Auth"],
-    summary: "Authorization endpoint",
-    request: { query: AuthorizationRequestSchema },
-    responses: { 302: { description: "Redirect to UI", ...genericErrors } },
-  });
-}
+export const schema = {
+  method: "GET",
+  path: "/authorize",
+  tags: ["Auth"],
+  summary: "Authorization endpoint",
+  query: AuthorizationRequestSchema,
+  responses: { 302: { description: "Redirect to UI", ...genericErrors } },
+} as const satisfies ControllerSchema;

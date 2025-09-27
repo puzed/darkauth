@@ -148,9 +148,9 @@ export class OpaqueServer {
     if (!requestArray.every((b) => Number.isInteger(b) && b >= 0 && b <= 255)) {
       throw new Error("Invalid byte values in registration request");
     }
-    let req: RegistrationRequest;
+    let registrationRequest: RegistrationRequest;
     try {
-      req = RegistrationRequest.deserialize(this.config, requestArray);
+      registrationRequest = RegistrationRequest.deserialize(this.config, requestArray);
     } catch (error) {
       this.secureLogger.logSecureError("Failed to deserialize registration request", error);
       throw new Error(
@@ -162,7 +162,7 @@ export class OpaqueServer {
       throw new Error("Server not initialized. Call initialize() first.");
     }
 
-    const response = await this.server.registerInit(req, identityU);
+    const response = await this.server.registerInit(registrationRequest, identityU);
     if (response instanceof Error) {
       this.secureLogger.logOpaqueOperation("registration_start", {
         identityU,
@@ -450,15 +450,15 @@ export class OpaqueClient {
     }
 
     try {
-      let resp: RegistrationResponse;
+      let registrationResponse: RegistrationResponse;
       try {
-        resp = RegistrationResponse.deserialize(this.config, Array.from(response));
+        registrationResponse = RegistrationResponse.deserialize(this.config, Array.from(response));
       } catch (error) {
         throw new Error(
           `Failed to deserialize registration response: ${error instanceof Error ? error.message : String(error)}`
         );
       }
-      const result = await this.client.registerFinish(resp, identityS, identityU);
+      const result = await this.client.registerFinish(registrationResponse, identityS, identityU);
 
       // Check if registerFinish returned an error
       if (result instanceof Error) {

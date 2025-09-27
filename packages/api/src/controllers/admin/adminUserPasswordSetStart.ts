@@ -1,15 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 
-extendZodWithOpenApi(z);
-
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
 import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getAdminById } from "../../models/adminUsers.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -54,34 +50,29 @@ async function postAdminUserPasswordSetStartHandler(
 
 export const postAdminUserPasswordSetStart = postAdminUserPasswordSetStartHandler;
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/admin-users/{adminId}/password-set-start",
-    tags: ["Admin Users"],
-    summary: "Start setting admin user password",
-    request: {
-      params: z.object({
-        adminId: z.string(),
-      }),
-      body: {
-        content: {
-          "application/json": {
-            schema: PasswordSetStartRequestSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/admin-users/{adminId}/password-set-start",
+  tags: ["Admin Users"],
+  summary: "Start setting admin user password",
+  params: z.object({
+    adminId: z.string(),
+  }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: PasswordSetStartRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "Password set started",
+      content: {
+        "application/json": {
+          schema: PasswordSetStartResponseSchema,
         },
       },
     },
-    responses: {
-      200: {
-        description: "Password set started",
-        content: {
-          "application/json": {
-            schema: PasswordSetStartResponseSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

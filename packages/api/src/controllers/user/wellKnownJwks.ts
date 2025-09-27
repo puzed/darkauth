@@ -1,13 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
+import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
 import { getPublicKeys } from "../../services/jwks.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getWellKnownJwks(
@@ -20,24 +15,23 @@ export async function getWellKnownJwks(
   sendJson(response, 200, { keys });
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const Jwk = z
-    .object({
-      kty: z.string().optional(),
-      use: z.string().optional(),
-      kid: z.string().optional(),
-      alg: z.string().optional(),
-    })
-    .catchall(z.any());
-  const Resp = z.object({ keys: z.array(Jwk) });
-  registry.registerPath({
-    method: "get",
-    path: "/.well-known/jwks.json",
-    tags: ["Well-Known"],
-    summary: "JWKS",
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+const Jwk = z
+  .object({
+    kty: z.string().optional(),
+    use: z.string().optional(),
+    kid: z.string().optional(),
+    alg: z.string().optional(),
+  })
+  .catchall(z.any());
+const Resp = z.object({ keys: z.array(Jwk) });
+
+export const schema = {
+  method: "GET",
+  path: "/.well-known/jwks.json",
+  tags: ["Well-Known"],
+  summary: "JWKS",
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

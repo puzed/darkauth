@@ -190,4 +190,4 @@ This preserves compliance with external specifications while maintaining interna
 
 ## Integration with OpenAPI
 
-Schemas integrate seamlessly with OpenAPI documentation through the `@asteasolutions/zod-to-openapi` library. See [OpenAPI Contribution Pattern](./openapi-patterns.md) for details on how to use schemas in API documentation.
+Schemas integrate seamlessly with OpenAPI documentation through the shared `ControllerSchema` exports and the `zod/v4` `toJSONSchema` helper. See [OpenAPI Contribution Pattern](./openapi-patterns.md) for details on how schemas feed the generated documentation.

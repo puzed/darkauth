@@ -1,15 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { getGroupUsers as getGroupUsersModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
 
 export async function getGroupUsers(
@@ -28,23 +23,23 @@ export async function getGroupUsers(
   sendJson(response, 200, result);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  const User = z.object({
-    sub: z.string(),
-    email: z.string().nullable().optional(),
-    name: z.string().nullable().optional(),
-  });
-  const Group = z.object({ key: z.string(), name: z.string() });
-  const Resp = z.object({ group: Group, users: z.array(User), availableUsers: z.array(User) });
-  registry.registerPath({
-    method: "get",
-    path: "/admin/groups/{key}/users",
-    tags: ["Groups"],
-    summary: "Get group users",
-    request: { params: z.object({ key: z.string() }) },
-    responses: {
-      200: { description: "OK", content: { "application/json": { schema: Resp } } },
-      ...genericErrors,
-    },
-  });
-}
+// OpenAPI schema
+const User = z.object({
+  sub: z.string(),
+  email: z.string().nullable().optional(),
+  name: z.string().nullable().optional(),
+});
+const Group = z.object({ key: z.string(), name: z.string() });
+const Resp = z.object({ group: Group, users: z.array(User), availableUsers: z.array(User) });
+
+export const schema = {
+  method: "GET",
+  path: "/admin/groups/{key}/users",
+  tags: ["Groups"],
+  summary: "Get group users",
+  params: z.object({ key: z.string() }),
+  responses: {
+    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

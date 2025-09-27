@@ -1,14 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { refreshSessionWithToken } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -44,29 +39,30 @@ export const postAdminRefreshToken = withAudit({
   resourceType: "admin",
 })(postAdminRefreshTokenHandler);
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/refresh-token",
-    tags: ["Auth"],
-    summary: "Refresh admin session",
-    request: {
-      body: { content: { "application/json": { schema: z.object({ refreshToken: z.string() }) } } },
-    },
-    responses: {
-      ...genericErrors,
-      200: {
-        description: "OK",
-        content: {
-          "application/json": {
-            schema: z.object({
-              success: z.boolean(),
-              accessToken: z.string(),
-              refreshToken: z.string(),
-            }),
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/refresh-token",
+  tags: ["Auth"],
+  summary: "Refresh admin session",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: z.object({ refreshToken: z.string() }),
+  },
+  responses: {
+    ...genericErrors,
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            accessToken: z.string(),
+            refreshToken: z.string(),
+          }),
         },
       },
     },
-  });
-}
+  },
+} as const satisfies ControllerSchema;

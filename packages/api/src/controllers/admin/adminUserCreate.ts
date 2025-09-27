@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { OpenAPIRegistry } from "@asteasolutions/zod-to-openapi";
-import { extendZodWithOpenApi } from "@asteasolutions/zod-to-openapi";
-import { z } from "zod";
-import { genericErrors } from "../../http/openapi-helpers.js";
-
-extendZodWithOpenApi(z);
-
+import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { createAdminUser } from "../../models/adminUsers.js";
 export const AdminRoleSchema = z.enum(["read", "write"]);
 export const AdminUserSchema = z.object({
@@ -25,7 +20,7 @@ export const CreateAdminUserSchema = z.object({
 });
 
 import { requireSession } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
 export async function createAdminUserController(
@@ -54,31 +49,26 @@ export async function createAdminUserController(
   sendJson(response, 201, adminUser);
 }
 
-export function registerOpenApi(registry: OpenAPIRegistry) {
-  registry.registerPath({
-    method: "post",
-    path: "/admin/admin-users",
-    tags: ["Admin Users"],
-    summary: "Create admin user",
-    request: {
-      body: {
-        content: {
-          "application/json": {
-            schema: CreateAdminUserSchema,
-          },
+export const schema = {
+  method: "POST",
+  path: "/admin/admin-users",
+  tags: ["Admin Users"],
+  summary: "Create admin user",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: CreateAdminUserSchema,
+  },
+  responses: {
+    201: {
+      description: "Created",
+      content: {
+        "application/json": {
+          schema: AdminUserSchema,
         },
       },
     },
-    responses: {
-      201: {
-        description: "Created",
-        content: {
-          "application/json": {
-            schema: AdminUserSchema,
-          },
-        },
-      },
-      ...genericErrors,
-    },
-  });
-}
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;

@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { z } from "zod";
+import { z } from "zod/v4";
+import { genericErrors } from "../../http/openapi-helpers.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { verifyOtpSetup } from "../../models/otp.js";
 import {
@@ -7,7 +8,7 @@ import {
   requireSession,
   updateSession,
 } from "../../services/sessions.js";
-import type { Context } from "../../types.js";
+import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
@@ -31,3 +32,29 @@ export const postOtpSetupVerify = withAudit({
     sendJson(response, 200, { success: true, backup_codes: backupCodes });
   })
 );
+
+const UserOtpSetupVerifyRequestSchema = z.object({ code: z.string().min(1) });
+const UserOtpSetupVerifyResponseSchema = z.object({
+  success: z.boolean(),
+  backup_codes: z.array(z.string()),
+});
+
+export const schema = {
+  method: "POST",
+  path: "/otp/setup/verify",
+  tags: ["OTP"],
+  summary: "Verify OTP setup",
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: UserOtpSetupVerifyRequestSchema,
+  },
+  responses: {
+    200: {
+      description: "OTP setup verified",
+      content: { "application/json": { schema: UserOtpSetupVerifyResponseSchema } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
