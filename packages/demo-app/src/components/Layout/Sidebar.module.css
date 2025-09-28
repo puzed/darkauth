@@ -10,6 +10,11 @@
   z-index: 40;
 }
 
+:global(.dark) .aside {
+  background: #0f172a;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
 .asideOpen {
   transform: translateX(0);
 }
@@ -42,6 +47,10 @@
   margin-bottom: 0.5rem;
 }
 
+:global(.dark) .sectionTitle {
+  color: #cbd5f5;
+}
+
 .navLink {
   display: flex;
   align-items: center;
@@ -52,13 +61,26 @@
   text-decoration: none;
 }
 
+:global(.dark) .navLink {
+  color: #e2e8f0;
+}
+
 .navLink:hover {
   background: rgba(0, 0, 0, 0.04);
+}
+
+:global(.dark) .navLink:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .navLinkActive {
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
+}
+
+:global(.dark) .navLinkActive {
+  background: rgba(96, 165, 250, 0.18);
+  color: #bfdbfe;
 }
 
 .buttonLikeLink {
@@ -75,8 +97,20 @@
   cursor: pointer;
 }
 
+:global(.dark) .buttonLikeLink {
+  color: #cbd5f5;
+}
+
+:global(.dark) .buttonLikeLink:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
 .count {
   margin-left: auto;
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+:global(.dark) .count {
+  color: #94a3b8;
 }

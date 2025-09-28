@@ -47,8 +47,16 @@
   color: #111827;
   margin-bottom: 0.5rem;
 }
+
+:global(.dark) .title {
+  color: #f3f4f6;
+}
 .subtitle {
   color: #6b7280;
+}
+
+:global(.dark) .subtitle {
+  color: #9ca3af;
 }
 
 .grid {
@@ -86,6 +94,11 @@
   background: transparent;
 }
 
+:global(.dark) .newCard {
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
+}
+
 .newIcon {
   width: 3rem;
   height: 3rem;
@@ -96,9 +109,18 @@
   justify-content: center;
 }
 
+:global(.dark) .newIcon {
+  background: rgba(255, 255, 255, 0.1);
+  color: #e5e7eb;
+}
+
 .newText {
   color: #6b7280;
   font-weight: 500;
+}
+
+:global(.dark) .newText {
+  color: #d1d5db;
 }
 
 .loading {
