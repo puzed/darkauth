@@ -2,6 +2,7 @@ import { decryptNote, decryptNoteWithDek, resolveDek } from "@DarkAuth/client";
 import { Plus } from "lucide-react";
 import React from "react";
 import { api } from "../../services/api";
+import { logger } from "../../services/logger";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotesStore } from "../../stores/notesStore";
 import styles from "./Dashboard.module.css";
@@ -75,7 +76,7 @@ export function Dashboard() {
             }
           }
         } catch (error) {
-          console.error(`Failed to decrypt note ${note.note_id}:`, error);
+          logger.error({ noteId: note.note_id, error }, "Failed to decrypt note");
           anyFailed = true;
         }
       }

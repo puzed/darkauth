@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { apiService } from "../services/api";
+import { logger } from "../services/logger";
 
 // import { cryptoService } from '../services/crypto';
 
@@ -26,8 +27,7 @@ export default function Authorize({ authRequest }: AuthorizeProps) {
       let drkJwe: string | undefined;
 
       if (authRequest.hasZk) {
-        // Handle Zero-Knowledge delivery
-        console.log("ZK delivery required - handling DRK generation and JWE creation");
+        logger.info({ requestId: authRequest.requestId }, "ZK delivery requested");
 
         // This would normally:
         // 1. Get the wrapped DRK from server
@@ -40,7 +40,7 @@ export default function Authorize({ authRequest }: AuthorizeProps) {
         // 2. Unwrap it using session key
         // 3. Create JWE for client's ephemeral key
         // For now, we'll just indicate ZK delivery is available
-        console.log("ZK delivery would be performed here");
+        logger.debug({ requestId: authRequest.requestId }, "ZK delivery placeholder execution");
         drkJwe = "placeholder-jwe";
       }
 

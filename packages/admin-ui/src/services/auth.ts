@@ -1,3 +1,5 @@
+import { logger } from "./logger";
+
 interface StoredSession {
   adminId: string;
   name?: string;
@@ -17,7 +19,7 @@ interface StoredLoginInfo {
 
 const SESSION_STORAGE_KEY = "DarkAuth_admin_session";
 const LOGIN_INFO_KEY = "DarkAuth_admin_login_info";
-const SESSION_REFRESH_INTERVAL = 10 * 60 * 1000; // Refresh every 10 minutes (session lasts 15 min)
+const SESSION_REFRESH_INTERVAL = 10 * 60 * 1000;
 
 class AuthService {
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -100,7 +102,7 @@ class AuthService {
       try {
         await onRefresh();
       } catch (error) {
-        console.error("Session refresh failed:", error);
+        logger.error(error, "Session refresh failed");
         // If refresh fails, clear the stored session
         this.clearSession();
       }
@@ -112,7 +114,7 @@ class AuthService {
         try {
           await onRefresh();
         } catch (error) {
-          console.error("Session refresh on visibility change failed:", error);
+          logger.error(error, "Session refresh on visibility change failed");
         }
       }
     };

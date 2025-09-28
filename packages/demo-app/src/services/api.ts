@@ -1,5 +1,6 @@
 import { refreshSession } from "@DarkAuth/client";
 import { z } from "zod";
+import { logger } from "./logger";
 
 type RuntimeConfig = { demoApi?: string; issuer?: string };
 const runtimeConfiguration =
@@ -68,20 +69,26 @@ class ApiClient {
       try {
         const parsed = errText ? JSON.parse(errText) : null;
         const msg = parsed?.error || `HTTP ${response.status}`;
-        console.error("[demo-api] request failed", {
-          path,
-          method: options.method || "GET",
-          status: response.status,
-          body: parsed || errText || null,
-        });
+        logger.error(
+          {
+            path,
+            method: options.method || "GET",
+            status: response.status,
+            body: parsed || errText || null,
+          },
+          "[demo-api] request failed"
+        );
         throw new Error(msg);
       } catch {
-        console.error("[demo-api] request failed", {
-          path,
-          method: options.method || "GET",
-          status: response.status,
-          body: errText || null,
-        });
+        logger.error(
+          {
+            path,
+            method: options.method || "GET",
+            status: response.status,
+            body: errText || null,
+          },
+          "[demo-api] request failed"
+        );
         throw new Error(`HTTP ${response.status}`);
       }
     }
@@ -239,12 +246,15 @@ class ApiClient {
     });
     if (!response.ok) {
       const txt = await response.text().catch(() => "");
-      console.error("[demo-api] request failed", {
-        path: "/crypto/wrapped-enc-priv",
-        method: "GET",
-        status: response.status,
-        body: txt,
-      });
+      logger.error(
+        {
+          path: "/crypto/wrapped-enc-priv",
+          method: "GET",
+          status: response.status,
+          body: txt,
+        },
+        "[demo-api] request failed"
+      );
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();

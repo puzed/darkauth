@@ -20,6 +20,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import adminApiService, { type AdminUser } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
+import { logger } from "@/services/logger";
 import adminOpaqueService from "@/services/opaque-cloudflare";
 
 export default function AdminUsers() {
@@ -43,7 +44,7 @@ export default function AdminUsers() {
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
     } catch (error) {
-      console.error("Failed to load admin users:", error);
+      logger.error(error, "Failed to load admin users");
       setError(error instanceof Error ? error.message : "Failed to load admin users");
       toast({
         title: "Error",
