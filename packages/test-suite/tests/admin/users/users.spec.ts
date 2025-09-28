@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { establishAdminSession, completeAdminOtpForPage } from '../../../setup/helpers/auth.js';
+import { ensureAdminDashboard } from '../../../setup/helpers/admin.js';
 
 test.describe('Admin - Users', () => {
   let servers: TestServers;
@@ -25,35 +25,8 @@ test.describe('Admin - Users', () => {
   });
 
   test.beforeEach(async ({ page, context }) => {
-    await page.goto(`${servers.adminUrl}/`);
-    try {
-      await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email, { timeout: 3000 });
-      await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-      await page.click('button[type="submit"], button:has-text("Sign In")');
-      await page.waitForURL(/\/otp(?:\/.+)?(?:\?.*)?$/, { timeout: 15000 }).catch(() => {});
-      if (page.url().includes('/otp')) {
-        await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
-        await completeAdminOtpForPage(page, servers, {
-          email: FIXED_TEST_ADMIN.email,
-          password: FIXED_TEST_ADMIN.password
-        });
-        await page.goto(`${servers.adminUrl}/`);
-      }
-      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-    } catch {
-      await establishAdminSession(context, servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
-      await page.goto(`${servers.adminUrl}/`);
-      await page.waitForURL(/\/otp(?:\/.+)?(?:\?.*)?$/, { timeout: 15000 }).catch(() => {});
-      if (page.url().includes('/otp')) {
-        await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
-        await completeAdminOtpForPage(page, servers, {
-          email: FIXED_TEST_ADMIN.email,
-          password: FIXED_TEST_ADMIN.password
-        });
-        await page.goto(`${servers.adminUrl}/`);
-      }
-      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-    }
+    const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
+    await ensureAdminDashboard(page, context, servers, admin);
     await page.click('a[href="/users"], button:has-text("Users")');
     await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
     await expect(page.getByText('Manage user accounts and permissions')).toBeVisible();
