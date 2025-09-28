@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, createElement } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,18 @@ interface ChangelogEntry {
   changes: string[];
   filename: string;
 }
+
+const headingTags: Record<number, keyof JSX.IntrinsicElements> = {
+  2: "h2",
+  3: "h3",
+  4: "h4",
+};
+
+const headingClasses: Record<number, string> = {
+  2: "text-2xl font-semibold tracking-tight",
+  3: "text-xl font-semibold",
+  4: "text-lg font-semibold",
+};
 
 function parseVersionParts(value: string) {
   return value
@@ -60,51 +72,43 @@ function convertMarkdownToComponents(markdown: string, index: number) {
   const lines = markdown.split("\n");
   const elements: JSX.Element[] = [];
   let currentUlItems: string[] = [];
+  const flushList = (keySuffix: string) => {
+    if (currentUlItems.length === 0) return;
+    elements.push(
+      <ul key={`ul-${index}-${keySuffix}`} className="list-disc pl-6 space-y-1">
+        {currentUlItems.map((item) => (
+          <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
+        ))}
+      </ul>
+    );
+    currentUlItems = [];
+  };
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const line = raw.replace(/^\u00A0+/, "").trim();
-    const liMatch = line.match(/^(?:[-*\u2022\u2013\u2014])\s+(.*)$/);
     if (!line) {
-      if (currentUlItems.length > 0) {
-        elements.push(
-          <ul key={`ul-${index}-${i}`} className="list-disc pl-6 space-y-1">
-            {currentUlItems.map((item) => (
-              <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
-            ))}
-          </ul>
-        );
-        currentUlItems = [];
-      }
+      flushList(String(i));
       continue;
     }
-    if (line.startsWith("## ") || line.startsWith("### ")) {
-      if (currentUlItems.length > 0) {
-        elements.push(
-          <ul key={`ul-${index}-${i}`} className="list-disc pl-6 space-y-1">
-            {currentUlItems.map((item) => (
-              <li key={`${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
-            ))}
-          </ul>
-        );
-        currentUlItems = [];
-      }
-      const headerText = line.replace(/^###?\s+/, "");
-      elements.push(<h3 key={`h3-${index}-${i}`} className="text-lg font-semibold">{parseInlineMarkdown(headerText)}</h3>);
-    } else if (liMatch) {
+    const headingMatch = line.match(/^(#{2,4})\s+(.*)$/);
+    if (headingMatch) {
+      flushList(String(i));
+      const level = Math.min(4, headingMatch[1].length);
+      const tag = headingTags[level] ?? "h4";
+      const className = headingClasses[level] ?? headingClasses[4];
+      elements.push(
+        createElement(tag, { key: `h${level}-${index}-${i}`, className }, parseInlineMarkdown(headingMatch[2]))
+      );
+      continue;
+    }
+    const liMatch = line.match(/^(?:[-*\u2022\u2013\u2014])\s+(.*)$/);
+    if (liMatch) {
       currentUlItems.push(liMatch[1]);
     } else if (line && currentUlItems.length === 0) {
       elements.push(<p key={`p-${index}-${i}`}>{parseInlineMarkdown(line)}</p>);
     }
   }
-  if (currentUlItems.length > 0) {
-    elements.push(
-      <ul key={`ul-${index}-final`} className="list-disc pl-6 space-y-1">
-        {currentUlItems.map((item) => (
-          <li key={`final-${index}-${item.substring(0, 20)}`}>{parseInlineMarkdown(item)}</li>
-        ))}
-      </ul>
-    );
-  }
+  flushList("final");
   return <div className="space-y-2">{elements}</div>;
 }
 
