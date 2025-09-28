@@ -129,23 +129,22 @@ test.describe('Admin - Branding Settings', () => {
     // Open a new page and navigate to the user UI
     const userPage = await context.newPage();
     await userPage.goto(`${servers.userUrl}/`);
-    
-    // Wait for the login page to load
     await userPage.waitForSelector('input[name="email"], input[type="email"]', { timeout: 10000 });
-    
-    // Check if the brand color is applied to buttons
     const submitButton = userPage.locator('button[type="submit"]').first();
-    const buttonStyles = await submitButton.evaluate((el) => {
-      const styles = window.getComputedStyle(el);
+    await userPage.waitForFunction(() => {
+      const button = document.querySelector('button[type="submit"]');
+      if (!button) return false;
+      const color = window.getComputedStyle(button).backgroundColor;
+      return typeof color === 'string' && color.includes('255');
+    }, { timeout: 15000 });
+    const buttonStyles = await submitButton.evaluate((element) => {
+      const styles = window.getComputedStyle(element);
       return {
         backgroundColor: styles.backgroundColor,
         borderColor: styles.borderColor
       };
     });
-    
-    // The magenta color should be applied (rgb(255, 0, 255))
     expect(buttonStyles.backgroundColor).toContain('255');
-    
     await userPage.close();
   });
 
