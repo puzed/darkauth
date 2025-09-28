@@ -53,6 +53,16 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         throw new NotFoundError("Authorization request not found or expired");
       }
 
+      context.logger.info(
+        {
+          requestId,
+          clientId: pendingRequest.clientId,
+          zkRequested: !!pendingRequest.zkPubKid,
+          hasDrkHash: !!parsed.drk_hash,
+        },
+        "authorize finalize received"
+      );
+
       // Check if request has expired
       if (new Date() > pendingRequest.expiresAt) {
         await deletePendingAuth(context, requestId);
@@ -77,6 +87,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         // ZK client has already created the JWE client-side and provided the hash
         hasZk = true;
         drkHash = drkHashFromClient;
+        context.logger.info(
+          { requestId, clientId: pendingRequest.clientId },
+          "authorize finalize using client-provided drk hash"
+        );
       } else if (pendingRequest.zkPubKid) {
         // Legacy support: server-side check for DRK existence
         // In the proper ZK flow, client-side handles DRK unwrapping and JWE creation
@@ -85,6 +99,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
           hasZk = true;
           // Note: In proper ZK flow, drkHash should come from client JWE creation
           // This is fallback for incomplete client implementation
+          context.logger.warn(
+            { requestId, clientId: pendingRequest.clientId },
+            "authorize finalize missing drk hash, falling back to wrapped DRK presence"
+          );
         } catch {}
       }
 
@@ -112,6 +130,17 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         state: pendingRequest.state || undefined,
         redirect_uri: pendingRequest.redirectUri,
       });
+
+      context.logger.info(
+        {
+          requestId,
+          clientId: pendingRequest.clientId,
+          hasZk,
+          drkHashStored: !!drkHash,
+          redirectUri: pendingRequest.redirectUri,
+        },
+        "authorize finalize completed"
+      );
     }
   )
 );

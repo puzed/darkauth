@@ -1,12 +1,14 @@
 .container {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: hsl(var(--background));
+  border: 1px solid hsl(var(--foreground) / 0.1);
   border-radius: 0.5rem;
 }
 .divider {
-  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  border-top: 1px solid hsl(var(--foreground) / 0.08);
 }
 .content {
   min-height: 400px;
   padding: 1rem;
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
 }

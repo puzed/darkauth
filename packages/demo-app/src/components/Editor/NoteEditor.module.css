@@ -72,7 +72,11 @@
   background: transparent;
   border: none;
   outline: none;
-  color: #111827;
+  color: hsl(var(--foreground));
+  caret-color: hsl(var(--foreground));
+}
+.titleInput::placeholder {
+  color: hsl(var(--foreground) / 0.5);
 }
 .loading {
   display: flex;

@@ -54,6 +54,16 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     throw new InvalidRequestError("Invalid redirect_uri");
   }
 
+  context.logger.info(
+    {
+      clientId: authRequest.client_id,
+      redirectUri: authRequest.redirect_uri,
+      requestedScopes: authRequest.scope,
+      hasZkParam: !!authRequest.zk_pub,
+    },
+    "authorize request received"
+  );
+
   if (client.type === "public" || client.requirePkce) {
     if (!authRequest.code_challenge) {
       throw new InvalidRequestError("PKCE code_challenge is required");
@@ -127,6 +137,16 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   response.statusCode = 302;
   response.setHeader("Location", redirectTo);
   response.end();
+
+  context.logger.info(
+    {
+      requestId,
+      clientId: authRequest.client_id,
+      zkPubKid: zkPubKid || null,
+      userSub,
+    },
+    "authorize request stored"
+  );
 });
 
 export const schema = {

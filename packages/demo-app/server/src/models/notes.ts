@@ -43,7 +43,7 @@ export async function canWriteToNote(db: PGlite, noteId: string, sub: string) {
     `select 1 from demo_app.notes n where n.note_id=$1 and (n.owner_sub=$2 or exists(select 1 from demo_app.note_access a where a.note_id=n.note_id and a.recipient_sub=$2 and a.grants in ('write')))`,
     [noteId, sub]
   );
-  return r.rowCount > 0;
+  return r.rows.length > 0;
 }
 
 export async function appendChange(db: PGlite, noteId: string, ciphertextBase64: string, additionalAuthenticatedData: unknown) {
@@ -55,7 +55,7 @@ export async function appendChange(db: PGlite, noteId: string, ciphertextBase64:
 
 export async function deleteNoteCascade(db: PGlite, noteId: string, ownerSub: string) {
   const owner = await db.query("select 1 from demo_app.notes where note_id=$1 and owner_sub=$2", [noteId, ownerSub]);
-  if (owner.rowCount === 0) return false;
+  if (owner.rows.length === 0) return false;
   await db.query("delete from demo_app.note_changes where note_id=$1", [noteId]);
   await db.query("delete from demo_app.note_access where note_id=$1", [noteId]);
   await db.query("delete from demo_app.notes where note_id=$1", [noteId]);
@@ -71,7 +71,7 @@ export async function getChangesSince(db: PGlite, noteId: string, since: number)
 
 export async function shareNote(db: PGlite, noteId: string, ownerSub: string, recipientSub: string, dekJwe: string, grants: string) {
   const owner = await db.query("select 1 from demo_app.notes where note_id=$1 and owner_sub=$2", [noteId, ownerSub]);
-  if (owner.rowCount === 0) return false;
+  if (owner.rows.length === 0) return false;
   await db.query(
     `insert into demo_app.note_access(note_id, recipient_sub, dek_jwe, grants) values($1,$2,$3,$4)
      on conflict(note_id, recipient_sub) do update set dek_jwe=excluded.dek_jwe, grants=excluded.grants`,
@@ -82,7 +82,7 @@ export async function shareNote(db: PGlite, noteId: string, ownerSub: string, re
 
 export async function revokeShare(db: PGlite, noteId: string, ownerSub: string, recipientSub: string) {
   const owner = await db.query("select 1 from demo_app.notes where note_id=$1 and owner_sub=$2", [noteId, ownerSub]);
-  if (owner.rowCount === 0) return false;
+  if (owner.rows.length === 0) return false;
   await db.query("delete from demo_app.note_access where note_id=$1 and recipient_sub=$2", [noteId, recipientSub]);
   return true;
 }
@@ -90,4 +90,3 @@ export async function revokeShare(db: PGlite, noteId: string, ownerSub: string, 
 export async function getDekForRecipient(db: PGlite, noteId: string, recipientSub: string) {
   return db.query("select dek_jwe from demo_app.note_access where note_id=$1 and recipient_sub=$2", [noteId, recipientSub]);
 }
-
