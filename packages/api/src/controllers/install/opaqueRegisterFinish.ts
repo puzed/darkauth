@@ -6,7 +6,7 @@ import {
   ValidationError,
 } from "../../errors.js";
 import { storeOpaqueAdmin } from "../../models/install.js";
-import { createOpaqueService } from "../../services/opaque.js";
+import { ensureOpaqueService } from "../../services/opaque.js";
 import { isSystemInitialized } from "../../services/settings.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
@@ -32,16 +32,13 @@ export async function postInstallOpaqueRegisterFinish(
       throw new AlreadyInitializedError();
     }
 
-    let svc = context.services.opaque;
-    if (context.services.install?.tempDb) {
-      const tempContext = { ...context, db: context.services.install.tempDb } as Context;
-      try {
-        svc = await createOpaqueService(tempContext);
-      } catch {
-        svc = undefined;
-      }
+    let svc: NonNullable<Context["services"]["opaque"]>;
+    try {
+      svc = await ensureOpaqueService(context);
+    } catch (err) {
+      context.logger.error({ err }, "[install:opaque:finish] Failed to create OPAQUE service");
+      throw new ValidationError("Database not prepared");
     }
-    if (!svc) throw new ValidationError("Database not prepared");
 
     const body = await readBody(request);
     context.logger.debug({ bodyLen: body.length }, "[install:opaque:finish] Read request body");

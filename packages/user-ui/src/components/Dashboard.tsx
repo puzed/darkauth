@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
+import { logger } from "../services/logger";
 import styles from "./Dashboard.module.css";
 import UserLayout from "./UserLayout";
 
@@ -35,7 +36,7 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
       const response = await apiService.getUserApps();
       setApps(response.apps || []);
     } catch (error) {
-      console.error("Failed to load apps:", error);
+      logger.error(error, "Failed to load apps");
       setApps([]);
     } finally {
       setLoading(false);

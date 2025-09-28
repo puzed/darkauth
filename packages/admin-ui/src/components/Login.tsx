@@ -4,6 +4,7 @@ import AuthFrame from "@/components/auth/AuthFrame";
 import { Button } from "@/components/ui/button";
 import adminApiService from "@/services/api";
 import authService from "@/services/auth";
+import { logger } from "@/services/logger";
 import adminOpaqueService, { type AdminOpaqueLoginState } from "@/services/opaque";
 import styles from "./Login.module.css";
 
@@ -92,33 +93,34 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
     setErrors({});
 
     try {
-      console.debug("[admin-ui] login: start", { email: formData.email });
+      logger.debug({ email: formData.email }, "[admin-ui] login start");
       // Start OPAQUE admin login
       const loginStart = await adminOpaqueService.startLogin(formData.email, formData.password);
       setOpaqueState(loginStart.state);
 
-      console.debug("[admin-ui] login: sending /opaque/login/start", {
-        reqLen: loginStart.request.length,
-      });
+      logger.debug({ requestLength: loginStart.request.length }, "[admin-ui] login start request");
       const loginStartResponse = await adminApiService.adminOpaqueLoginStart({
         email: formData.email,
         request: loginStart.request,
       });
-      console.debug("[admin-ui] login: start response", loginStartResponse);
+      logger.debug(loginStartResponse, "[admin-ui] login start response");
 
       // Finish OPAQUE login
       const loginFinish = await adminOpaqueService.finishLogin(
         loginStartResponse.message,
         loginStart.state
       );
-      console.debug("[admin-ui] login: finish ke3 len", { len: loginFinish.request.length });
+      logger.debug(
+        { requestLength: loginFinish.request.length },
+        "[admin-ui] login finish payload"
+      );
 
       // Send login finish request to server
       const loginFinishResponse = await adminApiService.adminOpaqueLoginFinish({
         finish: loginFinish.request,
         sessionId: loginStartResponse.sessionId,
       });
-      console.debug("[admin-ui] login: finish response", loginFinishResponse);
+      logger.debug(loginFinishResponse, "[admin-ui] login finish response");
 
       const name = loginFinishResponse.admin.name;
       const email = loginFinishResponse.admin.email;
@@ -161,7 +163,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
         });
       } catch {}
     } catch (error) {
-      console.error("Admin login failed:", error);
+      logger.error(error, "Admin login failed");
 
       // Clear sensitive data on error
       if (opaqueState) {

@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
 import { hash } from "argon2";
-import type { KdfParams } from "../types.js";
+import { eq } from "drizzle-orm";
+import { settings } from "../db/schema.js";
+import type { Context, KdfParams } from "../types.js";
 import { decryptAesGcm, encryptAesGcm } from "../utils/crypto.js";
 
 export async function createKekService(passphrase: string, params: KdfParams) {
@@ -54,4 +56,35 @@ export function generateKdfParams(): KdfParams {
     parallelism: 4,
     hashLength: 32,
   };
+}
+
+export async function ensureKekService(
+  context: Context,
+  passphrase?: string,
+  params?: KdfParams
+): Promise<NonNullable<Context["services"]["kek"]>> {
+  if (context.services.kek?.isAvailable()) {
+    return context.services.kek;
+  }
+
+  const effectivePassphrase = passphrase ?? context.config.kekPassphrase;
+  if (!effectivePassphrase) {
+    throw new Error("KEK passphrase is required to initialize KDF service");
+  }
+
+  let effectiveParams = params;
+  if (!effectiveParams) {
+    const stored = await context.db.query.settings.findFirst({
+      where: eq(settings.key, "kek_kdf"),
+    });
+    effectiveParams = (stored?.value as KdfParams | undefined) || undefined;
+  }
+
+  if (!effectiveParams) {
+    throw new Error("KDF parameters not found");
+  }
+
+  const service = await createKekService(effectivePassphrase, effectiveParams);
+  context.services.kek = service;
+  return service;
 }

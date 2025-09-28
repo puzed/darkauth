@@ -2,6 +2,7 @@
 // Uses WebCrypto PBKDF2, integrity checks, and key rotation
 
 import { fromBase64Url, toBase64Url } from "./crypto";
+import { logger } from "./logger";
 
 interface SecureStorageEntry {
   encryptedData: string;
@@ -282,7 +283,7 @@ class SecureStorageService {
       this.updateMetadata();
       return decryptedKey;
     } catch (error) {
-      console.warn("Failed to load export key:", error);
+      logger.warn(error, "Failed to load export key");
       // Clear potentially corrupted data
       this.clearExportKey(sub);
       return null;

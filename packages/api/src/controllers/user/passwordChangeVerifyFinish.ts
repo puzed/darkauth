@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { signJWT } from "../../services/jwks.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, JWTPayload } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
@@ -19,9 +20,7 @@ export async function postUserPasswordVerifyFinish(
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> {
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  const opaque = await requireOpaqueService(context);
 
   const session = await requireSession(context, request, false);
   if (!session.email || !session.sub) throw new ValidationError("Invalid user session");
@@ -37,7 +36,7 @@ export async function postUserPasswordVerifyFinish(
     throw new ValidationError("Invalid base64url encoding in finish");
   }
 
-  await context.services.opaque.finishLogin(finishBuffer, parsed.sessionId);
+  await opaque.finishLogin(finishBuffer, parsed.sessionId);
 
   const token = await signJWT(
     context,

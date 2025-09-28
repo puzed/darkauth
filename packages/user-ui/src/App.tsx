@@ -20,6 +20,7 @@ import { clearAllExportKeys } from "./services/sessionKey";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
 import { useBranding } from "./hooks/useBranding";
+import { logger } from "./services/logger";
 
 interface SessionData {
   sub: string;
@@ -155,7 +156,7 @@ function AppContent() {
       setAuthRequestSearch(null);
       navigate("/login");
     } catch (error) {
-      console.error("Logout failed:", error);
+      logger.error(error, "Logout failed");
     }
   };
   return (

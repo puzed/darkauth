@@ -4,6 +4,7 @@ import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserOpaqueRecordByEmail } from "../../models/users.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendJson } from "../../utils/http.js";
@@ -28,9 +29,7 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     ..._params: unknown[]
   ): Promise<void> => {
     context.logger.debug({ path: "/opaque/login/start" }, "user opaque login start");
-    if (!context.services.opaque) {
-      throw new ValidationError("OPAQUE service not available");
-    }
+    const opaque = await requireOpaqueService(context);
 
     // Read and parse request body (may be cached by rate limit middleware)
     const body = await getCachedBody(request);
@@ -54,10 +53,7 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
 
     let loginResponse: OpaqueLoginResponse;
     if (!userLookup.user) {
-      loginResponse = await context.services.opaque.startLoginWithDummy(
-        requestBuffer,
-        parsed.email
-      );
+      loginResponse = await opaque.startLoginWithDummy(requestBuffer, parsed.email);
     } else {
       const envelopeBuffer = userLookup.envelope as unknown as Buffer | string | null;
       const serverPubkeyBuffer = userLookup.serverPubkey as unknown as Buffer | string | null;
@@ -71,20 +67,13 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
           : (serverPubkeyBuffer as Buffer);
 
       if (!envelopeBuf || !serverPubkeyBuf || envelopeBuf.length === 0) {
-        loginResponse = await context.services.opaque.startLoginWithDummy(
-          requestBuffer,
-          parsed.email
-        );
+        loginResponse = await opaque.startLoginWithDummy(requestBuffer, parsed.email);
       } else {
         const opaqueRecord = {
           envelope: new Uint8Array(envelopeBuf),
           serverPublicKey: new Uint8Array(serverPubkeyBuf),
         };
-        loginResponse = await context.services.opaque.startLogin(
-          requestBuffer,
-          opaqueRecord,
-          parsed.email
-        );
+        loginResponse = await opaque.startLogin(requestBuffer, opaqueRecord, parsed.email);
       }
     }
     context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start ok");

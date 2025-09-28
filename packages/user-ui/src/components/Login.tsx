@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
+import { logger } from "../services/logger";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 import Button from "./Button";
@@ -80,27 +81,25 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
     setErrors({});
 
     try {
-      console.debug("[user-ui] login: start", { email: formData.email });
+      logger.debug({ email: formData.email }, "[user-ui] login start");
       // Start OPAQUE login
       const loginStart = await opaqueService.startLogin(formData.email, formData.password);
       setOpaqueState(loginStart.state);
 
-      console.debug("[user-ui] login: sending /opaque/login/start", {
-        reqLen: loginStart.request.length,
-      });
+      logger.debug({ requestLength: loginStart.request.length }, "[user-ui] login start request");
       // Send login start request to server
       const loginStartResponse = await apiService.opaqueLoginStart({
         email: formData.email,
         request: loginStart.request,
       });
-      console.debug("[user-ui] login: start response", loginStartResponse);
+      logger.debug({ response: loginStartResponse }, "[user-ui] login start response");
 
       // Finish OPAQUE login
       const loginFinish = await opaqueService.finishLogin(
         loginStartResponse.message,
         loginStart.state
       );
-      console.debug("[user-ui] login: finish ke3 len", { len: loginFinish.request.length });
+      logger.debug({ requestLength: loginFinish.request.length }, "[user-ui] login finish payload");
 
       // Send login finish request to server
       const loginFinishResponse = await apiService.opaqueLoginFinish({
@@ -108,7 +107,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         finish: loginFinish.request,
         sessionId: loginStartResponse.sessionId,
       });
-      console.debug("[user-ui] login: finish response", loginFinishResponse);
+      logger.debug({ response: loginFinishResponse }, "[user-ui] login finish response");
 
       if (loginFinishResponse.otpRequired) {
         opaqueService.clearState(loginStart.state);
@@ -152,7 +151,12 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
           await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
           cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
         } catch (e) {
-          console.warn("Failed to initialize DRK:", e);
+          logger.warn(
+            e instanceof Error
+              ? { name: e.name, message: e.message, stack: e.stack }
+              : { detail: String(e) },
+            "Failed to initialize DRK"
+          );
         }
       }
 
@@ -162,7 +166,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
       await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
       cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
     } catch (error) {
-      console.error("Login failed:", error);
+      logger.error(error, "Login failed");
 
       // Clear sensitive data on error
       if (opaqueState) {

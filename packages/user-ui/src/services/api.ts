@@ -1,4 +1,4 @@
-// API Service Layer for User UI
+import { logger } from "./logger";
 
 export interface ApiError {
   error: string;
@@ -456,7 +456,7 @@ class ApiService {
       });
     } catch (error) {
       // Return empty array if endpoint doesn't exist yet
-      console.warn("Failed to fetch user apps:", error);
+      logger.warn(error, "Failed to fetch user apps");
       return { apps: [] };
     }
   }
