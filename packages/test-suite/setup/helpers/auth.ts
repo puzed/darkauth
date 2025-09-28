@@ -362,6 +362,128 @@ export async function createUserViaAdmin(
   return { sub };
 }
 
+export async function createAdminUserViaAdmin(
+  servers: TestServers,
+  admin: { email: string; password: string },
+  newAdmin: { email: string; password: string; name: string; role: 'read' | 'write' }
+): Promise<{ id: string }> {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  let token = await getAdminBearerToken(servers, admin);
+
+  let createRes = await fetch(`${servers.adminUrl}/admin/admin-users`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      Origin: servers.adminUrl,
+    },
+    body: JSON.stringify({ email: newAdmin.email, name: newAdmin.name, role: newAdmin.role }),
+  });
+  if (createRes.status === 401) {
+    adminTokenCache.delete(cacheKey);
+    token = await getAdminBearerToken(servers, admin);
+    createRes = await fetch(`${servers.adminUrl}/admin/admin-users`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Origin: servers.adminUrl,
+      },
+      body: JSON.stringify({ email: newAdmin.email, name: newAdmin.name, role: newAdmin.role }),
+    });
+  }
+  if (!createRes.ok) throw new Error(`create admin failed: ${createRes.status}`);
+  const created = await createRes.json();
+  const adminId = typeof created === 'object' && created && 'id' in created ? (created as { id: string }).id : null;
+  if (!adminId) {
+    throw new Error(`unexpected admin create response`);
+  }
+
+  const regClient = new OpaqueClient();
+  await regClient.initialize();
+  const regStart = await regClient.startRegistration(newAdmin.password, newAdmin.email);
+  let setStartRes = await fetch(
+    `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/start`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Origin: servers.adminUrl,
+      },
+      body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) }),
+    }
+  );
+  if (setStartRes.status === 401) {
+    adminTokenCache.delete(cacheKey);
+    token = await getAdminBearerToken(servers, admin);
+    setStartRes = await fetch(
+      `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/start`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Origin: servers.adminUrl,
+        },
+        body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) }),
+      }
+    );
+  }
+  if (!setStartRes.ok) {
+    const errorText = await setStartRes.text().catch(() => '');
+    throw new Error(`admin password set start failed: ${setStartRes.status} ${errorText}`);
+  }
+  const setStartJson = await setStartRes.json();
+  const regFinish = await regClient.finishRegistration(
+    fromBase64Url(setStartJson.message),
+    regStart.state,
+    fromBase64Url(setStartJson.serverPublicKey),
+    'DarkAuth',
+    newAdmin.email
+  );
+  const exportKeyHash = sha256Base64Url(Buffer.from(regFinish.export_key));
+  let setFinishRes = await fetch(
+    `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/finish`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Origin: servers.adminUrl,
+      },
+      body: JSON.stringify({
+        record: toBase64Url(Buffer.from(regFinish.upload)),
+        export_key_hash: exportKeyHash,
+      }),
+    }
+  );
+  if (setFinishRes.status === 401) {
+    adminTokenCache.delete(cacheKey);
+    token = await getAdminBearerToken(servers, admin);
+    setFinishRes = await fetch(
+      `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/finish`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          Origin: servers.adminUrl,
+        },
+        body: JSON.stringify({
+          record: toBase64Url(Buffer.from(regFinish.upload)),
+          export_key_hash: exportKeyHash,
+        }),
+      }
+    );
+  }
+  if (!setFinishRes.ok) {
+    const errorText = await setFinishRes.text().catch(() => '');
+    throw new Error(`admin password set finish failed: ${setFinishRes.status} ${errorText}`);
+  }
+  return { id: adminId };
+}
+
 export async function establishAdminSession(
   context: BrowserContext,
   servers: TestServers,

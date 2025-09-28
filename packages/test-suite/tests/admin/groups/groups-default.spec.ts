@@ -2,10 +2,13 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { establishAdminSession, completeAdminOtpForPage, getAdminBearerToken } from '../../../setup/helpers/auth.js';
+import { getAdminBearerToken, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
+import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 
 test.describe('Admin - Groups Default and Enable Login', () => {
   let servers: TestServers;
+
+  let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-groups-default' });
@@ -16,32 +19,21 @@ test.describe('Admin - Groups Default and Enable Login', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
+    const secondary = await createSecondaryAdmin();
+    await createAdminUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      { ...secondary, role: 'write' }
+    );
+    adminCred = { email: secondary.email, password: secondary.password };
   });
 
   test.afterAll(async () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('Default group exists and enable login can be toggled', async ({ page, context }) => {
-    await page.goto(`${servers.adminUrl}/`);
-    try {
-      await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email, { timeout: 3000 });
-      await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-      await page.getByRole('button', { name: /sign in/i }).click();
-      await page.waitForURL(/\/otp(?:\/.+)?(?:\?.*)?$/, { timeout: 15000 }).catch(() => {});
-    } catch {
-      await establishAdminSession(context, servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
-      await page.goto(`${servers.adminUrl}/`);
-    }
-    if (page.url().includes('/otp')) {
-      await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
-      await completeAdminOtpForPage(page, servers, {
-        email: FIXED_TEST_ADMIN.email,
-        password: FIXED_TEST_ADMIN.password
-      });
-      await page.goto(`${servers.adminUrl}/`);
-    }
-    await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+  test('Default group exists and enable login can be toggled', async ({ page }) => {
+    await ensureAdminDashboard(page, servers, adminCred);
 
     await page.click('a[href="/groups"], button:has-text("Groups")');
     await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
@@ -73,7 +65,7 @@ test.describe('Admin - Groups Default and Enable Login', () => {
   });
 
   test('Enable Login value persists via API', async () => {
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const token = await getAdminBearerToken(servers, adminCred);
     const res = await fetch(`${servers.adminUrl}/admin/groups`, {
       headers: { 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl }
     });
