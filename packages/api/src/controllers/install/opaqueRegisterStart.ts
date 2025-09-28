@@ -6,7 +6,7 @@ import {
   ExpiredInstallTokenError,
   ValidationError,
 } from "../../errors.js";
-import { createOpaqueService } from "../../services/opaque.js";
+import { ensureOpaqueService } from "../../services/opaque.js";
 import { isSystemInitialized } from "../../services/settings.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -152,24 +152,16 @@ export async function postInstallOpaqueRegisterStart(
     } else if (!install.adminEmail) {
       install.adminEmail = data.email;
     }
-    let svc = context.services.opaque;
     context.logger.info(
-      { hasTempDb: !!context.services.install?.tempDb, hasOpaque: !!svc },
+      { hasTempDb: !!context.services.install?.tempDb, hasOpaque: !!context.services.opaque },
       "[install:opaque:start] Checking OPAQUE service"
     );
-    if (context.services.install?.tempDb) {
-      context.logger.info("[install:opaque:start] Creating OPAQUE service with temporary database");
-      const tempContext = { ...context, db: context.services.install.tempDb } as Context;
-      try {
-        svc = await createOpaqueService(tempContext);
-        context.logger.info("[install:opaque:start] OPAQUE service created successfully");
-      } catch (err) {
-        context.logger.error({ err }, "[install:opaque:start] Failed to create OPAQUE service");
-        svc = undefined;
-      }
-    }
-    if (!svc) {
-      context.logger.error("[install:opaque:start] No OPAQUE service available");
+    let svc: NonNullable<Context["services"]["opaque"]>;
+    try {
+      svc = await ensureOpaqueService(context);
+      context.logger.info("[install:opaque:start] OPAQUE service ready");
+    } catch (err) {
+      context.logger.error({ err }, "[install:opaque:start] Failed to create OPAQUE service");
       throw new ValidationError("Database not prepared");
     }
     const reqBuf = fromBase64Url(data.request);

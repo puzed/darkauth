@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
+import { logger } from "../services/logger";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 import styles from "./Register.module.css";
@@ -140,7 +141,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
       try {
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
       } catch (error) {
-        console.warn("Failed to store wrapped DRK:", error);
+        logger.warn(error, "Failed to store wrapped DRK");
         // Continue with registration even if DRK storage fails
       }
 
@@ -155,10 +156,20 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
           const wrappedPriv = await cryptoService.wrapEncPrivateJwkWithDrk(privJwk, drk);
           await apiService.putWrappedEncPrivateJwk(wrappedPriv);
         } catch (e) {
-          console.warn("Failed to store wrapped private key:", e);
+          logger.warn(
+            e instanceof Error
+              ? { name: e.name, message: e.message, stack: e.stack }
+              : { detail: String(e) },
+            "Failed to store wrapped private key"
+          );
         }
       } catch (e) {
-        console.warn("Failed to set up encryption keys", e);
+        logger.warn(
+          e instanceof Error
+            ? { name: e.name, message: e.message, stack: e.stack }
+            : { detail: String(e) },
+          "Failed to set up encryption keys"
+        );
       }
 
       // Clear sensitive data
@@ -175,7 +186,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         passwordResetRequired: !!sessionData.passwordResetRequired,
       });
     } catch (error) {
-      console.error("Registration failed:", error);
+      logger.error(error, "Registration failed");
 
       // Clear sensitive data on error
       if (opaqueState) {

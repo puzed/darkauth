@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -22,9 +23,7 @@ async function postAdminPasswordChangeStartHandler(
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> {
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  const opaque = await requireOpaqueService(context);
 
   const session = await requireSession(context, request, true);
   const email = session.email;
@@ -47,10 +46,7 @@ async function postAdminPasswordChangeStartHandler(
     throw new ValidationError("Invalid base64url encoding in request");
   }
 
-  const registrationResponse = await context.services.opaque.startRegistration(
-    requestBuffer,
-    email
-  );
+  const registrationResponse = await opaque.startRegistration(requestBuffer, email);
 
   sendJson(response, 200, {
     message: toBase64Url(Buffer.from(registrationResponse.message)),

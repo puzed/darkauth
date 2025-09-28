@@ -29,6 +29,7 @@ import {
 import UserCell from "@/components/user/user-cell";
 import adminApiService, { type Group, type User } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
+import { logger } from "@/services/logger";
 import adminOpaqueService from "@/services/opaque-cloudflare";
 
 interface UserWithDetails extends User {
@@ -72,7 +73,7 @@ export default function Users() {
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
     } catch (error) {
-      console.error("Failed to load users:", error);
+      logger.error(error, "Failed to load users");
       setError(error instanceof Error ? error.message : "Failed to load users");
     } finally {
       setLoading(false);
@@ -84,7 +85,7 @@ export default function Users() {
       const [groupsData] = await Promise.all([adminApiService.getGroups()]);
       setGroups(groupsData);
     } catch (error) {
-      console.error("Failed to load groups:", error);
+      logger.error(error, "Failed to load groups");
     }
   }, []);
 

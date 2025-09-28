@@ -7,6 +7,21 @@ import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
 
+const Req = z
+  .object({
+    email: z.string().email().nullable().optional(),
+    name: z.string().nullable().optional(),
+  })
+  .partial();
+
+const Resp = z
+  .object({
+    sub: z.string(),
+    email: z.string().nullable().optional(),
+    name: z.string().nullable().optional(),
+  })
+  .partial();
+
 async function updateUserHandler(
   context: Context,
   request: IncomingMessage,
@@ -23,11 +38,21 @@ async function updateUserHandler(
   }
 
   const body = await readBody(request);
-  const data = parseJsonSafely(body) as Record<string, unknown>;
-  const payload = data as Partial<{ email: string | null; name: string | null }>;
+  const raw = parseJsonSafely(body);
+  const payload = Req.parse(raw);
   const updated = await updateUserBasic(context, sub, {
-    email: payload.email ?? undefined,
-    name: payload.name ?? undefined,
+    email:
+      payload.email === undefined
+        ? undefined
+        : payload.email === null
+          ? undefined
+          : payload.email.trim().toLowerCase(),
+    name:
+      payload.name === undefined
+        ? undefined
+        : payload.name === null
+          ? undefined
+          : payload.name.trim(),
   });
   sendJson(response, 200, updated);
 }
@@ -37,22 +62,6 @@ export const updateUser = withAudit({
   resourceType: "user",
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateUserHandler as HttpHandler);
-
-// OpenAPI schema definition
-const Req = z
-  .object({
-    email: z.string().email().nullable().optional(),
-    name: z.string().nullable().optional(),
-  })
-  .partial();
-
-const Resp = z
-  .object({
-    sub: z.string(),
-    email: z.string().nullable().optional(),
-    name: z.string().nullable().optional(),
-  })
-  .partial();
 
 export const schema = {
   method: "PUT",

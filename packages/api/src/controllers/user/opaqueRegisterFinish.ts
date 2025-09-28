@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { userOpaqueRegisterFinish } from "../../models/registration.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -24,9 +25,7 @@ export const postOpaqueRegisterFinish = withAudit({
     ..._params: unknown[]
   ): Promise<void> => {
     try {
-      if (!context.services.opaque) {
-        throw new ValidationError("OPAQUE service not available");
-      }
+      await requireOpaqueService(context);
 
       const enabled = (await getSetting(context, "users.self_registration_enabled")) as
         | boolean

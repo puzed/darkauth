@@ -1,20 +1,19 @@
-import { eq, lt } from "drizzle-orm";
+import { lt } from "drizzle-orm";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import pino from "pino";
 import { createPglite } from "../db/pglite.js";
 import * as schema from "../db/schema.js";
-import { opaqueLoginSessions, settings } from "../db/schema.js";
+import { opaqueLoginSessions } from "../db/schema.js";
 import { ensureDefaultGroupAndSchema } from "../models/install.js";
-import { createKekService } from "../services/kek.js";
+import { ensureKekService } from "../services/kek.js";
 import { createOpaqueService } from "../services/opaque.js";
 import { cleanupExpiredSessions } from "../services/sessions.js";
-import type { Config, Context, Database, KdfParams } from "../types.js";
+import type { Config, Context, Database } from "../types.js";
 
 export async function createContext(config: Config): Promise<Context> {
   const cleanupFunctions: Array<() => Promise<void> | void> = [];
 
-  // Create logger with configured level
   const logger = pino({
     level: config.logLevel || "info",
     transport: config.isDevelopment
@@ -27,73 +26,38 @@ export async function createContext(config: Config): Promise<Context> {
       : undefined,
   });
 
-  let db!: Database;
   let pool: Pool | null = null;
-  if (!config.inInstallMode) {
-    if (config.dbMode === "pglite") {
-      const { db: pdb, close } = await createPglite(config.pgliteDir || "data/pglite");
-      db = pdb;
-      cleanupFunctions.push(async () => {
-        await close();
-      });
-    } else {
-      pool = new Pool({
-        connectionString: config.postgresUri,
-        keepAlive: true,
-      });
+  let database: Database;
 
-      pool.on("error", (err) => {
-        logger.error({ err }, "Database pool error");
-      });
+  if (config.dbMode === "pglite") {
+    const { db, close } = await createPglite(config.pgliteDir || "data/pglite");
+    database = db;
+    cleanupFunctions.push(async () => {
+      await close();
+    });
+  } else {
+    pool = new Pool({
+      connectionString: config.postgresUri,
+      keepAlive: true,
+    });
 
-      db = drizzlePg(pool, { schema });
+    pool.on("error", (err) => {
+      logger.error({ err }, "Database pool error");
+    });
 
-      cleanupFunctions.push(async () => {
-        await pool?.end();
-      });
-    }
+    database = drizzlePg(pool, { schema });
+
+    cleanupFunctions.push(async () => {
+      await pool?.end();
+    });
   }
 
-  let kekService = undefined as Context["services"]["kek"] | undefined;
-  if (!config.inInstallMode && config.kekPassphrase) {
-    try {
-      const kdf = await db.query.settings.findFirst({ where: eq(settings.key, "kek_kdf") });
-      const params = (kdf?.value as KdfParams | undefined) || undefined;
-      if (params) {
-        kekService = await createKekService(config.kekPassphrase, params);
-      }
-    } catch (err) {
-      logger.warn({ err }, "KEK service unavailable (db not ready)");
-    }
-  }
-
-  const tempContext: Context = {
-    db,
-    config,
-    services: { kek: kekService },
-    logger,
-    cleanupFunctions,
-    async destroy() {
-      for (const cleanup of cleanupFunctions) await cleanup();
-    },
-  };
-
-  let opaqueService = undefined as Context["services"]["opaque"] | undefined;
-  if (!config.inInstallMode) {
-    try {
-      opaqueService = await createOpaqueService(tempContext);
-    } catch (err) {
-      logger.warn({ err }, "OPAQUE service unavailable (db not ready)");
-    }
-  }
+  const services: Context["services"] = {};
 
   const context: Context = {
-    db,
+    db: database,
     config,
-    services: {
-      kek: kekService,
-      opaque: opaqueService,
-    },
+    services,
     logger,
     cleanupFunctions,
     async destroy() {
@@ -102,6 +66,22 @@ export async function createContext(config: Config): Promise<Context> {
       }
     },
   };
+
+  if (!config.inInstallMode && config.kekPassphrase) {
+    try {
+      await ensureKekService(context);
+    } catch (err) {
+      logger.warn({ err }, "KEK service unavailable (db not ready)");
+    }
+  }
+
+  if (!config.inInstallMode) {
+    try {
+      services.opaque = await createOpaqueService(context);
+    } catch (err) {
+      logger.warn({ err }, "OPAQUE service unavailable (db not ready)");
+    }
+  }
 
   if (!config.inInstallMode) {
     try {
@@ -115,7 +95,7 @@ export async function createContext(config: Config): Promise<Context> {
     const interval = setInterval(
       async () => {
         try {
-          await cleanupExpiredSessions({ ...context, services: context.services });
+          await cleanupExpiredSessions(context);
           await context.db
             .delete(opaqueLoginSessions)
             .where(lt(opaqueLoginSessions.expiresAt, new Date()));

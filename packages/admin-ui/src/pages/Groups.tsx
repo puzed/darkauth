@@ -18,6 +18,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import adminApiService, { type Group } from "@/services/api";
+import { logger } from "@/services/logger";
 
 export default function Groups() {
   const navigate = useNavigate();
@@ -39,7 +40,7 @@ export default function Groups() {
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
     } catch (error) {
-      console.error("Failed to load groups:", error);
+      logger.error(error, "Failed to load groups");
       setError(error instanceof Error ? error.message : "Failed to load groups");
     } finally {
       setLoading(false);

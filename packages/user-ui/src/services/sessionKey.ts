@@ -1,4 +1,5 @@
 import { fromBase64Url, toBase64Url } from "./crypto";
+import { logger } from "./logger";
 import secureStorageService from "./secureStorage";
 
 // Legacy fallback prefix for migration
@@ -22,7 +23,7 @@ async function migrateToSecureStorage(sub: string): Promise<void> {
       // Clear the key from memory
       key.fill(0);
     } catch (error) {
-      console.warn("Failed to migrate key to secure storage:", error);
+      logger.warn(error, "Failed to migrate key to secure storage");
     }
   }
 }
@@ -34,7 +35,7 @@ export async function saveExportKey(sub: string, key: Uint8Array): Promise<void>
     await secureStorageService.saveExportKey(sub, key);
     sessionStorage.setItem(SECURE_MIGRATION_FLAG + sub, "true");
   } catch (error) {
-    console.warn("Failed to use secure storage, falling back to basic storage:", error);
+    logger.warn(error, "Failed to use secure storage, falling back");
 
     // Fallback to enhanced basic storage with integrity check
     const now = Date.now();
@@ -65,7 +66,7 @@ export async function loadExportKey(sub: string): Promise<Uint8Array | null> {
       return secureKey;
     }
   } catch (error) {
-    console.warn("Failed to load from secure storage:", error);
+    logger.warn(error, "Failed to load from secure storage");
   }
 
   // Fallback to legacy storage with integrity check
@@ -88,14 +89,14 @@ export async function loadExportKey(sub: string): Promise<Uint8Array | null> {
       );
 
       if (toBase64Url(expectedIntegrity) !== entry.integrity) {
-        console.warn("Export key integrity check failed");
+        logger.warn({ sub }, "Export key integrity check failed");
         clearExportKey(sub);
         return null;
       }
 
       // Check age (30 minutes)
       if (Date.now() - entry.timestamp > 30 * 60 * 1000) {
-        console.warn("Export key has expired");
+        logger.warn({ sub }, "Export key expired");
         clearExportKey(sub);
         return null;
       }
@@ -103,7 +104,7 @@ export async function loadExportKey(sub: string): Promise<Uint8Array | null> {
 
     return fromBase64Url(entry.key || entry);
   } catch (error) {
-    console.warn("Failed to parse export key:", error);
+    logger.warn(error, "Failed to parse export key");
     clearExportKey(sub);
     return null;
   }

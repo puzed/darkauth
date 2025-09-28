@@ -7,6 +7,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
 import { getOtpStatusModel } from "../../models/otp.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -53,9 +54,7 @@ async function postAdminOpaqueLoginFinishHandler(
   ..._params: unknown[]
 ): Promise<void> {
   context.logger.debug({ path: "/admin/opaque/login/finish" }, "admin opaque login finish");
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  const opaque = await requireOpaqueService(context);
 
   // Read and parse request body
   const body = await getCachedBody(request);
@@ -114,7 +113,7 @@ async function postAdminOpaqueLoginFinishHandler(
       { sessionId: data.sessionId },
       "[admin:login:finish] Calling OPAQUE finishLogin"
     );
-    loginResult = await context.services.opaque.finishLogin(finishBuffer, data.sessionId);
+    loginResult = await opaque.finishLogin(finishBuffer, data.sessionId);
     context.logger.info(
       {
         sessionId: data.sessionId,

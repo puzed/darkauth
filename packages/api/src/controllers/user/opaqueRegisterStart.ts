@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -12,9 +13,7 @@ export const postOpaqueRegisterStart = async (
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> => {
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  const opaque = await requireOpaqueService(context);
 
   const enabled = (await getSetting(context, "users.self_registration_enabled")) as
     | boolean
@@ -57,7 +56,7 @@ export const postOpaqueRegisterStart = async (
     "[opaque] controller.registerStart.decoded"
   );
 
-  const registrationResponse = await context.services.opaque.startRegistration(
+  const registrationResponse = await opaque.startRegistration(
     requestBuffer,
     typeof parsed.data.email === "string" ? parsed.data.email : "",
     "DarkAuth"

@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { finishUserPasswordSetForAdmin } from "../../models/passwords.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -26,21 +27,15 @@ async function postUserPasswordSetFinishHandler(
   userSub: string
 ): Promise<void> {
   try {
-    if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
+    await requireOpaqueService(context);
     const session = await requireSession(context, request, true);
     if (!session.adminRole) throw new ValidationError("Admin privileges required");
 
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as Record<string, unknown>;
-    if (!data.record || typeof data.record !== "string") {
-      throw new ValidationError("Missing or invalid record field");
-    }
-    if (!data.export_key_hash || typeof data.export_key_hash !== "string") {
-      throw new ValidationError("Missing or invalid export_key_hash field");
-    }
+    const parsed = UserPasswordSetFinishRequestSchema.parse(parseJsonSafely(body));
 
-    const record = data.record as string;
-    const exportKeyHash = data.export_key_hash as string;
+    const record = parsed.record;
+    const exportKeyHash = parsed.export_key_hash;
 
     const recordBuffer = fromBase64Url(record);
     const result = await finishUserPasswordSetForAdmin(context, {

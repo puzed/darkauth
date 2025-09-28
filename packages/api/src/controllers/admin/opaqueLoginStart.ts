@@ -4,14 +4,21 @@ import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getAdminByEmail } from "../../models/adminUsers.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
 import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
 
-const OpaqueLoginStartRequestSchema = z.object({
-  email: z.string().email(),
-  start: z.string(),
-});
+const OpaqueLoginStartRequestSchema = z
+  .object({
+    email: z.string().email(),
+    start: z.string().optional(),
+    request: z.string().optional(),
+  })
+  .refine((data) => typeof data.start === "string" || typeof data.request === "string", {
+    message: "Missing request payload",
+    path: ["request"],
+  });
 
 const OpaqueLoginStartResponseSchema = z.object({
   response: z.string(),
@@ -26,74 +33,48 @@ async function postAdminOpaqueLoginStartHandler(
 ): Promise<void> {
   try {
     context.logger.debug({ path: "/admin/opaque/login/start" }, "admin opaque login start");
-    if (!context.services.opaque) {
-      throw new ValidationError("OPAQUE service not available");
-    }
+    const opaqueService = await requireOpaqueService(context);
 
     const body = await getCachedBody(request);
-    const data = parseJsonSafely(body) as Record<string, unknown>;
+    const parsed = OpaqueLoginStartRequestSchema.parse(parseJsonSafely(body));
     context.logger.debug({ bodyLen: body?.length || 0 }, "parsed body");
-
-    // Validate request format
-    if (!data.email || typeof data.email !== "string") {
-      throw new ValidationError("Missing or invalid email field");
-    }
-
-    if (!data.request || typeof data.request !== "string") {
-      throw new ValidationError("Missing or invalid request field");
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(data.email)) {
-      throw new ValidationError("Invalid email format");
-    }
 
     let requestBuffer: Uint8Array;
     try {
-      requestBuffer = fromBase64Url(data.request as string);
+      const payload = parsed.start ?? parsed.request;
+      requestBuffer = fromBase64Url(payload as string);
     } catch (_err) {
-      throw new ValidationError("Invalid base64url encoding in request");
+      throw new ValidationError("Invalid base64url encoding in request payload");
     }
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
     // Find admin user by email (with one retry if a PG client was dropped)
-    const adminUser = await getAdminByEmail(context, data.email as string);
-    context.logger.info({ email: data.email, found: !!adminUser }, "admin user lookup");
+    const adminUser = await getAdminByEmail(context, parsed.email);
+    context.logger.info({ email: parsed.email, found: !!adminUser }, "admin user lookup");
 
     let loginResponse: OpaqueLoginResponse;
     if (!adminUser) {
-      loginResponse = await context.services.opaque.startLoginWithDummy(
-        requestBuffer,
-        data.email as string
-      );
+      loginResponse = await opaqueService.startLoginWithDummy(requestBuffer, parsed.email);
     } else {
       const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.js");
-      const opaque = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
+      const opaqueRecordRow = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
       const envelopeBuffer =
-        typeof opaque?.envelope === "string"
-          ? Buffer.from((opaque?.envelope as unknown as string).slice(2), "hex")
-          : (opaque?.envelope ?? Buffer.alloc(0));
+        typeof opaqueRecordRow?.envelope === "string"
+          ? Buffer.from((opaqueRecordRow?.envelope as unknown as string).slice(2), "hex")
+          : (opaqueRecordRow?.envelope ?? Buffer.alloc(0));
       const serverPubkeyBuffer =
-        typeof opaque?.serverPubkey === "string"
-          ? Buffer.from((opaque?.serverPubkey as unknown as string).slice(2), "hex")
-          : (opaque?.serverPubkey ?? Buffer.alloc(0));
+        typeof opaqueRecordRow?.serverPubkey === "string"
+          ? Buffer.from((opaqueRecordRow?.serverPubkey as unknown as string).slice(2), "hex")
+          : (opaqueRecordRow?.serverPubkey ?? Buffer.alloc(0));
 
-      if (!opaque || envelopeBuffer.length === 0 || serverPubkeyBuffer.length === 0) {
-        loginResponse = await context.services.opaque.startLoginWithDummy(
-          requestBuffer,
-          data.email as string
-        );
+      if (!opaqueRecordRow || envelopeBuffer.length === 0 || serverPubkeyBuffer.length === 0) {
+        loginResponse = await opaqueService.startLoginWithDummy(requestBuffer, parsed.email);
       } else {
         const opaqueRecord = {
           envelope: new Uint8Array(envelopeBuffer),
           serverPublicKey: new Uint8Array(serverPubkeyBuffer),
         };
-        loginResponse = await context.services.opaque.startLogin(
-          requestBuffer,
-          opaqueRecord,
-          data.email as string
-        );
+        loginResponse = await opaqueService.startLogin(requestBuffer, opaqueRecord, parsed.email);
       }
     }
     context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start response");

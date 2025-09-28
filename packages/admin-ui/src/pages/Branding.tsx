@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import adminApiService, { type AdminSetting } from "@/services/api";
+import { logger } from "@/services/logger";
 
 declare global {
   interface Window {
@@ -147,9 +148,6 @@ export default function Branding() {
       // Only keep the primary color from the loaded data
       const loadedColors = (col?.value as Record<string, string>) || {};
       const loadedColorsDark = (colDark?.value as Record<string, string>) || {};
-      console.log("LOADED COLORS FROM BACKEND:", loadedColors);
-      console.log("LOADED COLORS DARK FROM BACKEND:", loadedColorsDark);
-
       // Only extract the primary field
       const lightPrimary =
         typeof loadedColors === "object" && loadedColors.primary ? loadedColors.primary : "#6600cc";
@@ -157,9 +155,6 @@ export default function Branding() {
         typeof loadedColorsDark === "object" && loadedColorsDark && loadedColorsDark.primary
           ? loadedColorsDark.primary
           : "#aec1e0";
-
-      console.log("SETTING LIGHT PRIMARY:", lightPrimary);
-      console.log("SETTING DARK PRIMARY:", darkPrimary);
 
       setColors({ primary: lightPrimary });
       setColorsDark({ primary: darkPrimary });
@@ -241,9 +236,6 @@ export default function Branding() {
       setSaving(true);
       const identityToSave = { title: titleInput, tagline: taglineInput };
 
-      console.log("SAVING COLORS:", colors);
-      console.log("SAVING COLORS DARK:", colorsDark);
-
       await adminApiService.updateSetting("branding.identity", identityToSave);
       if (colors) await adminApiService.updateSetting("branding.colors", colors);
       if (wording) await adminApiService.updateSetting("branding.wording", wording);
@@ -254,7 +246,7 @@ export default function Branding() {
       if (favicon) await adminApiService.updateSetting("branding.favicon", favicon);
       if (faviconDark) await adminApiService.updateSetting("branding.favicon_dark", faviconDark);
       if (colorsDark && Object.keys(colorsDark).length > 0) {
-        console.log("ACTUALLY SAVING COLORS DARK:", colorsDark);
+        logger.info({ colorsDark }, "Saving dark theme colors");
         await adminApiService.updateSetting("branding.colors_dark", colorsDark);
       }
       toast({ title: "Branding saved" });

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import adminApiService, { type Permission } from "@/services/api";
+import { logger } from "@/services/logger";
 
 export default function GroupCreate() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function GroupCreate() {
       const permissionsData = await adminApiService.getPermissions();
       setPermissions(permissionsData);
     } catch (error) {
-      console.error("Failed to load permissions:", error);
+      logger.error(error, "Failed to load permissions");
       setError(error instanceof Error ? error.message : "Failed to load permissions");
     } finally {
       setLoadingPermissions(false);

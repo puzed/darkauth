@@ -3,6 +3,7 @@ import { CompactEncrypt, importJWK, type JWK } from "jose";
 import { Check, Loader2, Search, UserPlus, X } from "lucide-react";
 import React from "react";
 import { api, type UserProfile } from "../../services/api";
+import { logger } from "../../services/logger";
 import { useAuthStore } from "../../stores/authStore";
 
 interface Props {
@@ -31,13 +32,13 @@ export function ShareModal({ noteId, onClose }: Props) {
       return;
     }
     setSearching(true);
-    console.debug("[ShareModal] search start", { query: query.trim() });
+    logger.debug({ query: query.trim() }, "[ShareModal] search start");
     api
       .searchUsers(query.trim())
       .then((users) => {
         if (!active) return;
         setResults(users);
-        console.debug("[ShareModal] search results", { count: users.length, users });
+        logger.debug({ count: users.length, users }, "[ShareModal] search results");
       })
       .catch(() => {})
       .finally(() => {
@@ -53,7 +54,7 @@ export function ShareModal({ noteId, onClose }: Props) {
       const next = { ...prev } as Record<string, UserProfile>;
       if (next[u.sub]) delete next[u.sub];
       else next[u.sub] = u;
-      console.debug("[ShareModal] toggle select", { sub: u.sub, selected: !!next[u.sub] });
+      logger.debug({ sub: u.sub, selected: !!next[u.sub] }, "[ShareModal] toggle select");
       return next;
     });
   };
@@ -69,9 +70,12 @@ export function ShareModal({ noteId, onClose }: Props) {
       const withKeys = users.filter((u) => !!u.public_key_jwk);
       const withoutKeys = users.filter((u) => !u.public_key_jwk);
       if (withoutKeys.length > 0) {
-        console.warn("[ShareModal] some users missing public_key_jwk", {
-          subs: withoutKeys.map((u) => u.sub),
-        });
+        logger.warn(
+          {
+            subs: withoutKeys.map((u) => u.sub),
+          },
+          "[ShareModal] some users missing public_key_jwk"
+        );
       }
       if (withKeys.length === 0) {
         setError("Selected users have not set up encryption keys yet");
@@ -79,24 +83,27 @@ export function ShareModal({ noteId, onClose }: Props) {
       }
       const results = await Promise.allSettled(
         withKeys.map(async (u) => {
-          console.debug("[ShareModal] encrypting DEK for user", { sub: u.sub });
+          logger.debug({ sub: u.sub }, "[ShareModal] encrypting DEK for user");
           const pub = await importJWK(u.public_key_jwk as unknown as JWK, "ECDH-ES");
           const jwe = await new CompactEncrypt(dek)
             .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
             .encrypt(pub as CryptoKey);
-          console.debug("[ShareModal] calling share API", { sub: u.sub });
+          logger.debug({ sub: u.sub }, "[ShareModal] calling share API");
           await api.shareNote(noteId, u.sub, jwe, "write");
-          console.debug("[ShareModal] share API done", { sub: u.sub });
+          logger.debug({ sub: u.sub }, "[ShareModal] share API done");
           return u.sub;
         })
       );
       const failures = results.filter((r) => r.status === "rejected");
       const successes = results.filter((r) => r.status === "fulfilled");
       if (successes.length > 0) {
-        console.debug("[ShareModal] share completed", {
-          successes: successes.length,
-          failures: failures.length,
-        });
+        logger.debug(
+          {
+            successes: successes.length,
+            failures: failures.length,
+          },
+          "[ShareModal] share completed"
+        );
         onClose();
       } else {
         setError("Failed to share with selected users");
@@ -104,7 +111,7 @@ export function ShareModal({ noteId, onClose }: Props) {
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Failed to share";
       setError(message);
-      console.error("[ShareModal] share error", e);
+      logger.error(e, "[ShareModal] share error");
     } finally {
       setLoading(false);
     }

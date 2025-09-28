@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import adminApiService, { type AuditLog, type AuditLogFilters } from "@/services/api";
+import { logger } from "@/services/logger";
 
 const EVENT_TYPES = [
   "user_login",
@@ -95,7 +96,7 @@ export default function AuditLogs() {
       setTotalPages(response.pagination.totalPages);
       setTotalLogs(response.pagination.total);
     } catch (error) {
-      console.error("Failed to load audit logs:", error);
+      logger.error(error, "Failed to load audit logs");
       setError(error instanceof Error ? error.message : "Failed to load audit logs");
     } finally {
       setLoading(false);
@@ -149,7 +150,7 @@ export default function AuditLogs() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Failed to export audit logs:", error);
+      logger.error(error, "Failed to export audit logs");
       setError(error instanceof Error ? error.message : "Failed to export audit logs");
     }
   };

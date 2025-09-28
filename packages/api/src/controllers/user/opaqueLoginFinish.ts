@@ -6,6 +6,7 @@ import { AppError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { getUserBySubOrEmail } from "../../models/users.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { createSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -32,9 +33,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       response: ServerResponse,
       ..._params: unknown[]
     ): Promise<void> => {
-      if (!context.services.opaque) {
-        throw new ValidationError("OPAQUE service not available");
-      }
+      const opaque = await requireOpaqueService(context);
 
       if (!context.db) {
         throw new ValidationError("Database context not available");
@@ -88,7 +87,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       // Call OPAQUE service to finish login first to normalize timing
       let loginResult: OpaqueLoginResult;
       try {
-        loginResult = await context.services.opaque.finishLogin(finishBuffer, sessionId);
+        loginResult = await opaque.finishLogin(finishBuffer, sessionId);
       } catch (error) {
         context.logger.error({ err: error }, "opaque login finish failed");
         throw new UnauthorizedError("Authentication failed");

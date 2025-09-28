@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
+import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
 import { loadExportKey } from "../services/sessionKey";
 
@@ -69,7 +70,7 @@ export default function Authorize({
       const keyPair = await cryptoService.generateECDHKeyPair();
       setZkKeyPair(keyPair);
     } catch (error) {
-      console.error("Failed to generate ZK key pair:", error);
+      logger.error(error, "Failed to generate ZK key pair");
       setError("Failed to initialize zero-knowledge delivery");
     }
   }, []);
@@ -147,10 +148,10 @@ export default function Authorize({
         requestId: authRequest.requestId,
         approve,
       });
-      console.log("[Authorize] finalize ok (non-ZK), redirecting", authResponse);
+      logger.info({ response: authResponse }, "[Authorize] finalize without ZK");
       window.location.href = authResponse.redirectUrl;
     } catch (error) {
-      console.error("Authorization failed:", error);
+      logger.error(error, "Authorization failed");
 
       let errorMessage = "Authorization failed. Please try again.";
       if (error instanceof Error) {
@@ -168,12 +169,15 @@ export default function Authorize({
       setError(errorMessage);
     } finally {
       setLoading(false);
-      console.log("[Authorize] handleAuthorize finished");
+      logger.debug(
+        { requestId: authRequest.requestId, approve },
+        "[Authorize] handleAuthorize finished"
+      );
     }
   };
 
   const generateNewKeys = async () => {
-    console.log("[Authorize] generateNewKeys start");
+    logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys start");
     if (!sessionData.email) {
       setError("Email is required to initialize keys");
       return;
@@ -181,7 +185,7 @@ export default function Authorize({
     setRecoveryLoading(true);
     setError(null);
     try {
-      console.log("[Authorize] generateNewKeys deriving keys");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys deriving keys");
       const exportKey = await loadExportKey(sessionData.sub);
       if (!exportKey) {
         throw new Error("Missing export key. Please sign out and sign back in to initialize keys.");
@@ -190,23 +194,33 @@ export default function Authorize({
 
       // Clear export key from memory immediately after deriving other keys
       cryptoService.clearSensitiveData(exportKey);
-      console.log("[Authorize] generateNewKeys keys derived");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys keys derived");
       const drk = await cryptoService.generateDRK();
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
-      console.log("[Authorize] generateNewKeys put wrapped-drk");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys storing wrapped DRK");
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
       try {
         const kp = await cryptoService.generateECDHKeyPair();
         const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
-        console.log("[Authorize] generateNewKeys publish enc pub");
+        logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys publish enc pub");
         await apiService.putEncPublicJwk(pub);
         const privJwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
         const wrappedPriv = await cryptoService.wrapEncPrivateJwkWithDrk(privJwk, drk);
-        console.log("[Authorize] generateNewKeys put wrapped enc priv");
+        logger.debug(
+          { sub: sessionData.sub },
+          "[Authorize] generateNewKeys store wrapped enc priv"
+        );
         await apiService.putWrappedEncPrivateJwk(wrappedPriv);
         cryptoService.clearSensitiveData(drk);
-      } catch {}
-      console.log("[Authorize] generateNewKeys success. About to finalize");
+      } catch (err) {
+        logger.warn(
+          err instanceof Error
+            ? { name: err.name, message: err.message, stack: err.stack }
+            : { detail: String(err) },
+          "Failed to refresh encryption keys"
+        );
+      }
+      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys success");
       setRecoveryVisible(false);
       try {
         const url = new URL(window.location.href);
@@ -216,7 +230,10 @@ export default function Authorize({
           const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
           const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
           const drkHash = await sha256Base64Url(jwe);
-          console.log("[Authorize] finalize directly after generateNewKeys");
+          logger.debug(
+            { requestId: authRequest.requestId },
+            "[Authorize] finalize immediately after generateNewKeys"
+          );
           const authResponse = await apiService.authorize({
             requestId: authRequest.requestId,
             approve: true,
@@ -227,10 +244,18 @@ export default function Authorize({
           return;
         }
       } catch (e) {
-        console.warn("[Authorize] direct finalize after generateNewKeys failed; falling back", e);
+        logger.warn(
+          e instanceof Error
+            ? { name: e.name, message: e.message, stack: e.stack }
+            : { detail: String(e) },
+          "[Authorize] immediate finalize after generateNewKeys failed"
+        );
       }
       queueMicrotask(() => {
-        console.log("[Authorize] microtask finalize after generateNewKeys");
+        logger.debug(
+          { requestId: authRequest.requestId },
+          "[Authorize] microtask finalize after generateNewKeys"
+        );
         handleAuthorize(true);
       });
     } catch (e) {
@@ -241,7 +266,7 @@ export default function Authorize({
   };
 
   const recoverWithOldPassword = async () => {
-    console.log("[Authorize] recoverWithOldPassword start");
+    logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword start");
     if (!sessionData.email) {
       setError("Email is required for recovery");
       return;
@@ -253,10 +278,10 @@ export default function Authorize({
     setRecoveryLoading(true);
     setError(null);
     try {
-      console.log("[Authorize] recoverWithOldPassword OPAQUE start");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE start");
       const oldStart = await opaqueService.startLogin(sessionData.email, oldPassword);
       const oldStartResp = await apiService.passwordVerifyStart(oldStart.request);
-      console.log("[Authorize] recoverWithOldPassword OPAQUE finish");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE finish");
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
       opaqueService.clearState(oldStart.state);
       const currentExportKey = await loadExportKey(sessionData.sub);
@@ -266,24 +291,30 @@ export default function Authorize({
         );
       }
 
-      console.log("[Authorize] recoverWithOldPassword fetch wrapped-drk");
+      logger.debug(
+        { sub: sessionData.sub },
+        "[Authorize] recoverWithOldPassword fetch wrapped DRK"
+      );
       const wrappedDrkB64 = await apiService.getWrappedDrk();
       const wrapped = fromBase64Url(wrappedDrkB64);
-      console.log("[Authorize] recoverWithOldPassword unwrap old");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword unwrap old DRK");
       const keysOld = await cryptoService.deriveKeysFromExportKey(
         oldFinish.exportKey,
         sessionData.sub
       );
       const drk = await cryptoService.unwrapDRK(wrapped, keysOld.wrapKey, sessionData.sub);
-      console.log("[Authorize] recoverWithOldPassword rewrap new");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword rewrap new DRK");
       const keysNew = await cryptoService.deriveKeysFromExportKey(
         currentExportKey,
         sessionData.sub
       );
       const rewrapped = await cryptoService.wrapDRK(drk, keysNew.wrapKey, sessionData.sub);
-      console.log("[Authorize] recoverWithOldPassword put wrapped-drk");
+      logger.debug(
+        { sub: sessionData.sub },
+        "[Authorize] recoverWithOldPassword store wrapped DRK"
+      );
       await apiService.putWrappedDrk(toBase64Url(rewrapped));
-      console.log("[Authorize] recovery success. About to finalize");
+      logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
       setRecoveryVisible(false);
       setOldPassword("");
       try {
@@ -294,7 +325,10 @@ export default function Authorize({
           const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
           const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
           const drkHash = await sha256Base64Url(jwe);
-          console.log("[Authorize] finalize directly after recovery");
+          logger.debug(
+            { requestId: authRequest.requestId },
+            "[Authorize] finalize immediately after recovery"
+          );
           const authResponse = await apiService.authorize({
             requestId: authRequest.requestId,
             approve: true,
@@ -305,10 +339,18 @@ export default function Authorize({
           return;
         }
       } catch (e) {
-        console.warn("[Authorize] direct finalize after recovery failed; falling back", e);
+        logger.warn(
+          e instanceof Error
+            ? { name: e.name, message: e.message, stack: e.stack }
+            : { detail: String(e) },
+          "[Authorize] immediate finalize after recovery failed"
+        );
       }
       queueMicrotask(() => {
-        console.log("[Authorize] microtask finalize after recovery");
+        logger.debug(
+          { requestId: authRequest.requestId },
+          "[Authorize] microtask finalize after recovery"
+        );
         handleAuthorize(true);
       });
     } catch (e) {

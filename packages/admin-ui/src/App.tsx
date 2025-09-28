@@ -7,6 +7,7 @@ import AdminLogin from "@/components/Login";
 import { Toaster } from "@/components/ui/toaster";
 import adminApiService from "@/services/api";
 import authService from "@/services/auth";
+import { logger } from "@/services/logger";
 import AdminOtp from "./pages/AdminOtp";
 import AdminUserCreate from "./pages/AdminUserCreate";
 import AdminUserEdit from "./pages/AdminUserEdit";
@@ -74,7 +75,7 @@ const App = () => {
           try {
             await adminApiService.getAdminSession();
           } catch (error) {
-            console.error("Session refresh failed:", error);
+            logger.error(error, "Session refresh failed");
             setAdminSession(null);
             authService.clearSession();
           }
@@ -112,7 +113,7 @@ const App = () => {
       try {
         await adminApiService.getAdminSession();
       } catch (error) {
-        console.error("Session refresh failed:", error);
+        logger.error(error, "Session refresh failed");
         setAdminSession(null);
         authService.clearSession();
       }
@@ -126,7 +127,7 @@ const App = () => {
       authService.clearSession();
       window.location.assign("/");
     } catch (error) {
-      console.error("Logout failed:", error);
+      logger.error(error, "Logout failed");
     }
   };
 

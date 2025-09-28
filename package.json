@@ -14,7 +14,7 @@
     "dev:ui": "npm run dev -w @DarkAuth/user-ui",
     "dev:admin": "npm run dev -w @DarkAuth/admin-ui",
     "dev:brochureware": "npm run dev -w @DarkAuth/brochureware",
-    "build": "npm run build --workspaces --if-present",
+    "build": "node scripts/build-workspaces.mjs",
     "build:ui": "npm run build -w @DarkAuth/user-ui",
     "build:admin": "npm run build -w @DarkAuth/admin-ui",
     "build:api": "npm run build -w @DarkAuth/api",
