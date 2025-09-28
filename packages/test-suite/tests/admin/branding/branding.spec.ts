@@ -2,12 +2,14 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
-import { establishAdminSession } from '../../../setup/helpers/auth.js';
+import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
+import { createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 
 test.describe('Admin - Branding Settings', () => {
   let servers: TestServers;
   
+  let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
+
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-branding' });
     await installDarkAuth({
@@ -17,6 +19,13 @@ test.describe('Admin - Branding Settings', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
+    const secondary = await createSecondaryAdmin();
+    await createAdminUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      { ...secondary, role: 'write' }
+    );
+    adminCred = { email: secondary.email, password: secondary.password };
   });
   
   test.afterAll(async () => {
@@ -25,18 +34,8 @@ test.describe('Admin - Branding Settings', () => {
     }
   });
 
-  test.beforeEach(async ({ page, context }) => {
-    await page.goto(`${servers.adminUrl}/`);
-    try {
-      await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email, { timeout: 3000 });
-      await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-      await page.click('button[type="submit"], button:has-text("Sign In")');
-      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-    } catch {
-      await establishAdminSession(context, servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
-      await page.goto(`${servers.adminUrl}/`);
-      await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-    }
+  test.beforeEach(async ({ page }) => {
+    await ensureAdminDashboard(page, servers, adminCred);
     
     // Navigate to Branding page
     await page.click('a[href="/branding"], button:has-text("Branding")');
@@ -129,8 +128,11 @@ test.describe('Admin - Branding Settings', () => {
     await page.waitForSelector('text="Brand color"', { timeout: 10000 });
     
     const lightColorInput = page.locator('input[value*="#"]').nth(1);
+    const darkColorInput = page.locator('input[value*="#"]').nth(3);
     await lightColorInput.clear();
+    await darkColorInput.clear();
     await lightColorInput.fill('#ff00ff'); // Magenta
+    await darkColorInput.fill('#ff00ff');
     
     // Save the changes
     await page.locator('button:has-text("Save")').first().click();
@@ -139,23 +141,22 @@ test.describe('Admin - Branding Settings', () => {
     // Open a new page and navigate to the user UI
     const userPage = await context.newPage();
     await userPage.goto(`${servers.userUrl}/`);
-    
-    // Wait for the login page to load
     await userPage.waitForSelector('input[name="email"], input[type="email"]', { timeout: 10000 });
-    
-    // Check if the brand color is applied to buttons
     const submitButton = userPage.locator('button[type="submit"]').first();
-    const buttonStyles = await submitButton.evaluate((el) => {
-      const styles = window.getComputedStyle(el);
+    await userPage.waitForFunction(() => {
+      const button = document.querySelector('button[type="submit"]');
+      if (!button) return false;
+      const color = window.getComputedStyle(button).backgroundColor;
+      return typeof color === 'string' && color.includes('255');
+    }, { timeout: 15000 });
+    const buttonStyles = await submitButton.evaluate((element) => {
+      const styles = window.getComputedStyle(element);
       return {
         backgroundColor: styles.backgroundColor,
         borderColor: styles.borderColor
       };
     });
-    
-    // The magenta color should be applied (rgb(255, 0, 255))
     expect(buttonStyles.backgroundColor).toContain('255');
-    
     await userPage.close();
   });
 
