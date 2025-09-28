@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getAdminById } from "../../models/adminUsers.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -25,7 +26,7 @@ async function postAdminUserPasswordSetStartHandler(
   response: ServerResponse,
   adminId: string
 ) {
-  if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
+  const opaque = await requireOpaqueService(context);
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") throw new ValidationError("Write permission required");
 
@@ -36,10 +37,7 @@ async function postAdminUserPasswordSetStartHandler(
   const data = parseJsonSafely(body);
   const parsed = PasswordSetStartRequestSchema.parse(data);
   const requestBuffer = fromBase64Url(parsed.request);
-  const registrationResponse = await context.services.opaque.startRegistration(
-    requestBuffer,
-    admin.email
-  );
+  const registrationResponse = await opaque.startRegistration(requestBuffer, admin.email);
 
   sendJson(response, 200, {
     message: toBase64Url(Buffer.from(registrationResponse.message)),

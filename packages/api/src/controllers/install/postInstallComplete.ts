@@ -9,7 +9,7 @@ import {
 } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { generateEdDSAKeyPair, storeKeyPair } from "../../services/jwks.js";
-import { createKekService, generateKdfParams } from "../../services/kek.js";
+import { ensureKekService, generateKdfParams } from "../../services/kek.js";
 import {
   isSystemInitialized,
   markSystemInitialized,
@@ -87,7 +87,7 @@ async function _postInstallComplete(
 
     const passphrase = context.config.kekPassphrase;
     const kdfParams = generateKdfParams();
-    const kekService = await createKekService(passphrase, kdfParams);
+    const kekService = await ensureKekService(context, passphrase, kdfParams);
 
     context.logger.info(
       {
@@ -130,7 +130,6 @@ async function _postInstallComplete(
     await storeKeyPair(tempContextForKeys, kid, publicJwk, privateJwk);
 
     context.logger.debug("[install:post] creating default clients");
-    const _appWebClientSecret = generateRandomString(32);
     const supportDeskClientSecret = generateRandomString(32);
 
     const supportDeskSecretEnc = await kekService.encrypt(Buffer.from(supportDeskClientSecret));
@@ -180,8 +179,6 @@ async function _postInstallComplete(
       ],
       serverWillRestart: true,
     });
-
-    context.services.kek = kekService;
 
     try {
       const { upsertConfig } = await import("../../config/saveConfig.js");

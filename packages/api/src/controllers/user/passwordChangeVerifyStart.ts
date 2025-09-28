@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getUserOpaqueRecordByEmail } from "../../models/users.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -13,9 +14,7 @@ export async function postUserPasswordVerifyStart(
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> {
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  const opaque = await requireOpaqueService(context);
 
   const session = await requireSession(context, request, false);
   if (!session.email) throw new ValidationError("Email not available for session");
@@ -68,7 +67,7 @@ export async function postUserPasswordVerifyStart(
 
   let loginResponse: OpaqueLoginResponse;
   try {
-    loginResponse = await context.services.opaque.startLogin(
+    loginResponse = await opaque.startLogin(
       requestBuffer,
       {
         envelope: new Uint8Array(envelopeBuf),

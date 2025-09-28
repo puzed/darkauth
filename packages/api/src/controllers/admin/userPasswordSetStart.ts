@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { startUserPasswordSetForAdmin } from "../../models/passwords.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
@@ -28,16 +29,13 @@ async function postUserPasswordSetStartHandler(
   userSub: string
 ): Promise<void> {
   try {
-    if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
+    await requireOpaqueService(context);
     const session = await requireSession(context, request, true);
     if (!session.adminRole) throw new ValidationError("Admin privileges required");
 
     const body = await readBody(request);
-    const data = parseJsonSafely(body) as Record<string, unknown>;
-    if (!data.request || typeof data.request !== "string") {
-      throw new ValidationError("Missing or invalid request field");
-    }
-    const requestBuffer = fromBase64Url(data.request as string);
+    const parsed = PasswordSetStartRequestSchema.parse(parseJsonSafely(body));
+    const requestBuffer = fromBase64Url(parsed.request);
     const { registrationResponse, identityU } = await startUserPasswordSetForAdmin(
       context,
       userSub,

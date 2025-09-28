@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { eq, lt } from "drizzle-orm";
 import { opaqueLoginSessions } from "../db/schema.js";
+import { ValidationError } from "../errors.js";
 import {
   createOpaqueClientService,
   createOpaqueServerService,
@@ -17,63 +18,44 @@ import type {
 } from "../types.js";
 import { loadOpaqueServerState, saveOpaqueServerState } from "./opaqueState.js";
 
-let opaqueServerService: OpaqueServerService | null = null;
-
-/**
- * RFC 9380 compliant OPAQUE service
- *
- * Provides password-authenticated key exchange where the server never learns passwords,
- * export keys are deterministic per user+password, and the protocol is secure against
- * offline dictionary attacks.
- */
 export async function createOpaqueService(context?: Context) {
-  if (!opaqueServerService) {
-    try {
-      context?.logger?.debug("[opaque] server.init: loading persisted state");
-    } catch {
-      // Logger errors are ignored
-    }
-    const persistedState = context ? await loadOpaqueServerState(context) : undefined;
-    const serverState = persistedState
-      ? {
-          oprfSeed: persistedState.oprfSeed,
-          serverKeypair: persistedState.serverKeypair,
-          serverIdentity: persistedState.serverIdentity || "DarkAuth",
-        }
-      : undefined;
-
-    opaqueServerService = await createOpaqueServerService(serverState, context?.logger);
-
-    if (context) {
-      const state = opaqueServerService.getState();
-      try {
-        context?.logger?.debug(
-          {
-            oprfSeedLen: state.oprfSeed?.length || 0,
-            pubLen: state.serverKeypair?.public_key?.length || 0,
-          },
-          "[opaque] server.state"
-        );
-      } catch {
-        // Logger errors are ignored
+  try {
+    context?.logger?.debug("[opaque] server.init: loading persisted state");
+  } catch {}
+  const persistedState = context ? await loadOpaqueServerState(context) : undefined;
+  const serverState = persistedState
+    ? {
+        oprfSeed: persistedState.oprfSeed,
+        serverKeypair: persistedState.serverKeypair,
+        serverIdentity: persistedState.serverIdentity || "DarkAuth",
       }
-      const stateToSave = {
-        oprfSeed: state.oprfSeed,
-        serverKeypair: state.serverKeypair,
-        serverIdentity: state.serverIdentity || "DarkAuth",
-      };
-      await saveOpaqueServerState(context, stateToSave);
-    }
+    : undefined;
+
+  const server: OpaqueServerService = await createOpaqueServerService(serverState, context?.logger);
+
+  if (context) {
+    const state = server.getState();
+    try {
+      context.logger.debug(
+        {
+          oprfSeedLen: state.oprfSeed?.length || 0,
+          pubLen: state.serverKeypair?.public_key?.length || 0,
+        },
+        "[opaque] server.state"
+      );
+    } catch {}
+    const stateToSave = {
+      oprfSeed: state.oprfSeed,
+      serverKeypair: state.serverKeypair,
+      serverIdentity: state.serverIdentity || "DarkAuth",
+    };
+    await saveOpaqueServerState(context, stateToSave);
   }
 
   let dummyRecord: { envelope: Uint8Array; serverPublicKey: Uint8Array } | null = null;
 
   async function ensureDummyRecord() {
     if (dummyRecord) return dummyRecord;
-    const server = opaqueServerService;
-    if (!server) {
-      throw new Error("OPAQUE server not initialized");
-    }
     const client = await createOpaqueClientService();
     const identityU = "dummy@example.invalid";
     const password = Buffer.from(randomBytes(32)).toString("base64");
@@ -91,13 +73,9 @@ export async function createOpaqueService(context?: Context) {
     return dummyRecord;
   }
 
-  return {
+  const service = {
     async serverSetup(): Promise<OpaqueServerSetup> {
-      if (!opaqueServerService) {
-        throw new Error("OPAQUE server not initialized");
-      }
-
-      const setup = opaqueServerService.getSetup();
+      const setup = server.getSetup();
       try {
         context?.logger?.debug({ event: "opaque.serverSetup" });
       } catch {}
@@ -111,11 +89,7 @@ export async function createOpaqueService(context?: Context) {
       identityU: string,
       identityS = "DarkAuth"
     ): Promise<OpaqueRegistrationResponse> {
-      if (!opaqueServerService) {
-        throw new Error("OPAQUE server not initialized");
-      }
-
-      const result = await opaqueServerService.startRegistration(request, identityU, identityS);
+      const result = await server.startRegistration(request, identityU, identityS);
       try {
         context?.logger?.debug({
           event: "opaque.startRegistration",
@@ -126,7 +100,7 @@ export async function createOpaqueService(context?: Context) {
 
       return {
         message: result.response,
-        serverPublicKey: opaqueServerService.getSetup().serverPublicKey,
+        serverPublicKey: server.getSetup().serverPublicKey,
       };
     },
 
@@ -135,11 +109,7 @@ export async function createOpaqueService(context?: Context) {
       identityU: string,
       identityS = "DarkAuth"
     ): Promise<OpaqueRecord> {
-      if (!opaqueServerService) {
-        throw new Error("OPAQUE server not initialized");
-      }
-
-      const result = await opaqueServerService.finishRegistration(upload, identityU, identityS);
+      const result = await server.finishRegistration(upload, identityU, identityS);
       try {
         context?.logger?.debug({
           event: "opaque.finishRegistration",
@@ -159,11 +129,7 @@ export async function createOpaqueService(context?: Context) {
       identityU: string,
       identityS = "DarkAuth"
     ): Promise<OpaqueLoginResponse> {
-      if (!opaqueServerService) {
-        throw new Error("OPAQUE server not initialized");
-      }
-
-      const result = await opaqueServerService.startLogin(
+      const result = await server.startLogin(
         request,
         record.envelope,
         record.serverPublicKey,
@@ -177,24 +143,22 @@ export async function createOpaqueService(context?: Context) {
       const sessionId = Buffer.from(result.state).toString();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-      // Encrypt identity parameters before storing (if KEK service is available)
+      if (!context) {
+        throw new Error("Database context is required for OPAQUE login sessions");
+      }
+
       let identitySToStore: string;
       let identityUToStore: string;
 
-      if (context?.services?.kek) {
+      if (context.services?.kek) {
         const kekSvc = context.services.kek;
         const encryptedIdentityS = await kekSvc.encrypt(Buffer.from(identityS, "utf-8"));
         const encryptedIdentityU = await kekSvc.encrypt(Buffer.from(identityU, "utf-8"));
         identitySToStore = encryptedIdentityS.toString("base64");
         identityUToStore = encryptedIdentityU.toString("base64");
       } else {
-        // Fallback to base64 encoding if KEK not available (during initial setup)
         identitySToStore = Buffer.from(identityS, "utf-8").toString("base64");
         identityUToStore = Buffer.from(identityU, "utf-8").toString("base64");
-      }
-
-      if (!context?.db) {
-        throw new Error("Database context is required for OPAQUE login sessions");
       }
 
       await context.db
@@ -226,14 +190,11 @@ export async function createOpaqueService(context?: Context) {
       identityS = "DarkAuth"
     ): Promise<OpaqueLoginResponse> {
       const rec = await ensureDummyRecord();
-      return this.startLogin(request, rec, identityU, identityS);
+      return service.startLogin(request, rec, identityU, identityS);
     },
 
     async finishLogin(finish: Uint8Array, sessionId: string): Promise<OpaqueLoginResult> {
-      if (!opaqueServerService) {
-        throw new Error("OPAQUE server not initialized");
-      }
-      if (!context?.db) {
+      if (!context) {
         throw new Error("Database context is required for OPAQUE login sessions");
       }
 
@@ -251,11 +212,10 @@ export async function createOpaqueService(context?: Context) {
         throw new Error("Invalid or expired login session");
       }
 
-      // Decrypt identity parameters before using (if KEK service is available)
       let decryptedIdentityS: string;
       let decryptedIdentityU: string;
 
-      if (context?.services?.kek) {
+      if (context.services?.kek) {
         try {
           const kekSvc = context.services.kek;
           const decS = await kekSvc.decrypt(Buffer.from(row.identityS, "base64"));
@@ -263,12 +223,10 @@ export async function createOpaqueService(context?: Context) {
           decryptedIdentityS = decS.toString("utf-8");
           decryptedIdentityU = decU.toString("utf-8");
         } catch {
-          // Fallback if decryption fails (data might be base64 encoded during initial setup)
           decryptedIdentityS = Buffer.from(row.identityS, "base64").toString("utf-8");
           decryptedIdentityU = Buffer.from(row.identityU, "base64").toString("utf-8");
         }
       } else {
-        // Fallback to base64 decoding if KEK not available
         decryptedIdentityS = Buffer.from(row.identityS, "base64").toString("utf-8");
         decryptedIdentityU = Buffer.from(row.identityU, "base64").toString("utf-8");
       }
@@ -286,7 +244,7 @@ export async function createOpaqueService(context?: Context) {
 
       let result: OpaqueLoginResult;
       try {
-        result = await opaqueServerService.finishLogin(
+        result = await server.finishLogin(
           finish,
           new Uint8Array(row.serverState ?? []),
           decryptedIdentityU,
@@ -318,12 +276,35 @@ export async function createOpaqueService(context?: Context) {
         sessionKey: result.sessionKey,
       };
     },
-  };
+  } satisfies Context["services"]["opaque"];
+
+  return service;
 }
 
-/**
- * Client-side OPAQUE operations for browser/UI integration
- */
 export async function createOpaqueClient() {
   return createOpaqueClientService();
+}
+
+export async function ensureOpaqueService(
+  context: Context
+): Promise<NonNullable<Context["services"]["opaque"]>> {
+  if (context.services.opaque) {
+    return context.services.opaque;
+  }
+
+  const tempDb = context.services.install?.tempDb;
+  const baseContext = tempDb ? { ...context, db: tempDb } : context;
+  const service = await createOpaqueService(baseContext);
+  context.services.opaque = service;
+  return service;
+}
+
+export async function requireOpaqueService(
+  context: Context
+): Promise<NonNullable<Context["services"]["opaque"]>> {
+  try {
+    return await ensureOpaqueService(context);
+  } catch (error) {
+    throw new ValidationError("OPAQUE service not available", { cause: error });
+  }
 }

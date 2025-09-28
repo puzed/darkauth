@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { adminUserPasswordSetFinish } from "../../models/adminPasswords.js";
 import { getAdminById } from "../../models/adminUsers.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -27,7 +28,7 @@ async function postAdminUserPasswordSetFinishHandler(
 ) {
   const Params = z.object({ adminId: z.string() });
   const { adminId } = Params.parse({ adminId: _params[0] });
-  if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
+  await requireOpaqueService(context);
   const session = await requireSession(context, request, true);
   if (session.adminRole !== "write") throw new ValidationError("Write permission required");
 

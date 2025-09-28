@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { userPasswordChangeFinish } from "../../models/passwords.js";
+import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
@@ -14,9 +15,7 @@ async function postUserPasswordChangeFinishHandler(
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  if (!context.services.opaque) {
-    throw new ValidationError("OPAQUE service not available");
-  }
+  await requireOpaqueService(context);
 
   const session = await requireSession(context, request, false);
   if (!session.sub || !session.email) {
