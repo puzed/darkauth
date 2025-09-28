@@ -22,9 +22,9 @@ test.describe('Admin Audit Logs - List', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('lists Admin Login event after login', async ({ page, context }) => {
+  test('lists Admin Login event after login', async ({ page }) => {
     const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, context, servers, admin);
+    await ensureAdminDashboard(page, servers, admin);
 
     await page.getByRole('button', { name: /View All/i }).click();
     await expect(page).toHaveURL(/\/audit(\?|$|\/?)/);

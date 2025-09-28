@@ -24,9 +24,9 @@ test.describe('Admin - Branding Settings', () => {
     }
   });
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page }) => {
     const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, context, servers, admin);
+    await ensureAdminDashboard(page, servers, admin);
     
     // Navigate to Branding page
     await page.click('a[href="/branding"], button:has-text("Branding")');
@@ -119,8 +119,11 @@ test.describe('Admin - Branding Settings', () => {
     await page.waitForSelector('text="Brand color"', { timeout: 10000 });
     
     const lightColorInput = page.locator('input[value*="#"]').nth(1);
+    const darkColorInput = page.locator('input[value*="#"]').nth(3);
     await lightColorInput.clear();
+    await darkColorInput.clear();
     await lightColorInput.fill('#ff00ff'); // Magenta
+    await darkColorInput.fill('#ff00ff');
     
     // Save the changes
     await page.locator('button:has-text("Save")').first().click();

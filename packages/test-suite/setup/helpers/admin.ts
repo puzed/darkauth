@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
 import { completeAdminOtpForPage, establishAdminSession, getAdminBearerToken } from './auth.js';
 import type { TestServers } from '../server.js';
@@ -20,7 +20,6 @@ export type AdminCredentials = {
 
 export async function ensureAdminDashboard(
   page: Page,
-  context: BrowserContext,
   servers: TestServers,
   admin: AdminCredentials,
   options?: { label?: string }
@@ -41,7 +40,7 @@ export async function ensureAdminDashboard(
     }
     await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
   } catch {
-    await establishAdminSession(context, servers, admin);
+    await establishAdminSession(page.context(), servers, admin);
     await page.goto(`${servers.adminUrl}/`);
     await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
     if (page.url().includes('/otp')) {

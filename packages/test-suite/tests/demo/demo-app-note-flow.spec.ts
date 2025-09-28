@@ -58,7 +58,7 @@ test.describe('Demo App Note Flow', () => {
       throw new Error('servers not initialized');
     }
     const bundle: DemoServerBundle = { servers, demoApi, demoUi };
-    await ensureAdminDashboard(page, context, servers, secondaryAdmin);
+    await ensureAdminDashboard(page, servers, secondaryAdmin);
     await ensureSelfRegistrationEnabled(page);
     await configureDemoClient(servers, secondaryAdmin, demoUi.url);
     const { user, page: userPage, snapshot } = await registerDemoUser(context, servers);

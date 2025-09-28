@@ -23,9 +23,9 @@ test.describe('Admin - Groups Default and Enable Login', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('Default group exists and enable login can be toggled', async ({ page, context }) => {
+  test('Default group exists and enable login can be toggled', async ({ page }) => {
     const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, context, servers, admin);
+    await ensureAdminDashboard(page, servers, admin);
 
     await page.click('a[href="/groups"], button:has-text("Groups")');
     await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();

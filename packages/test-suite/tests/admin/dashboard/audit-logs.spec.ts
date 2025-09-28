@@ -22,9 +22,9 @@ test.describe('Admin Dashboard - Audit Logs Widget', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('shows Admin Login in Recent Activity', async ({ page, context }) => {
+  test('shows Admin Login in Recent Activity', async ({ page }) => {
     const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, context, servers, admin);
+    await ensureAdminDashboard(page, servers, admin);
     await expect(page.getByText('Recent Activity')).toBeVisible({ timeout: 15000 });
 
     await expect(page.getByText(/Admin Login/i)).toBeVisible({ timeout: 15000 });

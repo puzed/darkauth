@@ -24,9 +24,9 @@ test.describe('Admin - Users', () => {
     }
   });
 
-  test.beforeEach(async ({ page, context }) => {
+  test.beforeEach(async ({ page }) => {
     const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, context, servers, admin);
+    await ensureAdminDashboard(page, servers, admin);
     await page.click('a[href="/users"], button:has-text("Users")');
     await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible();
     await expect(page.getByText('Manage user accounts and permissions')).toBeVisible();
