@@ -43,8 +43,8 @@
     "node": ">=20.0.0"
   },
   "overrides": {
-    "esbuild": "^0.25.9",
-    "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
+    "esbuild": "^0.25.10",
+    "@esbuild-kit/esm-loader": "npm:tsx@^4.20.6"
   },
   "dependencies": {
     "concurrently": "^9.2.1"
