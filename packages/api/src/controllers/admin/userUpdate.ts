@@ -63,7 +63,6 @@ export const updateUser = withAudit({
   extractResourceId: (_body: unknown, params: string[]) => params[0],
 })(updateUserHandler as HttpHandler);
 
-// OpenAPI schema definition
 export const schema = {
   method: "PUT",
   path: "/admin/users/{sub}",
