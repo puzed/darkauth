@@ -30,6 +30,7 @@ async function migrateToSecureStorage(sub: string): Promise<void> {
 
 // Enhanced export key storage with XSS protection
 export async function saveExportKey(sub: string, key: Uint8Array): Promise<void> {
+  clearExportKey(sub);
   try {
     // Use secure storage
     await secureStorageService.saveExportKey(sub, key);
@@ -112,9 +113,9 @@ export async function loadExportKey(sub: string): Promise<Uint8Array | null> {
 
 export function clearExportKey(sub: string): void {
   // Clear from both secure and legacy storage
-  secureStorageService.clearExportKey(sub);
   sessionStorage.removeItem(LEGACY_PREFIX + sub);
   sessionStorage.removeItem(SECURE_MIGRATION_FLAG + sub);
+  secureStorageService.clearExportKey(sub);
 }
 
 // Clear all export keys (useful for logout)
