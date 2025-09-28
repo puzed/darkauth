@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
 import path, { resolve } from "node:path";
-import react from "@vitejs/plugin-react-swc";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 let COMMIT_HASH = process.env.COMMIT_HASH;
