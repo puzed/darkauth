@@ -2,11 +2,13 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { getAdminBearerToken } from '../../../setup/helpers/auth.js';
-import { ensureAdminDashboard } from '../../../setup/helpers/admin.js';
+import { getAdminBearerToken, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
+import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 
 test.describe('Admin - Groups Default and Enable Login', () => {
   let servers: TestServers;
+
+  let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-groups-default' });
@@ -17,6 +19,13 @@ test.describe('Admin - Groups Default and Enable Login', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
+    const secondary = await createSecondaryAdmin();
+    await createAdminUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      { ...secondary, role: 'write' }
+    );
+    adminCred = { email: secondary.email, password: secondary.password };
   });
 
   test.afterAll(async () => {
@@ -24,8 +33,7 @@ test.describe('Admin - Groups Default and Enable Login', () => {
   });
 
   test('Default group exists and enable login can be toggled', async ({ page }) => {
-    const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, servers, admin);
+    await ensureAdminDashboard(page, servers, adminCred);
 
     await page.click('a[href="/groups"], button:has-text("Groups")');
     await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
@@ -57,7 +65,7 @@ test.describe('Admin - Groups Default and Enable Login', () => {
   });
 
   test('Enable Login value persists via API', async () => {
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const token = await getAdminBearerToken(servers, adminCred);
     const res = await fetch(`${servers.adminUrl}/admin/groups`, {
       headers: { 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl }
     });

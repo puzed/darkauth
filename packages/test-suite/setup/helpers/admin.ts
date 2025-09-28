@@ -26,32 +26,23 @@ export async function ensureAdminDashboard(
 ): Promise<void> {
   attachConsoleLogging(page, options?.label ?? 'admin');
   await page.goto(`${servers.adminUrl}/`);
-  try {
-    await page.fill('input[name="email"], input[type="email"]', admin.email, { timeout: 4000 });
-    await page.fill('input[name="password"], input[type="password"]', admin.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
-    await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
-    if (page.url().includes('/otp')) {
-      await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, {
-        timeout: 10000,
-      });
-      await completeAdminOtpForPage(page, servers, admin);
-      await page.goto(`${servers.adminUrl}/`);
-    }
-    await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
-  } catch {
+  await page.fill('input[name="email"], input[type="email"]', admin.email, { timeout: 4000 }).catch(async () => {
     await establishAdminSession(page.context(), servers, admin);
     await page.goto(`${servers.adminUrl}/`);
+    await page.fill('input[name="email"], input[type="email"]', admin.email, { timeout: 4000 });
+  });
+  await page.fill('input[name="password"], input[type="password"]', admin.password);
+  await page.click('button[type="submit"], button:has-text("Sign In")');
+  await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
+  if (page.url().includes('/otp')) {
+    await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, {
+      timeout: 10000,
+    });
+    await completeAdminOtpForPage(page, servers, admin);
+    await page.goto(`${servers.adminUrl}/`);
     await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
-    if (page.url().includes('/otp')) {
-      await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, {
-        timeout: 10000,
-      });
-      await completeAdminOtpForPage(page, servers, admin);
-      await page.goto(`${servers.adminUrl}/`);
-    }
-    await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
   }
+  await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
 }
 
 export async function ensureSelfRegistrationEnabled(page: Page): Promise<void> {

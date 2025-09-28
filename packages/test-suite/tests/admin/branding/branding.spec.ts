@@ -2,11 +2,14 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { ensureAdminDashboard } from '../../../setup/helpers/admin.js';
+import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
+import { createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 
 test.describe('Admin - Branding Settings', () => {
   let servers: TestServers;
   
+  let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
+
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-branding' });
     await installDarkAuth({
@@ -16,6 +19,13 @@ test.describe('Admin - Branding Settings', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
+    const secondary = await createSecondaryAdmin();
+    await createAdminUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      { ...secondary, role: 'write' }
+    );
+    adminCred = { email: secondary.email, password: secondary.password };
   });
   
   test.afterAll(async () => {
@@ -25,8 +35,7 @@ test.describe('Admin - Branding Settings', () => {
   });
 
   test.beforeEach(async ({ page }) => {
-    const admin = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
-    await ensureAdminDashboard(page, servers, admin);
+    await ensureAdminDashboard(page, servers, adminCred);
     
     // Navigate to Branding page
     await page.click('a[href="/branding"], button:has-text("Branding")');
