@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
-import { completeAdminOtpForPage, establishAdminSession, getAdminBearerToken } from './auth.js';
+import { getAdminBearerToken } from './auth.js';
 import type { TestServers } from '../server.js';
 import { attachConsoleLogging } from './browser.js';
 
@@ -25,23 +25,14 @@ export async function ensureAdminDashboard(
   options?: { label?: string }
 ): Promise<void> {
   attachConsoleLogging(page, options?.label ?? 'admin');
+  const accessToken = await getAdminBearerToken(servers, admin);
+  await page.addInitScript((token: string) => {
+    try {
+      window.localStorage.setItem('adminAccessToken', token);
+    } catch {}
+  }, accessToken);
   await page.goto(`${servers.adminUrl}/`);
-  await page.fill('input[name="email"], input[type="email"]', admin.email, { timeout: 4000 }).catch(async () => {
-    await establishAdminSession(page.context(), servers, admin);
-    await page.goto(`${servers.adminUrl}/`);
-    await page.fill('input[name="email"], input[type="email"]', admin.email, { timeout: 4000 });
-  });
-  await page.fill('input[name="password"], input[type="password"]', admin.password);
-  await page.click('button[type="submit"], button:has-text("Sign In")');
-  await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
-  if (page.url().includes('/otp')) {
-    await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, {
-      timeout: 10000,
-    });
-    await completeAdminOtpForPage(page, servers, admin);
-    await page.goto(`${servers.adminUrl}/`);
-    await page.waitForURL(/\/(otp|dashboard)/, { timeout: 15000 }).catch(() => {});
-  }
+  await page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
   await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
 }
 
