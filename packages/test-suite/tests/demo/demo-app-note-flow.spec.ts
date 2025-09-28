@@ -4,6 +4,7 @@ import { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 import { PGlite } from '@electric-sql/pglite';
 import { createServer as createDemoServer } from '@DarkAuth/demo-app/server/src/createServer.ts';
 import type { Context as DemoContext } from '@DarkAuth/demo-app/server/src/types.ts';
@@ -79,15 +80,27 @@ function getContentType(filePath: string): string {
   return 'application/octet-stream';
 }
 
-async function startDemoUiServer(demoApiUrl: string, issuer: string): Promise<DemoUiServer> {
-  const staticRoot = path.resolve(process.cwd(), '../demo-app/dist');
-  console.log('demo ui static root', staticRoot);
-  const indexPath = path.join(staticRoot, 'index.html');
-  const hasIndex = await fileExists(indexPath);
-  console.log('demo ui index check', { indexPath, hasIndex });
-  if (!hasIndex) {
-    throw new Error(`demo ui index missing at ${indexPath}`);
+async function resolveDemoStaticRoot(): Promise<string> {
+  const repoRoot = fileURLToPath(new URL('../../../../', import.meta.url));
+  const candidates = [
+    path.join(repoRoot, 'packages/demo-app/dist'),
+    path.resolve(process.cwd(), 'packages/demo-app/dist'),
+    path.resolve(process.cwd(), '../demo-app/dist'),
+  ];
+  for (const candidate of candidates) {
+    const indexPath = path.join(candidate, 'index.html');
+    if (await fileExists(indexPath)) {
+      console.log('demo ui static candidate', { candidate, indexPath, selected: true });
+      return candidate;
+    }
+    console.log('demo ui static candidate', { candidate, indexPath, selected: false });
   }
+  throw new Error(`demo ui bundle missing, checked ${candidates.join(', ')}`);
+}
+
+async function startDemoUiServer(demoApiUrl: string, issuer: string): Promise<DemoUiServer> {
+  const staticRoot = await resolveDemoStaticRoot();
+  console.log('demo ui static root', staticRoot);
   const server = http.createServer(async (request, response) => {
     let resolvedPath = '';
     try {
