@@ -6,6 +6,12 @@
   background: #fff;
 }
 
+:global(.dark) .card {
+  background: #1f2937;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+}
+
 .link {
   display: block;
   padding: 1.25rem;
@@ -25,6 +31,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+:global(.dark) .title {
+  color: #f3f4f6;
 }
 .badges {
   display: flex;
@@ -46,12 +56,20 @@
   margin-bottom: 1rem;
 }
 
+:global(.dark) .preview {
+  color: #d1d5db;
+}
+
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+:global(.dark) .footer {
+  color: #9ca3af;
 }
 .footerGroup {
   display: flex;
@@ -87,6 +105,12 @@
   padding: 0.25rem 0;
   z-index: 10;
 }
+
+:global(.dark) .menuPanel {
+  background: #1f2937;
+  border-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
 .menuItem {
   display: flex;
   align-items: center;
@@ -99,11 +123,19 @@
   font-size: 0.875rem;
   cursor: pointer;
 }
+
+:global(.dark) .menuItem {
+  color: #e5e7eb;
+}
 .separator {
   height: 1px;
   margin: 0.25rem 0;
   background: rgba(0, 0, 0, 0.08);
   border: 0;
+}
+
+:global(.dark) .separator {
+  background: rgba(255, 255, 255, 0.08);
 }
 .danger {
   color: #dc2626;

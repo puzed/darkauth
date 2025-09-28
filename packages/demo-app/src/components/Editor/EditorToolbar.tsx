@@ -18,6 +18,7 @@ import {
   Undo,
   Unlink,
 } from "lucide-react";
+import styles from "./EditorToolbar.module.css";
 
 interface EditorToolbarProps {
   editor: Editor;

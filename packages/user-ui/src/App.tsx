@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Navigate,
   Route,
@@ -49,6 +49,24 @@ function AppContent() {
   const [loading, setLoading] = useState(true);
   const [authRequestSearch, setAuthRequestSearch] = useState<string | null>(null);
   const selfRegistrationEnabled = !!window.__APP_CONFIG__?.features?.selfRegistrationEnabled;
+
+  const normalizedSearch = authRequestSearch ?? location.search;
+  const pendingRequestId = useMemo(() => {
+    if (!normalizedSearch) return null;
+    try {
+      const params = new URLSearchParams(normalizedSearch);
+      return params.get("request_id");
+    } catch {
+      return null;
+    }
+  }, [normalizedSearch]);
+  const hasPendingRequest = !!pendingRequestId;
+
+  const appendSearch = useCallback(
+    (path: string) =>
+      normalizedSearch && normalizedSearch.length > 0 ? `${path}${normalizedSearch}` : path,
+    [normalizedSearch]
+  );
 
   const initializeApp = useCallback(async () => {
     try {
@@ -121,8 +139,6 @@ function AppContent() {
   useEffect(() => {
     const handleSessionExpired = () => {
       setSessionData(null);
-      setAuthRequest(null);
-      setAuthRequestSearch(null);
       clearAllExportKeys();
     };
 
@@ -131,8 +147,8 @@ function AppContent() {
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
-    if (authRequest && authRequestSearch) {
-      navigate(`/authorize${authRequestSearch}`);
+    if (hasPendingRequest || authRequest) {
+      navigate(appendSearch("/authorize"));
     } else {
       navigate("/dashboard");
     }
@@ -140,8 +156,8 @@ function AppContent() {
 
   const handleRegister = (userData: SessionData) => {
     setSessionData(userData);
-    if (authRequest && authRequestSearch) {
-      navigate(`/authorize${authRequestSearch}`);
+    if (hasPendingRequest || authRequest) {
+      navigate(appendSearch("/authorize"));
     } else {
       navigate("/dashboard");
     }
@@ -174,13 +190,13 @@ function AppContent() {
               </div>
             </div>
           ) : sessionData ? (
-            authRequest ? (
-              <Navigate to={`/authorize${authRequestSearch ?? location.search}`} replace />
+            hasPendingRequest || authRequest ? (
+              <Navigate to={appendSearch("/authorize")} replace />
             ) : (
               <Navigate to="/dashboard" replace />
             )
           ) : (
-            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
+            <Navigate to={appendSearch("/login")} replace />
           )
         }
       />
@@ -189,11 +205,14 @@ function AppContent() {
         element={
           sessionData ? (
             <Navigate
-              to={authRequest ? `/authorize${authRequestSearch ?? location.search}` : "/dashboard"}
+              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/dashboard"}
               replace
             />
           ) : (
-            <LoginView onLogin={handleLogin} onSwitchToRegister={() => navigate("/signup")} />
+            <LoginView
+              onLogin={handleLogin}
+              onSwitchToRegister={() => navigate(appendSearch("/signup"))}
+            />
           )
         }
       />
@@ -202,13 +221,16 @@ function AppContent() {
         element={
           sessionData ? (
             <Navigate
-              to={authRequest ? `/authorize${authRequestSearch ?? location.search}` : "/dashboard"}
+              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/dashboard"}
               replace
             />
           ) : selfRegistrationEnabled ? (
-            <RegisterView onRegister={handleRegister} onSwitchToLogin={() => navigate("/login")} />
+            <RegisterView
+              onRegister={handleRegister}
+              onSwitchToLogin={() => navigate(appendSearch("/login"))}
+            />
           ) : (
-            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
+            <Navigate to={appendSearch("/login")} replace />
           )
         }
       />
@@ -247,7 +269,12 @@ function AppContent() {
               </div>
             </div>
           ) : !sessionData ? (
-            <Navigate to={`/login${authRequestSearch ?? location.search}`} replace />
+            <Navigate to={appendSearch("/login")} replace />
+          ) : !authRequest && hasPendingRequest ? (
+            <div className="loading-container">
+              <div className="loading-spinner" />
+              <p>Loading...</p>
+            </div>
           ) : !authRequest ? (
             <Navigate to="/dashboard" replace />
           ) : sessionData.passwordResetRequired ? (
@@ -294,8 +321,8 @@ function AppContent() {
             <Navigate to="/login" replace />
           ) : sessionData.passwordResetRequired ? (
             <Navigate to="/change-password" replace />
-          ) : authRequest ? (
-            <Navigate to={`/authorize${authRequestSearch ?? ""}`} replace />
+          ) : hasPendingRequest || authRequest ? (
+            <Navigate to={appendSearch("/authorize")} replace />
           ) : (
             <OtpGate>
               <Dashboard sessionData={sessionData} onLogout={handleLogout} />

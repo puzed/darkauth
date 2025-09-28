@@ -30,11 +30,18 @@ async function requireAuthentication(context: Context, request: http.IncomingMes
   if (!match) return null as null | { sub: string };
   const token = match[1];
   const jwksUri = new URL("/.well-known/jwks.json", context.config.issuer).toString();
-  const jwkSet = createRemoteJWKSet(new URL(jwksUri));
-  const { payload } = await jwtVerify(token, jwkSet, { issuer: context.config.issuer });
-  const sub = payload.sub as string | undefined;
-  if (!sub) return null;
-  return { sub };
+  try {
+    const jwkSet = createRemoteJWKSet(new URL(jwksUri));
+    const { payload } = await jwtVerify(token, jwkSet, { issuer: context.config.issuer });
+    const sub = payload.sub as string | undefined;
+    if (!sub) return null;
+    return { sub };
+  } catch (error) {
+    try {
+      context.logger?.warn({ error: error instanceof Error ? error.message : String(error) }, "jwt verification failed");
+    } catch {}
+    return null;
+  }
 }
 
 const BodyCreateNote = z.object({ collection_id: z.string().uuid().optional() }).strict().partial();
@@ -204,7 +211,7 @@ export function getRoutes(): Route[] {
       if (!user) return sendJson(response, 401, { error: "unauthorized" });
       const noteId = match.pathname.groups.id;
       const dekResult = await getDekForRecipient(context.db, noteId, user.sub);
-      if (dekResult.rowCount === 0) return sendJson(response, 404, { error: "not_found" });
+      if (dekResult.rows.length === 0) return sendJson(response, 404, { error: "not_found" });
       return sendJson(response, 200, { dek_jwe: dekResult.rows[0].dek_jwe });
     },
     operation: { summary: "Get DEK" },

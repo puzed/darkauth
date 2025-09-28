@@ -64,17 +64,7 @@ export function Header({ onMenuToggle }: HeaderProps) {
 
         <div className={styles.search}>
           <div className={styles.searchInner}>
-            <Search
-              style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#9CA3AF",
-              }}
-              width={20}
-              height={20}
-            />
+            <Search className={styles.searchIcon} width={20} height={20} />
             <input
               type="text"
               placeholder="Search notes..."

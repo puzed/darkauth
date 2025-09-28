@@ -64,9 +64,25 @@
   position: relative;
 }
 
+.searchIcon {
+  position: absolute;
+  left: 0.875rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #9ca3af;
+  pointer-events: none;
+}
+
 .searchInput {
   width: 100%;
-  padding-left: 2.5rem;
+}
+
+:global(.input).searchInput {
+  padding-left: 3rem;
+}
+
+:global(.dark) .searchIcon {
+  color: #6b7280;
 }
 
 .actions {
