@@ -17,12 +17,12 @@
 	},
 	"dependencies": {
 		"markdown-it": "^14.1.0",
-		"puppeteer": "^24.20.0"
+		"puppeteer": "^24.22.3"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.2.4",
 		"@types/markdown-it": "^14.1.2",
 		"typescript": "^5.9.2",
-		"tsx": "^4.20.5"
+		"tsx": "^4.20.6"
 	}
 }
