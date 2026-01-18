@@ -215,7 +215,7 @@ export const postToken = withRateLimit("token")(
       );
 
       if (!authCode) {
-        context.logger.warn({ code: tokenRequest.code }, "token code not found");
+        context.logger.warn("token code not found");
         throw new InvalidGrantError("Invalid authorization code");
       }
 

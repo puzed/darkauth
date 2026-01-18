@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { disableOtp } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
@@ -17,7 +18,7 @@ export const deleteUserOtp = withAudit({
   userSub: string
 ): Promise<void> {
   const session = await requireSession(context, request, true);
-  if (session.adminRole !== "write") throw new Error("Forbidden");
+  if (session.adminRole !== "write") throw new ForbiddenError("Write access required");
   await disableOtp(context, "user", userSub);
   sendJson(response, 200, { success: true });
 });

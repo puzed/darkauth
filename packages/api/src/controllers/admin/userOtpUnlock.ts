@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { otpConfigs } from "../../db/schema.js";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
@@ -18,7 +19,7 @@ export const postUserOtpUnlock = withAudit({
   userSub: string
 ): Promise<void> {
   const session = await requireSession(context, request, true);
-  if (session.adminRole !== "write") throw new Error("Forbidden");
+  if (session.adminRole !== "write") throw new ForbiddenError("Write access required");
   await context.db
     .update(otpConfigs)
     .set({ failureCount: 0, lockedUntil: null, updatedAt: new Date() })
