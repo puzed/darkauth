@@ -2,11 +2,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { parseJsonSafely, sendJson } from "../../utils/http.js";
 
 async function postUserPasswordChangeStartHandler(
   context: Context,
@@ -21,7 +22,7 @@ async function postUserPasswordChangeStartHandler(
     throw new ValidationError("Email not available for session");
   }
 
-  const body = await readBody(request);
+  const body = await getCachedBody(request);
   const raw = parseJsonSafely(body);
   const Req = z.object({ request: z.string() });
   const { request: requestString } = Req.parse(raw);
@@ -41,7 +42,9 @@ async function postUserPasswordChangeStartHandler(
   });
 }
 
-export const postUserPasswordChangeStart = postUserPasswordChangeStartHandler;
+export const postUserPasswordChangeStart = withRateLimit("opaque")(
+  postUserPasswordChangeStartHandler
+);
 
 export const schema = {
   method: "POST",

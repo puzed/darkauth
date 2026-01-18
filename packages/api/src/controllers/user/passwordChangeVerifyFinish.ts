@@ -2,12 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { signJWT } from "../../services/jwks.js";
 import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema, JWTPayload } from "../../types.js";
 import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { parseJsonSafely, sendJson } from "../../utils/http.js";
 
 // Zod schema for request body
 const PasswordChangeVerifyFinishBody = z.object({
@@ -15,7 +16,7 @@ const PasswordChangeVerifyFinishBody = z.object({
   sessionId: z.string(),
 });
 
-export async function postUserPasswordVerifyFinish(
+async function postUserPasswordVerifyFinishHandler(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
@@ -25,7 +26,7 @@ export async function postUserPasswordVerifyFinish(
   const session = await requireSession(context, request, false);
   if (!session.email || !session.sub) throw new ValidationError("Invalid user session");
 
-  const body = await readBody(request);
+  const body = await getCachedBody(request);
   const raw = parseJsonSafely(body);
   const parsed = PasswordChangeVerifyFinishBody.parse(raw);
 
@@ -46,6 +47,10 @@ export async function postUserPasswordVerifyFinish(
 
   sendJson(response, 200, { reauth_token: token });
 }
+
+export const postUserPasswordVerifyFinish = withRateLimit("opaque")(
+  postUserPasswordVerifyFinishHandler
+);
 
 export const schema = {
   method: "POST",
