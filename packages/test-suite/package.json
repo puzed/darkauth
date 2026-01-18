@@ -16,11 +16,11 @@
     "@DarkAuth/api": "*"
   },
   "devDependencies": {
-    "@playwright/test": "^1.55.1",
-    "@types/node": "^24.5.2",
-    "drizzle-orm": "^0.44.5",
-    "pg": "^8.16.3",
-    "tsx": "^4.20.6",
-    "typescript": "^5.9.2"
+    "@playwright/test": "^1.57.0",
+    "@types/node": "^25.0.9",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.17.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   }
 }
