@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { opaqueRecords, userGroups, users } from "../db/schema.js";
-import { ConflictError, ValidationError } from "../errors.js";
+import { ValidationError } from "../errors.js";
 import { createSession } from "../services/sessions.js";
 import type { Context } from "../types.js";
 
@@ -14,9 +14,23 @@ export async function userOpaqueRegisterFinish(
   const opaqueRecord = await context.services.opaque.finishRegistration(data.record, data.email);
   const { generateRandomString } = await import("../utils/crypto.js");
   const sub = generateRandomString(16);
+  // Check if user already exists before transaction
+  // Return a generic success response to prevent user enumeration attacks
+  const existingUser = await context.db.query.users.findFirst({
+    where: eq(users.email, data.email),
+  });
+  if (existingUser) {
+    // Return a fake success response without modifying existing user data
+    // This prevents attackers from discovering which emails are registered
+    const { generateRandomString: genFakeId } = await import("../utils/crypto.js");
+    return {
+      sub: genFakeId(16),
+      accessToken: genFakeId(32),
+      refreshToken: genFakeId(32),
+    };
+  }
+
   await context.db.transaction(async (tx) => {
-    const existingUser = await tx.query.users.findFirst({ where: eq(users.email, data.email) });
-    if (existingUser) throw new ConflictError("User with this email already exists");
     await tx
       .insert(users)
       .values({ sub, email: data.email, name: data.name, createdAt: new Date() });
