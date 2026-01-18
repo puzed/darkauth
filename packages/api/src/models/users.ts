@@ -78,7 +78,7 @@ export async function createUser(
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) throw new ValidationError("Invalid email format");
   const existing = await context.db.query.users.findFirst({ where: eq(users.email, email) });
-  if (existing) throw new ConflictError("User with this email already exists");
+  if (existing) throw new ConflictError("Unable to create user");
   const sub = subInput || (await (await import("../utils/crypto.js")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
@@ -129,7 +129,7 @@ export async function updateUserBasic(
       const other = await context.db.query.users.findFirst({
         where: and(eq(users.email, email), ne(users.sub, sub)),
       });
-      if (other) throw new ConflictError("User with this email already exists");
+      if (other) throw new ConflictError("Unable to update user");
       updates.email = email;
     } else {
       throw new ValidationError("Invalid email value");

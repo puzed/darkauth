@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { disableOtp, getOtpStatusModel } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
@@ -17,7 +18,7 @@ export const getAdminUserOtp = withAudit({
   adminId: string
 ): Promise<void> {
   const session = await requireSession(context, request, true);
-  if (session.adminRole !== "write") throw new Error("Forbidden");
+  if (session.adminRole !== "write") throw new ForbiddenError("Write access required");
   const status = await getOtpStatusModel(context, "admin", adminId);
   sendJson(response, 200, {
     enabled: status.enabled,
@@ -38,7 +39,7 @@ export const deleteAdminUserOtp = withAudit({
   adminId: string
 ): Promise<void> {
   const session = await requireSession(context, request, true);
-  if (session.adminRole !== "write") throw new Error("Forbidden");
+  if (session.adminRole !== "write") throw new ForbiddenError("Write access required");
   if (session.adminId === adminId) throw new Error("Cannot remove own OTP");
   await disableOtp(context, "admin", adminId);
   sendJson(response, 200, { success: true });
