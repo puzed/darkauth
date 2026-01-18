@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
-import { ValidationError } from "../../errors.js";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { finishUserPasswordSetForAdmin } from "../../models/passwords.js";
 import { requireOpaqueService } from "../../services/opaque.js";
@@ -29,7 +29,7 @@ async function postUserPasswordSetFinishHandler(
   try {
     await requireOpaqueService(context);
     const session = await requireSession(context, request, true);
-    if (!session.adminRole) throw new ValidationError("Admin privileges required");
+    if (session.adminRole !== "write") throw new ForbiddenError("Write access required");
 
     const body = await readBody(request);
     const parsed = UserPasswordSetFinishRequestSchema.parse(parseJsonSafely(body));

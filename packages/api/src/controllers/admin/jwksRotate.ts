@@ -1,6 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
+import { ForbiddenError } from "../../errors.js";
 import { rotateJwks as rotateJwksModel } from "../../models/jwks.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
@@ -15,7 +16,7 @@ async function rotateJwksHandler(
 ): Promise<void> {
   const session = await requireSession(context, request, true);
   if (!session.adminRole || session.adminRole === "read") {
-    throw new Error("Write access required");
+    throw new ForbiddenError("Write access required");
   }
 
   const { kid } = await rotateJwksModel(context);

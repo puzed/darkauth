@@ -2,13 +2,14 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { userPasswordChangeFinish } from "../../models/passwords.js";
 import { requireOpaqueService } from "../../services/opaque.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { parseJsonSafely, sendJson } from "../../utils/http.js";
 
 async function postUserPasswordChangeFinishHandler(
   context: Context,
@@ -23,7 +24,7 @@ async function postUserPasswordChangeFinishHandler(
   }
   const userSub = session.sub;
 
-  const body = await readBody(request);
+  const body = await getCachedBody(request);
   const raw = parseJsonSafely(body);
   const Req = z.object({
     record: z.string(),
@@ -52,10 +53,12 @@ async function postUserPasswordChangeFinishHandler(
   sendJson(response, 200, result);
 }
 
-export const postUserPasswordChangeFinish = withAudit({
-  eventType: "USER_PASSWORD_CHANGE",
-  resourceType: "user",
-})(postUserPasswordChangeFinishHandler);
+export const postUserPasswordChangeFinish = withRateLimit("opaque")(
+  withAudit({
+    eventType: "USER_PASSWORD_CHANGE",
+    resourceType: "user",
+  })(postUserPasswordChangeFinishHandler)
+);
 
 export const schema = {
   method: "POST",

@@ -1,17 +1,24 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
+import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 
 import { withAudit } from "../../utils/auditWrapper.js";
 import { sendJson } from "../../utils/http.js";
 
 async function createPermissionHandler(
-  _context: Context,
-  _request: IncomingMessage,
+  context: Context,
+  request: IncomingMessage,
   response: ServerResponse,
   ..._params: unknown[]
 ): Promise<void> {
+  const session = await requireSession(context, request, true);
+  if (session.adminRole !== "write") {
+    throw new ForbiddenError("Write access required");
+  }
+
   sendJson(response, 501, { error: "Not yet implemented" });
 }
 

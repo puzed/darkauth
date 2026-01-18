@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 
 export function sha256(data: string | Buffer): Buffer {
   return createHash("sha256").update(data).digest();
@@ -17,13 +24,14 @@ export function generateRandomString(length: number): string {
 }
 
 export function constantTimeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    // Compare bufA against itself to maintain constant time even on length mismatch
+    timingSafeEqual(bufA, bufA);
+    return false;
   }
-  return result === 0;
+  return timingSafeEqual(bufA, bufB);
 }
 
 export function encryptAesGcm(
