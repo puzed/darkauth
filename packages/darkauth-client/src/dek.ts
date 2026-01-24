@@ -1,7 +1,7 @@
 import type { JWK } from "jose";
 import { compactDecrypt, importJWK } from "jose";
-import { deriveDek, unwrapPrivateKey } from "./crypto";
-import { getHooks } from "./hooks";
+import { deriveDek, unwrapPrivateKey } from "./crypto.js";
+import { getHooks } from "./hooks.js";
 
 let cachedPrivKey: CryptoKey | null = null;
 let cachedPrivKeyPromise: Promise<CryptoKey> | null = null;

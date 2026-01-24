@@ -237,8 +237,19 @@ export async function openDemoDashboard(
     timeout: 20000,
   });
   if (demoPage.url().includes('/authorize')) {
-    await demoPage.waitForSelector('button:has-text("Authorize")', { timeout: 20000 });
-    await demoPage.click('button:has-text("Authorize")');
+    const authorizeButton = demoPage.locator('button:has-text("Authorize")');
+    const shouldAuthorize = await Promise.race([
+      authorizeButton.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+      demoPage
+        .waitForURL((url) => toUrlString(url).startsWith(`${bundle.demoUi.url}/callback`), {
+          timeout: 20000,
+        })
+        .then(() => false)
+        .catch(() => false),
+    ]);
+    if (shouldAuthorize && (await authorizeButton.isVisible())) {
+      await authorizeButton.click();
+    }
   }
   if (!demoPage.url().startsWith(`${bundle.demoUi.url}/callback`)) {
     await demoPage.waitForURL((url) => toUrlString(url).startsWith(`${bundle.demoUi.url}/callback`), {
