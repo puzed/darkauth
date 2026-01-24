@@ -6,7 +6,7 @@
   "description": "End-to-end test suite for DarkAuth",
   "type": "module",
   "scripts": {
-    "pretest": "npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build && npm --workspace @DarkAuth/demo-app run build",
+    "pretest": "npm --workspace @darkauth/client run build && npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build && npm --workspace @DarkAuth/demo-app run build",
     "test": "npm run pretest && PW_REPORTER=dot PW_ARTIFACTS=off npx playwright test --reporter=dot",
     "test:screenshots": "rm -rf test-results-light test-results-dark && npm run pretest && (COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light) && (COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark) && node ../brochureware/scripts/collect-screenshots.js",
     "test:report": "npm run pretest && PW_REPORTER=html PW_ARTIFACTS=on npx playwright test --reporter=html && npx playwright show-report",
