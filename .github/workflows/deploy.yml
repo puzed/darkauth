@@ -11,8 +11,12 @@ concurrency:
 
 jobs:
   screenshots-light:
-    name: Screenshots (Light)
+    name: Screenshots (Light / ${{ matrix.suite }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,18 +34,22 @@ jobs:
       - run: npm --workspace @DarkAuth/test-suite run pretest
       - run: |
           cd packages/test-suite
-          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light
+          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --output=test-results-light-${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-light
-          path: packages/test-suite/test-results-light
+          name: test-results-light-${{ matrix.suite }}
+          path: packages/test-suite/test-results-light-${{ matrix.suite }}
           if-no-files-found: ignore
           retention-days: 7
 
   screenshots-dark:
-    name: Screenshots (Dark)
+    name: Screenshots (Dark / ${{ matrix.suite }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,12 +67,12 @@ jobs:
       - run: npm --workspace @DarkAuth/test-suite run pretest
       - run: |
           cd packages/test-suite
-          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark
+          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --output=test-results-dark-${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: test-results-dark
-          path: packages/test-suite/test-results-dark
+          name: test-results-dark-${{ matrix.suite }}
+          path: packages/test-suite/test-results-dark-${{ matrix.suite }}
           if-no-files-found: ignore
           retention-days: 7
 
@@ -82,12 +90,14 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: test-results-light
+          pattern: test-results-light-*
           path: packages/test-suite/test-results-light
+          merge-multiple: true
       - uses: actions/download-artifact@v4
         with:
-          name: test-results-dark
+          pattern: test-results-dark-*
           path: packages/test-suite/test-results-dark
+          merge-multiple: true
       - run: node packages/brochureware/scripts/collect-screenshots.js
       - run: |
           cd packages/brochureware
