@@ -201,7 +201,7 @@ export function createUserRouter(context: Context) {
         const out = varBlock + bodyBlock + sanitized;
         response.statusCode = 200;
         response.setHeader("Content-Type", "text/css; charset=utf-8");
-        response.setHeader("Cache-Control", "public, max-age=300");
+        response.setHeader("Cache-Control", "no-store");
         response.end(out);
         return;
       }
