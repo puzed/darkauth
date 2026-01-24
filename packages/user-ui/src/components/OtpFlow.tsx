@@ -261,6 +261,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
       )}
       {step === "verify" && (
         <div>
+          <div className="help-text" style={{ textAlign: "center" }}>
+            You can enter either the one time token from your authenticator or a backup code.
+          </div>
           <input
             ref={verifyCodeInputRef}
             value={code}
@@ -268,7 +271,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
               const raw = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
               setCode(raw.slice(0, 14));
             }}
-            placeholder="123456 or BACKUP-CODE"
+            placeholder="Enter One Time Code"
             style={{
               width: fullWidth ? "100%" : 240,
               padding: "12px 16px",
