@@ -13,6 +13,7 @@ const Req = z.object({
   name: z.string().min(1).optional(),
   enableLogin: z.boolean().optional(),
   requireOtp: z.boolean().optional(),
+  permissionKeys: z.array(z.string()).optional(),
 });
 
 async function updateGroupHandler(

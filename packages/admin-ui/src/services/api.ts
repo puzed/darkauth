@@ -119,7 +119,7 @@ export interface Group {
   name: string;
   enableLogin?: boolean;
   requireOtp?: boolean;
-  permissions?: string[];
+  permissions?: Array<{ key: string; description: string }>;
   permissionCount?: number;
   userCount?: number;
 }
@@ -682,6 +682,10 @@ class AdminApiService {
     return this.request(endpoint);
   }
 
+  async getGroup(key: string): Promise<Group> {
+    return this.request<Group>(`/groups/${key}`);
+  }
+
   async getGroupUsers(groupKey: string): Promise<{
     users: Array<{ sub: string; email: string; name?: string }>;
     availableUsers: Array<{ sub: string; email: string; name?: string }>;
@@ -759,8 +763,8 @@ class AdminApiService {
     return data.permissions;
   }
 
-  async createPermission(permission: { key: string; description: string }): Promise<void> {
-    await this.request("/permissions", {
+  async createPermission(permission: { key: string; description: string }): Promise<Permission> {
+    return this.request<Permission>("/permissions", {
       method: "POST",
       body: JSON.stringify(permission),
     });

@@ -3,6 +3,7 @@ import {
   FileText,
   Home,
   Key,
+  KeyRound,
   Lock,
   LogOut,
   Monitor,
@@ -26,6 +27,7 @@ const mainItems = [
 ];
 
 const securityItems = [
+  { title: "Permissions", url: "/permissions", icon: KeyRound },
   { title: "Keys", url: "/keys", icon: Key },
   { title: "Audit Logs", url: "/audit", icon: Lock },
 ];

@@ -1,5 +1,6 @@
-import { count } from "drizzle-orm";
+import { count, eq } from "drizzle-orm";
 import { groupPermissions, permissions, userPermissions } from "../db/schema.js";
+import { ConflictError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
 
 export async function listPermissionsWithCounts(context: Context) {
@@ -33,6 +34,34 @@ export async function listPermissionsWithCounts(context: Context) {
     groupCount: groupCountMap.get(p.key) || 0,
     directUserCount: userCountMap.get(p.key) || 0,
   }));
+}
+
+export async function createPermission(
+  context: Context,
+  data: { key: string; description: string }
+) {
+  if (!data.key || typeof data.key !== "string" || data.key.trim() === "") {
+    throw new ValidationError("Permission key must be a non-empty string");
+  }
+
+  const existing = await context.db.query.permissions.findFirst({
+    where: eq(permissions.key, data.key),
+  });
+  if (existing) {
+    throw new ConflictError("Permission with this key already exists");
+  }
+
+  await context.db.insert(permissions).values({
+    key: data.key,
+    description: data.description,
+  });
+
+  return {
+    key: data.key,
+    description: data.description,
+    groupCount: 0,
+    directUserCount: 0,
+  };
 }
 
 export async function deletePermissionByKey(context: Context, key: string) {
