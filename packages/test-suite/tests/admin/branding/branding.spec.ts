@@ -126,29 +126,35 @@ test.describe('Admin - Branding Settings', () => {
   test('branding changes are reflected in user UI at localhost:9080', async ({ page, context }) => {
     // First, set a distinctive brand color
     await page.waitForSelector('text="Brand color"', { timeout: 10000 });
-    
+
     const lightColorInput = page.locator('input[value*="#"]').nth(1);
     const darkColorInput = page.locator('input[value*="#"]').nth(3);
     await lightColorInput.clear();
     await darkColorInput.clear();
     await lightColorInput.fill('#ff00ff'); // Magenta
     await darkColorInput.fill('#ff00ff');
-    
+
     // Save the changes
     await page.locator('button:has-text("Save")').first().click();
     await expect(page.getByText('Branding saved').first()).toBeVisible({ timeout: 5000 });
-    
+
     // Open a new page and navigate to the user UI
     const userPage = await context.newPage();
     await userPage.goto(`${servers.userUrl}/`);
     await userPage.waitForSelector('input[name="email"], input[type="email"]', { timeout: 10000 });
-    const submitButton = userPage.locator('button[type="submit"]').first();
+
+    // Wait for the branding CSS to be loaded - check that the CSS custom property is set
     await userPage.waitForFunction(() => {
-      const button = document.querySelector('button[type="submit"]');
-      if (!button) return false;
-      const color = window.getComputedStyle(button).backgroundColor;
-      return typeof color === 'string' && color.includes('255');
+      const link = document.getElementById('da-branding-css') as HTMLLinkElement;
+      if (!link) return false;
+      // Check if the stylesheet has loaded by checking if a test style rule applies
+      const root = document.documentElement;
+      const primary = getComputedStyle(root).getPropertyValue('--da-primary').trim();
+      // The branding CSS should set --da-primary to #ff00ff
+      return primary.toLowerCase().includes('ff00ff') || primary.includes('255');
     }, { timeout: 15000 });
+
+    const submitButton = userPage.locator('button[type="submit"]').first();
     const buttonStyles = await submitButton.evaluate((element) => {
       const styles = window.getComputedStyle(element);
       return {
