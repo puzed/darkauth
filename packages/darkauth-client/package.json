@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "test": "npm run build && node --test --test-reporter=dot --experimental-specifier-resolution=node",
     "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "prepare": "tsc",
