@@ -44,7 +44,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - run: npx playwright install
-      - run: npm test
+      - run: npm run test -w @DarkAuth/api -w @darkauth/client -w @DarkAuth/md-to-pdf -w opaque-ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
