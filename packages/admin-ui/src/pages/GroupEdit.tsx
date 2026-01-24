@@ -49,38 +49,31 @@ export default function GroupEdit() {
   const enableLoginId = useId();
 
   const loadData = useCallback(async () => {
+    if (!groupKey) {
+      setError("Group key is required");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
 
-      const [groupsData, permissionsData] = await Promise.all([
-        adminApiService.getGroups(),
+      const [foundGroup, permissionsData] = await Promise.all([
+        adminApiService.getGroup(groupKey),
         adminApiService.getPermissions(),
       ]);
-
-      const foundGroup = groupsData.find((g) => g.key === groupKey);
-      if (!foundGroup) {
-        setError("Group not found");
-        setLoading(false);
-        return;
-      }
 
       setGroup(foundGroup);
       setName(foundGroup.name);
       setEnableLogin(foundGroup.enableLogin !== false);
       setRequireOtp(foundGroup.requireOtp === true);
       setPermissions(permissionsData);
+      setSelectedPermissions(foundGroup.permissions?.map((p) => p.key) || []);
 
-      // Since the API doesn't return permissions in the group object yet,
-      // we'll start with an empty array. When the backend is fully implemented,
-      // this should be: setSelectedPermissions(foundGroup.permissions || []);
-      setSelectedPermissions([]);
-
-      if (foundGroup) {
-        const usersData = await adminApiService.getGroupUsers(foundGroup.key);
-        setGroupUsers(usersData.users);
-        setAvailableUsers(usersData.availableUsers);
-      }
+      const usersData = await adminApiService.getGroupUsers(foundGroup.key);
+      setGroupUsers(usersData.users);
+      setAvailableUsers(usersData.availableUsers);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load group");
     } finally {
@@ -114,14 +107,7 @@ export default function GroupEdit() {
 
       navigate("/groups");
     } catch (e) {
-      // Handle the "Not yet implemented" error gracefully
-      if (e instanceof Error && e.message.includes("Not yet implemented")) {
-        setError(
-          "Group editing functionality is not yet fully implemented in the backend. Only group creation is currently supported."
-        );
-      } else {
-        setError(e instanceof Error ? e.message : "Failed to save group");
-      }
+      setError(e instanceof Error ? e.message : "Failed to save group");
     } finally {
       setSubmitting(false);
     }
@@ -263,19 +249,6 @@ export default function GroupEdit() {
             <CardTitle>Permissions</CardTitle>
             <div style={{ fontSize: "0.875rem", color: "hsl(var(--muted-foreground))" }}>
               Select the permissions that members of this group should have
-            </div>
-            <div
-              style={{
-                fontSize: "0.875rem",
-                color: "hsl(var(--orange-600))",
-                backgroundColor: "hsl(var(--orange-100))",
-                padding: 8,
-                borderRadius: 4,
-                marginTop: 8,
-              }}
-            >
-              Note: Permission editing is currently being implemented. Changes may not be saved
-              until the backend is fully updated.
             </div>
           </CardHeader>
           <CardContent>
