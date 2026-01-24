@@ -257,13 +257,16 @@ export default function SettingsSecurity() {
               </button>
             </div>
           )}
+          <div className="help-text" style={{ textAlign: "center" }}>
+            You can enter either the one time token from your authenticator or a backup code.
+          </div>
           <input
             value={code}
             onChange={(event) => {
               const cleaned = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
               setCode(cleaned.slice(0, 14));
             }}
-            placeholder="123456 or BACKUP-CODE"
+            placeholder="Enter One Time Code"
             className="form-input"
             style={{
               width: 240,

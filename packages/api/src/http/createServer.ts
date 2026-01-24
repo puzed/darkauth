@@ -87,8 +87,8 @@ export async function createUserServer(context: Context) {
             wording: branding?.wording || {},
             font: branding?.font || { family: "Inter", url: null },
             customCSS: sanitizeCSS(branding?.customCSS || ""),
-            logoUrl: branding?.logo?.data ? "/api/branding/logo" : null,
-            logoUrlDark: branding?.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            logoUrl: "/api/branding/logo",
+            logoUrlDark: "/api/branding/logo?dark=1",
             faviconUrl: branding?.favicon?.data ? "/api/branding/favicon" : null,
             faviconUrlDark: branding?.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
             customCssUrl: "/api/branding/custom.css",
@@ -145,9 +145,10 @@ export async function createUserServer(context: Context) {
         return;
       }
 
+      const isAuthorizeUiRequest = pathname === "/authorize" && url.searchParams.has("request_id");
       if (
         pathname.startsWith("/api/") ||
-        pathname === "/authorize" ||
+        (pathname === "/authorize" && !isAuthorizeUiRequest) ||
         pathname === "/token" ||
         pathname.startsWith("/.well-known") ||
         pathname.startsWith("/otp/")
@@ -264,8 +265,8 @@ export async function createAdminServer(context: Context) {
             wording: branding?.wording || {},
             font: branding?.font || { family: "Inter", url: null },
             customCSS: sanitizeCSS(branding?.customCSS || ""),
-            logoUrl: branding?.logo?.data ? "/api/branding/logo" : null,
-            logoUrlDark: branding?.logoDark?.data ? "/api/branding/logo?dark=1" : null,
+            logoUrl: "/api/branding/logo",
+            logoUrlDark: "/api/branding/logo?dark=1",
             faviconUrl: branding?.favicon?.data ? "/api/branding/favicon" : null,
             faviconUrlDark: branding?.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
             customCssUrl: "/api/branding/custom.css",
