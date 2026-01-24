@@ -6,8 +6,10 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": ["dist", "LICENSE", "README.md"],
   "scripts": {
     "build": "tsc",
+    "prepack": "npm run build",
     "typecheck": "tsc --noEmit",
     "prepare": "tsc",
     "format": "biome format --write .",
