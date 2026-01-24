@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Button from "../components/Button";
 import { apiService } from "../services/api";
 import { logger } from "../services/logger";
 
@@ -137,18 +138,13 @@ export default function Authorize({ authRequest }: AuthorizeProps) {
         )}
 
         <div className="authorize-actions">
-          <button
-            type="button"
-            onClick={handleApprove}
-            disabled={loading}
-            className="approve-button"
-          >
+          <Button type="button" onClick={handleApprove} disabled={loading} variant="success">
             {loading ? "Processing..." : "Allow Access"}
-          </button>
+          </Button>
 
-          <button type="button" onClick={handleDeny} disabled={loading} className="deny-button">
+          <Button type="button" onClick={handleDeny} disabled={loading} variant="secondary">
             {loading ? "Processing..." : "Deny"}
-          </button>
+          </Button>
         </div>
 
         <div className="authorize-footer">
