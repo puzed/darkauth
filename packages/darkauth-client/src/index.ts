@@ -1,8 +1,8 @@
 import { compactDecrypt } from "jose";
 
-export * from "./crypto";
-export * from "./dek";
-export { setHooks } from "./hooks";
+export * from "./crypto.js";
+export * from "./dek.js";
+export { setHooks } from "./hooks.js";
 
 type Config = {
   issuer: string;
@@ -58,7 +58,6 @@ let cfg: Config = {
     (typeof window !== "undefined"
       ? `${window.location.origin}/callback`
       : "http://localhost:5173/callback"),
-  zk: true,
 };
 
 const OBFUSCATION_KEY = "DarkAuth-Storage-Protection-2025";
@@ -135,14 +134,18 @@ export function isTokenValid(token: string): boolean {
 }
 
 export async function initiateLogin(): Promise<void> {
-  const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
-    "deriveKey",
-    "deriveBits",
-  ]);
-  const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
-  const privateJwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
-  sessionStorage.setItem("zk_eph_priv_jwk", JSON.stringify(privateJwk));
-  const zkPubParam = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(publicJwk)));
+  const zkEnabled = cfg.zk === true;
+  let zkPubParam: string | undefined;
+  if (zkEnabled) {
+    const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
+      "deriveKey",
+      "deriveBits",
+    ]);
+    const publicJwk = await crypto.subtle.exportKey("jwk", keyPair.publicKey);
+    const privateJwk = await crypto.subtle.exportKey("jwk", keyPair.privateKey);
+    sessionStorage.setItem("zk_eph_priv_jwk", JSON.stringify(privateJwk));
+    zkPubParam = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(publicJwk)));
+  }
   const state = crypto.randomUUID();
   const verifier = bytesToBase64Url(crypto.getRandomValues(new Uint8Array(32)));
   sessionStorage.setItem("pkce_verifier", verifier);
@@ -155,7 +158,7 @@ export async function initiateLogin(): Promise<void> {
   authUrl.searchParams.set("state", state);
   authUrl.searchParams.set("code_challenge", challenge);
   authUrl.searchParams.set("code_challenge_method", "S256");
-  if (cfg.zk !== false) authUrl.searchParams.set("zk_pub", zkPubParam);
+  if (zkEnabled && zkPubParam) authUrl.searchParams.set("zk_pub", zkPubParam);
   location.assign(authUrl.toString());
 }
 

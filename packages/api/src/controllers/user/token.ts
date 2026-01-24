@@ -27,6 +27,12 @@ import {
 } from "../../utils/http.js";
 import { verifyCodeChallenge } from "../../utils/pkce.js";
 
+async function resolveIssuer(context: Context): Promise<string> {
+  const issuerSetting = await getSetting(context, "issuer");
+  if (typeof issuerSetting === "string" && issuerSetting.length > 0) return issuerSetting;
+  return context.config.issuer;
+}
+
 export const TokenRequestSchema = z.union([
   z.object({
     grant_type: z.literal("authorization_code"),
@@ -165,8 +171,9 @@ export const postToken = withRateLimit("token")(
         });
         const data = (sess?.data || {}) as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+        const issuer = await resolveIssuer(context);
         const idTokenClaims: IdTokenClaims = {
-          iss: context.config.issuer,
+          iss: issuer,
           sub: user.sub,
           aud: providedClientId,
           exp: now + idTokenTtl,
@@ -357,8 +364,9 @@ export const postToken = withRateLimit("token")(
       });
       const data = (row?.data || {}) as Record<string, unknown>;
       if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+      const issuer = await resolveIssuer(context);
       const idTokenClaims: IdTokenClaims = {
-        iss: context.config.issuer,
+        iss: issuer,
         sub: user.sub,
         aud: authenticatedClientId,
         exp: now + idTokenTtl,
