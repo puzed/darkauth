@@ -16,6 +16,7 @@ import { getClients } from "../../controllers/admin/clients.js";
 import { updateClientController } from "../../controllers/admin/clientUpdate.js";
 import { createGroup } from "../../controllers/admin/groupCreate.js";
 import { deleteGroupController } from "../../controllers/admin/groupDelete.js";
+import { getGroup } from "../../controllers/admin/groupGet.js";
 import { getGroups } from "../../controllers/admin/groups.js";
 import { updateGroupController } from "../../controllers/admin/groupUpdate.js";
 import { getGroupUsers } from "../../controllers/admin/groupUsers.js";
@@ -203,6 +204,7 @@ export function createAdminRouter(context: Context) {
       const groupMatch = pathname.match(/^\/admin\/groups\/([^/]+)$/);
       if (groupMatch) {
         const groupKey = groupMatch[1];
+        if (method === "GET") return await getGroup(context, request, response, groupKey as string);
         if (method === "PUT")
           return await updateGroupController(context, request, response, groupKey as string);
         if (method === "DELETE")

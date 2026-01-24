@@ -1,5 +1,5 @@
 import { eq, inArray } from "drizzle-orm";
-import { groups, userGroups, users } from "../db/schema.js";
+import { groupPermissions, groups, permissions, userGroups, users } from "../db/schema.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
 
@@ -183,7 +183,7 @@ export async function getUserGroups(context: Context, userSub: string) {
 export async function updateGroup(
   context: Context,
   key: string,
-  data: { name?: string; enableLogin?: boolean; requireOtp?: boolean }
+  data: { name?: string; enableLogin?: boolean; requireOtp?: boolean; permissionKeys?: string[] }
 ) {
   const group = await context.db.query.groups.findFirst({ where: eq(groups.key, key) });
   if (!group) throw new NotFoundError("Group not found");
@@ -191,8 +191,13 @@ export async function updateGroup(
   if (typeof data.name === "string" && data.name.trim().length > 0) updates.name = data.name.trim();
   if (typeof data.enableLogin === "boolean") updates.enableLogin = data.enableLogin;
   if (typeof data.requireOtp === "boolean") updates.requireOtp = data.requireOtp;
-  if (Object.keys(updates).length === 0) return { success: true as const };
-  await context.db.update(groups).set(updates).where(eq(groups.key, key));
+  if (Object.keys(updates).length > 0) {
+    await context.db.update(groups).set(updates).where(eq(groups.key, key));
+  }
+  if (data.permissionKeys !== undefined) {
+    const updatedPermissions = await setGroupPermissions(context, key, data.permissionKeys);
+    return { success: true as const, permissions: updatedPermissions };
+  }
   return { success: true as const };
 }
 
@@ -202,4 +207,53 @@ export async function deleteGroup(context: Context, key: string) {
   if (group.key === "default") throw new ValidationError("Cannot delete default group");
   await context.db.delete(groups).where(eq(groups.key, key));
   return { success: true as const };
+}
+
+export async function getGroupPermissions(context: Context, groupKey: string) {
+  const group = await context.db.query.groups.findFirst({ where: eq(groups.key, groupKey) });
+  if (!group) throw new NotFoundError("Group not found");
+
+  const groupPermissionsList = await context.db
+    .select({ key: permissions.key, description: permissions.description })
+    .from(groupPermissions)
+    .innerJoin(permissions, eq(groupPermissions.permissionKey, permissions.key))
+    .where(eq(groupPermissions.groupKey, groupKey));
+
+  return groupPermissionsList;
+}
+
+export async function setGroupPermissions(
+  context: Context,
+  groupKey: string,
+  permissionKeys: string[]
+) {
+  const group = await context.db.query.groups.findFirst({ where: eq(groups.key, groupKey) });
+  if (!group) {
+    throw new NotFoundError("Group not found");
+  }
+  if (permissionKeys.length > 0) {
+    const existingPermissions = await context.db
+      .select({ key: permissions.key })
+      .from(permissions)
+      .where(inArray(permissions.key, permissionKeys));
+    if (existingPermissions.length !== permissionKeys.length) {
+      const existing = new Set(existingPermissions.map((p) => p.key));
+      const missing = permissionKeys.filter((k) => !existing.has(k));
+      throw new ValidationError(`Permissions not found: ${missing.join(", ")}`);
+    }
+  }
+  await context.db.transaction(async (trx) => {
+    await trx.delete(groupPermissions).where(eq(groupPermissions.groupKey, groupKey));
+    if (permissionKeys.length > 0) {
+      await trx
+        .insert(groupPermissions)
+        .values(permissionKeys.map((permissionKey) => ({ groupKey, permissionKey })));
+    }
+  });
+  const updatedPermissions = await context.db
+    .select({ key: permissions.key, description: permissions.description })
+    .from(groupPermissions)
+    .innerJoin(permissions, eq(groupPermissions.permissionKey, permissions.key))
+    .where(eq(groupPermissions.groupKey, groupKey));
+  return updatedPermissions;
 }

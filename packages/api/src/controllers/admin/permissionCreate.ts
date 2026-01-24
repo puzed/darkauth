@@ -1,12 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { createPermission as createPermissionModel } from "../../models/permissions.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 
 import { withAudit } from "../../utils/auditWrapper.js";
-import { sendJson } from "../../utils/http.js";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+
+const Req = z.object({ key: z.string(), description: z.string() });
 
 async function createPermissionHandler(
   context: Context,
@@ -19,7 +22,16 @@ async function createPermissionHandler(
     throw new ForbiddenError("Write access required");
   }
 
-  sendJson(response, 501, { error: "Not yet implemented" });
+  const body = await readBody(request);
+  const raw = parseJsonSafely(body);
+  const parsed = Req.safeParse(raw);
+  if (!parsed.success) {
+    throw new ValidationError("Validation error", parsed.error.issues);
+  }
+
+  const data = parsed.data;
+  const permission = await createPermissionModel(context, data);
+  sendJson(response, 201, permission);
 }
 
 export const createPermission = withAudit({
@@ -33,8 +45,6 @@ export const createPermission = withAudit({
     return undefined;
   },
 })(createPermissionHandler);
-
-const Req = z.object({ key: z.string(), description: z.string() });
 
 export const schema = {
   method: "POST",

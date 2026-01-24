@@ -28,6 +28,7 @@ import Groups from "./pages/Groups";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
+import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
@@ -311,6 +312,14 @@ const App = () => {
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                   <GroupEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/permissions"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Permissions />
                 </DashboardLayout>
               }
             />
