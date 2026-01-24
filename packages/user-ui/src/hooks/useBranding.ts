@@ -12,6 +12,7 @@ type BrandingConfig = {
   logoUrlDark?: string | null;
   faviconUrl?: string | null;
   faviconUrlDark?: string | null;
+  customCssUrl?: string | null;
 };
 
 declare global {
@@ -49,6 +50,47 @@ function applyCustomCSS(css: string) {
   }
 }
 
+function applyBrandingStylesheet(url: string | null | undefined) {
+  const existing = document.getElementById("da-branding-css");
+  if (!url) {
+    if (existing) existing.parentElement?.removeChild(existing);
+    return;
+  }
+  if (!existing) {
+    const link = document.createElement("link");
+    link.id = "da-branding-css";
+    link.rel = "stylesheet";
+    link.href = url;
+    document.head.appendChild(link);
+    return;
+  }
+  const link = existing as HTMLLinkElement;
+  if (link.href !== url) link.href = url;
+}
+
+const colorMap: Record<string, string[]> = {
+  primary: ["--primary-500", "--primary-600"],
+  primaryHover: ["--primary-700"],
+  primaryLight: ["--primary-100", "--primary-50"],
+  text: ["--gray-900"],
+  textSecondary: ["--gray-700", "--gray-600"],
+  textMuted: ["--gray-600"],
+  border: ["--gray-300"],
+  cardBackground: ["--da-card-bg"],
+  inputBackground: ["--da-input-bg"],
+  inputBorder: ["--gray-300"],
+  inputFocus: ["--primary-500"],
+};
+
+function clearInlineBranding() {
+  const root = document.documentElement;
+  const vars = new Set(Object.values(colorMap).flat());
+  for (const v of vars) root.style.removeProperty(v);
+  root.style.removeProperty("--da-input-bg");
+  root.style.removeProperty("--da-card-bg");
+  document.body.style.removeProperty("background");
+}
+
 function applyColorVariables(
   colors: Record<string, string> | undefined,
   colorsDark: Record<string, string> | undefined
@@ -66,20 +108,6 @@ function applyColorVariables(
   if (!Object.keys(activeColors).length) return;
 
   // Map branding keys to CSS variables
-  const colorMap: Record<string, string[]> = {
-    primary: ["--primary-500", "--primary-600"],
-    primaryHover: ["--primary-700"],
-    primaryLight: ["--primary-100", "--primary-50"],
-    text: ["--gray-900"],
-    textSecondary: ["--gray-700", "--gray-600"],
-    textMuted: ["--gray-600"],
-    border: ["--gray-300"],
-    cardBackground: ["--da-card-bg"],
-    inputBackground: ["--da-input-bg"],
-    inputBorder: ["--gray-300"],
-    inputFocus: ["--primary-500"],
-  };
-
   // Reset theme-scoped variables so defaults take effect unless overridden
   if (isDark) {
     root.style.removeProperty("--da-input-bg");
@@ -137,13 +165,15 @@ export function useBranding() {
       if (faviconUrl) updateFavicon(faviconUrl);
 
       // Apply colors for current theme
-      applyColorVariables(b.colors, b.colorsDark);
-
-      // Apply typography
-      applyTypography(b.font);
-
-      // Apply custom CSS
-      if (b.customCSS) applyCustomCSS(b.customCSS);
+      if (b.customCssUrl) {
+        applyBrandingStylesheet(b.customCssUrl);
+        clearInlineBranding();
+      } else {
+        applyBrandingStylesheet(null);
+        applyColorVariables(b.colors, b.colorsDark);
+        applyTypography(b.font);
+        if (b.customCSS) applyCustomCSS(b.customCSS);
+      }
 
       // Store wording and logos globally
       window.__BRANDING_WORDING__ = b.wording || {};
@@ -163,7 +193,9 @@ export function useBranding() {
           const b = cfg?.branding;
           if (!b) return;
 
-          applyColorVariables(b.colors, b.colorsDark);
+          if (!b.customCssUrl) {
+            applyColorVariables(b.colors, b.colorsDark);
+          }
 
           const theme = document.documentElement.getAttribute("data-da-theme");
           const isDark = theme === "dark";
