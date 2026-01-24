@@ -44,7 +44,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - run: npx playwright install
-      - run: npm test
+      - run: npm run test -w @DarkAuth/api -w @darkauth/client -w @DarkAuth/md-to-pdf -w opaque-ts
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,10 +67,14 @@ jobs:
           retention-days: 7
 
 
-  test-brochureware:
-    name: Test Brochureware
+  screenshots-light:
+    name: Screenshots Light - ${{ matrix.suite }}
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -85,7 +89,77 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-playwright-
       - run: npx playwright install
-      - run: npm run test:screenshots
+      - run: npm --workspace @DarkAuth/test-suite run pretest
+      - run: |
+          cd packages/test-suite
+          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --output=test-results-light-${{ matrix.suite }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-light-${{ matrix.suite }}
+          path: packages/test-suite/test-results-light-${{ matrix.suite }}
+          if-no-files-found: ignore
+          retention-days: 7
+
+  screenshots-dark:
+    name: Screenshots Dark - ${{ matrix.suite }}
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: npx playwright install
+      - run: npm --workspace @DarkAuth/test-suite run pretest
+      - run: |
+          cd packages/test-suite
+          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --output=test-results-dark-${{ matrix.suite }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-dark-${{ matrix.suite }}
+          path: packages/test-suite/test-results-dark-${{ matrix.suite }}
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test-brochureware:
+    name: Brochureware Build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    needs:
+      - screenshots-light
+      - screenshots-dark
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-light-*
+          path: packages/test-suite/test-results-light
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-dark-*
+          path: packages/test-suite/test-results-dark
+          merge-multiple: true
+      - run: node packages/brochureware/scripts/collect-screenshots.js
       - run: |
           cd packages/brochureware
           npm run build
