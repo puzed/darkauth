@@ -5,35 +5,39 @@ import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../s
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
 import { loadExportKey } from "../services/sessionKey";
-
-//
+import Button from "./Button";
 
 interface ScopeInfo {
   scope: string;
   description: string;
   icon: string;
+  textKey?: string;
 }
 
 const SCOPE_DESCRIPTIONS: Record<string, ScopeInfo> = {
   openid: {
     scope: "openid",
-    description: "Basic identity information",
+    description: "Authenticate you",
     icon: "👤",
+    textKey: "scopeOpenid",
   },
   profile: {
     scope: "profile",
-    description: "Full name and profile information",
+    description: "Access your profile information",
     icon: "📋",
+    textKey: "scopeProfile",
   },
   email: {
     scope: "email",
-    description: "Email address",
+    description: "Access your email address",
     icon: "📧",
+    textKey: "scopeEmail",
   },
   offline_access: {
     scope: "offline_access",
-    description: "Persistent access to your data",
+    description: "Maintain access when you are offline",
     icon: "🔄",
+    textKey: "scopeOffline",
   },
 };
 
@@ -64,6 +68,7 @@ export default function Authorize({
     privateKey: CryptoKey;
   } | null>(null);
   const oldPasswordId = useId();
+  const appName = authRequest.clientName || "Application";
 
   const generateZkKeyPair = useCallback(async () => {
     try {
@@ -83,14 +88,34 @@ export default function Authorize({
   }, [authRequest.hasZk, generateZkKeyPair]);
 
   const getScopeInfo = (scope: string): ScopeInfo => {
-    return (
-      SCOPE_DESCRIPTIONS[scope] || {
-        scope,
-        description: scope,
-        icon: "🔐",
-      }
-    );
+    const info = SCOPE_DESCRIPTIONS[scope];
+    if (info) {
+      return {
+        ...info,
+        description: info.textKey
+          ? branding.getText(info.textKey, info.description)
+          : info.description,
+      };
+    }
+    return {
+      scope,
+      description: `Access your ${scope} information`,
+      icon: "🔐",
+    };
   };
+
+  const interpolateText = (text: string, values: Record<string, string>) => {
+    return text.replace(/\{(\w+)\}/g, (match, key) => values[key] || match);
+  };
+
+  const authorizeTitle = interpolateText(branding.getText("authorizeTitle", "Authorize {app}"), {
+    app: appName,
+  });
+  const authorizeDescription = interpolateText(
+    branding.getText("authorizeDescription", "{app} would like to:"),
+    { app: appName }
+  );
+  const signedInAs = branding.getText("signedInAs", "Signed in as");
 
   const handleAuthorize = async (approve: boolean) => {
     setLoading(true);
@@ -366,55 +391,54 @@ export default function Authorize({
   return (
     <div className="authorize-container da-authorize-container">
       <div className="authorize-card da-container">
-        <div className="client-info">
-          <div className="client-icon">🏢</div>
-          <h2 className="da-auth-title">
-            {branding.getText("authorizeTitle", "Authorize Application")}
-          </h2>
-          <p className="client-name">
-            <strong>{authRequest.clientName}</strong>{" "}
-            {branding.getText("authorizeDescription", "would like to:")}
-          </p>
-        </div>
-
-        <div className="user-info">
-          <div className="user-avatar">👤</div>
-          <div className="user-details">
-            <p className="user-name">{sessionData.name || sessionData.email}</p>
-            {sessionData.email && sessionData.name && (
-              <p className="user-email">{sessionData.email}</p>
-            )}
+        <div className="authorize-header">
+          <div className="authorize-app">
+            <div className="authorize-app-icon">🏢</div>
+            <div className="authorize-app-text">
+              <h2 className="authorize-title da-auth-title">{authorizeTitle}</h2>
+              <p className="authorize-description">{authorizeDescription}</p>
+            </div>
+          </div>
+          <div className="authorize-account">
+            <div className="authorize-avatar">👤</div>
+            <div className="authorize-account-text">
+              <p className="authorize-account-label">{signedInAs}</p>
+              <p className="authorize-account-name">{sessionData.name || sessionData.email}</p>
+              {sessionData.email && sessionData.name && (
+                <p className="authorize-account-email">{sessionData.email}</p>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="permissions-section da-authorize-scopes">
-          <h3>Requested Permissions</h3>
-          <div className="permissions-list">
-            {authRequest.scopes.map((scope) => {
-              const scopeInfo = getScopeInfo(scope);
-              return (
-                <div key={scope} className="permission-item da-authorize-scope">
-                  <span className="permission-icon">{scopeInfo.icon}</span>
-                  <div className="permission-details">
-                    <span className="permission-name">{scopeInfo.scope}</span>
-                    <span className="permission-description">{scopeInfo.description}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="authorize-scopes da-authorize-scopes">
+          <h3>Permissions</h3>
+          {authRequest.scopes.length === 0 ? (
+            <p className="authorize-empty">No additional permissions requested.</p>
+          ) : (
+            <ul className="authorize-scope-list">
+              {authRequest.scopes.map((scope) => {
+                const scopeInfo = getScopeInfo(scope);
+                return (
+                  <li key={scope} className="authorize-scope-item da-authorize-scope">
+                    <span className="authorize-scope-icon">{scopeInfo.icon}</span>
+                    <div className="authorize-scope-text">
+                      <span className="authorize-scope-name">{scopeInfo.scope}</span>
+                      <span className="authorize-scope-description">{scopeInfo.description}</span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         {authRequest.hasZk && (
-          <div className="zk-section">
-            <div className="zk-indicator">
-              <span className="zk-icon">🔐</span>
-              <div className="zk-info">
-                <h4>Zero-Knowledge Delivery</h4>
-                <p>
-                  Your data will be delivered using zero-knowledge encryption for enhanced privacy
-                </p>
-              </div>
+          <div className="authorize-flag">
+            <span className="authorize-flag-icon">🔐</span>
+            <div className="authorize-flag-text">
+              <h4>Zero-Knowledge Delivery</h4>
+              <p>Encryption keys are delivered directly to the app.</p>
             </div>
           </div>
         )}
@@ -427,7 +451,7 @@ export default function Authorize({
         )}
 
         {recoveryVisible && (
-          <div className="client-info" style={{ marginTop: "1rem" }}>
+          <div className="authorize-recovery">
             <h3>Key Recovery</h3>
             <p>
               We couldn’t access your encryption keys. If you recently changed your password, you
@@ -445,17 +469,17 @@ export default function Authorize({
               />
             </div>
             <div className="actions da-authorize-actions">
-              <button
+              <Button
                 type="button"
-                className="deny-button da-button da-button-secondary"
+                variant="secondary"
                 onClick={recoverWithOldPassword}
                 disabled={recoveryLoading}
               >
                 Recover with old password
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className="approve-button da-button da-button-primary"
+                variant="success"
                 onClick={generateNewKeys}
                 disabled={recoveryLoading}
               >
@@ -467,26 +491,26 @@ export default function Authorize({
                 ) : (
                   "Generate New Keys"
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         <div className="actions da-authorize-actions">
-          <button
+          <Button
             type="button"
-            className="deny-button da-button da-button-secondary"
+            variant="secondary"
             onClick={() => handleAuthorize(false)}
             disabled={loading}
           >
             {loading
               ? branding.getText("processing", "Processing...")
               : branding.getText("deny", "Deny")}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
-            className="approve-button da-button da-button-primary"
+            variant="success"
             onClick={() => handleAuthorize(true)}
             disabled={loading}
           >
@@ -498,10 +522,10 @@ export default function Authorize({
             ) : (
               branding.getText("authorize", "Authorize")
             )}
-          </button>
+          </Button>
         </div>
 
-        <div className="privacy-notice">
+        <div className="authorize-footnote">
           <p>
             By clicking "Authorize", you allow {authRequest.clientName} to access the requested
             information. You can revoke this access at any time in your account settings.
