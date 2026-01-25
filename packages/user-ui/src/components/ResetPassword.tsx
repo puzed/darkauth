@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import apiService from "../services/api";
 import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto";
+import { saveDrk } from "../services/drkStorage";
 import opaqueService from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 
@@ -50,7 +51,9 @@ export default function ResetPassword({ onSuccess, title, description }: ResetPa
         const keys = await cryptoService.deriveKeysFromExportKey(finish.passwordKey, userSub);
         const drk = await cryptoService.generateDRK();
         const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, userSub);
+        const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+        saveDrk(userSub, drk, wrappedDrkHash);
 
         // Clear sensitive data immediately after use
         cryptoService.clearSensitiveData(drk, keys.masterKey, keys.wrapKey, keys.deriveKey);
