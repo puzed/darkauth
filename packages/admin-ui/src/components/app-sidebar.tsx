@@ -15,10 +15,11 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+import SidebarNavGroup, { type SidebarNavItem } from "@/components/navigation/sidebar-nav-group";
 import { getTheme, setTheme } from "@/lib/theme";
 import styles from "./app-sidebar.module.css";
 
-const mainItems = [
+const mainItems: SidebarNavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Users", url: "/users", icon: Users },
   { title: "Groups", url: "/groups", icon: Shield },
@@ -26,10 +27,16 @@ const mainItems = [
   { title: "Branding", url: "/branding", icon: Monitor },
 ];
 
-const securityItems = [
+const securityItems: SidebarNavItem[] = [
   { title: "Permissions", url: "/permissions", icon: KeyRound },
   { title: "Keys", url: "/keys", icon: Key },
   { title: "Audit Logs", url: "/audit", icon: Lock },
+];
+
+const systemItems: SidebarNavItem[] = [
+  { title: "Changelog", url: "/changelog", icon: FileText },
+  { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Admin Users", url: "/settings/admin-users", icon: Users },
 ];
 
 interface AdminSessionData {
@@ -92,75 +99,26 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
       </div>
 
       <div className={styles.navigation}>
-        <div className={styles.navGroup}>
-          <div className={styles.navGroupLabel}>Main</div>
-          <div className={styles.navMenu}>
-            {mainItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.title}
-                  to={item.url}
-                  className={`${styles.navItem} ${isActive(item.url) ? styles.active : ""}`}
-                  onClick={handleNavClick}
-                >
-                  <Icon className={styles.navIcon} />
-                  <span>{item.title}</span>
-                </NavLink>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className={styles.navGroup}>
-          <div className={styles.navGroupLabel}>Security</div>
-          <div className={styles.navMenu}>
-            {securityItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <NavLink
-                  key={item.title}
-                  to={item.url}
-                  className={`${styles.navItem} ${isActive(item.url) ? styles.active : ""}`}
-                  onClick={handleNavClick}
-                >
-                  <Icon className={styles.navIcon} />
-                  <span>{item.title}</span>
-                </NavLink>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className={styles.navGroup}>
-          <div className={styles.navGroupLabel}>System</div>
-          <div className={styles.navMenu}>
-            <NavLink
-              to="/changelog"
-              className={`${styles.navItem} ${isActive("/changelog") ? styles.active : ""}`}
-              onClick={handleNavClick}
-            >
-              <FileText className={styles.navIcon} />
-              <span>Changelog</span>
-            </NavLink>
-            <NavLink
-              to="/settings"
-              className={`${styles.navItem} ${isActive("/settings") && location.pathname === "/settings" ? styles.active : ""}`}
-              onClick={handleNavClick}
-            >
-              <Settings className={styles.navIcon} />
-              <span>Settings</span>
-            </NavLink>
-            <NavLink
-              to="/settings/admin-users"
-              className={`${styles.navItem} ${isActive("/settings/admin-users") ? styles.active : ""}`}
-              onClick={handleNavClick}
-            >
-              <Users className={styles.navIcon} />
-              <span>Admin Users</span>
-            </NavLink>
-          </div>
-        </div>
+        <SidebarNavGroup
+          label="Main"
+          items={mainItems}
+          isActive={isActive}
+          onNavigate={handleNavClick}
+        />
+        <SidebarNavGroup
+          label="Security"
+          items={securityItems}
+          isActive={isActive}
+          onNavigate={handleNavClick}
+        />
+        <SidebarNavGroup
+          label="System"
+          items={systemItems}
+          isActive={(path) =>
+            path === "/settings" ? location.pathname === "/settings" : isActive(path)
+          }
+          onNavigate={handleNavClick}
+        />
       </div>
       <div className={styles.userSection}>
         <div className={styles.userMenuContainer}>
