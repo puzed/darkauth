@@ -399,6 +399,25 @@ class ApiService {
     });
   }
 
+  async passwordRecoveryVerifyStart(
+    requestB64Url: string
+  ): Promise<{ message: string; sessionId: string }> {
+    return this.request("/password/recovery/verify/start", {
+      method: "POST",
+      body: JSON.stringify({ request: requestB64Url }),
+    });
+  }
+
+  async passwordRecoveryVerifyFinish(
+    finishB64Url: string,
+    sessionId: string
+  ): Promise<{ success: boolean }> {
+    return this.request("/password/recovery/verify/finish", {
+      method: "POST",
+      body: JSON.stringify({ finish: finishB64Url, sessionId }),
+    });
+  }
+
   // Authorization Flow
   async authorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
     const params = new URLSearchParams();

@@ -343,7 +343,7 @@ export async function createUserViaAdmin(
     regStart.state,
     fromBase64Url(setStartJson.serverPublicKey),
     'DarkAuth',
-    user.email
+    setStartJson.identityU
   );
   const exportKeyHash = sha256Base64Url(Buffer.from(regFinish.export_key));
   const setFinishRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/password/set/finish`, {
@@ -360,6 +360,64 @@ export async function createUserViaAdmin(
   });
   if (!setFinishRes.ok) throw new Error(`password set finish failed: ${setFinishRes.status}`);
   return { sub };
+}
+
+export async function setUserPasswordViaAdmin(
+  servers: TestServers,
+  admin: { email: string; password: string },
+  user: { sub: string; email: string; password: string }
+): Promise<void> {
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  let token = await getAdminBearerToken(servers, admin);
+
+  const regClient = new OpaqueClient();
+  await regClient.initialize();
+  const regStart = await regClient.startRegistration(user.password, user.email);
+  let setStartRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(user.sub)}/password/set/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Origin': servers.adminUrl
+    },
+    body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) })
+  });
+  if (setStartRes.status === 401) {
+    adminTokenCache.delete(cacheKey);
+    token = await getAdminBearerToken(servers, admin);
+    setStartRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(user.sub)}/password/set/start`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'Origin': servers.adminUrl
+      },
+      body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) })
+    });
+  }
+  if (!setStartRes.ok) throw new Error(`password set start failed: ${setStartRes.status}`);
+  const setStartJson = await setStartRes.json();
+  const regFinish = await regClient.finishRegistration(
+    fromBase64Url(setStartJson.message),
+    regStart.state,
+    fromBase64Url(setStartJson.serverPublicKey),
+    'DarkAuth',
+    setStartJson.identityU
+  );
+  const exportKeyHash = sha256Base64Url(Buffer.from(regFinish.export_key));
+  const setFinishRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(user.sub)}/password/set/finish`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      'Origin': servers.adminUrl
+    },
+    body: JSON.stringify({
+      record: toBase64Url(Buffer.from(regFinish.upload)),
+      export_key_hash: exportKeyHash
+    })
+  });
+  if (!setFinishRes.ok) throw new Error(`password set finish failed: ${setFinishRes.status}`);
 }
 
 export async function createAdminUserViaAdmin(
@@ -440,7 +498,7 @@ export async function createAdminUserViaAdmin(
     regStart.state,
     fromBase64Url(setStartJson.serverPublicKey),
     'DarkAuth',
-    newAdmin.email
+    setStartJson.identityU
   );
   const exportKeyHash = sha256Base64Url(Buffer.from(regFinish.export_key));
   let setFinishRes = await fetch(
