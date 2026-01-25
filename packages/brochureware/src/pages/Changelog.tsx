@@ -121,7 +121,7 @@ const Changelog = () => {
   useEffect(() => {
     const loadChangelog = async () => {
       try {
-        const response = await fetch("/changelog.json");
+        const response = await fetch("https://release.darkauth.com/changelog.json");
         if (!response.ok) throw new Error(String(response.status));
         const data = await response.json();
         const es = Array.isArray(data.entries) ? data.entries : [];
