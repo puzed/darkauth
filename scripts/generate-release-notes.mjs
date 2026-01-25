@@ -26,6 +26,8 @@ const args = [
   "-y",
   "opencode-ai@latest",
   "run",
+  "--model",
+  "GLM-4.7-FlashX",
   "-f",
   promptPath,
   "--",
