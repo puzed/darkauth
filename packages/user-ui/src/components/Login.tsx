@@ -1,7 +1,8 @@
 import { useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
-import cryptoService, { toBase64Url } from "../services/crypto";
+import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto";
+import { saveDrk } from "../services/drkStorage";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
@@ -149,6 +150,8 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
             loginFinishResponse.sub
           );
           await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+          const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
+          saveDrk(loginFinishResponse.sub, drk, wrappedDrkHash);
           cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
         } catch (e) {
           logger.warn(
