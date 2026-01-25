@@ -62,14 +62,17 @@ test.describe('Demo App Recovery', () => {
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
       { sub, email: user.email, password: tempPassword }
     );
-    const accessToken = await loginUserViaApi(servers, { email: user.email, password: tempPassword });
+    const { accessToken } = await loginUserViaApi(servers, { email: user.email, password: tempPassword });
     await changeUserPassword(servers, accessToken, {
       email: user.email,
       currentPassword: tempPassword,
       newPassword,
     });
 
-    const newAccessToken = await loginUserViaApi(servers, { email: user.email, password: newPassword });
+    const { accessToken: newAccessToken } = await loginUserViaApi(servers, {
+      email: user.email,
+      password: newPassword,
+    });
     const recoveryContext = await browser.newContext();
     const recoveryPage = await recoveryContext.newPage();
     await recoveryPage.addInitScript((payload) => {
@@ -98,13 +101,23 @@ test.describe('Demo App Recovery', () => {
     await recoveryPage.waitForURL((url) => url.toString().startsWith(`${demoUi.url}/`), { timeout: 30000 });
     await recoveryContext.close();
 
-    const freshAccessToken = await loginUserViaApi(servers, { email: user.email, password: newPassword });
+    const {
+      accessToken: freshAccessToken,
+      exportKeyB64Url: freshExportKeyB64Url,
+      sub: freshSub,
+    } = await loginUserViaApi(servers, { email: user.email, password: newPassword });
     const freshContext = await browser.newContext();
     const freshPage = await freshContext.newPage();
     await freshPage.addInitScript((payload) => {
       (window as any).__APP_CONFIG__ = payload.config;
       if (window.location.origin === payload.authOrigin) {
         window.localStorage.setItem('userAccessToken', payload.accessToken);
+        if (payload.exportKeyB64Url && payload.userSub) {
+          window.sessionStorage.setItem(
+            `DarkAuth_export_key:${payload.userSub}`,
+            payload.exportKeyB64Url
+          );
+        }
       }
     }, {
       config: {
@@ -115,6 +128,8 @@ test.describe('Demo App Recovery', () => {
       },
       authOrigin: servers.userUrl,
       accessToken: freshAccessToken,
+      exportKeyB64Url: freshExportKeyB64Url,
+      userSub: freshSub,
     });
     await freshPage.goto(demoUi.url);
     const freshAuthorizeButton = freshPage.locator('button:has-text("Authorize")');
@@ -126,6 +141,10 @@ test.describe('Demo App Recovery', () => {
     if (await freshAuthorizeButton.isVisible()) {
       await expect(freshPage.getByText('Key Recovery')).toHaveCount(0);
       await freshAuthorizeButton.click();
+      await freshPage.waitForURL((url) => url.toString().startsWith(demoUi.url), {
+        timeout: 30000,
+      });
+      await freshPage.waitForLoadState('domcontentloaded');
     }
     await dashboard.waitFor({ state: 'visible', timeout: 30000 });
     await freshContext.close();
@@ -135,7 +154,7 @@ test.describe('Demo App Recovery', () => {
 async function loginUserViaApi(
   servers: TestServers,
   user: { email: string; password: string }
-): Promise<string> {
+): Promise<{ accessToken: string; exportKeyB64Url: string; sub: string }> {
   const client = new OpaqueClient();
   await client.initialize();
   const loginStart = await client.startLogin(user.password, user.email);
@@ -159,8 +178,12 @@ async function loginUserViaApi(
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
   });
   if (!finishRes.ok) throw new Error(`login finish failed: ${finishRes.status}`);
-  const finishJson = await finishRes.json() as { accessToken: string };
-  return finishJson.accessToken;
+  const finishJson = await finishRes.json() as { accessToken: string; sub: string };
+  return {
+    accessToken: finishJson.accessToken,
+    exportKeyB64Url: toBase64Url(Buffer.from(loginFinish.export_key)),
+    sub: finishJson.sub,
+  };
 }
 
 async function changeUserPassword(

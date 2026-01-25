@@ -294,7 +294,9 @@ export default function Authorize({
             drkHash,
             drkJwe: jwe,
           });
-          window.location.href = authResponse.redirectUrl;
+          const redirectUrl = new URL(authResponse.redirectUrl);
+          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          window.location.href = redirectUrl.toString();
           return;
         }
       } catch (e) {
@@ -404,7 +406,9 @@ export default function Authorize({
             drkHash,
             drkJwe: jwe,
           });
-          window.location.href = authResponse.redirectUrl;
+          const redirectUrl = new URL(authResponse.redirectUrl);
+          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          window.location.href = redirectUrl.toString();
           return;
         }
       } catch (e) {
