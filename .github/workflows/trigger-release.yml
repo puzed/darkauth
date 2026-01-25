@@ -43,12 +43,7 @@ jobs:
         env:
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           TAG: ${{ steps.release_tag.outputs.tag }}
-          OPENCODE_PERMISSION: '{"*":"deny"}'
-        run: |
-          npx -y opencode-ai@latest run \
-            --file .codex/prompts/github-create-release.md \
-            "Generate the markdown changelog body for release ${TAG}. Return markdown only." \
-            > release-notes.md
+        run: node scripts/generate-release-notes.mjs "${TAG}"
       - name: Build release screenshots
         if: steps.release_tag.outputs.no_release != 'true'
         run: |
