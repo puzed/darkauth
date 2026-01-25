@@ -1,0 +1,25 @@
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.alignStart {
+  justify-content: flex-start;
+}
+
+.alignEnd {
+  justify-content: flex-end;
+}
+
+.alignBetween {
+  justify-content: space-between;
+}
+
+.withMargin {
+  margin-top: 24px;
+}
+
+.withBottomMargin {
+  margin-bottom: 12px;
+}

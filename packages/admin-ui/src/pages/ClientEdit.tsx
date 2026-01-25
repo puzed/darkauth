@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -319,14 +320,14 @@ export default function ClientEdit() {
               />
             </FormField>
           </FormGrid>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <FormActions>
             <Button variant="outline" onClick={() => navigate("/clients")}>
               Back
             </Button>
             <Button onClick={save} disabled={submitting}>
               Save
             </Button>
-          </div>
+          </FormActions>
         </CardContent>
       </Card>
     </div>

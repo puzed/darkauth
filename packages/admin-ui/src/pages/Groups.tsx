@@ -2,6 +2,7 @@ import { Edit, Filter, Plus, RefreshCcw, Shield, Trash2, Users as UsersIcon } fr
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
+import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
@@ -91,7 +92,7 @@ export default function Groups() {
         }
       />
 
-      {error && <div style={{ color: "hsl(var(--destructive))", padding: 16 }}>{error}</div>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
 
       <StatsGrid>
         <StatsCard

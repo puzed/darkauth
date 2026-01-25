@@ -1,8 +1,10 @@
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import FormActions from "@/components/layout/form-actions";
 import { FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
+import MutedText from "@/components/text/muted-text";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -178,15 +180,15 @@ export default function AdminUserEdit() {
                     <SelectItem value="write">Write Access</SelectItem>
                   </SelectContent>
                 </Select>
-                <p style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
+                <MutedText size="xs" spacing="xs">
                   {formData.role === "write"
                     ? "Can view and modify all settings and data"
                     : "Can only view data, cannot make changes"}
-                </p>
+                </MutedText>
               </div>
             </FormGrid>
 
-            <div style={{ marginTop: 24, display: "flex", gap: 12 }}>
+            <FormActions align="start" withMargin>
               <Button type="submit" disabled={loading}>
                 {loading ? "Saving..." : "Save Changes"}
               </Button>
@@ -197,7 +199,7 @@ export default function AdminUserEdit() {
               >
                 Cancel
               </Button>
-            </div>
+            </FormActions>
           </form>
         </CardContent>
       </Card>

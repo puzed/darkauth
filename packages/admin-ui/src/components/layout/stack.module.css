@@ -1,0 +1,16 @@
+.stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.gapSm {
+  gap: 12px;
+}
+
+.gapMd {
+  gap: 16px;
+}
+
+.gapLg {
+  gap: 24px;
+}

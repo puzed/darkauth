@@ -2,6 +2,7 @@ import { Edit, KeyRound, RefreshCcw, RotateCcw, Trash2, UserPlus } from "lucide-
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
+import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
@@ -158,7 +159,7 @@ export default function AdminUsers() {
         }
       />
 
-      {error && <div style={{ color: "red", marginBottom: 16 }}>{error}</div>}
+      {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 
       <StatsGrid>
         <StatsCard
