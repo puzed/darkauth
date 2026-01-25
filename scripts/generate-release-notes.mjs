@@ -8,7 +8,7 @@ if (!tag) {
   process.exit(1);
 }
 
-const promptPath = resolve(process.cwd(), ".codex/prompts/github-create-release.md");
+const promptPath = resolve(process.cwd(), ".github/prompts/github-create-release.md");
 const startMarker = "<!--release-notes-start-->";
 const endMarker = "<!--release-notes-end-->";
 const message = [
