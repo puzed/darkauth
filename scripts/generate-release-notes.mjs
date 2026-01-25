@@ -27,18 +27,31 @@ const args = [
   "opencode-ai@latest",
   "run",
   "--model",
-  "GLM-4.7-FlashX",
+  "openrouter/z-ai/glm-4.7",
   "-f",
   promptPath,
   "--",
   message,
 ];
 
+const permission = {
+  read: { "*": "allow" },
+  glob: { "*": "allow" },
+  edit: "deny",
+  bash: {
+    "*": "deny",
+    "git *": "allow",
+    "ls *": "allow",
+    "rg *": "allow",
+    "cat *": "allow",
+  },
+};
+
 const child = spawn("npx", args, {
   stdio: ["ignore", "pipe", "inherit"],
   env: {
     ...process.env,
-    OPENCODE_PERMISSION: '{"*":"deny"}',
+    OPENCODE_PERMISSION: JSON.stringify(permission),
   },
 });
 let output = "";
