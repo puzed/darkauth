@@ -2,6 +2,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
+import { clearDrk, loadDrk, saveDrk } from "../services/drkStorage";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
 import { loadExportKey } from "../services/sessionKey";
@@ -132,11 +133,35 @@ export default function Authorize({
             const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
             const wrappedDrkB64 = await apiService.getWrappedDrk();
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
+            const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
             const exportKey = await loadExportKey(sessionData.sub);
-            if (!exportKey) throw new Error("Missing export key");
+            if (!exportKey) {
+              const stored = loadDrk(sessionData.sub);
+              if (!stored || stored.wrappedDrkHash !== wrappedDrkHash) {
+                clearDrk(sessionData.sub);
+                throw new Error("Missing export key");
+              }
+              const jwe = await cryptoService.createDrkJWE(
+                stored.drk,
+                zkPubJwk,
+                sessionData.sub,
+                clientId
+              );
+              const drkHash = await sha256Base64Url(jwe);
+              const authResponse = await apiService.authorize({
+                requestId: authRequest.requestId,
+                approve,
+                drkHash,
+              });
+              const redirectUrl = new URL(authResponse.redirectUrl);
+              redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+              window.location.href = redirectUrl.toString();
+              return;
+            }
             const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
             const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
             const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
+            saveDrk(sessionData.sub, drk, wrappedDrkHash);
 
             // Clear sensitive data immediately
             cryptoService.clearSensitiveData(
@@ -222,8 +247,10 @@ export default function Authorize({
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys keys derived");
       const drk = await cryptoService.generateDRK();
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
+      const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys storing wrapped DRK");
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+      saveDrk(sessionData.sub, drk, wrappedDrkHash);
       try {
         const kp = await cryptoService.generateECDHKeyPair();
         const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
@@ -236,7 +263,6 @@ export default function Authorize({
           "[Authorize] generateNewKeys store wrapped enc priv"
         );
         await apiService.putWrappedEncPrivateJwk(wrappedPriv);
-        cryptoService.clearSensitiveData(drk);
       } catch (err) {
         logger.warn(
           err instanceof Error
@@ -247,6 +273,7 @@ export default function Authorize({
       }
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys success");
       setRecoveryVisible(false);
+      cryptoService.clearSensitiveData(drk);
       try {
         const url = new URL(window.location.href);
         const zkPubParam = url.searchParams.get("zk_pub");
@@ -334,11 +361,13 @@ export default function Authorize({
         sessionData.sub
       );
       const rewrapped = await cryptoService.wrapDRK(drk, keysNew.wrapKey, sessionData.sub);
+      const wrappedDrkHash = await sha256Base64Url(rewrapped);
       logger.debug(
         { sub: sessionData.sub },
         "[Authorize] recoverWithOldPassword store wrapped DRK"
       );
       await apiService.putWrappedDrk(toBase64Url(rewrapped));
+      saveDrk(sessionData.sub, drk, wrappedDrkHash);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
       setRecoveryVisible(false);
       setOldPassword("");
