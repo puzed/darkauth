@@ -203,6 +203,15 @@ export const userPasswordHistory = pgTable("user_password_history", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const userOpaqueRecordHistory = pgTable("user_opaque_record_history", {
+  userSub: text("user_sub")
+    .primaryKey()
+    .references(() => users.sub, { onDelete: "cascade" }),
+  envelope: bytea("envelope").notNull(),
+  serverPubkey: bytea("server_pubkey").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const adminPasswordHistory = pgTable("admin_password_history", {
   id: uuid("id").primaryKey().defaultRandom(),
   adminId: uuid("admin_id")

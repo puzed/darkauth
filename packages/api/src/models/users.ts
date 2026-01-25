@@ -181,3 +181,22 @@ export async function getUserOpaqueRecordByEmail(context: Context, email: string
   }
   return { user, envelope, serverPubkey };
 }
+
+export async function getUserOpaqueRecordHistoryByEmail(context: Context, email: string) {
+  const { eq } = await import("drizzle-orm");
+  const { userOpaqueRecordHistory, users } = await import("../db/schema.js");
+  const { NotFoundError } = await import("../errors.js");
+  const user = await context.db.query.users.findFirst({
+    where: eq(users.email, email),
+  });
+  if (!user) throw new NotFoundError("User not found");
+  const history = await context.db.query.userOpaqueRecordHistory.findFirst({
+    where: eq(userOpaqueRecordHistory.userSub, user.sub),
+  });
+  if (!history) throw new NotFoundError("User has no authentication history");
+  return {
+    user,
+    envelope: history.envelope,
+    serverPubkey: history.serverPubkey,
+  };
+}

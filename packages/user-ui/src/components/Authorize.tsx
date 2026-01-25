@@ -351,9 +351,10 @@ export default function Authorize({
 
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE start");
       const oldStart = await opaqueService.startLogin(sessionData.email, oldPassword);
-      const oldStartResp = await apiService.passwordVerifyStart(oldStart.request);
+      const oldStartResp = await apiService.passwordRecoveryVerifyStart(oldStart.request);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE finish");
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
+      await apiService.passwordRecoveryVerifyFinish(oldFinish.request, oldStartResp.sessionId);
       opaqueService.clearState(oldStart.state);
 
       logger.debug(
