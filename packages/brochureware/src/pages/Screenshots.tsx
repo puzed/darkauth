@@ -19,15 +19,16 @@ const Screenshots = () => {
   const [selected, setSelected] = useState<{ src: string; alt: string } | null>(null);
   const { theme, resolvedTheme } = useTheme();
   const effective = useMemo(() => (theme === "system" ? resolvedTheme : theme) || "light", [theme, resolvedTheme]);
-  const basePath = useMemo(() => `/test-screenshots/${effective}`, [effective]);
+  const basePath = useMemo(() => `https://release.darkauth.com/screenshots/${effective}`, [effective]);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const themed = await fetch(`${basePath}/index.json`, { cache: "no-store" });
-      const raw: unknown = themed.ok ? await themed.json() : [];
+      const response = await fetch("https://release.darkauth.com/screenshots.json", { cache: "no-store" });
+      const payload: { themes?: Record<string, unknown> } = response.ok ? await response.json() : {};
+      const themeShots = payload.themes?.[effective];
       if (!cancelled) {
-        setShots(Array.isArray(raw) ? (raw as Shot[]) : []);
+        setShots(Array.isArray(themeShots) ? (themeShots as Shot[]) : []);
         setLoaded(true);
       }
     };

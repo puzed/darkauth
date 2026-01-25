@@ -2,7 +2,7 @@
 
 A technical analysis of zero‑knowledge key delivery for OIDC
 
-_2026-01-24_
+_2026-01-25_
 
 # DarkAuth v1 Security Whitepaper
 
