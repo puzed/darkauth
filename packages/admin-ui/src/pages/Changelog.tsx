@@ -99,7 +99,7 @@ const Changelog: React.FC = () => {
   useEffect(() => {
     const loadChangelog = async () => {
       try {
-        const response = await fetch("https://darkauth.com/changelog.json");
+        const response = await fetch("https://release.darkauth.com/changelog.json");
         if (!response.ok) throw new Error(`Failed to fetch changelog: ${response.status}`);
         const data = await response.json();
         const es = data.entries || [];

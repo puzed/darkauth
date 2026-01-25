@@ -279,8 +279,8 @@ When OTP is enabled and required, login creates a partial session with `data.otp
 
 ## Changelog
 
-- Markdown entries live in `changelog/` as `YYYY-MM-DD.md`
-- Brochureware publishes `/changelog.json`; Admin UI fetches from `https://darkauth.com/changelog.json`
+- Markdown entries live in `changelog/` as `vX.Y.Z.md`
+- Changelog JSON is published to `https://release.darkauth.com/changelog.json`
 
 ## Zero-Knowledge Flow
 

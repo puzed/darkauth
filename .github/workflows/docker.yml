@@ -17,11 +17,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull GitHub releases into changelog
-        run: scripts/pull-github-releases.sh
-        env:
-          GH_TOKEN: ${{ github.token }}
-
       - id: repo
         run: echo "name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
 
@@ -76,11 +71,6 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Pull GitHub releases into changelog
-        run: scripts/pull-github-releases.sh
-        env:
-          GH_TOKEN: ${{ github.token }}
 
       - id: repo
         run: echo "name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT

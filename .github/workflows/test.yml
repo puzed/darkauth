@@ -139,9 +139,6 @@ jobs:
     name: Brochureware Build
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs:
-      - screenshots-light
-      - screenshots-dark
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -149,17 +146,6 @@ jobs:
           node-version: '24'
           cache: 'npm'
       - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: test-results-light-*
-          path: packages/test-suite/test-results-light
-          merge-multiple: true
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: test-results-dark-*
-          path: packages/test-suite/test-results-dark
-          merge-multiple: true
-      - run: node packages/brochureware/scripts/collect-screenshots.js
       - run: |
           cd packages/brochureware
           npm run build
