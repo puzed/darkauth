@@ -41,7 +41,7 @@ jobs:
       - name: Generate release notes
         if: steps.release_tag.outputs.no_release != 'true'
         env:
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           TAG: ${{ steps.release_tag.outputs.tag }}
         run: node scripts/generate-release-notes.mjs "${TAG}"
       - name: Build release screenshots
@@ -54,7 +54,7 @@ jobs:
       - name: Deploy release screenshots
         if: steps.release_tag.outputs.no_release != 'true'
         env:
-          RELEASE_DEPLOY_STORAGE_ZONE: ${{ secrets.RELEASE_DEPLOY_STORAGE_ZONE }}
+          RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
           RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
         run: node scripts/deploy-release-screenshots.mjs
       - id: repo
@@ -101,6 +101,6 @@ jobs:
       - name: Deploy changelog to Bunny
         if: steps.release_tag.outputs.no_release != 'true'
         env:
-          RELEASE_DEPLOY_STORAGE_ZONE: ${{ secrets.RELEASE_DEPLOY_STORAGE_ZONE }}
+          RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
           RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
         run: node scripts/deploy-release-changelog.mjs
