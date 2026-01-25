@@ -1,0 +1,106 @@
+name: Trigger Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - run: npx playwright install
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: npx -y semantic-release
+      - name: Resolve release tag
+        id: release_tag
+        run: |
+          TAG=$(git tag --points-at HEAD | tail -n 1)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          if [ -z "$TAG" ]; then
+            echo "no_release=true" >> $GITHUB_OUTPUT
+          fi
+      - name: Generate release notes
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: node scripts/generate-release-notes.mjs "${TAG}"
+      - name: Build release screenshots
+        if: steps.release_tag.outputs.no_release != 'true'
+        run: |
+          npm --workspace @DarkAuth/test-suite run pretest
+          cd packages/test-suite
+          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light
+          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark
+      - name: Deploy release screenshots
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
+          RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
+        run: node scripts/deploy-release-screenshots.mjs
+      - id: repo
+        if: steps.release_tag.outputs.no_release != 'true'
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
+      - uses: docker/setup-qemu-action@v3
+        if: steps.release_tag.outputs.no_release != 'true'
+      - uses: docker/setup-buildx-action@v3
+        if: steps.release_tag.outputs.no_release != 'true'
+      - name: Log in to GHCR
+        if: steps.release_tag.outputs.no_release != 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build release image
+        if: steps.release_tag.outputs.no_release != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ghcr.io/${{ steps.repo.outputs.name }}:${{ steps.release_tag.outputs.tag }}
+      - name: Append release image pull command
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          TAG: ${{ steps.release_tag.outputs.tag }}
+          IMAGE: ghcr.io/${{ steps.repo.outputs.name }}
+        run: |
+          printf '\n## Docker\n\n`docker pull %s:%s`\n' "$IMAGE" "$TAG" >> release-notes.md
+      - name: Update release notes
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release_tag.outputs.tag }}
+        run: gh release edit "$TAG" --notes-file release-notes.md
+      - name: Pull GitHub releases into changelog
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/pull-github-releases.sh
+      - name: Deploy changelog to Bunny
+        if: steps.release_tag.outputs.no_release != 'true'
+        env:
+          RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
+          RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
+        run: node scripts/deploy-release-changelog.mjs
