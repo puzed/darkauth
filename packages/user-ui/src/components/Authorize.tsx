@@ -5,7 +5,7 @@ import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../s
 import { clearDrk, loadDrk, saveDrk } from "../services/drkStorage";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
-import { loadExportKey } from "../services/sessionKey";
+import { loadExportKey, saveExportKey } from "../services/sessionKey";
 import Button from "./Button";
 
 interface ScopeInfo {
@@ -62,12 +62,14 @@ export default function Authorize({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [_zkKeyPair, setZkKeyPair] = useState<{
     publicKey: CryptoKey;
     privateKey: CryptoKey;
   } | null>(null);
+  const currentPasswordId = useId();
   const oldPasswordId = useId();
   const appName = authRequest.clientName || "Application";
 
@@ -330,18 +332,29 @@ export default function Authorize({
     setRecoveryLoading(true);
     setError(null);
     try {
+      let currentExportKey = await loadExportKey(sessionData.sub);
+      if (!currentExportKey) {
+        if (!currentPassword) {
+          throw new Error("Enter your current password to unlock keys.");
+        }
+        const currentStart = await opaqueService.startLogin(sessionData.email, currentPassword);
+        const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
+        const currentFinish = await opaqueService.finishLogin(
+          currentStartResp.message,
+          currentStart.state
+        );
+        opaqueService.clearState(currentStart.state);
+        currentExportKey = currentFinish.exportKey;
+        await saveExportKey(sessionData.sub, currentExportKey);
+        cryptoService.clearSensitiveData(currentFinish.sessionKey);
+      }
+
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE start");
       const oldStart = await opaqueService.startLogin(sessionData.email, oldPassword);
       const oldStartResp = await apiService.passwordVerifyStart(oldStart.request);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE finish");
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
       opaqueService.clearState(oldStart.state);
-      const currentExportKey = await loadExportKey(sessionData.sub);
-      if (!currentExportKey) {
-        throw new Error(
-          "Current key material is not loaded. Please sign out and sign in to load your key, then retry recovery."
-        );
-      }
 
       logger.debug(
         { sub: sessionData.sub },
@@ -371,6 +384,7 @@ export default function Authorize({
       logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
       setRecoveryVisible(false);
       setOldPassword("");
+      setCurrentPassword("");
       try {
         const url = new URL(window.location.href);
         const zkPubParam = url.searchParams.get("zk_pub");
@@ -486,6 +500,17 @@ export default function Authorize({
               We couldn’t access your encryption keys. If you recently changed your password, you
               can either try to migrate using your previous password or generate new keys.
             </p>
+            <div className="form-group">
+              <label htmlFor={currentPasswordId}>Current Password</label>
+              <input
+                id={currentPasswordId}
+                type="password"
+                placeholder="Enter your current password"
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                autoComplete="current-password"
+              />
+            </div>
             <div className="form-group">
               <label htmlFor={oldPasswordId}>Old Password</label>
               <input
