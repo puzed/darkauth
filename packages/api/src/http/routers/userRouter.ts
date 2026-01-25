@@ -18,6 +18,8 @@ import { postUserPasswordChangeFinish } from "../../controllers/user/passwordCha
 import { postUserPasswordChangeStart } from "../../controllers/user/passwordChangeStart.js";
 import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordChangeVerifyFinish.js";
 import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.js";
+import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.js";
+import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.js";
 import { postUserRefreshToken } from "../../controllers/user/refreshToken.js";
 import { getSession } from "../../controllers/user/session.js";
 import { postToken } from "../../controllers/user/token.js";
@@ -250,6 +252,14 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/password/change/verify/finish") {
         return await postUserPasswordVerifyFinish(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/password/recovery/verify/start") {
+        return await postUserPasswordRecoveryVerifyStart(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/password/recovery/verify/finish") {
+        return await postUserPasswordRecoveryVerifyFinish(context, request, response);
       }
 
       if (method === "POST" && pathname === "/opaque/login/start") {

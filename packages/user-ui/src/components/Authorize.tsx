@@ -294,7 +294,9 @@ export default function Authorize({
             drkHash,
             drkJwe: jwe,
           });
-          window.location.href = authResponse.redirectUrl;
+          const redirectUrl = new URL(authResponse.redirectUrl);
+          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          window.location.href = redirectUrl.toString();
           return;
         }
       } catch (e) {
@@ -351,9 +353,10 @@ export default function Authorize({
 
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE start");
       const oldStart = await opaqueService.startLogin(sessionData.email, oldPassword);
-      const oldStartResp = await apiService.passwordVerifyStart(oldStart.request);
+      const oldStartResp = await apiService.passwordRecoveryVerifyStart(oldStart.request);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE finish");
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
+      await apiService.passwordRecoveryVerifyFinish(oldFinish.request, oldStartResp.sessionId);
       opaqueService.clearState(oldStart.state);
 
       logger.debug(
@@ -403,7 +406,9 @@ export default function Authorize({
             drkHash,
             drkJwe: jwe,
           });
-          window.location.href = authResponse.redirectUrl;
+          const redirectUrl = new URL(authResponse.redirectUrl);
+          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          window.location.href = redirectUrl.toString();
           return;
         }
       } catch (e) {

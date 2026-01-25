@@ -1,5 +1,10 @@
 import { eq } from "drizzle-orm";
-import { opaqueRecords, userPasswordHistory, users } from "../db/schema.js";
+import {
+  opaqueRecords,
+  userOpaqueRecordHistory,
+  userPasswordHistory,
+  users,
+} from "../db/schema.js";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
 import { verifyJWT } from "../services/jwks.js";
 import type { Context } from "../types.js";
@@ -39,6 +44,32 @@ export async function userPasswordChangeFinish(
     const existing = await tx.query.opaqueRecords.findFirst({
       where: eq(opaqueRecords.sub, params.userSub),
     });
+    const user = await tx.query.users.findFirst({
+      where: eq(users.sub, params.userSub),
+      columns: { passwordResetRequired: true },
+    });
+    const history = await tx.query.userOpaqueRecordHistory.findFirst({
+      where: eq(userOpaqueRecordHistory.userSub, params.userSub),
+    });
+    const shouldStoreHistory = !user?.passwordResetRequired || !history;
+    if (existing && shouldStoreHistory) {
+      await tx
+        .insert(userOpaqueRecordHistory)
+        .values({
+          userSub: params.userSub,
+          envelope: existing.envelope,
+          serverPubkey: existing.serverPubkey,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: userOpaqueRecordHistory.userSub,
+          set: {
+            envelope: existing.envelope,
+            serverPubkey: existing.serverPubkey,
+            updatedAt: new Date(),
+          },
+        });
+    }
     if (existing) {
       await tx
         .update(opaqueRecords)
@@ -105,6 +136,24 @@ export async function finishUserPasswordSetForAdmin(
     const existing = await tx.query.opaqueRecords.findFirst({
       where: eq(opaqueRecords.sub, params.userSub),
     });
+    if (existing) {
+      await tx
+        .insert(userOpaqueRecordHistory)
+        .values({
+          userSub: params.userSub,
+          envelope: existing.envelope,
+          serverPubkey: existing.serverPubkey,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: userOpaqueRecordHistory.userSub,
+          set: {
+            envelope: existing.envelope,
+            serverPubkey: existing.serverPubkey,
+            updatedAt: new Date(),
+          },
+        });
+    }
     if (existing) {
       await tx
         .update(opaqueRecords)
