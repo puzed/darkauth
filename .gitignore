@@ -14,5 +14,6 @@ packages/demo-app/data
 packages/brochureware/public/changelog.json
 packages/brochureware/public/whitepaper.pdf
 .release-dist
+.release-screenshots-dist
 
 progress.log
