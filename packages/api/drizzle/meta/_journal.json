@@ -43,6 +43,13 @@
       "when": 1757509200000,
       "tag": "0005_settings_description",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1758799980000,
+      "tag": "0007_user_opaque_record_history",
+      "breakpoints": true
     }
   ]
 }
