@@ -16,6 +16,7 @@ import OtpVerifyView from "./components/OtpVerifyView";
 import RegisterView from "./components/RegisterView";
 import SettingsSecurityView from "./components/SettingsSecurityView";
 import apiService from "./services/api";
+import { clearAllDrk } from "./services/drkStorage";
 import { clearAllExportKeys } from "./services/sessionKey";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
@@ -140,6 +141,7 @@ function AppContent() {
     const handleSessionExpired = () => {
       setSessionData(null);
       clearAllExportKeys();
+      clearAllDrk();
     };
 
     apiService.setSessionExpiredCallback(handleSessionExpired);
@@ -167,6 +169,7 @@ function AppContent() {
     try {
       await apiService.logout();
       clearAllExportKeys();
+      clearAllDrk();
       setSessionData(null);
       setAuthRequest(null);
       setAuthRequestSearch(null);

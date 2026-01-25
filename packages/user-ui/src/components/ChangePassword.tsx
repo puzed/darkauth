@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
+import { saveDrk } from "../services/drkStorage";
 import opaqueService from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 import Button from "./Button";
@@ -26,8 +27,10 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
     const keys = await cryptoService.deriveKeysFromExportKey(newExportKey, sub);
     const drk = await cryptoService.generateDRK();
     const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sub);
+    const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
     try {
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+      saveDrk(sub, drk, wrappedDrkHash);
     } catch {}
     try {
       const kp = await cryptoService.generateECDHKeyPair();
@@ -100,6 +103,8 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
         const keysNew = await cryptoService.deriveKeysFromExportKey(regFinish.passwordKey, sub);
         const wrappedDrk = await cryptoService.wrapDRK(recoveredDrk, keysNew.wrapKey, sub);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+        const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
+        saveDrk(sub, recoveredDrk, wrappedDrkHash);
 
         // Clear all sensitive data from memory
         cryptoService.clearSensitiveData(
