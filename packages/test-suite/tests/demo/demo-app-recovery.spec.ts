@@ -117,13 +117,17 @@ test.describe('Demo App Recovery', () => {
       accessToken: freshAccessToken,
     });
     await freshPage.goto(demoUi.url);
-    if (freshPage.url().includes('/authorize')) {
+    const authorizeButton = freshPage.locator('button:has-text("Authorize")');
+    const dashboard = freshPage.locator('[class*="newCard"], button:has-text("New Note")');
+    await Promise.race([
+      authorizeButton.waitFor({ state: 'visible', timeout: 20000 }),
+      dashboard.waitFor({ state: 'visible', timeout: 20000 }),
+    ]);
+    if (await authorizeButton.isVisible()) {
       await expect(freshPage.getByText('Key Recovery')).toHaveCount(0);
-      await freshPage.click('button:has-text("Authorize")');
+      await authorizeButton.click();
     }
-    await expect(
-      freshPage.locator('[class*="newCard"], button:has-text("New Note")')
-    ).toBeVisible({ timeout: 30000 });
+    await dashboard.waitFor({ state: 'visible', timeout: 30000 });
     await freshContext.close();
   });
 });
