@@ -12,9 +12,9 @@ import { useCallback, useEffect, useState } from "react";
 import changelogStyles from "@/components/changelog.module.css";
 import PageHeader from "@/components/layout/page-header";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import styles from "@/pages/Dashboard.module.css";
 import adminApiService, {
   type AuditLog,
   type Client,
@@ -266,7 +266,7 @@ export default function Dashboard() {
               {loading ? (
                 <div>Loading...</div>
               ) : (
-                <div style={{ display: "grid", gap: 10 }}>
+                <div className={styles.activityList}>
                   {auditLogs.length === 0 ? (
                     <div style={{ color: "hsl(var(--muted-foreground))" }}>
                       No recent audit events
@@ -274,6 +274,19 @@ export default function Dashboard() {
                   ) : (
                     auditLogs.map((log) => {
                       const actor = getActor(log);
+                      const metaItems: { value: string; className?: string }[] = [
+                        { value: actor.type, className: styles.activityMetaType },
+                        { value: actor.id },
+                      ];
+
+                      if (log.resource) {
+                        metaItems.push({
+                          value: log.resourceId
+                            ? `${log.resource}: ${log.resourceId}`
+                            : log.resource,
+                        });
+                      }
+
                       return (
                         <button
                           key={log.id}
@@ -281,68 +294,38 @@ export default function Dashboard() {
                           onClick={() => {
                             window.location.href = `/audit/${log.id}`;
                           }}
-                          style={{
-                            display: "grid",
-                            gridTemplateColumns: "auto 1fr auto",
-                            alignItems: "center",
-                            gap: 12,
-                            textAlign: "left",
-                            background: "transparent",
-                            border: 0,
-                            padding: 8,
-                            cursor: "pointer",
-                          }}
+                          className={styles.activityItem}
                         >
                           <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: 999,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background: "hsl(var(--accent))",
-                            }}
+                            className={styles.activityIcon}
+                            data-status={log.success ? "success" : "fail"}
                           >
-                            <FileText
-                              size={16}
-                              color={
-                                log.success ? "hsl(var(--success))" : "hsl(var(--destructive))"
-                              }
-                            />
+                            <FileText size={16} />
                           </div>
-                          <div>
-                            <div style={{ fontWeight: 500, fontSize: 14, letterSpacing: 0.2 }}>
-                              {formatEventType(log.eventType)}
-                            </div>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 8,
-                                marginTop: 4,
-                              }}
-                            >
-                              <Badge variant={actor.type === "Admin" ? "default" : "outline"}>
-                                {actor.type}
-                              </Badge>
-                              <span style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>
-                                {actor.id}
+                          <div className={styles.activityBody}>
+                            <div className={styles.activityHeader}>
+                              <span className={styles.activityTitle}>
+                                {formatEventType(log.eventType)}
                               </span>
-                              {log.resource && (
-                                <span
-                                  style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}
-                                >
-                                  {log.resource}
-                                  {log.resourceId ? `: ${log.resourceId}` : ""}
-                                </span>
-                              )}
+                              <time
+                                className={styles.activityTime}
+                                dateTime={new Date(log.timestamp).toISOString()}
+                              >
+                                {new Date(log.timestamp).toLocaleString()}
+                              </time>
                             </div>
-                          </div>
-                          <div style={{ display: "grid", justifyItems: "end" }}>
-                            <span style={{ color: "hsl(var(--muted-foreground))", fontSize: 12 }}>
-                              {new Date(log.timestamp).toLocaleString()}
-                            </span>
+                            <div className={styles.activityMeta}>
+                              {metaItems.map((item) => (
+                                <span
+                                  key={`${log.id}-${item.value}`}
+                                  className={`${styles.activityMetaItem} ${
+                                    item.className ?? ""
+                                  }`.trim()}
+                                >
+                                  {item.value}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         </button>
                       );

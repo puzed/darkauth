@@ -1,0 +1,101 @@
+.activityList {
+  display: grid;
+  gap: 12px;
+}
+
+.activityItem {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: start;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.25);
+  color: inherit;
+  text-align: left;
+  width: 100%;
+  cursor: pointer;
+}
+
+.activityItem:hover {
+  background: hsl(var(--muted) / 0.45);
+}
+
+.activityItem:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+.activityIcon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+}
+
+.activityIcon[data-status="success"] {
+  color: hsl(var(--success));
+  background: hsl(var(--success) / 0.15);
+  border-color: hsl(var(--success) / 0.35);
+}
+
+.activityIcon[data-status="fail"] {
+  color: hsl(var(--destructive));
+  background: hsl(var(--destructive) / 0.12);
+  border-color: hsl(var(--destructive) / 0.35);
+}
+
+.activityBody {
+  display: grid;
+  gap: 6px;
+}
+
+.activityHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activityTitle {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.2px;
+}
+
+.activityTime {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.activityMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+
+.activityMetaItem {
+  display: inline-flex;
+  align-items: center;
+}
+
+.activityMetaItem + .activityMetaItem::before {
+  content: "•";
+  margin: 0 6px 0 2px;
+  color: hsl(var(--muted-foreground));
+}
+
+.activityMetaType {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 11px;
+}
