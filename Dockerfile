@@ -3,7 +3,6 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++ git
 COPY package.json package-lock.json ./
 COPY packages ./packages
-COPY changelog ./changelog
 COPY scripts ./scripts
 RUN npm ci
 RUN npm run build
