@@ -1,0 +1,23 @@
+.text {
+  color: hsl(var(--muted-foreground));
+}
+
+.sizeSm {
+  font-size: 0.875rem;
+}
+
+.sizeXs {
+  font-size: 0.75rem;
+}
+
+.weightMedium {
+  font-weight: 500;
+}
+
+.spacingXs {
+  margin-top: 4px;
+}
+
+.spacingSm {
+  margin-top: 8px;
+}

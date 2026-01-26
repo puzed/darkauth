@@ -1,6 +1,7 @@
 import { AlertTriangle, ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -158,7 +159,7 @@ export default function UserEdit() {
               />
             </FormField>
           </FormGrid>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <FormActions>
             {user && (
               <>
                 <Button
@@ -187,7 +188,7 @@ export default function UserEdit() {
             <Button onClick={save} disabled={submitting}>
               Save
             </Button>
-          </div>
+          </FormActions>
         </CardContent>
       </Card>
     </div>

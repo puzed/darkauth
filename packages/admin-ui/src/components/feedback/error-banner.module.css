@@ -1,0 +1,11 @@
+.banner {
+  color: hsl(var(--destructive));
+  padding: 16px;
+  background-color: hsl(var(--destructive) / 0.1);
+  border: 1px solid hsl(var(--destructive) / 0.2);
+  border-radius: 6px;
+}
+
+.withMargin {
+  margin-bottom: 16px;
+}

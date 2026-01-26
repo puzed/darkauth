@@ -1,8 +1,10 @@
 import { ArrowLeft, Copy, KeyRound } from "lucide-react";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
+import MutedText from "@/components/text/muted-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -116,14 +118,14 @@ export default function UserCreate() {
               />
             </FormField>
           </FormGrid>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <FormActions>
             <Button variant="outline" onClick={() => navigate("/users")}>
               Back
             </Button>
             <Button onClick={create} disabled={submitting || !email.trim()}>
               Create
             </Button>
-          </div>
+          </FormActions>
         </CardContent>
       </Card>
 
@@ -142,9 +144,7 @@ export default function UserCreate() {
           <div style={{ display: "grid", gap: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <KeyRound size={16} />
-              <div style={{ fontSize: 14, color: "hsl(var(--muted-foreground))" }}>
-                They must change it on first login.
-              </div>
+              <MutedText size="sm">They must change it on first login.</MutedText>
             </div>
             <div
               style={{
@@ -169,7 +169,7 @@ export default function UserCreate() {
                 Copy
               </Button>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+            <FormActions>
               <Button
                 onClick={() => {
                   setShowPassword(false);
@@ -177,7 +177,7 @@ export default function UserCreate() {
               >
                 Done
               </Button>
-            </div>
+            </FormActions>
           </div>
         </DialogContent>
       </Dialog>
