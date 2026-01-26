@@ -1,11 +1,16 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ErrorBanner from "@/components/feedback/error-banner";
+import CheckboxRow from "@/components/form/checkbox-row";
+import PermissionGrid from "@/components/group/permission-grid";
+import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
+import Stack from "@/components/layout/stack";
+import MutedText from "@/components/text/muted-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import adminApiService, { type Permission } from "@/services/api";
@@ -102,22 +107,9 @@ export default function GroupCreate() {
         }
       />
 
-      {error && (
-        <div
-          style={{
-            color: "hsl(var(--destructive))",
-            padding: 16,
-            marginBottom: 16,
-            backgroundColor: "hsl(var(--destructive) / 0.1)",
-            border: "1px solid hsl(var(--destructive) / 0.2)",
-            borderRadius: 6,
-          }}
-        >
-          {error}
-        </div>
-      )}
+      {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <Stack>
         <Card>
           <CardHeader>
             <CardTitle>Group Information</CardTitle>
@@ -139,39 +131,25 @@ export default function GroupCreate() {
                   disabled={submitting}
                   placeholder="administrators"
                 />
-                <div
-                  style={{
-                    fontSize: "0.875rem",
-                    color: "hsl(var(--muted-foreground))",
-                    marginTop: 4,
-                  }}
-                >
+                <MutedText size="sm" spacing="xs">
                   Alphanumeric characters, underscores, and hyphens only
-                </div>
+                </MutedText>
               </FormField>
               <FormField label={<Label>Enable Login</Label>}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Checkbox
-                    id={enableLoginId}
-                    checked={enableLogin}
-                    onCheckedChange={(v) => setEnableLogin(v === true)}
-                  />
-                  <Label htmlFor={enableLoginId} style={{ fontWeight: 400 }}>
-                    Members of this group are permitted to sign in
-                  </Label>
-                </div>
+                <CheckboxRow
+                  id={enableLoginId}
+                  checked={enableLogin}
+                  onCheckedChange={(value) => setEnableLogin(value)}
+                  label="Members of this group are permitted to sign in"
+                />
               </FormField>
               <FormField label={<Label>Require OTP</Label>}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <Checkbox
-                    id={`${enableLoginId}-require-otp`}
-                    checked={requireOtp}
-                    onCheckedChange={(v) => setRequireOtp(v === true)}
-                  />
-                  <Label htmlFor={`${enableLoginId}-require-otp`} style={{ fontWeight: 400 }}>
-                    Members must complete OTP when this group permits login
-                  </Label>
-                </div>
+                <CheckboxRow
+                  id={`${enableLoginId}-require-otp`}
+                  checked={requireOtp}
+                  onCheckedChange={(value) => setRequireOtp(value)}
+                  label="Members must complete OTP when this group permits login"
+                />
               </FormField>
             </FormGrid>
           </CardContent>
@@ -180,103 +158,30 @@ export default function GroupCreate() {
         <Card>
           <CardHeader>
             <CardTitle>Permissions</CardTitle>
-            <div style={{ fontSize: "0.875rem", color: "hsl(var(--muted-foreground))" }}>
+            <MutedText size="sm">
               Select the permissions that members of this group should have
-            </div>
+            </MutedText>
           </CardHeader>
           <CardContent>
-            {loadingPermissions ? (
-              <div>Loading permissions...</div>
-            ) : permissions.length === 0 ? (
-              <div
-                style={{ color: "hsl(var(--muted-foreground))", padding: 32, textAlign: "center" }}
-              >
-                No permissions available
-              </div>
-            ) : (
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                  gap: 12,
-                }}
-              >
-                {permissions.map((permission) => (
-                  <div
-                    key={permission.key}
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      gap: 8,
-                      padding: 12,
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: 6,
-                      backgroundColor: selectedPermissions.includes(permission.key)
-                        ? "hsl(var(--accent))"
-                        : "transparent",
-                    }}
-                  >
-                    <Checkbox
-                      id={`permission-${permission.key}`}
-                      checked={selectedPermissions.includes(permission.key)}
-                      onCheckedChange={(checked) =>
-                        handlePermissionToggle(permission.key, checked === true)
-                      }
-                      disabled={submitting}
-                    />
-                    <div style={{ flex: 1 }}>
-                      <Label
-                        htmlFor={`permission-${permission.key}`}
-                        style={{ fontWeight: 500, cursor: "pointer" }}
-                      >
-                        {permission.key}
-                      </Label>
-                      {permission.description && (
-                        <div
-                          style={{
-                            fontSize: "0.875rem",
-                            color: "hsl(var(--muted-foreground))",
-                            marginTop: 2,
-                          }}
-                        >
-                          {permission.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {selectedPermissions.length > 0 && (
-              <div
-                style={{
-                  marginTop: 16,
-                  padding: 12,
-                  backgroundColor: "hsl(var(--muted))",
-                  borderRadius: 6,
-                }}
-              >
-                <div style={{ fontSize: "0.875rem", fontWeight: 500, marginBottom: 8 }}>
-                  Selected permissions ({selectedPermissions.length}):
-                </div>
-                <div style={{ fontSize: "0.875rem", color: "hsl(var(--muted-foreground))" }}>
-                  {selectedPermissions.join(", ")}
-                </div>
-              </div>
-            )}
+            <PermissionGrid
+              permissions={permissions}
+              selected={selectedPermissions}
+              onToggle={(key, next) => handlePermissionToggle(key, next)}
+              disabled={submitting}
+              loading={loadingPermissions}
+            />
           </CardContent>
         </Card>
-      </div>
+      </Stack>
 
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 24 }}>
+      <FormActions withMargin>
         <Button variant="outline" onClick={() => navigate("/groups")} disabled={submitting}>
           Cancel
         </Button>
         <Button onClick={create} disabled={submitting || !isFormValid}>
           {submitting ? "Creating..." : "Create Group"}
         </Button>
-      </div>
+      </FormActions>
     </div>
   );
 }

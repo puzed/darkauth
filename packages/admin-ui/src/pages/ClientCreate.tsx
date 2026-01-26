@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -293,14 +294,14 @@ export default function ClientCreate() {
             </FormField>
           )}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 12 }}>
+          <FormActions>
             <Button variant="outline" onClick={() => navigate("/clients")}>
               Back
             </Button>
             <Button onClick={create} disabled={submitting || !form.clientId || !form.name}>
               Create
             </Button>
-          </div>
+          </FormActions>
         </CardContent>
       </Card>
     </div>

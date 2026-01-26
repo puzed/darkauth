@@ -1,0 +1,41 @@
+.empty {
+  color: hsl(var(--muted-foreground));
+  padding: 32px;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 12px;
+}
+
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+.cardSelected {
+  background-color: hsl(var(--accent));
+}
+
+.cardBody {
+  flex: 1;
+}
+
+.label {
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.summary {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: hsl(var(--muted));
+  border-radius: 6px;
+}

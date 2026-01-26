@@ -14,7 +14,7 @@ export function setSecurityHeaders(response: ServerResponse, isDevelopment = fal
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
-    "connect-src 'self' https://darkauth.com",
+    "connect-src 'self' https://darkauth.com https://release.darkauth.com",
     "frame-ancestors 'self'",
     "base-uri 'none'",
     "form-action 'self'",
