@@ -15,5 +15,5 @@ packages/brochureware/public/changelog.json
 packages/brochureware/public/whitepaper.pdf
 .release-dist
 .release-screenshots-dist
-
+changelog
 progress.log
