@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 const tag = process.argv[2];
@@ -13,7 +13,7 @@ const message = [
   "Generate the markdown changelog body for release",
   tag,
   ".",
-  "Return only the markdown changelog body with no extra text.",
+  "Write the markdown changelog body to RELEASE.md with no extra text.",
 ].join(" ");
 
 const args = [
@@ -31,7 +31,7 @@ const args = [
 const permission = {
   read: { "*": "allow" },
   glob: { "*": "allow" },
-  edit: "deny",
+  edit: { "*": "allow" },
   bash: {
     "*": "deny",
     "git *": "allow",
@@ -42,21 +42,11 @@ const permission = {
 };
 
 const child = spawn("npx", args, {
-  stdio: ["ignore", "pipe", "pipe"],
+  stdio: "inherit",
   env: {
     ...process.env,
     OPENCODE_PERMISSION: JSON.stringify(permission),
   },
-});
-let output = "";
-let errorOutput = "";
-child.stdout.on("data", (chunk) => {
-  output += chunk.toString();
-});
-child.stderr.on("data", (chunk) => {
-  const chunkString = chunk.toString();
-  errorOutput += chunkString;
-  process.stderr.write(chunkString);
 });
 
 const exitCode = await new Promise((resolveExit) => {
@@ -67,15 +57,16 @@ if (exitCode !== 0) {
   process.exit(exitCode);
 }
 
-const cleanOutput = (text) => text.replace(/\u001b\[[0-9;]*m/g, "");
-const cleanedOutput = cleanOutput(output);
-const cleanedErrorOutput = cleanOutput(errorOutput);
-const combinedOutput = `${cleanedOutput}\n${cleanedErrorOutput}`.trim();
-const notes = cleanedOutput.trim() || cleanedErrorOutput.trim() || combinedOutput;
-
-if (!notes) {
-  console.error("Release notes content missing");
+const releasePath = resolve(process.cwd(), "RELEASE.md");
+let notes = "";
+try {
+  notes = await readFile(releasePath, "utf8");
+} catch {
+  console.error("Release notes file missing");
   process.exit(1);
 }
 
-await writeFile(resolve(process.cwd(), "release-notes.md"), `${notes}\n`, "utf8");
+if (!notes.trim()) {
+  console.error("Release notes content missing");
+  process.exit(1);
+}
