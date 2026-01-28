@@ -293,7 +293,11 @@ export async function ensureOpaqueService(
     return context.services.opaque;
   }
 
-  if (!context.services.kek?.isAvailable() && context.config.kekPassphrase) {
+  if (
+    !context.config.inInstallMode &&
+    !context.services.kek?.isAvailable() &&
+    context.config.kekPassphrase
+  ) {
     await ensureKekService(context);
   }
 
