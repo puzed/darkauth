@@ -55,6 +55,7 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
     insecureKeys: true,
     configFile,
     installToken: config.installToken || 'test-install-token',
+    inInstallMode: true,
     // logLevel: 'silent'
   };
 
