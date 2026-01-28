@@ -8,3 +8,7 @@ Rules:
 - You may use read-only commands to inspect files and git history if available.
 - Use parallel agents when exploring.
 - Output the markdown changelog body only, with no extra text.
+- Format the body with a short intro sentence followed by sections that match the established release style.
+- Use 2-5 top-level sections with emoji headings (e.g. ✨ Features, 🛠 Improvements, 🐛 Fixes, 🧪 Tests, 📦 Dependencies, 📝 Documentation).
+- Under each section, use 1-3 emoji subheadings and 1-4 bullet points each.
+- Bullets should be specific and written in past tense, avoiding generic phrasing like "updated stuff".
