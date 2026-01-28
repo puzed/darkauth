@@ -9,17 +9,11 @@ if (!tag) {
 }
 
 const promptPath = resolve(process.cwd(), ".github/prompts/github-create-release.md");
-const startMarker = "<!--release-notes-start-->";
-const endMarker = "<!--release-notes-end-->";
 const message = [
   "Generate the markdown changelog body for release",
   tag,
   ".",
-  "Return markdown only between the markers:",
-  startMarker,
-  "and",
-  endMarker,
-  "with no extra text.",
+  "Return only the markdown changelog body with no extra text.",
 ].join(" ");
 
 const args = [
@@ -27,7 +21,7 @@ const args = [
   "opencode-ai@latest",
   "run",
   "--model",
-  "openrouter/z-ai/glm-4.7",
+  "openrouter/anthropic/claude-haiku-4.5",
   "-f",
   promptPath,
   "--",
@@ -74,34 +68,10 @@ if (exitCode !== 0) {
 }
 
 const cleanOutput = (text) => text.replace(/\u001b\[[0-9;]*m/g, "");
-const extractNotes = (text) => {
-  const startIndex = text.indexOf(startMarker);
-  const endIndex = text.indexOf(endMarker);
-  if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
-    return null;
-  }
-  return text.slice(startIndex + startMarker.length, endIndex).replace(/^\s+|\s+$/g, "");
-};
-const extractFallbackNotes = (text) => {
-  const lines = text.split("\n");
-  const startLineIndex = lines.findIndex((line) => /^(#{1,6}\s|[-*]\s|\d+\.\s)/.test(line));
-  if (startLineIndex === -1) {
-    return null;
-  }
-  return lines.slice(startLineIndex).join("\n").replace(/^\s+|\s+$/g, "");
-};
 const cleanedOutput = cleanOutput(output);
 const cleanedErrorOutput = cleanOutput(errorOutput);
 const combinedOutput = `${cleanedOutput}\n${cleanedErrorOutput}`.trim();
-let notes =
-  extractNotes(cleanedOutput) || extractNotes(cleanedErrorOutput) || extractNotes(combinedOutput);
-if (!notes) {
-  notes = extractFallbackNotes(cleanedOutput) || extractFallbackNotes(cleanedErrorOutput);
-}
-if (!notes) {
-  console.error("Release notes markers not found in OpenCode output");
-  process.exit(1);
-}
+const notes = cleanedOutput.trim() || cleanedErrorOutput.trim() || combinedOutput;
 
 if (!notes) {
   console.error("Release notes content missing");

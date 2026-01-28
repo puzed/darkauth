@@ -6,5 +6,5 @@ Rules:
 - Do not create or modify any files.
 - Do not attempt to publish a release.
 - You may use read-only commands to inspect files and git history if available.
-- Output markdown only between the markers `<!--release-notes-start-->` and `<!--release-notes-end-->`.
-- Do not include any extra text outside the markers.
+- Use parallel agents when exploring.
+- Output the markdown changelog body only, with no extra text.
