@@ -16,6 +16,7 @@ import type {
   OpaqueRegistrationResponse,
   OpaqueServerSetup,
 } from "../types.js";
+import { ensureKekService } from "./kek.js";
 import { loadOpaqueServerState, saveOpaqueServerState } from "./opaqueState.js";
 
 export async function createOpaqueService(context?: Context) {
@@ -290,6 +291,14 @@ export async function ensureOpaqueService(
 ): Promise<NonNullable<Context["services"]["opaque"]>> {
   if (context.services.opaque) {
     return context.services.opaque;
+  }
+
+  if (
+    !context.config.inInstallMode &&
+    !context.services.kek?.isAvailable() &&
+    context.config.kekPassphrase
+  ) {
+    await ensureKekService(context);
   }
 
   const tempDb = context.services.install?.tempDb;

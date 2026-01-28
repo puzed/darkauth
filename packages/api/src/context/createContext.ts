@@ -11,6 +11,20 @@ import { createOpaqueService } from "../services/opaque.js";
 import { cleanupExpiredSessions } from "../services/sessions.js";
 import type { Config, Context, Database } from "../types.js";
 
+async function waitForPostgres(pool: Pool, attempts = 20, delayMs = 500) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      await pool.query("select 1");
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("Database not ready");
+}
+
 export async function createContext(config: Config): Promise<Context> {
   const cleanupFunctions: Array<() => Promise<void> | void> = [];
 
@@ -67,19 +81,23 @@ export async function createContext(config: Config): Promise<Context> {
     },
   };
 
+  if (pool) {
+    await waitForPostgres(pool);
+  }
+
   if (!config.inInstallMode && config.kekPassphrase) {
-    try {
-      await ensureKekService(context);
-    } catch (err) {
-      logger.warn({ err }, "KEK service unavailable (db not ready)");
-    }
+    await ensureKekService(context);
   }
 
   if (!config.inInstallMode) {
-    try {
-      services.opaque = await createOpaqueService(context);
-    } catch (err) {
-      logger.warn({ err }, "OPAQUE service unavailable (db not ready)");
+    if (!config.kekPassphrase || context.services.kek?.isAvailable()) {
+      try {
+        services.opaque = await createOpaqueService(context);
+      } catch (err) {
+        logger.warn({ err }, "OPAQUE service unavailable (db not ready)");
+      }
+    } else {
+      logger.warn("OPAQUE service unavailable (kek not ready)");
     }
   }
 
