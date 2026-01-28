@@ -9,6 +9,8 @@ Rules:
 - Write the markdown changelog body to `RELEASE.md`.
 - Do not output any extra text.
 - Format the body with a short intro sentence followed by sections that match the established release style.
-- Use 2-5 top-level sections with emoji headings (e.g. ✨ Features, 🛠 Improvements, 🐛 Fixes, 🧪 Tests, 📦 Dependencies, 📝 Documentation).
-- Under each section, use 1-3 emoji subheadings and 1-4 bullet points each.
+- Use markdown headings with hashes: `##` for top-level sections and `###` for subheadings.
+- Use 2-5 top-level sections with emoji headings (e.g. `## ✨ Features`, `## 🛠 Improvements`, `## 🐛 Fixes`, `## 🧪 Tests`, `## 📦 Dependencies`, `## 📝 Documentation`).
+- Under each section, use 1-3 emoji subheadings and 1-4 bullet points each (e.g. `### 🔐 Session Management`).
+- Leave a blank line between headings and lists, and between sections.
 - Bullets should be specific and written in past tense, avoiding generic phrasing like "updated stuff".
