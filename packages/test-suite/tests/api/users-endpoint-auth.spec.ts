@@ -59,6 +59,7 @@ test.describe('API - Users endpoint auth methods', () => {
   let targetName: string
   let targetEmail: string
   let userJwt: string
+  let plainUserJwt: string
   let supportDeskSecret: string
 
   test.beforeAll(async () => {
@@ -108,6 +109,11 @@ test.describe('API - Users endpoint auth methods', () => {
       name: 'Directory Target',
       password: 'Passw0rd!123'
     }
+    const plain = {
+      email: `plain-${Date.now()}@example.com`,
+      name: 'Directory Plain',
+      password: 'Passw0rd!123'
+    }
 
     const { sub: readerSub } = await createUserViaAdmin(
       servers,
@@ -118,6 +124,11 @@ test.describe('API - Users endpoint auth methods', () => {
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
       target
+    )
+    await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      plain
     )
     targetSub = sub
     targetName = target.name
@@ -139,6 +150,8 @@ test.describe('API - Users endpoint auth methods', () => {
 
     const loginResult = await opaqueLoginFinish(servers.userUrl, reader.email, reader.password)
     userJwt = await getUserJwt(servers.userUrl, loginResult.refreshToken)
+    const plainLoginResult = await opaqueLoginFinish(servers.userUrl, plain.email, plain.password)
+    plainUserJwt = await getUserJwt(servers.userUrl, plainLoginResult.refreshToken)
   })
 
   test.afterAll(async () => {
@@ -186,5 +199,41 @@ test.describe('API - Users endpoint auth methods', () => {
     expect(json.name).toBe(targetName)
     expect('display_name' in json).toBeFalsy()
     expect(Array.isArray(json.groups)).toBeTruthy()
+  })
+
+  test('Missing authorization returns unauthorized', async () => {
+    const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`)
+    expect(res.status).toBe(401)
+  })
+
+  test('Invalid client secret is rejected', async () => {
+    const invalidAuthorization = `Basic ${Buffer.from('support-desk:not-the-secret').toString('base64')}`
+    const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`, {
+      headers: {
+        Authorization: invalidAuthorization,
+        Origin: servers.userUrl
+      }
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('Malformed bearer token is rejected', async () => {
+    const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`, {
+      headers: {
+        Authorization: 'Bearer definitely-not-a-jwt',
+        Origin: servers.userUrl
+      }
+    })
+    expect(res.status).toBe(401)
+  })
+
+  test('Bearer token without users:read permission is forbidden', async () => {
+    const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`, {
+      headers: {
+        Authorization: `Bearer ${plainUserJwt}`,
+        Origin: servers.userUrl
+      }
+    })
+    expect(res.status).toBe(403)
   })
 })
