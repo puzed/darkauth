@@ -101,6 +101,45 @@ export async function getUserBySub(context: Context, sub: string) {
   return user;
 }
 
+export async function getUsersBySubsWithGroups(context: Context, subs: string[]) {
+  if (subs.length === 0) {
+    return [];
+  }
+
+  const usersList = await context.db
+    .select({
+      sub: users.sub,
+      email: users.email,
+      name: users.name,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .where(inArray(users.sub, subs));
+
+  const groupRows = await context.db
+    .select({ userSub: userGroups.userSub, groupKey: groups.key })
+    .from(userGroups)
+    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+    .where(inArray(userGroups.userSub, subs));
+
+  const groupsByUser = groupRows.reduce((map, row) => {
+    const list = map.get(row.userSub) || [];
+    list.push(row.groupKey);
+    map.set(row.userSub, list);
+    return map;
+  }, new Map<string, string[]>());
+
+  return usersList.map((user) => ({
+    ...user,
+    groups: groupsByUser.get(user.sub) || [],
+  }));
+}
+
+export async function getUserBySubWithGroups(context: Context, sub: string) {
+  const rows = await getUsersBySubsWithGroups(context, [sub]);
+  return rows[0] || null;
+}
+
 export async function getUserBySubOrEmail(context: Context, subOrEmail: string) {
   const { eq } = await import("drizzle-orm");
   const isEmail = subOrEmail.includes("@");

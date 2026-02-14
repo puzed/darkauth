@@ -12,6 +12,7 @@ import { schema as adminAuditLogExportSchema } from "../controllers/admin/auditL
 import { schema as adminAuditLogsSchema } from "../controllers/admin/auditLogs.js";
 import { schema as adminClientCreateSchema } from "../controllers/admin/clientCreate.js";
 import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDelete.js";
+import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.js";
 import { schema as adminClientsSchema } from "../controllers/admin/clients.js";
 import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.js";
 import { schema as adminGroupCreateSchema } from "../controllers/admin/groupCreate.js";
@@ -115,6 +116,7 @@ const documentedSchemas: ControllerSchema[] = [
   adminAuditLogExportSchema,
   adminClientsSchema,
   adminClientCreateSchema,
+  adminClientSecretSchema,
   adminClientUpdateSchema,
   adminClientDeleteSchema,
   adminGroupsSchema,

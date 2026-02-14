@@ -12,6 +12,7 @@ import { getAuditLogExport } from "../../controllers/admin/auditLogExport.js";
 import { getAuditLogs } from "../../controllers/admin/auditLogs.js";
 import { createClient } from "../../controllers/admin/clientCreate.js";
 import { deleteClientController } from "../../controllers/admin/clientDelete.js";
+import { getClientSecretController } from "../../controllers/admin/clientSecret.js";
 import { getClients } from "../../controllers/admin/clients.js";
 import { updateClientController } from "../../controllers/admin/clientUpdate.js";
 import { createGroup } from "../../controllers/admin/groupCreate.js";
@@ -264,6 +265,12 @@ export function createAdminRouter(context: Context) {
       if (pathname === "/admin/clients") {
         if (method === "GET") return await getClients(context, request, response);
         if (method === "POST") return await createClient(context, request, response);
+      }
+
+      const clientSecretMatch = pathname.match(/^\/admin\/clients\/([^/]+)\/secret$/);
+      if (clientSecretMatch && method === "GET") {
+        const clientId = clientSecretMatch[1];
+        return await getClientSecretController(context, request, response, clientId as string);
       }
 
       const adminSetStartMatch = pathname.match(
