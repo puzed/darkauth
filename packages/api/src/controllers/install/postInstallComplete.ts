@@ -137,6 +137,7 @@ async function _postInstallComplete(
       installCtx,
       supportDeskSecretEnc
     );
+    await (await import("../../models/install.js")).seedDefaultGroups(installCtx);
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"
