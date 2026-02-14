@@ -189,6 +189,11 @@ export interface CreateClientRequest {
 
 export interface UpdateClientRequest extends Partial<CreateClientRequest> {}
 
+export interface ClientSecretResponse {
+  clientId: string;
+  clientSecret: string | null;
+}
+
 // System Settings
 export interface SystemSettings {
   issuer: string;
@@ -804,6 +809,10 @@ class AdminApiService {
     await this.request(`/clients/${clientId}`, {
       method: "DELETE",
     });
+  }
+
+  async getClientSecret(clientId: string): Promise<ClientSecretResponse> {
+    return this.request(`/clients/${clientId}/secret`);
   }
 
   // System Settings
