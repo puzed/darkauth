@@ -112,7 +112,7 @@ class ApiClient {
 
   async searchUsers(query: string): Promise<UserProfile[]> {
     const idToken = sessionStorage.getItem("id_token");
-    const url = `${darkauthApiBaseUrl}/users/search?q=${encodeURIComponent(query)}`;
+    const url = `${darkauthApiBaseUrl}/users?q=${encodeURIComponent(query)}`;
     const response = await fetch(url, {
       headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
     });

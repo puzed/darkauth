@@ -67,7 +67,8 @@ export async function createClient(
 ) {
   let clientSecret: string | null = null;
   let clientSecretEnc: Buffer | null = null;
-  const tokenEndpointAuthMethod = data.tokenEndpointAuthMethod ?? "none";
+  const tokenEndpointAuthMethod =
+    data.type === "public" ? "none" : (data.tokenEndpointAuthMethod ?? "none");
   if (data.type === "confidential" || tokenEndpointAuthMethod === "client_secret_basic") {
     clientSecret = (await import("node:crypto")).randomBytes(32).toString("base64url");
     if (context.services.kek?.isAvailable()) {
@@ -107,9 +108,40 @@ export async function updateClient(
   clientId: string,
   updates: Partial<typeof clients.$inferInsert>
 ) {
+  const existing = await getClient(context, clientId);
+  if (!existing) {
+    throw new NotFoundError("Client not found");
+  }
+
+  const nextType = updates.type ?? existing.type;
+  const nextAuthMethod =
+    nextType === "public"
+      ? "none"
+      : (updates.tokenEndpointAuthMethod ?? existing.tokenEndpointAuthMethod);
+  const needsSecret = nextType === "confidential" || nextAuthMethod === "client_secret_basic";
+
+  const patch: Partial<typeof clients.$inferInsert> = {
+    ...updates,
+    tokenEndpointAuthMethod: nextAuthMethod,
+  };
+
+  if (needsSecret) {
+    if (!existing.clientSecretEnc) {
+      const generatedSecret = (await import("node:crypto")).randomBytes(32).toString("base64url");
+      if (context.services.kek?.isAvailable()) {
+        patch.clientSecretEnc = await context.services.kek.encrypt(Buffer.from(generatedSecret));
+      } else {
+        patch.clientSecretEnc = null;
+      }
+    }
+  } else {
+    // Public/none clients should not retain a server-side secret.
+    patch.clientSecretEnc = null;
+  }
+
   await context.db
     .update(clients)
-    .set({ ...updates, updatedAt: new Date() })
+    .set({ ...patch, updatedAt: new Date() })
     .where(eq(clients.clientId, clientId));
   return { success: true } as const;
 }
@@ -117,6 +149,24 @@ export async function updateClient(
 export async function getClient(context: Context, clientId: string) {
   const row = await context.db.query.clients.findFirst({ where: eq(clients.clientId, clientId) });
   return row;
+}
+
+export async function getClientSecret(context: Context, clientId: string) {
+  const client = await getClient(context, clientId);
+  if (!client) {
+    throw new NotFoundError("Client not found");
+  }
+
+  if (!client.clientSecretEnc) {
+    return null;
+  }
+
+  if (!context.services.kek?.isAvailable()) {
+    return null;
+  }
+
+  const decrypted = await context.services.kek.decrypt(client.clientSecretEnc);
+  return decrypted.toString("utf-8");
 }
 
 export async function listVisibleApps(context: Context) {
