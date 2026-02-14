@@ -1,11 +1,51 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod/v4";
+import { ForbiddenError, UnauthorizedError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import { getUserAccess } from "../../models/access.js";
 import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { sendJson } from "../../utils/http.js";
+
+const usersReadPermissionKey = "darkauth.users:read";
+
+function hasRequiredPermission(permissions: unknown): boolean {
+  return (
+    Array.isArray(permissions) &&
+    permissions.some((permission) => permission === usersReadPermissionKey)
+  );
+}
+
+async function requireUsersReadPermission(context: Context, request: IncomingMessage) {
+  const auth = request.headers.authorization || "";
+  const tokenMatch = /^Bearer\s+(.+)$/.exec(auth);
+
+  if (tokenMatch?.[1]) {
+    const JWKS = createRemoteJWKSet(new URL(`${context.config.issuer}/.well-known/jwks.json`));
+    try {
+      const verified = await jwtVerify(tokenMatch[1], JWKS, { issuer: context.config.issuer });
+      if (!hasRequiredPermission(verified.payload.permissions)) {
+        throw new ForbiddenError("Missing required permission: darkauth.users:read");
+      }
+      return;
+    } catch (error) {
+      if (error instanceof ForbiddenError) {
+        throw error;
+      }
+    }
+  }
+
+  const sessionData = await requireSession(context, request, false);
+  if (!sessionData.sub) {
+    throw new UnauthorizedError("User session required");
+  }
+  const access = await getUserAccess(context, sessionData.sub);
+  if (!access.permissions.includes(usersReadPermissionKey)) {
+    throw new ForbiddenError("Missing required permission: darkauth.users:read");
+  }
+}
 
 export async function getUserDirectoryEntry(
   context: Context,
@@ -13,16 +53,7 @@ export async function getUserDirectoryEntry(
   response: ServerResponse,
   sub: string
 ) {
-  const auth = request.headers.authorization || "";
-  const m = /^Bearer\s+(.+)$/.exec(auth);
-  if (m) {
-    const JWKS = createRemoteJWKSet(new URL(`${context.config.issuer}/.well-known/jwks.json`));
-    await jwtVerify(m?.[1] || "", JWKS, { issuer: context.config.issuer }).catch(async () => {
-      await requireSession(context, request, false);
-    });
-  } else {
-    await requireSession(context, request, false);
-  }
+  await requireUsersReadPermission(context, request);
   const Params = z.object({ sub: z.string() });
   const { sub: parsedSub } = Params.parse({ sub });
   context.logger.info({ sub: parsedSub }, "user directory get");
@@ -39,16 +70,7 @@ export async function searchUserDirectory(
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  const auth = request.headers.authorization || "";
-  const m = /^Bearer\s+(.+)$/.exec(auth);
-  if (m) {
-    const JWKS = createRemoteJWKSet(new URL(`${context.config.issuer}/.well-known/jwks.json`));
-    await jwtVerify(m?.[1] || "", JWKS, { issuer: context.config.issuer }).catch(async () => {
-      await requireSession(context, request, false);
-    });
-  } else {
-    await requireSession(context, request, false);
-  }
+  await requireUsersReadPermission(context, request);
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   const Query = z.object({ q: z.string().optional() });
   const { q: rawQ } = Query.parse(Object.fromEntries(url.searchParams));
@@ -89,12 +111,15 @@ const User = z.object({
 
 export const schema = {
   method: "GET",
-  path: "/users/search",
+  path: "/users",
   tags: ["Users Directory"],
   summary: "Search users",
   query: z.object({ q: z.string().optional() }),
   responses: {
-    200: { description: "OK", content: { "application/json": { schema: z.array(User) } } },
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.object({ users: z.array(User) }) } },
+    },
     ...genericErrors,
   },
 } as const satisfies ControllerSchema;

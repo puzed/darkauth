@@ -1,0 +1,73 @@
+.tabsRoot {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.tabsList {
+  display: flex;
+  width: 100%;
+  height: auto !important;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 0 0 0 0;
+  overflow-x: auto;
+  background: transparent !important;
+  border-bottom: 1px solid hsl(var(--border));
+  border-radius: 0 !important;
+  margin-bottom: -1px;
+}
+
+.tabsTrigger {
+  min-width: 110px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0 !important;
+  color: hsl(var(--muted-foreground)) !important;
+  background: transparent !important;
+  margin-bottom: -1px;
+}
+
+.tabsTrigger[data-state="active"] {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-color: hsl(var(--border));
+}
+
+.tabsContent {
+  margin-top: 0 !important;
+  padding-top: 0;
+}
+
+.tabCard {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+@media (max-width: 768px) {
+  .tabsList {
+    flex-direction: column;
+    align-items: stretch;
+    overflow-x: visible;
+    border-bottom: none;
+    margin-bottom: 8px;
+  }
+
+  .tabsTrigger {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 8px !important;
+    border: 1px solid hsl(var(--border));
+    margin-bottom: 0;
+  }
+
+  .tabsTrigger[data-state="active"] {
+    border-color: hsl(var(--primary));
+    background: hsl(var(--primary) / 0.1) !important;
+  }
+
+  .tabCard {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
+}

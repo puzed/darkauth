@@ -24,6 +24,11 @@ import { postUserRefreshToken } from "../../controllers/user/refreshToken.js";
 import { getSession } from "../../controllers/user/session.js";
 import { postToken } from "../../controllers/user/token.js";
 import {
+  getUserBySidWithAppSecret,
+  getUsersWithAppSecret,
+  hasValidAppSecret,
+} from "../../controllers/user/usersAppSecret.js";
+import {
   getUserDirectoryEntry,
   searchUserDirectory,
 } from "../../controllers/user/usersDirectory.js";
@@ -329,13 +334,21 @@ export function createUserRouter(context: Context) {
         return await postUserRefreshToken(context, request, response);
       }
 
-      if (method === "GET" && pathname === "/users/search") {
+      if (method === "GET" && pathname === "/users") {
+        if (await hasValidAppSecret(context, request)) {
+          return await getUsersWithAppSecret(context, request, response);
+        }
         return await searchUserDirectory(context, request, response);
       }
 
       const userMatch = pathname.match(/^\/users\/([^/]+)$/);
       if (method === "GET" && userMatch) {
-        return await getUserDirectoryEntry(context, request, response, userMatch[1] as string);
+        const sid = userMatch[1] as string;
+        if (await hasValidAppSecret(context, request)) {
+          return await getUserBySidWithAppSecret(context, request, response, sid);
+        }
+
+        return await getUserDirectoryEntry(context, request, response, sid);
       }
 
       throw new NotFoundError("Endpoint not found");
