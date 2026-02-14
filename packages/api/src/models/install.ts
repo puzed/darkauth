@@ -1,5 +1,12 @@
 import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminUsers, clients, groups, settings } from "../db/schema.js";
+import {
+  adminOpaqueRecords,
+  adminUsers,
+  clients,
+  groups,
+  permissions,
+  settings,
+} from "../db/schema.js";
 import { ConflictError, NotFoundError } from "../errors.js";
 import type { Context } from "../types.js";
 
@@ -116,6 +123,15 @@ export async function seedDefaultGroups(context: Context) {
       .insert(groups)
       .values({ key: "default", name: "Default", enableLogin: true, requireOtp: false });
   }
+  const usersReadPermission = await context.db.query.permissions.findFirst({
+    where: eq(permissions.key, "darkauth.users:read"),
+  });
+  if (!usersReadPermission) {
+    await context.db.insert(permissions).values({
+      key: "darkauth.users:read",
+      description: "Allows searching and reading users from the user directory endpoints",
+    });
+  }
 }
 
 export async function ensureDefaultGroupAndSchema(context: Context) {
@@ -132,6 +148,11 @@ export async function ensureDefaultGroupAndSchema(context: Context) {
   try {
     await context.db.execute(
       `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp") VALUES ('default','Default',true,false) ON CONFLICT ("key") DO NOTHING;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `INSERT INTO "permissions" ("key", "description") VALUES ('darkauth.users:read','Allows searching and reading users from the user directory endpoints') ON CONFLICT ("key") DO NOTHING;`
     );
   } catch {}
   try {
