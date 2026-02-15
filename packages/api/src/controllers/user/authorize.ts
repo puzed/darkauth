@@ -116,6 +116,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     clientId: authRequest.client_id,
     redirectUri: authRequest.redirect_uri,
     state: authRequest.state,
+    nonce: authRequest.nonce,
     codeChallenge: authRequest.code_challenge,
     codeChallengeMethod: authRequest.code_challenge_method,
     zkPubKid,

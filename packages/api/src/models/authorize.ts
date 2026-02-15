@@ -8,6 +8,7 @@ export async function createPendingAuth(
     clientId: string;
     redirectUri: string;
     state?: string;
+    nonce?: string;
     codeChallenge?: string;
     codeChallengeMethod?: string;
     zkPubKid?: string;
@@ -21,6 +22,7 @@ export async function createPendingAuth(
     clientId: data.clientId,
     redirectUri: data.redirectUri,
     state: data.state,
+    nonce: data.nonce,
     codeChallenge: data.codeChallenge,
     codeChallengeMethod: data.codeChallengeMethod,
     zkPubKid: data.zkPubKid,
