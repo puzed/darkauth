@@ -2,6 +2,10 @@
 
 A TypeScript client library for DarkAuth - providing zero-knowledge authentication and client-side encryption capabilities for web applications.
 
+The client supports both:
+- ZK-enabled OAuth/OIDC flows
+- Standard OAuth/OIDC flows without ZK delivery
+
 ## Features
 
 - **Zero-Knowledge Authentication**: Secure OAuth2/OIDC flow with PKCE and ephemeral key exchange
@@ -29,7 +33,7 @@ setConfig({
   issuer: 'https://auth.example.com',
   clientId: 'your-client-id',
   redirectUri: 'https://app.example.com/callback',
-  zk: true // Enable zero-knowledge mode
+  zk: false // Optional: disable ZK request parameters for standard OIDC flows
 });
 
 // Start login flow
@@ -61,7 +65,7 @@ setConfig({
   issuer: 'https://auth.example.com',     // DarkAuth server URL
   clientId: 'your-client-id',              // Your application's client ID
   redirectUri: 'https://app.example.com/callback', // OAuth callback URL
-  zk: true                                 // Enable zero-knowledge mode (default: true)
+  zk: true                                 // Optional. Default true. Set false for non-ZK flows.
 });
 ```
 
@@ -80,8 +84,12 @@ Starts the OAuth2/OIDC login flow with PKCE. Redirects the user to the DarkAuth 
 
 Processes the OAuth callback after successful authentication. Returns an `AuthSession` object containing:
 - `idToken`: JWT ID token
-- `drk`: Derived Root Key for encryption operations
+- `drk`: Derived Root Key for encryption operations. In non-ZK flows this is an empty `Uint8Array`.
 - `refreshToken?`: Optional refresh token
+
+Behavior:
+- If ZK artifacts are present in the callback/token response, ZK validation and DRK decryption are enforced.
+- If no ZK artifacts are present, callback still succeeds as a standard OIDC flow.
 
 #### `logout(): void`
 
@@ -89,11 +97,11 @@ Clears all authentication data from storage.
 
 #### `getStoredSession(): AuthSession | null`
 
-Retrieves the current session from storage if valid.
+Retrieves the current session from storage if valid. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
 
 #### `refreshSession(): Promise<AuthSession | null>`
 
-Refreshes the current session using the stored refresh token.
+Refreshes the current session using the stored refresh token. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
 
 ### User Information
 

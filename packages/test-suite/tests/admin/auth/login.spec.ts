@@ -91,7 +91,9 @@ test.describe('Authentication - Login', () => {
     });
     if (!verifyRes.ok) throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
     await page.goto(`${servers.adminUrl}/`);
-    await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+    await expect(
+      page.getByRole('heading', { name: 'Admin Dashboard', exact: true })
+    ).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('Overview of activity and system health')).toBeVisible({ timeout: 15000 });
   });
   
