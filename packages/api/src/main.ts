@@ -11,8 +11,9 @@ const rootLogger = pino();
 
 async function main() {
   const root = loadRootConfig();
+  const inInstallMode = !hasConfigFile();
   const config: Config = {
-    dbMode: root.dbMode || "remote",
+    dbMode: inInstallMode ? "pglite" : root.dbMode || "remote",
     pgliteDir: root.pgliteDir,
     postgresUri: root.postgresUri,
     userPort: root.userPort,
@@ -23,7 +24,7 @@ async function main() {
     publicOrigin: `http://localhost:${root.userPort}`,
     issuer: `http://localhost:${root.userPort}`,
     rpId: "localhost",
-    inInstallMode: !hasConfigFile(),
+    inInstallMode,
     logLevel: process.env.DARKAUTH_LOG_LEVEL ?? process.env.LOG_LEVEL,
   };
 
