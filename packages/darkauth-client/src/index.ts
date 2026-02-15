@@ -244,7 +244,9 @@ export async function refreshSession(): Promise<AuthSession | null> {
     }),
   });
   if (!response.ok) {
-    localStorage.removeItem("refresh_token");
+    if (response.status === 401) {
+      localStorage.removeItem("refresh_token");
+    }
     return null;
   }
   const tokenResponse = await response.json();
