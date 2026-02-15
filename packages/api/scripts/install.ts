@@ -150,12 +150,12 @@ async function install() {
 			tags: ["ui"],
 			defaultValue: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			value: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			secure: false,
@@ -169,12 +169,12 @@ async function install() {
 				tags: ["ui"],
 				defaultValue: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				value: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				secure: false,
@@ -230,13 +230,13 @@ async function install() {
 			tags: ["ui", "demo"],
 			defaultValue: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `http://localhost:9092/callback`,
 				demoApi: `http://localhost:9094`,
 			},
 			value: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `http://localhost:9092/callback`,
 				demoApi: `http://localhost:9094`,
 			},
@@ -251,13 +251,13 @@ async function install() {
 				tags: ["ui", "demo"],
 				defaultValue: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `http://localhost:9092/callback`,
 					demoApi: `http://localhost:9094`,
 				},
 				value: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `http://localhost:9092/callback`,
 					demoApi: `http://localhost:9094`,
 				},
@@ -279,20 +279,20 @@ async function install() {
 
 		await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
 
-		console.log("5. Creating default clients...");
-		const supportDeskClientSecret = generateRandomString(32);
-		let supportDeskSecretEnc: Buffer | null = null;
+			console.log("5. Creating default clients...");
+			const demoConfidentialClientSecret = generateRandomString(32);
+			let demoConfidentialSecretEnc: Buffer | null = null;
 
-		if (kekService?.isAvailable()) {
-			supportDeskSecretEnc = await kekService.encrypt(
-				Buffer.from(supportDeskClientSecret),
-			);
-		}
+			if (kekService?.isAvailable()) {
+				demoConfidentialSecretEnc = await kekService.encrypt(
+					Buffer.from(demoConfidentialClientSecret),
+				);
+			}
 
 		await context.db.insert(clients).values([
 			{
-				clientId: "app-web",
-				name: "Web Application",
+					clientId: "demo-public-client",
+					name: "Demo Public Client",
 				type: "public",
 				tokenEndpointAuthMethod: "none",
 				clientSecretEnc: null,
@@ -326,11 +326,11 @@ async function install() {
 				updatedAt: new Date(),
 			},
 			{
-				clientId: "support-desk",
-				name: "Support Desk",
+					clientId: "demo-confidential-client",
+					name: "Demo Confidential Client",
 				type: "confidential",
-				tokenEndpointAuthMethod: "client_secret_basic",
-				clientSecretEnc: supportDeskSecretEnc,
+					tokenEndpointAuthMethod: "client_secret_basic",
+					clientSecretEnc: demoConfidentialSecretEnc,
 				requirePkce: false,
 				zkDelivery: "none",
 				zkRequired: false,
@@ -344,9 +344,9 @@ async function install() {
 					"http://localhost:4000",
 					"https://support.example.com",
 				],
-				grantTypes: ["authorization_code"],
-				responseTypes: ["code"],
-				scopes: ["openid", "profile"],
+					grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
+					responseTypes: ["code"],
+					scopes: ["openid", "profile", "darkauth.users:read"],
 				allowedZkOrigins: [],
 				createdAt: new Date(),
 				updatedAt: new Date(),
@@ -388,10 +388,10 @@ async function install() {
 			"║ Default Clients:                                                 ║",
 		);
 		console.log(
-			"║   - app-web (public, ZK-enabled)                                 ║",
+			"║   - demo-public-client (public, ZK-enabled)                                 ║",
 		);
 		console.log(
-			"║   - support-desk (confidential, standard)                        ║",
+			"║   - demo-confidential-client (confidential, standard)                        ║",
 		);
 
 		console.log(

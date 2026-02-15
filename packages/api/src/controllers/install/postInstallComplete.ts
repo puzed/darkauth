@@ -130,12 +130,14 @@ async function _postInstallComplete(
     await storeKeyPair(tempContextForKeys, kid, publicJwk, privateJwk);
 
     context.logger.debug("[install:post] creating default clients");
-    const supportDeskClientSecret = generateRandomString(32);
+    const demoConfidentialClientSecret = generateRandomString(32);
 
-    const supportDeskSecretEnc = await kekService.encrypt(Buffer.from(supportDeskClientSecret));
+    const demoConfidentialSecretEnc = await kekService.encrypt(
+      Buffer.from(demoConfidentialClientSecret)
+    );
     await (await import("../../models/install.js")).seedDefaultClients(
       installCtx,
-      supportDeskSecretEnc
+      demoConfidentialSecretEnc
     );
     await (await import("../../models/install.js")).ensureDefaultGroupAndSchema(installCtx);
     await (await import("../../models/install.js")).seedDefaultGroups(installCtx);
@@ -171,10 +173,10 @@ async function _postInstallComplete(
       message: "Installation completed successfully. Server will restart in 2 seconds.",
       adminId,
       clients: [
-        { id: "app-web", name: "Web Application", type: "public" },
+        { id: "demo-public-client", name: "Demo Public Client", type: "public" },
         {
-          id: "support-desk",
-          name: "Support Desk",
+          id: "demo-confidential-client",
+          name: "Demo Confidential Client",
           type: "confidential",
           secret: "[encrypted]",
         },

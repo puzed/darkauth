@@ -22,7 +22,7 @@ export default defineConfig({
           if (request.url === "/config.js") {
             const payload = {
               issuer: "http://localhost:9080",
-              clientId: "app-web",
+              clientId: "demo-public-client",
               redirectUri: "http://localhost:9092/callback",
               demoApi: "http://localhost:9094",
             };

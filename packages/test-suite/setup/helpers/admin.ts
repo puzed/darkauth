@@ -64,18 +64,18 @@ export async function configureDemoClient(
   demoUiUrl: string
 ): Promise<void> {
   const adminToken = await getAdminBearerToken(servers, admin);
-  const appWebClient = await fetchAppWebClient(servers, adminToken);
+  const demoPublicClient = await fetchDemoPublicClient(servers, adminToken);
   const normalizeUrl = (value: string) => value.replace(/\/$/, '');
   const updatedRedirectUris = Array.from(
-    new Set([...appWebClient.redirectUris, `${demoUiUrl}/callback`, `${demoUiUrl}/`])
+    new Set([...demoPublicClient.redirectUris, `${demoUiUrl}/callback`, `${demoUiUrl}/`])
   );
   const updatedPostLogoutUris = Array.from(
-    new Set([...appWebClient.postLogoutRedirectUris, `${demoUiUrl}/`, demoUiUrl])
+    new Set([...demoPublicClient.postLogoutRedirectUris, `${demoUiUrl}/`, demoUiUrl])
   );
   const updatedAllowedZkOrigins = Array.from(
-    new Set([...appWebClient.allowedZkOrigins.map(normalizeUrl), normalizeUrl(demoUiUrl)])
+    new Set([...demoPublicClient.allowedZkOrigins.map(normalizeUrl), normalizeUrl(demoUiUrl)])
   );
-  const updateResponse = await fetch(`${servers.adminUrl}/admin/clients/app-web`, {
+  const updateResponse = await fetch(`${servers.adminUrl}/admin/clients/demo-public-client`, {
     method: 'PUT',
     headers: {
       Authorization: `Bearer ${adminToken}`,
@@ -90,11 +90,11 @@ export async function configureDemoClient(
   });
   if (!updateResponse.ok) {
     const errorText = await updateResponse.text().catch(() => '');
-    throw new Error(`failed to update app-web client: ${updateResponse.status} ${errorText}`);
+    throw new Error(`failed to update demo-public-client client: ${updateResponse.status} ${errorText}`);
   }
 }
 
-async function fetchAppWebClient(servers: TestServers, adminToken: string): Promise<AdminClient> {
+async function fetchDemoPublicClient(servers: TestServers, adminToken: string): Promise<AdminClient> {
   const clientListResponse = await fetch(`${servers.adminUrl}/admin/clients`, {
     headers: {
       Authorization: `Bearer ${adminToken}`,
@@ -106,9 +106,11 @@ async function fetchAppWebClient(servers: TestServers, adminToken: string): Prom
     throw new Error(`failed to list clients: ${clientListResponse.status} ${errorText}`);
   }
   const clientListJson = (await clientListResponse.json()) as { clients: AdminClient[] };
-  const appWebClient = clientListJson.clients.find((client) => client.clientId === 'app-web');
-  if (!appWebClient) throw new Error('app-web client not found');
-  return appWebClient;
+  const demoPublicClient = clientListJson.clients.find(
+    (client) => client.clientId === 'demo-public-client'
+  );
+  if (!demoPublicClient) throw new Error('demo-public-client client not found');
+  return demoPublicClient;
 }
 
 export async function createSecondaryAdmin(): Promise<AdminCredentials> {

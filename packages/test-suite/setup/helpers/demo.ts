@@ -85,7 +85,7 @@ export async function startDemoUiServer(
         const origin = `http://${request.headers.host ?? '127.0.0.1'}`;
         const configuration = {
           issuer,
-          clientId: 'app-web',
+          clientId: 'demo-public-client',
           redirectUri: `${origin.replace(/\/$/, '')}/callback`,
           demoApi: demoApiUrl,
         };
@@ -207,7 +207,7 @@ export async function openDemoDashboard(
   }, {
     config: {
       issuer: bundle.servers.userUrl,
-      clientId: 'app-web',
+      clientId: 'demo-public-client',
       redirectUri: `${bundle.demoUi.url}/callback`,
       demoApi: bundle.demoApi.url,
     },
@@ -219,7 +219,7 @@ export async function openDemoDashboard(
     (window as any).__APP_CONFIG__ = configuration;
   }, {
     issuer: bundle.servers.userUrl,
-    clientId: 'app-web',
+    clientId: 'demo-public-client',
     redirectUri: `${bundle.demoUi.url}/callback`,
     demoApi: bundle.demoApi.url,
   });
