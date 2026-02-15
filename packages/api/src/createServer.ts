@@ -81,18 +81,16 @@ export async function createServer(initialContext: Context): Promise<AppServer> 
   const restart = async () => {
     await stop();
     const root = loadRootConfig(context.config.configFile);
+    const hasConfig = hasConfigFile(context.config.configFile);
     const chosenDbMode = context.services.install?.chosenDbMode;
     const chosenPgliteDir = context.services.install?.chosenPgliteDir;
     const chosenPostgresUri = context.services.install?.chosenPostgresUri;
     const userPort = context.config.userPort;
     const adminPort = context.config.adminPort;
     const nextConfig: Config = {
-      dbMode: root.dbMode || chosenDbMode || "remote",
+      dbMode: hasConfig ? root.dbMode || chosenDbMode || "remote" : chosenDbMode || "pglite",
       pgliteDir: root.pgliteDir || chosenPgliteDir,
-      postgresUri:
-        root.postgresUri ||
-        chosenPostgresUri ||
-        "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
+      postgresUri: root.postgresUri || chosenPostgresUri || context.config.postgresUri,
       userPort,
       adminPort,
       proxyUi: root.proxyUi ?? context.config.proxyUi,
@@ -103,7 +101,7 @@ export async function createServer(initialContext: Context): Promise<AppServer> 
       rpId: "localhost",
       insecureKeys: context.config.insecureKeys,
       logLevel: context.config.logLevel,
-      inInstallMode: !hasConfigFile(context.config.configFile),
+      inInstallMode: !hasConfig,
       configFile: context.config.configFile,
     };
     context = await createContext(nextConfig);
