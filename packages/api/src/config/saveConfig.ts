@@ -24,10 +24,11 @@ function resolveConfigPath(configFile?: string): string {
     path.resolve(process.cwd(), "..", "config.yaml"),
     path.resolve(process.cwd(), "..", "..", "config.yaml"),
     path.resolve(process.cwd(), "..", "..", "..", "config.yaml"),
+    path.resolve(new URL("../../..", import.meta.url).pathname, "config.yaml"),
   ];
   for (const p of candidates) if (fs.existsSync(p)) return p;
-  // Default to repo root (two levels up from package) which is where config.yaml should live
-  return path.resolve(process.cwd(), "..", "..", "config.yaml");
+  // Default to current working directory when no config exists yet.
+  return path.resolve(process.cwd(), "config.yaml");
 }
 
 export function upsertConfig(updates: UpdatableFields, configFile?: string): void {

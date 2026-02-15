@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import path from "node:path";
 import { z } from "zod/v4";
 import { createPglite } from "../../db/pglite.js";
 import {
@@ -69,16 +70,27 @@ export async function postInstallOpaqueRegisterStart(
     if (!context.services.install?.tempDb) {
       try {
         if (data.dbMode === "pglite" && data.pgliteDir) {
-          context.logger.info("[install:opaque:start] Starting PGLite");
-          const { db, close } = await createPglite(data.pgliteDir);
-          context.services.install = {
-            ...(context.services.install || {}),
-            tempDb: db,
-            tempDbClose: close,
-            chosenDbMode: "pglite",
-            chosenPgliteDir: data.pgliteDir,
-          };
-          context.logger.info("[install:opaque:start] PGLite setup complete");
+          const requestedDir = path.resolve(process.cwd(), data.pgliteDir);
+          const activeDir = path.resolve(process.cwd(), context.config.pgliteDir || "data/pglite");
+          if (context.config.dbMode === "pglite" && requestedDir === activeDir) {
+            context.services.install = {
+              ...(context.services.install || {}),
+              tempDb: context.db,
+              chosenDbMode: "pglite",
+              chosenPgliteDir: data.pgliteDir,
+            };
+          } else {
+            context.logger.info("[install:opaque:start] Starting PGLite");
+            const { db, close } = await createPglite(data.pgliteDir);
+            context.services.install = {
+              ...(context.services.install || {}),
+              tempDb: db,
+              tempDbClose: close,
+              chosenDbMode: "pglite",
+              chosenPgliteDir: data.pgliteDir,
+            };
+            context.logger.info("[install:opaque:start] PGLite setup complete");
+          }
         } else if (data.dbMode === "remote" && data.postgresUri) {
           context.logger.info(
             { uri: data.postgresUri },
