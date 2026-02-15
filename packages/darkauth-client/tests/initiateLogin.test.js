@@ -93,7 +93,7 @@ test("initiateLogin omits ZK parameters when zk is false", async () => {
   assert.equal(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"), null);
 });
 
-test("initiateLogin omits ZK parameters when zk is unset", async () => {
+test("initiateLogin adds ZK parameters when zk is unset", async () => {
   setupEnvironment();
   const { location, getAssignedUrl } = createLocation();
   globalThis.location = location;
@@ -109,6 +109,6 @@ test("initiateLogin omits ZK parameters when zk is unset", async () => {
   const assignedUrl = getAssignedUrl();
   const url = new URL(assignedUrl);
   assert.equal(url.searchParams.get("response_type"), "code");
-  assert.equal(url.searchParams.get("zk_pub"), null);
-  assert.equal(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"), null);
+  assert.ok(url.searchParams.get("zk_pub"));
+  assert.ok(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"));
 });

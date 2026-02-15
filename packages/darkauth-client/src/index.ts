@@ -58,9 +58,11 @@ let cfg: Config = {
     (typeof window !== "undefined"
       ? `${window.location.origin}/callback`
       : "http://localhost:5173/callback"),
+  zk: true,
 };
 
 const OBFUSCATION_KEY = "DarkAuth-Storage-Protection-2025";
+const EMPTY_DRK = new Uint8Array(0);
 
 export function setConfig(next: Partial<Config>) {
   cfg = { ...cfg, ...next } as Config;
@@ -134,7 +136,7 @@ export function isTokenValid(token: string): boolean {
 }
 
 export async function initiateLogin(): Promise<void> {
-  const zkEnabled = cfg.zk === true;
+  const zkEnabled = cfg.zk !== false;
   let zkPubParam: string | undefined;
   if (zkEnabled) {
     const keyPair = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, [
@@ -186,13 +188,28 @@ export async function handleCallback(): Promise<AuthSession | null> {
   const tokenResponse = await response.json();
   const fragmentParams = parseFragmentParams(location.hash || "");
   const drkJwe: string | undefined = fragmentParams.drk_jwe;
+  const zkDrkHash =
+    typeof tokenResponse.zk_drk_hash === "string" ? (tokenResponse.zk_drk_hash as string) : null;
+  const idToken = tokenResponse.id_token as string;
+  const refreshToken = tokenResponse.refresh_token as string | undefined;
+  const hasZkArtifacts = !!drkJwe || !!zkDrkHash;
+  if (!hasZkArtifacts) {
+    sessionStorage.removeItem("zk_eph_priv_jwk");
+    try {
+      history.replaceState(null, "", location.origin + location.pathname);
+    } catch {}
+    sessionStorage.setItem("id_token", idToken);
+    localStorage.removeItem("drk_protected");
+    if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
+    return { idToken, drk: EMPTY_DRK, refreshToken };
+  }
   if (!drkJwe || typeof drkJwe !== "string") throw new Error("Missing DRK JWE from URL fragment");
-  if (tokenResponse.zk_drk_hash) {
+  if (zkDrkHash) {
     const hash = bytesToBase64Url(await sha256(new TextEncoder().encode(drkJwe)));
-    if (tokenResponse.zk_drk_hash !== hash) throw new Error("DRK hash mismatch");
+    if (zkDrkHash !== hash) throw new Error("DRK hash mismatch");
   }
   const privateJwkString = sessionStorage.getItem("zk_eph_priv_jwk");
-  if (!privateJwkString) return null;
+  if (!privateJwkString) throw new Error("Missing ZK private key for callback");
   sessionStorage.removeItem("zk_eph_priv_jwk");
   const privateKey = await crypto.subtle.importKey(
     "jwk",
@@ -203,8 +220,6 @@ export async function handleCallback(): Promise<AuthSession | null> {
   );
   const { plaintext } = await compactDecrypt(drkJwe, privateKey);
   const drk = new Uint8Array(plaintext);
-  const idToken = tokenResponse.id_token as string;
-  const refreshToken = tokenResponse.refresh_token as string | undefined;
   try {
     history.replaceState(null, "", location.origin + location.pathname);
   } catch {}
@@ -218,8 +233,9 @@ export async function handleCallback(): Promise<AuthSession | null> {
 export function getStoredSession(): AuthSession | null {
   const idToken = sessionStorage.getItem("id_token");
   const obfuscatedDrkBase64 = localStorage.getItem("drk_protected");
-  if (!idToken || !obfuscatedDrkBase64) return null;
+  if (!idToken) return null;
   if (!isTokenValid(idToken)) return null;
+  if (!obfuscatedDrkBase64) return { idToken, drk: EMPTY_DRK };
   try {
     const obfuscatedDrk = base64UrlToBytes(obfuscatedDrkBase64);
     const drk = deobfuscateKey(obfuscatedDrk);
@@ -255,7 +271,8 @@ export async function refreshSession(): Promise<AuthSession | null> {
   sessionStorage.setItem("id_token", idToken);
   if (newRefreshToken) localStorage.setItem("refresh_token", newRefreshToken);
   const obfuscatedDrkBase64 = localStorage.getItem("drk_protected");
-  if (!obfuscatedDrkBase64) return null;
+  if (!obfuscatedDrkBase64)
+    return { idToken, drk: EMPTY_DRK, refreshToken: newRefreshToken || refreshToken };
   const obfuscatedDrk = base64UrlToBytes(obfuscatedDrkBase64);
   const drk = deobfuscateKey(obfuscatedDrk);
   return { idToken, drk, refreshToken: newRefreshToken || refreshToken };
