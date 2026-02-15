@@ -33,7 +33,9 @@ export async function ensureAdminDashboard(
   }, accessToken);
   await page.goto(`${servers.adminUrl}/`);
   await page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
-  await expect(page.getByText('Admin Dashboard')).toBeVisible({ timeout: 15000 });
+  await expect(page.getByRole('heading', { name: 'Admin Dashboard', exact: true })).toBeVisible({
+    timeout: 15000,
+  });
 }
 
 export async function ensureSelfRegistrationEnabled(page: Page): Promise<void> {
