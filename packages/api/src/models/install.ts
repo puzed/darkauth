@@ -58,26 +58,25 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
 }
 
-export async function seedDefaultClients(
-  context: Context,
-  demoConfidentialSecretEnc: Buffer | null
-) {
-  await context.db.insert(clients).values([
+export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null) {
+  return [
     {
       clientId: "demo-public-client",
       name: "Demo Public Client",
-      type: "public",
-      tokenEndpointAuthMethod: "none",
+      type: "public" as const,
+      tokenEndpointAuthMethod: "none" as const,
       clientSecretEnc: null,
       requirePkce: true,
-      zkDelivery: "fragment-jwe",
+      zkDelivery: "fragment-jwe" as const,
       zkRequired: true,
       allowedJweAlgs: ["ECDH-ES"],
       allowedJweEncs: ["A256GCM"],
       redirectUris: [
         "http://localhost:9092/",
         "http://localhost:9092/callback",
+        "http://localhost:3000/",
         "http://localhost:3000/callback",
+        "https://app.example.com/",
         "https://app.example.com/callback",
       ],
       postLogoutRedirectUris: [
@@ -99,11 +98,11 @@ export async function seedDefaultClients(
     {
       clientId: "demo-confidential-client",
       name: "Demo Confidential Client",
-      type: "confidential",
-      tokenEndpointAuthMethod: "client_secret_basic",
+      type: "confidential" as const,
+      tokenEndpointAuthMethod: "client_secret_basic" as const,
       clientSecretEnc: demoConfidentialSecretEnc,
       requirePkce: false,
-      zkDelivery: "none",
+      zkDelivery: "none" as const,
       zkRequired: false,
       allowedJweAlgs: [],
       allowedJweEncs: [],
@@ -116,7 +115,14 @@ export async function seedDefaultClients(
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-  ]);
+  ];
+}
+
+export async function seedDefaultClients(
+  context: Context,
+  demoConfidentialSecretEnc: Buffer | null
+) {
+  await context.db.insert(clients).values(buildDefaultClientSeeds(demoConfidentialSecretEnc));
 }
 
 export async function seedDefaultGroups(context: Context) {
