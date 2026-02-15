@@ -277,7 +277,7 @@ async function install() {
 			},
 		};
 
-		await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
+			await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
 
 			console.log("5. Creating default clients...");
 			const demoConfidentialClientSecret = generateRandomString(32);
