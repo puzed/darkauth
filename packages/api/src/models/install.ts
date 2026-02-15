@@ -58,11 +58,14 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
 }
 
-export async function seedDefaultClients(context: Context, supportDeskSecretEnc: Buffer | null) {
+export async function seedDefaultClients(
+  context: Context,
+  demoConfidentialSecretEnc: Buffer | null
+) {
   await context.db.insert(clients).values([
     {
-      clientId: "app-web",
-      name: "Web Application",
+      clientId: "demo-public-client",
+      name: "Demo Public Client",
       type: "public",
       tokenEndpointAuthMethod: "none",
       clientSecretEnc: null,
@@ -94,11 +97,11 @@ export async function seedDefaultClients(context: Context, supportDeskSecretEnc:
       updatedAt: new Date(),
     },
     {
-      clientId: "support-desk",
-      name: "Support Desk",
+      clientId: "demo-confidential-client",
+      name: "Demo Confidential Client",
       type: "confidential",
       tokenEndpointAuthMethod: "client_secret_basic",
-      clientSecretEnc: supportDeskSecretEnc,
+      clientSecretEnc: demoConfidentialSecretEnc,
       requirePkce: false,
       zkDelivery: "none",
       zkRequired: false,
@@ -106,9 +109,9 @@ export async function seedDefaultClients(context: Context, supportDeskSecretEnc:
       allowedJweEncs: [],
       redirectUris: ["http://localhost:4000/callback", "https://support.example.com/callback"],
       postLogoutRedirectUris: ["http://localhost:4000", "https://support.example.com"],
-      grantTypes: ["authorization_code"],
+      grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
       responseTypes: ["code"],
-      scopes: ["openid", "profile"],
+      scopes: ["openid", "profile", "darkauth.users:read"],
       allowedZkOrigins: [],
       createdAt: new Date(),
       updatedAt: new Date(),
