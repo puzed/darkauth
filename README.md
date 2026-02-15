@@ -181,7 +181,7 @@ All configuration and state stored in PostgreSQL:
 
 Two clients are created during installation:
 
-### app-web (Public Client)
+### demo-public-client (Public Client)
 - **Type**: Public
 - **PKCE**: Required
 - **ZK Delivery**: fragment-jwe (enabled)
@@ -193,9 +193,10 @@ Two clients are created during installation:
   - https://app.example.com/
   - https://app.example.com/callback
 
-### support-desk (Confidential Client)
+### demo-confidential-client (Confidential Client)
 - **Type**: Confidential
 - **Auth Method**: client_secret_basic
+- **Grant Types**: authorization_code, refresh_token, client_credentials
 - **ZK Delivery**: None
 - **Redirect URIs**: 
   - http://localhost:4000/callback

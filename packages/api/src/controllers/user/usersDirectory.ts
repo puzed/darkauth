@@ -4,6 +4,7 @@ import { z } from "zod/v4";
 import { ForbiddenError, UnauthorizedError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getUserAccess } from "../../models/access.js";
+import { getUserBySubWithGroups, getUsersBySubsWithGroups, listUsers } from "../../models/users.js";
 import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
@@ -11,14 +12,46 @@ import { sendJson } from "../../utils/http.js";
 
 const usersReadPermissionKey = "darkauth.users:read";
 
-function hasRequiredPermission(permissions: unknown): boolean {
+export function hasRequiredPermission(permissions: unknown): boolean {
   return (
     Array.isArray(permissions) &&
     permissions.some((permission) => permission === usersReadPermissionKey)
   );
 }
 
-async function requireUsersReadPermission(context: Context, request: IncomingMessage) {
+export function hasRequiredScope(scopeClaim: unknown): boolean {
+  if (typeof scopeClaim === "string") {
+    return scopeClaim
+      .split(/\s+/)
+      .filter((scope) => scope.length > 0)
+      .includes(usersReadPermissionKey);
+  }
+  if (Array.isArray(scopeClaim)) {
+    return scopeClaim.some((scope) => scope === usersReadPermissionKey);
+  }
+  return false;
+}
+
+type UsersReadMode = "directory" | "management";
+
+export function resolveUsersReadModeFromPayload(
+  payload: Record<string, unknown>
+): UsersReadMode | null {
+  if (payload.grant_type === "client_credentials" && hasRequiredScope(payload.scope)) {
+    return "management";
+  }
+
+  if (hasRequiredPermission(payload.permissions)) {
+    return "directory";
+  }
+
+  return null;
+}
+
+async function requireUsersReadPermission(
+  context: Context,
+  request: IncomingMessage
+): Promise<UsersReadMode> {
   const auth = request.headers.authorization || "";
   const tokenMatch = /^Bearer\s+(.+)$/.exec(auth);
 
@@ -26,14 +59,19 @@ async function requireUsersReadPermission(context: Context, request: IncomingMes
     const JWKS = createRemoteJWKSet(new URL(`${context.config.issuer}/.well-known/jwks.json`));
     try {
       const verified = await jwtVerify(tokenMatch[1], JWKS, { issuer: context.config.issuer });
-      if (!hasRequiredPermission(verified.payload.permissions)) {
-        throw new ForbiddenError("Missing required permission: darkauth.users:read");
+      const payload = verified.payload as Record<string, unknown>;
+
+      const mode = resolveUsersReadModeFromPayload(payload);
+      if (mode) {
+        return mode;
       }
-      return;
+
+      throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
     } catch (error) {
       if (error instanceof ForbiddenError) {
         throw error;
       }
+      throw new UnauthorizedError("Invalid bearer token");
     }
   }
 
@@ -45,6 +83,8 @@ async function requireUsersReadPermission(context: Context, request: IncomingMes
   if (!access.permissions.includes(usersReadPermissionKey)) {
     throw new ForbiddenError("Missing required permission: darkauth.users:read");
   }
+
+  return "directory";
 }
 
 export async function getUserDirectoryEntry(
@@ -53,9 +93,21 @@ export async function getUserDirectoryEntry(
   response: ServerResponse,
   sub: string
 ) {
-  await requireUsersReadPermission(context, request);
+  const mode = await requireUsersReadPermission(context, request);
   const Params = z.object({ sub: z.string() });
   const { sub: parsedSub } = Params.parse({ sub });
+
+  if (mode === "management") {
+    context.logger.info({ sub: parsedSub }, "users management get");
+    const user = await getUserBySubWithGroups(context, parsedSub);
+    if (!user) {
+      sendJson(response, 404, { error: "user_not_found" });
+      return;
+    }
+    sendJson(response, 200, user);
+    return;
+  }
+
   context.logger.info({ sub: parsedSub }, "user directory get");
   const row = await getDirectoryEntry(context, parsedSub);
   if (!row) {
@@ -70,8 +122,43 @@ export async function searchUserDirectory(
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  await requireUsersReadPermission(context, request);
+  const mode = await requireUsersReadPermission(context, request);
+
   const url = new URL(request.url || "", `http://${request.headers.host}`);
+
+  if (mode === "management") {
+    const Query = z.object({
+      sids: z.string().optional(),
+      q: z.string().optional(),
+      search: z.string().optional(),
+      page: z.coerce.number().int().positive().optional(),
+      limit: z.coerce.number().int().positive().max(100).optional(),
+    });
+    const query = Query.parse(Object.fromEntries(url.searchParams));
+
+    const sids = (query.sids || "")
+      .split(",")
+      .map((sid) => sid.trim())
+      .filter((sid) => sid.length > 0)
+      .slice(0, 100);
+    if (sids.length > 0) {
+      const users = await getUsersBySubsWithGroups(context, sids);
+      sendJson(response, 200, { users });
+      return;
+    }
+
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const search = query.search || query.q;
+    const result = await listUsers(context, {
+      page,
+      limit,
+      search,
+    });
+    sendJson(response, 200, result);
+    return;
+  }
+
   const Query = z.object({ q: z.string().optional() });
   const { q: rawQ } = Query.parse(Object.fromEntries(url.searchParams));
   const q = (rawQ || "").trim();
@@ -79,7 +166,6 @@ export async function searchUserDirectory(
     sendJson(response, 200, { users: [] });
     return;
   }
-
   context.logger.info({ q }, "users search");
   const rows = await searchDirectory(context, q);
 
@@ -103,10 +189,20 @@ export async function searchUserDirectory(
   sendJson(response, 200, { users: filtered });
 }
 
-const User = z.object({
+const DirectoryUser = z.object({
+  sub: z.string(),
+  display_name: z.string().nullable().optional(),
+  public_key_jwk: z.unknown().optional(),
+});
+
+const ManagementUser = z.object({
   sub: z.string(),
   email: z.string().nullable().optional(),
   name: z.string().nullable().optional(),
+  createdAt: z.union([z.string(), z.date()]).optional(),
+  passwordResetRequired: z.boolean().optional(),
+  groups: z.array(z.string()).optional(),
+  permissions: z.array(z.string()).optional(),
 });
 
 export const schema = {
@@ -114,11 +210,23 @@ export const schema = {
   path: "/users",
   tags: ["Users Directory"],
   summary: "Search users",
-  query: z.object({ q: z.string().optional() }),
+  query: z.object({
+    q: z.string().optional(),
+    search: z.string().optional(),
+    sids: z.string().optional(),
+    page: z.coerce.number().int().positive().optional(),
+    limit: z.coerce.number().int().positive().max(100).optional(),
+  }),
   responses: {
     200: {
       description: "OK",
-      content: { "application/json": { schema: z.object({ users: z.array(User) }) } },
+      content: {
+        "application/json": {
+          schema: z
+            .object({ users: z.array(z.union([DirectoryUser, ManagementUser])) })
+            .passthrough(),
+        },
+      },
     },
     ...genericErrors,
   },
@@ -131,7 +239,10 @@ export const getUserSchema = {
   summary: "Get user",
   params: z.object({ sub: z.string() }),
   responses: {
-    200: { description: "OK", content: { "application/json": { schema: User } } },
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.union([DirectoryUser, ManagementUser]) } },
+    },
     ...genericErrors,
   },
 } as const satisfies ControllerSchema;

@@ -58,23 +58,25 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
 }
 
-export async function seedDefaultClients(context: Context, supportDeskSecretEnc: Buffer | null) {
-  await context.db.insert(clients).values([
+export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null) {
+  return [
     {
-      clientId: "app-web",
-      name: "Web Application",
-      type: "public",
-      tokenEndpointAuthMethod: "none",
+      clientId: "demo-public-client",
+      name: "Demo Public Client",
+      type: "public" as const,
+      tokenEndpointAuthMethod: "none" as const,
       clientSecretEnc: null,
       requirePkce: true,
-      zkDelivery: "fragment-jwe",
+      zkDelivery: "fragment-jwe" as const,
       zkRequired: true,
       allowedJweAlgs: ["ECDH-ES"],
       allowedJweEncs: ["A256GCM"],
       redirectUris: [
         "http://localhost:9092/",
         "http://localhost:9092/callback",
+        "http://localhost:3000/",
         "http://localhost:3000/callback",
+        "https://app.example.com/",
         "https://app.example.com/callback",
       ],
       postLogoutRedirectUris: [
@@ -94,26 +96,33 @@ export async function seedDefaultClients(context: Context, supportDeskSecretEnc:
       updatedAt: new Date(),
     },
     {
-      clientId: "support-desk",
-      name: "Support Desk",
-      type: "confidential",
-      tokenEndpointAuthMethod: "client_secret_basic",
-      clientSecretEnc: supportDeskSecretEnc,
+      clientId: "demo-confidential-client",
+      name: "Demo Confidential Client",
+      type: "confidential" as const,
+      tokenEndpointAuthMethod: "client_secret_basic" as const,
+      clientSecretEnc: demoConfidentialSecretEnc,
       requirePkce: false,
-      zkDelivery: "none",
+      zkDelivery: "none" as const,
       zkRequired: false,
       allowedJweAlgs: [],
       allowedJweEncs: [],
       redirectUris: ["http://localhost:4000/callback", "https://support.example.com/callback"],
       postLogoutRedirectUris: ["http://localhost:4000", "https://support.example.com"],
-      grantTypes: ["authorization_code"],
+      grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
       responseTypes: ["code"],
-      scopes: ["openid", "profile"],
+      scopes: ["openid", "profile", "darkauth.users:read"],
       allowedZkOrigins: [],
       createdAt: new Date(),
       updatedAt: new Date(),
     },
-  ]);
+  ];
+}
+
+export async function seedDefaultClients(
+  context: Context,
+  demoConfidentialSecretEnc: Buffer | null
+) {
+  await context.db.insert(clients).values(buildDefaultClientSeeds(demoConfidentialSecretEnc));
 }
 
 export async function seedDefaultGroups(context: Context) {

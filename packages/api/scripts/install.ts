@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
 import { createContext } from "../src/context/createContext.js";
-import { adminUsers, clients, settings } from "../src/db/schema.js";
+import { adminUsers, settings } from "../src/db/schema.js";
 import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
 import { createKekService, generateKdfParams } from "../src/services/kek.js";
 import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.js";
-import { seedDefaultGroups } from "../src/models/install.js";
+import { seedDefaultClients, seedDefaultGroups } from "../src/models/install.js";
 import type { Config, KdfParams } from "../src/types.js";
 import { generateRandomString } from "../src/utils/crypto.js";
 import fs from "node:fs";
@@ -150,12 +150,12 @@ async function install() {
 			tags: ["ui"],
 			defaultValue: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			value: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			secure: false,
@@ -169,12 +169,12 @@ async function install() {
 				tags: ["ui"],
 				defaultValue: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				value: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				secure: false,
@@ -230,13 +230,13 @@ async function install() {
 			tags: ["ui", "demo"],
 			defaultValue: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `http://localhost:9092/callback`,
 				demoApi: `http://localhost:9094`,
 			},
 			value: {
 				issuer: config.issuer,
-				clientId: "app-web",
+				clientId: "demo-public-client",
 				redirectUri: `http://localhost:9092/callback`,
 				demoApi: `http://localhost:9094`,
 			},
@@ -251,13 +251,13 @@ async function install() {
 				tags: ["ui", "demo"],
 				defaultValue: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `http://localhost:9092/callback`,
 					demoApi: `http://localhost:9094`,
 				},
 				value: {
 					issuer: config.issuer,
-					clientId: "app-web",
+					clientId: "demo-public-client",
 					redirectUri: `http://localhost:9092/callback`,
 					demoApi: `http://localhost:9094`,
 				},
@@ -277,81 +277,19 @@ async function install() {
 			},
 		};
 
-		await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
+			await storeKeyPair(tempContext, kid, publicJwk, privateJwk);
 
-		console.log("5. Creating default clients...");
-		const supportDeskClientSecret = generateRandomString(32);
-		let supportDeskSecretEnc: Buffer | null = null;
+			console.log("5. Creating default clients...");
+			const demoConfidentialClientSecret = generateRandomString(32);
+			let demoConfidentialSecretEnc: Buffer | null = null;
 
-		if (kekService?.isAvailable()) {
-			supportDeskSecretEnc = await kekService.encrypt(
-				Buffer.from(supportDeskClientSecret),
-			);
-		}
+			if (kekService?.isAvailable()) {
+				demoConfidentialSecretEnc = await kekService.encrypt(
+					Buffer.from(demoConfidentialClientSecret),
+				);
+			}
 
-		await context.db.insert(clients).values([
-			{
-				clientId: "app-web",
-				name: "Web Application",
-				type: "public",
-				tokenEndpointAuthMethod: "none",
-				clientSecretEnc: null,
-				requirePkce: true,
-				zkDelivery: "fragment-jwe",
-				zkRequired: true,
-				allowedJweAlgs: ["ECDH-ES"],
-				allowedJweEncs: ["A256GCM"],
-				redirectUris: [
-					"http://localhost:9092/",
-					"http://localhost:9092/callback",
-					"http://localhost:3000/",
-					"http://localhost:3000/callback",
-					"https://app.example.com/",
-					"https://app.example.com/callback",
-				],
-				postLogoutRedirectUris: [
-					"http://localhost:9092/",
-					"http://localhost:3000",
-					"https://app.example.com",
-				],
-				grantTypes: ["authorization_code"],
-				responseTypes: ["code"],
-				scopes: ["openid", "profile", "email"],
-				allowedZkOrigins: [
-					"http://localhost:9092",
-					"http://localhost:3000",
-					"https://app.example.com",
-				],
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			},
-			{
-				clientId: "support-desk",
-				name: "Support Desk",
-				type: "confidential",
-				tokenEndpointAuthMethod: "client_secret_basic",
-				clientSecretEnc: supportDeskSecretEnc,
-				requirePkce: false,
-				zkDelivery: "none",
-				zkRequired: false,
-				allowedJweAlgs: [],
-				allowedJweEncs: [],
-				redirectUris: [
-					"http://localhost:4000/callback",
-					"https://support.example.com/callback",
-				],
-				postLogoutRedirectUris: [
-					"http://localhost:4000",
-					"https://support.example.com",
-				],
-				grantTypes: ["authorization_code"],
-				responseTypes: ["code"],
-				scopes: ["openid", "profile"],
-				allowedZkOrigins: [],
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			},
-		]);
+			await seedDefaultClients(context, demoConfidentialSecretEnc);
 
 		console.log("6. Seeding default group...");
 		await seedDefaultGroups(context);
@@ -388,10 +326,10 @@ async function install() {
 			"║ Default Clients:                                                 ║",
 		);
 		console.log(
-			"║   - app-web (public, ZK-enabled)                                 ║",
+			"║   - demo-public-client (public, ZK-enabled)                                 ║",
 		);
 		console.log(
-			"║   - support-desk (confidential, standard)                        ║",
+			"║   - demo-confidential-client (confidential, standard)                        ║",
 		);
 
 		console.log(

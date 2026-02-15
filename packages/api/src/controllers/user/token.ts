@@ -33,6 +33,39 @@ async function resolveIssuer(context: Context): Promise<string> {
   return context.config.issuer;
 }
 
+export async function assertClientSecretMatches(
+  context: Pick<Context, "services">,
+  clientSecretEnc: Buffer | null,
+  providedSecret: string
+): Promise<void> {
+  if (!clientSecretEnc || !context.services.kek?.isAvailable()) {
+    throw new UnauthorizedClientError("Client secret verification failed");
+  }
+  try {
+    const decryptedSecret = await context.services.kek.decrypt(clientSecretEnc);
+    const storedSecret = decryptedSecret.toString("utf-8");
+    if (!constantTimeCompare(providedSecret, storedSecret)) {
+      throw new UnauthorizedClientError("Invalid client credentials");
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedClientError) throw error;
+    throw new UnauthorizedClientError("Client secret verification failed");
+  }
+}
+
+export function resolveGrantedScopes(allowedScopes: string[], requestedScope?: string): string[] {
+  const requestedScopes = (requestedScope || "")
+    .trim()
+    .split(/\s+/)
+    .filter((scope) => scope.length > 0);
+
+  if (requestedScopes.some((scope) => !allowedScopes.includes(scope))) {
+    throw new InvalidRequestError("Requested scope is not allowed for this client");
+  }
+
+  return requestedScopes.length > 0 ? requestedScopes : allowedScopes;
+}
+
 export const TokenRequestSchema = z.union([
   z.object({
     grant_type: z.literal("authorization_code"),
@@ -42,6 +75,7 @@ export const TokenRequestSchema = z.union([
     client_secret: z.string().optional(),
     code_verifier: z.string().optional(),
     refresh_token: z.string().optional(),
+    scope: z.string().optional(),
   }),
   z.object({
     grant_type: z.literal("refresh_token"),
@@ -51,6 +85,7 @@ export const TokenRequestSchema = z.union([
     code: z.string().optional(),
     redirect_uri: z.string().url().optional(),
     code_verifier: z.string().optional(),
+    scope: z.string().optional(),
   }),
   z.object({
     grant_type: z.literal("client_credentials"),
@@ -60,6 +95,7 @@ export const TokenRequestSchema = z.union([
     client_secret: z.string().optional(),
     code_verifier: z.string().optional(),
     refresh_token: z.string().optional(),
+    scope: z.string().optional(),
   }),
 ]);
 
@@ -104,12 +140,7 @@ export const postToken = withRateLimit("token")(
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "client_secret_basic")
             throw new UnauthorizedClientError("Invalid client auth method");
-          if (!client.clientSecretEnc || !context.services.kek?.isAvailable())
-            throw new UnauthorizedClientError("Client secret verification failed");
-          const decryptedSecret = await context.services.kek.decrypt(client.clientSecretEnc);
-          const storedSecret = decryptedSecret.toString("utf-8");
-          if (!constantTimeCompare(credentials.password, storedSecret))
-            throw new UnauthorizedClientError("Invalid client credentials");
+          await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
           providedClientId = client.clientId;
           clientAuthOk = true;
         } else {
@@ -203,8 +234,86 @@ export const postToken = withRateLimit("token")(
         return;
       }
 
+      if (tokenRequest.grant_type === "client_credentials") {
+        const authHeader = parseAuthorizationHeader(request);
+        if (!authHeader || authHeader.type !== "Basic") {
+          throw new UnauthorizedClientError("Basic authentication required");
+        }
+
+        const credentials = decodeBasicAuth(authHeader.credentials);
+        if (!credentials) {
+          throw new UnauthorizedClientError("Invalid Basic authentication format");
+        }
+
+        const client = await (await import("../../models/clients.js")).getClient(
+          context,
+          credentials.username
+        );
+        if (!client) {
+          throw new UnauthorizedClientError("Unknown client");
+        }
+        if (client.type !== "confidential") {
+          throw new UnauthorizedClientError("Client must be confidential");
+        }
+        if (client.tokenEndpointAuthMethod !== "client_secret_basic") {
+          throw new UnauthorizedClientError("Invalid client auth method");
+        }
+        if (!client.grantTypes.includes("client_credentials")) {
+          throw new UnauthorizedClientError("client_credentials grant not allowed for this client");
+        }
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
+
+        const allowedScopes = Array.isArray(client.scopes) ? client.scopes : [];
+        const grantedScopes = resolveGrantedScopes(allowedScopes, tokenRequest.scope);
+
+        let accessTokenTtl = 600;
+        const accessTokenSettings = (await getSetting(context, "access_token")) as
+          | { lifetime_seconds?: number }
+          | undefined
+          | null;
+        if (accessTokenSettings?.lifetime_seconds && accessTokenSettings.lifetime_seconds > 0) {
+          accessTokenTtl = accessTokenSettings.lifetime_seconds;
+        } else {
+          const flat = (await getSetting(context, "access_token.lifetime_seconds")) as
+            | number
+            | undefined
+            | null;
+          if (typeof flat === "number" && flat > 0) accessTokenTtl = flat;
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+        const issuer = await resolveIssuer(context);
+        const accessTokenClaims = {
+          iss: issuer,
+          sub: client.clientId,
+          aud: client.clientId,
+          azp: client.clientId,
+          exp: now + accessTokenTtl,
+          iat: now,
+          scope: grantedScopes.join(" "),
+          permissions: grantedScopes,
+          grant_type: "client_credentials",
+          token_use: "access",
+        };
+
+        const accessToken = await signJWT(
+          context,
+          accessTokenClaims as import("jose").JWTPayload,
+          `${accessTokenTtl}s`
+        );
+
+        const tokenResponse: TokenResponse = {
+          access_token: accessToken,
+          token_type: "Bearer",
+          expires_in: accessTokenTtl,
+          scope: grantedScopes.join(" "),
+        };
+        sendJson(response, 200, tokenResponse);
+        return;
+      }
+
       if (tokenRequest.grant_type !== "authorization_code") {
-        throw new InvalidRequestError("Only authorization_code grant type is supported");
+        throw new InvalidRequestError("Unsupported grant_type");
       }
 
       if (!tokenRequest.code) {
@@ -284,20 +393,7 @@ export const postToken = withRateLimit("token")(
         }
 
         // Decrypt and verify client secret
-        if (!client.clientSecretEnc || !context.services.kek?.isAvailable()) {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
-
-        try {
-          const decryptedSecret = await context.services.kek.decrypt(client.clientSecretEnc);
-          const storedSecret = decryptedSecret.toString("utf-8");
-
-          if (!constantTimeCompare(credentials.password, storedSecret)) {
-            throw new UnauthorizedClientError("Invalid client credentials");
-          }
-        } catch {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
 
         authenticatedClientId = credentials.username;
       } else {
@@ -417,10 +513,12 @@ export const postToken = withRateLimit("token")(
 );
 
 const TokenResponseSchema = z.object({
+  access_token: z.string().optional(),
   id_token: z.string().optional(),
   token_type: z.literal("Bearer"),
   expires_in: z.number().int().positive(),
   refresh_token: z.string().optional(),
+  scope: z.string().optional(),
 });
 
 export const schema = {

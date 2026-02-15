@@ -10,7 +10,7 @@ const appConfiguration =
   (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ || {};
 setConfig({
   issuer: appConfiguration.issuer || "http://localhost:9080",
-  clientId: appConfiguration.clientId || "app-web",
+  clientId: appConfiguration.clientId || "demo-public-client",
   redirectUri: appConfiguration.redirectUri || `${window.location.origin}/callback`,
   zk: appConfiguration.zk ?? true,
 });

@@ -61,7 +61,7 @@ export function getRoutes(): Route[] {
       const storedConfiguration = configurationResult.rows[0]?.value || null;
       const fallbackConfiguration = {
         issuer: context.config.issuer,
-        clientId: "app-web",
+        clientId: "demo-public-client",
         redirectUri: "http://localhost:9092/callback",
         demoApi: `http://localhost:${context.config.port}`,
       };
