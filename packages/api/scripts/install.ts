@@ -1,11 +1,11 @@
 #!/usr/bin/env tsx
 
 import { createContext } from "../src/context/createContext.js";
-import { adminUsers, clients, settings } from "../src/db/schema.js";
+import { adminUsers, settings } from "../src/db/schema.js";
 import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
 import { createKekService, generateKdfParams } from "../src/services/kek.js";
 import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.js";
-import { seedDefaultGroups } from "../src/models/install.js";
+import { seedDefaultClients, seedDefaultGroups } from "../src/models/install.js";
 import type { Config, KdfParams } from "../src/types.js";
 import { generateRandomString } from "../src/utils/crypto.js";
 import fs from "node:fs";
@@ -289,69 +289,7 @@ async function install() {
 				);
 			}
 
-		await context.db.insert(clients).values([
-			{
-					clientId: "demo-public-client",
-					name: "Demo Public Client",
-				type: "public",
-				tokenEndpointAuthMethod: "none",
-				clientSecretEnc: null,
-				requirePkce: true,
-				zkDelivery: "fragment-jwe",
-				zkRequired: true,
-				allowedJweAlgs: ["ECDH-ES"],
-				allowedJweEncs: ["A256GCM"],
-				redirectUris: [
-					"http://localhost:9092/",
-					"http://localhost:9092/callback",
-					"http://localhost:3000/",
-					"http://localhost:3000/callback",
-					"https://app.example.com/",
-					"https://app.example.com/callback",
-				],
-				postLogoutRedirectUris: [
-					"http://localhost:9092/",
-					"http://localhost:3000",
-					"https://app.example.com",
-				],
-				grantTypes: ["authorization_code"],
-				responseTypes: ["code"],
-				scopes: ["openid", "profile", "email"],
-				allowedZkOrigins: [
-					"http://localhost:9092",
-					"http://localhost:3000",
-					"https://app.example.com",
-				],
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			},
-			{
-					clientId: "demo-confidential-client",
-					name: "Demo Confidential Client",
-				type: "confidential",
-					tokenEndpointAuthMethod: "client_secret_basic",
-					clientSecretEnc: demoConfidentialSecretEnc,
-				requirePkce: false,
-				zkDelivery: "none",
-				zkRequired: false,
-				allowedJweAlgs: [],
-				allowedJweEncs: [],
-				redirectUris: [
-					"http://localhost:4000/callback",
-					"https://support.example.com/callback",
-				],
-				postLogoutRedirectUris: [
-					"http://localhost:4000",
-					"https://support.example.com",
-				],
-					grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
-					responseTypes: ["code"],
-					scopes: ["openid", "profile", "darkauth.users:read"],
-				allowedZkOrigins: [],
-				createdAt: new Date(),
-				updatedAt: new Date(),
-			},
-		]);
+			await seedDefaultClients(context, demoConfidentialSecretEnc);
 
 		console.log("6. Seeding default group...");
 		await seedDefaultGroups(context);

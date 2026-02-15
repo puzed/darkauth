@@ -33,6 +33,26 @@ async function resolveIssuer(context: Context): Promise<string> {
   return context.config.issuer;
 }
 
+export async function assertClientSecretMatches(
+  context: Pick<Context, "services">,
+  clientSecretEnc: Buffer | null,
+  providedSecret: string
+): Promise<void> {
+  if (!clientSecretEnc || !context.services.kek?.isAvailable()) {
+    throw new UnauthorizedClientError("Client secret verification failed");
+  }
+  try {
+    const decryptedSecret = await context.services.kek.decrypt(clientSecretEnc);
+    const storedSecret = decryptedSecret.toString("utf-8");
+    if (!constantTimeCompare(providedSecret, storedSecret)) {
+      throw new UnauthorizedClientError("Invalid client credentials");
+    }
+  } catch (error) {
+    if (error instanceof UnauthorizedClientError) throw error;
+    throw new UnauthorizedClientError("Client secret verification failed");
+  }
+}
+
 export function resolveGrantedScopes(allowedScopes: string[], requestedScope?: string): string[] {
   const requestedScopes = (requestedScope || "")
     .trim()
@@ -120,12 +140,7 @@ export const postToken = withRateLimit("token")(
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "client_secret_basic")
             throw new UnauthorizedClientError("Invalid client auth method");
-          if (!client.clientSecretEnc || !context.services.kek?.isAvailable())
-            throw new UnauthorizedClientError("Client secret verification failed");
-          const decryptedSecret = await context.services.kek.decrypt(client.clientSecretEnc);
-          const storedSecret = decryptedSecret.toString("utf-8");
-          if (!constantTimeCompare(credentials.password, storedSecret))
-            throw new UnauthorizedClientError("Invalid client credentials");
+          await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
           providedClientId = client.clientId;
           clientAuthOk = true;
         } else {
@@ -246,19 +261,7 @@ export const postToken = withRateLimit("token")(
         if (!client.grantTypes.includes("client_credentials")) {
           throw new UnauthorizedClientError("client_credentials grant not allowed for this client");
         }
-        if (!client.clientSecretEnc || !context.services.kek?.isAvailable()) {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
-
-        try {
-          const decryptedSecret = await context.services.kek.decrypt(client.clientSecretEnc);
-          const storedSecret = decryptedSecret.toString("utf-8");
-          if (!constantTimeCompare(credentials.password, storedSecret)) {
-            throw new UnauthorizedClientError("Invalid client credentials");
-          }
-        } catch {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
 
         const allowedScopes = Array.isArray(client.scopes) ? client.scopes : [];
         const grantedScopes = resolveGrantedScopes(allowedScopes, tokenRequest.scope);
@@ -390,20 +393,7 @@ export const postToken = withRateLimit("token")(
         }
 
         // Decrypt and verify client secret
-        if (!client.clientSecretEnc || !context.services.kek?.isAvailable()) {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
-
-        try {
-          const decryptedSecret = await context.services.kek.decrypt(client.clientSecretEnc);
-          const storedSecret = decryptedSecret.toString("utf-8");
-
-          if (!constantTimeCompare(credentials.password, storedSecret)) {
-            throw new UnauthorizedClientError("Invalid client credentials");
-          }
-        } catch {
-          throw new UnauthorizedClientError("Client secret verification failed");
-        }
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
 
         authenticatedClientId = credentials.username;
       } else {
