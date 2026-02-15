@@ -18,20 +18,33 @@ if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
 const data = await response.json();
 console.log(data.users);`;
 
-const basicExample = `const basic = Buffer.from("support-desk:YOUR_CLIENT_SECRET").toString("base64");
+const clientCredentialsExample = `const basic = Buffer.from("demo-confidential-client:YOUR_CLIENT_SECRET").toString("base64");
 
-const response = await fetch(
-  "http://localhost:9080/api/users?search=mark&page=1&limit=20",
+const tokenResponse = await fetch("http://localhost:9080/api/token", {
+  method: "POST",
+  headers: {
+    Authorization: \`Basic \${basic}\`,
+    "Content-Type": "application/x-www-form-urlencoded",
+  },
+  body: "grant_type=client_credentials&scope=darkauth.users:read",
+});
+
+if (!tokenResponse.ok) throw new Error(\`HTTP \${tokenResponse.status}\`);
+const tokenData = await tokenResponse.json();
+const accessToken = tokenData.access_token;
+
+const usersResponse = await fetch(
+  "http://localhost:9080/api/users?sids=user_sub_1,user_sub_2",
   {
     headers: {
-      Authorization: \`Basic \${basic}\`,
+      Authorization: \`Bearer \${accessToken}\`,
     },
   }
 );
 
-if (!response.ok) throw new Error(\`HTTP \${response.status}\`);
-const data = await response.json();
-console.log(data.users);`;
+if (!usersResponse.ok) throw new Error(\`HTTP \${usersResponse.status}\`);
+const usersData = await usersResponse.json();
+console.log(usersData.users);`;
 
 const bearerResponseExample = `{
   "users": [
@@ -49,18 +62,17 @@ const bearerResponseExample = `{
   ]
 }`;
 
-const basicResponseExample = `{
+const managementResponseExample = `{
   "users": [
     {
       "sub": "d7e6f5...",
       "email": "target@example.com",
       "name": "Directory Target",
-      "groups": ["support", "ops"]
+      "createdAt": "2026-01-24T19:17:27.000Z",
+      "groups": ["support", "ops"],
+      "permissions": ["darkauth.users:read"]
     }
-  ],
-  "page": 1,
-  "limit": 20,
-  "total": 1
+  ]
 }`;
 
 const UsersApiPage = () => {
@@ -87,7 +99,8 @@ const UsersApiPage = () => {
             <code>darkauth.users:read</code>.
           </li>
           <li>
-            Confidential clients can access this endpoint with a valid client secret.
+            Confidential clients use OAuth <code>client_credentials</code> and call this endpoint
+            with a bearer access token.
           </li>
         </ul>
       </DocsCallout>
@@ -100,8 +113,8 @@ const UsersApiPage = () => {
           </div>
           <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
             <li>Bearer mode: `q` for directory search text.</li>
-            <li>Confidential Basic mode: `search` (or `q`), `page`, `limit`.</li>
-            <li>Confidential Basic mode also supports `sids` as a comma-separated list of user IDs.</li>
+            <li>Management bearer mode: `search` (or `q`), `page`, `limit`.</li>
+            <li>Management bearer mode also supports `sids` as a comma-separated list of user IDs.</li>
           </ul>
         </CardContent>
       </Card>
@@ -129,11 +142,11 @@ const UsersApiPage = () => {
             <h3 className="text-lg font-semibold">Example: Confidential Client</h3>
           </div>
           <pre className="overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
-            <code>{basicExample}</code>
+            <code>{clientCredentialsExample}</code>
           </pre>
           <p className="mt-4 text-base font-medium text-foreground">Example response</p>
           <pre className="mt-2 overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
-            <code>{basicResponseExample}</code>
+            <code>{managementResponseExample}</code>
           </pre>
         </CardContent>
       </Card>
