@@ -149,7 +149,13 @@ All colors MUST be HSL.
     border-color: hsl(var(--border));
   }
 
+  html {
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
+    font-size: 1rem;
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
   }
