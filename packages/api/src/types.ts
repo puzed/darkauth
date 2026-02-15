@@ -283,7 +283,7 @@ export interface JWTPayload extends JoseJWTPayload {
 
 export interface TokenResponse {
   access_token?: string;
-  id_token: string;
+  id_token?: string;
   token_type: string;
   expires_in: number;
   refresh_token?: string;
@@ -311,6 +311,7 @@ export interface TokenRequest {
   client_secret?: string;
   code_verifier?: string;
   refresh_token?: string;
+  scope?: string;
 }
 
 export interface SessionData {

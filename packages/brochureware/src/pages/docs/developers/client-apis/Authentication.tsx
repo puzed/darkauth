@@ -14,7 +14,7 @@ const AuthenticationPage = () => {
           <h2 className="text-2xl font-bold text-foreground">Authentication Concepts</h2>
           <p className="mt-3 text-base leading-6 text-muted-foreground">
             DarkAuth client APIs support two authentication concepts:
-            bearer tokens for public clients and client secrets for confidential clients.
+            bearer tokens for public clients and OAuth client credentials for confidential clients.
           </p>
         </CardContent>
       </Card>
@@ -53,8 +53,14 @@ const AuthenticationPage = () => {
           </div>
           <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
             <li>Used by backend services where secure secret storage is available.</li>
-            <li>Calls APIs with `Authorization: Basic base64(client_id:client_secret)`.</li>
-            <li>Requires a confidential client configured for `client_secret_basic`.</li>
+            <li>
+              First calls `/api/token` using `grant_type=client_credentials` and
+              `client_secret_basic`.
+            </li>
+            <li>
+              Then calls APIs with `Authorization: Bearer &lt;access_token&gt;`.
+            </li>
+            <li>Requires a confidential client configured for `client_credentials` grant.</li>
             <li>Best for service-to-service and operational workflows.</li>
           </ul>
         </CardContent>
