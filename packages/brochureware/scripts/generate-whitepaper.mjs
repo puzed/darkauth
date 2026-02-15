@@ -81,8 +81,18 @@ async function main() {
   
 
   const tempMdPath = join(outDir, 'whitepaper.generated.md');
-  const header = `# DarkAuth v1 Security Whitepaper\n\nA technical analysis of zero‑knowledge key delivery for OIDC\n\n_${new Date().toISOString().slice(0, 10)}_\n\n`;
-  const combined = header + md;
+  const nextDate = new Date().toISOString().slice(0, 10);
+  const header = `# DarkAuth v1 Security Whitepaper\n\nA technical analysis of zero‑knowledge key delivery for OIDC\n\n_${nextDate}_\n\n`;
+  let combined = header + md;
+  if (existsSync(tempMdPath)) {
+    const previous = fs.readFileSync(tempMdPath, 'utf8');
+    const previousDateMatch = previous.match(/^_(\d{4}-\d{2}-\d{2})_$/m);
+    const normalizedPrevious = previous.replace(/^_(\d{4}-\d{2}-\d{2})_$/m, '_<date>_');
+    const normalizedCombined = combined.replace(/^_(\d{4}-\d{2}-\d{2})_$/m, '_<date>_');
+    if (normalizedPrevious === normalizedCombined && previousDateMatch) {
+      combined = combined.replace(/^_(\d{4}-\d{2}-\d{2})_$/m, `_${previousDateMatch[1]}_`);
+    }
+  }
   fs.writeFileSync(tempMdPath, combined, 'utf8');
   const css = [
     'body{font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;line-height:1.6;color:#111;padding:24px}',

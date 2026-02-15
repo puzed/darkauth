@@ -19,6 +19,7 @@ const Header = () => {
           <a href="/features" className="transition-smooth hover:text-primary">Features</a>
           <a href="/how-it-works" className="transition-smooth hover:text-primary">How It Works</a>
           <a href="/security" className="transition-smooth hover:text-primary">Security</a>
+          <a href="/docs" className="transition-smooth hover:text-primary">Docs</a>
           
           <a href="/screenshots" className="transition-smooth hover:text-primary">Screenshots</a>
           <a href="/changelog" className="transition-smooth hover:text-primary">Changelog</a>
@@ -27,12 +28,12 @@ const Header = () => {
         <div className="flex items-center space-x-3">
           <ThemeToggle />
           <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
-            <Button variant="ghost" size="sm" className="hidden md:inline-flex">
+            <Button variant="ghost" size="sm" className="hidden cursor-pointer md:inline-flex">
               GitHub
             </Button>
           </a>
-          <a href="#docs">
-            <Button variant="hero" size="sm" className="hidden md:inline-flex">
+          <a href="/#docs">
+            <Button variant="hero" size="sm" className="hidden cursor-pointer md:inline-flex">
               Run with Docker
             </Button>
           </a>
@@ -47,14 +48,15 @@ const Header = () => {
                 <a href="/features" className="block px-2 py-2 rounded-md hover:bg-muted">Features</a>
                 <a href="/how-it-works" className="block px-2 py-2 rounded-md hover:bg-muted">How It Works</a>
                 <a href="/security" className="block px-2 py-2 rounded-md hover:bg-muted">Security</a>
+                <a href="/docs" className="block px-2 py-2 rounded-md hover:bg-muted">Docs</a>
                 <a href="/screenshots" className="block px-2 py-2 rounded-md hover:bg-muted">Screenshots</a>
                 <a href="/changelog" className="block px-2 py-2 rounded-md hover:bg-muted">Changelog</a>
                 <div className="pt-3 flex gap-2">
                   <a href="https://github.com/puzed/" target="_blank" rel="noreferrer" className="flex-1">
-                    <Button variant="ghost" className="w-full">GitHub</Button>
+                    <Button variant="ghost" className="w-full cursor-pointer">GitHub</Button>
                   </a>
-                  <a href="#docs" className="flex-1">
-                    <Button variant="hero" className="w-full">Run with Docker</Button>
+                  <a href="/#docs" className="flex-1">
+                    <Button variant="hero" className="w-full cursor-pointer">Run with Docker</Button>
                   </a>
                 </div>
               </div>

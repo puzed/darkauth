@@ -13,6 +13,10 @@ import Cookie from "./pages/legal/Cookie";
 import HowItWorks from "./pages/HowItWorks";
 import Security from "./pages/Security";
 import Features from "./pages/Features";
+import DocsLayout from "./pages/docs/DocsLayout";
+import IntroductionPage from "./pages/docs/Introduction";
+import AuthenticationPage from "./pages/docs/developers/client-apis/Authentication";
+import UsersApiPage from "./pages/docs/developers/client-apis/UsersApi";
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem enableColorScheme storageKey="darkauth-theme">
@@ -22,15 +26,24 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-        <Route path="/features" element={<Features />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/security" element={<Security />} />
-        <Route path="/changelog" element={<Changelog />} />
-        <Route path="/screenshots" element={<Screenshots />} />
-        <Route path="/legal/privacy" element={<Privacy />} />
-        <Route path="/legal/terms" element={<Terms />} />
-        <Route path="/legal/cookie" element={<Cookie />} />
-        <Route path="*" element={<NotFound />} />
+          <Route path="/features" element={<Features />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/security" element={<Security />} />
+          <Route path="/changelog" element={<Changelog />} />
+          <Route path="/screenshots" element={<Screenshots />} />
+          <Route path="/legal/privacy" element={<Privacy />} />
+          <Route path="/legal/terms" element={<Terms />} />
+          <Route path="/legal/cookie" element={<Cookie />} />
+          <Route path="/docs" element={<DocsLayout />}>
+            <Route index element={<IntroductionPage />} />
+            <Route path="introduction" element={<IntroductionPage />} />
+            <Route
+              path="developers/client-apis/authentication"
+              element={<AuthenticationPage />}
+            />
+            <Route path="developers/client-apis/users" element={<UsersApiPage />} />
+          </Route>
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
