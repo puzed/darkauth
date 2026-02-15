@@ -1,7 +1,71 @@
 import { count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { groups, userGroups, users } from "../db/schema.js";
+import { groupPermissions, groups, userGroups, userPermissions, users } from "../db/schema.js";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
+
+async function getAccessMapsForSubs(context: Context, subs: string[]) {
+  let groupsByUser = new Map<string, string[]>();
+  const permissionsByUser = new Map<string, string[]>();
+
+  if (subs.length === 0) {
+    return { groupsByUser, permissionsByUser };
+  }
+
+  const groupRows = await context.db
+    .select({ userSub: userGroups.userSub, groupKey: groups.key })
+    .from(userGroups)
+    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+    .where(inArray(userGroups.userSub, subs));
+
+  groupsByUser = groupRows.reduce((map, row) => {
+    const list = map.get(row.userSub) || [];
+    list.push(row.groupKey);
+    map.set(row.userSub, list);
+    return map;
+  }, new Map<string, string[]>());
+
+  const directPermissionsRows = await context.db
+    .select({ userSub: userPermissions.userSub, permissionKey: userPermissions.permissionKey })
+    .from(userPermissions)
+    .where(inArray(userPermissions.userSub, subs));
+
+  const groupKeys = Array.from(new Set(groupRows.map((row) => row.groupKey)));
+  const groupPermissionsRows =
+    groupKeys.length > 0
+      ? await context.db
+          .select({
+            groupKey: groupPermissions.groupKey,
+            permissionKey: groupPermissions.permissionKey,
+          })
+          .from(groupPermissions)
+          .where(inArray(groupPermissions.groupKey, groupKeys))
+      : [];
+
+  const permissionKeysByGroup = groupPermissionsRows.reduce((map, row) => {
+    const list = map.get(row.groupKey) || [];
+    list.push(row.permissionKey);
+    map.set(row.groupKey, list);
+    return map;
+  }, new Map<string, string[]>());
+
+  const directPermissionsByUser = directPermissionsRows.reduce((map, row) => {
+    const list = map.get(row.userSub) || [];
+    list.push(row.permissionKey);
+    map.set(row.userSub, list);
+    return map;
+  }, new Map<string, string[]>());
+
+  for (const sub of subs) {
+    const direct = directPermissionsByUser.get(sub) || [];
+    const groupsForUser = groupsByUser.get(sub) || [];
+    const inherited = groupsForUser.flatMap(
+      (groupKey) => permissionKeysByGroup.get(groupKey) || []
+    );
+    permissionsByUser.set(sub, Array.from(new Set([...direct, ...inherited])));
+  }
+
+  return { groupsByUser, permissionsByUser };
+}
 
 export async function listUsers(
   context: Context,
@@ -36,26 +100,17 @@ export async function listUsers(
     .offset(offset);
 
   const subs = usersList.map((u) => u.sub);
-  let groupsByUser = new Map<string, string[]>();
-  if (subs.length > 0) {
-    const rows = await context.db
-      .select({ userSub: userGroups.userSub, groupKey: groups.key })
-      .from(userGroups)
-      .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-      .where(inArray(userGroups.userSub, subs));
-    groupsByUser = rows.reduce((map, row) => {
-      const list = map.get(row.userSub) || [];
-      list.push(row.groupKey);
-      map.set(row.userSub, list);
-      return map;
-    }, new Map<string, string[]>());
-  }
+  const { groupsByUser, permissionsByUser } = await getAccessMapsForSubs(context, subs);
 
   const total = totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
 
   return {
-    users: usersList.map((u) => ({ ...u, groups: groupsByUser.get(u.sub) || [] })),
+    users: usersList.map((u) => ({
+      ...u,
+      groups: groupsByUser.get(u.sub) || [],
+      permissions: permissionsByUser.get(u.sub) || [],
+    })),
     pagination: {
       page,
       limit,
@@ -116,22 +171,12 @@ export async function getUsersBySubsWithGroups(context: Context, subs: string[])
     .from(users)
     .where(inArray(users.sub, subs));
 
-  const groupRows = await context.db
-    .select({ userSub: userGroups.userSub, groupKey: groups.key })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .where(inArray(userGroups.userSub, subs));
-
-  const groupsByUser = groupRows.reduce((map, row) => {
-    const list = map.get(row.userSub) || [];
-    list.push(row.groupKey);
-    map.set(row.userSub, list);
-    return map;
-  }, new Map<string, string[]>());
+  const { groupsByUser, permissionsByUser } = await getAccessMapsForSubs(context, subs);
 
   return usersList.map((user) => ({
     ...user,
     groups: groupsByUser.get(user.sub) || [],
+    permissions: permissionsByUser.get(user.sub) || [],
   }));
 }
 

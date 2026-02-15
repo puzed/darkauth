@@ -69,7 +69,7 @@ npm run dev
 # DarkAuth configuration
 DARKAUTH_ISSUER=http://localhost:9080
 VITE_DARKAUTH_ISSUER=http://localhost:9080
-VITE_CLIENT_ID=app-web
+VITE_CLIENT_ID=demo-public-client
 VITE_REDIRECT_URI=http://localhost:9092/
 
 # API server

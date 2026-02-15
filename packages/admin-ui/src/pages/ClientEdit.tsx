@@ -252,7 +252,7 @@ export default function ClientEdit() {
                   >
                     <Input value={form.clientId} disabled />
                     <FieldHint>
-                      Unique protocol identifier, e.g. <code>app-web</code>.
+                      Unique protocol identifier, e.g. <code>demo-public-client</code>.
                     </FieldHint>
                   </FormField>
 

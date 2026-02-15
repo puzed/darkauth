@@ -42,13 +42,39 @@ async function getUserJwt(userUrl: string, refreshToken: string) {
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: 'app-web',
+      client_id: 'demo-public-client',
       refresh_token: refreshToken
     })
   })
   expect(tokenRes.ok).toBeTruthy()
   const tokenJson = await tokenRes.json() as { id_token: string }
   return tokenJson.id_token
+}
+
+async function getClientCredentialsAccessToken(
+  userUrl: string,
+  clientId: string,
+  clientSecret: string,
+  scope: string
+) {
+  const authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
+  const tokenRes = await fetch(`${userUrl}/api/user/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: authorization,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Origin: userUrl
+    },
+    body: new URLSearchParams({
+      grant_type: 'client_credentials',
+      scope
+    })
+  })
+  expect(tokenRes.ok).toBeTruthy()
+  const tokenJson = await tokenRes.json() as { access_token?: string; token_type?: string }
+  expect(tokenJson.token_type).toBe('Bearer')
+  expect(typeof tokenJson.access_token).toBe('string')
+  return tokenJson.access_token as string
 }
 
 test.describe('API - Users endpoint auth methods', () => {
@@ -60,7 +86,7 @@ test.describe('API - Users endpoint auth methods', () => {
   let targetEmail: string
   let userJwt: string
   let plainUserJwt: string
-  let supportDeskSecret: string
+  let demoConfidentialSecret: string
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'api-users-endpoint-auth' })
@@ -77,13 +103,13 @@ test.describe('API - Users endpoint auth methods', () => {
       password: FIXED_TEST_ADMIN.password
     })
 
-    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/support-desk/secret`, {
+    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret`, {
       headers: { Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl }
     })
     expect(secretRes.ok).toBeTruthy()
     const secretJson = await secretRes.json() as { clientSecret: string | null }
-    if (!secretJson.clientSecret) throw new Error('support-desk secret missing')
-    supportDeskSecret = secretJson.clientSecret
+    if (!secretJson.clientSecret) throw new Error('demo-confidential-client secret missing')
+    demoConfidentialSecret = secretJson.clientSecret
 
     const permissionRes = await fetch(`${servers.adminUrl}/admin/permissions`, {
       method: 'POST',
@@ -98,6 +124,20 @@ test.describe('API - Users endpoint auth methods', () => {
       })
     })
     expect([201, 409].includes(permissionRes.status)).toBeTruthy()
+
+    const updateSupportDeskRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${adminToken}`,
+        Origin: servers.adminUrl
+      },
+      body: JSON.stringify({
+        grantTypes: ['authorization_code', 'client_credentials'],
+        scopes: ['openid', 'profile', 'darkauth.users:read']
+      })
+    })
+    expect(updateSupportDeskRes.ok).toBeTruthy()
 
     const reader = {
       email: `reader-${Date.now()}@example.com`,
@@ -178,11 +218,16 @@ test.describe('API - Users endpoint auth methods', () => {
     expect('email' in json).toBeFalsy()
   })
 
-  test('Basic client_secret_basic returns app secret user shape', async () => {
-    const authorization = `Basic ${Buffer.from(`support-desk:${supportDeskSecret}`).toString('base64')}`
+  test('client_credentials bearer returns management user shape', async () => {
+    const managementAccessToken = await getClientCredentialsAccessToken(
+      servers.userUrl,
+      'demo-confidential-client',
+      demoConfidentialSecret,
+      'darkauth.users:read'
+    )
     const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`, {
       headers: {
-        Authorization: authorization,
+        Authorization: `Bearer ${managementAccessToken}`,
         Origin: servers.userUrl
       }
     })
@@ -206,15 +251,38 @@ test.describe('API - Users endpoint auth methods', () => {
     expect(res.status).toBe(401)
   })
 
-  test('Invalid client secret is rejected', async () => {
-    const invalidAuthorization = `Basic ${Buffer.from('support-desk:not-the-secret').toString('base64')}`
-    const res = await fetch(`${servers.userUrl}/api/user/users/${encodeURIComponent(targetSub)}`, {
+  test('Invalid client secret is rejected at token endpoint', async () => {
+    const invalidAuthorization = `Basic ${Buffer.from('demo-confidential-client:not-the-secret').toString('base64')}`
+    const res = await fetch(`${servers.userUrl}/api/user/token`, {
+      method: 'POST',
       headers: {
         Authorization: invalidAuthorization,
+        'Content-Type': 'application/x-www-form-urlencoded',
         Origin: servers.userUrl
-      }
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        scope: 'darkauth.users:read'
+      })
     })
     expect(res.status).toBe(401)
+  })
+
+  test('Unauthorized scope is rejected at token endpoint', async () => {
+    const authorization = `Basic ${Buffer.from(`demo-confidential-client:${demoConfidentialSecret}`).toString('base64')}`
+    const res = await fetch(`${servers.userUrl}/api/user/token`, {
+      method: 'POST',
+      headers: {
+        Authorization: authorization,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: servers.userUrl
+      },
+      body: new URLSearchParams({
+        grant_type: 'client_credentials',
+        scope: 'darkauth.admin'
+      })
+    })
+    expect(res.status).toBe(400)
   })
 
   test('Malformed bearer token is rejected', async () => {

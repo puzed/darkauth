@@ -19,10 +19,10 @@ export async function getWellKnownOpenidConfiguration(
     token_endpoint: `${publicOrigin}/api/token`,
     jwks_uri: `${publicOrigin}/api/.well-known/jwks.json`,
     response_types_supported: ["code"],
-    grant_types_supported: ["authorization_code"],
+    grant_types_supported: ["authorization_code", "refresh_token", "client_credentials"],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["EdDSA"],
-    scopes_supported: ["openid", "profile", "email"],
+    scopes_supported: ["openid", "profile", "email", "darkauth.users:read"],
     token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
     claims_supported: [
       "sub",

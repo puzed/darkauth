@@ -83,7 +83,7 @@ test.describe('Demo App Recovery', () => {
     }, {
       config: {
         issuer: servers.userUrl,
-        clientId: 'app-web',
+        clientId: 'demo-public-client',
         redirectUri: `${demoUi.url}/callback`,
         demoApi: demoApi?.url ?? ''
       },
@@ -122,7 +122,7 @@ test.describe('Demo App Recovery', () => {
     }, {
       config: {
         issuer: servers.userUrl,
-        clientId: 'app-web',
+        clientId: 'demo-public-client',
         redirectUri: `${demoUi.url}/callback`,
         demoApi: demoApi?.url ?? ''
       },
@@ -133,10 +133,12 @@ test.describe('Demo App Recovery', () => {
     });
     await freshPage.goto(demoUi.url);
     const freshAuthorizeButton = freshPage.locator('button:has-text("Authorize")');
-    const dashboard = freshPage.locator('[class*="newCard"], button:has-text("New Note")');
+    const dashboardNewCard = freshPage.locator('[class*="newCard"]').first();
+    const dashboardNewNoteButton = freshPage.getByRole('button', { name: 'New Note', exact: true });
     await Promise.race([
       freshAuthorizeButton.waitFor({ state: 'visible', timeout: 20000 }),
-      dashboard.waitFor({ state: 'visible', timeout: 20000 }),
+      dashboardNewCard.waitFor({ state: 'visible', timeout: 20000 }),
+      dashboardNewNoteButton.waitFor({ state: 'visible', timeout: 20000 }),
     ]);
     if (await freshAuthorizeButton.isVisible()) {
       await expect(freshPage.getByText('Key Recovery')).toHaveCount(0);
@@ -146,7 +148,10 @@ test.describe('Demo App Recovery', () => {
       });
       await freshPage.waitForLoadState('domcontentloaded');
     }
-    await dashboard.waitFor({ state: 'visible', timeout: 30000 });
+    await Promise.race([
+      dashboardNewCard.waitFor({ state: 'visible', timeout: 30000 }),
+      dashboardNewNoteButton.waitFor({ state: 'visible', timeout: 30000 }),
+    ]);
     await freshContext.close();
   });
 });

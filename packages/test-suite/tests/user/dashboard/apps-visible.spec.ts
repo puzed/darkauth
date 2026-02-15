@@ -19,7 +19,7 @@ test.describe('User Dashboard - Apps Visibility', () => {
     })
 
     const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
-    const res = await fetch(`${servers.adminUrl}/admin/clients/app-web`, {
+    const res = await fetch(`${servers.adminUrl}/admin/clients/demo-public-client`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ test.describe('User Dashboard - Apps Visibility', () => {
       },
       body: JSON.stringify({ showOnUserDashboard: true })
     })
-    if (!res.ok) throw new Error(`Failed to enable app-web on dashboard: ${res.status}`)
+    if (!res.ok) throw new Error(`Failed to enable demo-public-client on dashboard: ${res.status}`)
   })
 
   test.beforeEach(async () => {
@@ -49,7 +49,6 @@ test.describe('User Dashboard - Apps Visibility', () => {
 
     const appsSection = page.locator('section:has(h3:has-text("Your Applications"))')
     await expect(appsSection).toBeVisible({ timeout: 15000 })
-    await expect(appsSection.getByText('Web Application', { exact: false })).toBeVisible()
+    await expect(appsSection.getByText('Demo Public Client', { exact: false })).toBeVisible()
   })
 })
-

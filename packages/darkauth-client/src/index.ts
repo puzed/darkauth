@@ -51,7 +51,7 @@ let cfg: Config = {
     (typeof window !== "undefined" && (window as AppConfigWindow).__APP_CONFIG__?.clientId) ||
     viteEnvGet("VITE_CLIENT_ID") ||
     (typeof process !== "undefined" ? process.env.DARKAUTH_CLIENT_ID : undefined) ||
-    "app-web",
+    "demo-public-client",
   redirectUri:
     (typeof window !== "undefined" && (window as AppConfigWindow).__APP_CONFIG__?.redirectUri) ||
     viteEnvGet("VITE_REDIRECT_URI") ||
