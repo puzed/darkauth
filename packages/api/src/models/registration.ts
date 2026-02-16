@@ -46,6 +46,7 @@ export async function userOpaqueRegisterFinish(
     sub,
     email: data.email,
     name: data.name,
+    clientId: "demo-public-client",
   });
   return { sub, accessToken: sessionInfo.sessionId, refreshToken: sessionInfo.refreshToken };
 }
