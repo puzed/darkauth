@@ -475,6 +475,14 @@ export const postToken = withRateLimit("token")(
       const uniquePermissions = access.permissions;
       const groups = access.groupsList;
 
+      const codeConsumed = await (await import("../../models/authCodes.js")).consumeAuthCode(
+        context,
+        tokenRequest.code
+      );
+      if (!codeConsumed) {
+        throw new InvalidGrantError("Authorization code has already been used");
+      }
+
       // Create ID token claims
       const now = Math.floor(Date.now() / 1000);
       let defaultIdTtl = 300;
@@ -546,9 +554,6 @@ export const postToken = withRateLimit("token")(
       } satisfies SessionData;
       const s = await createSession(context, "user", sessionData);
       tokenResponse.refresh_token = s.refreshToken;
-
-      // Consume the authorization code (mark as used)
-      await (await import("../../models/authCodes.js")).consumeAuthCode(context, tokenRequest.code);
 
       sendJson(response, 200, tokenResponse);
     }

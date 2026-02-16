@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { authCodes } from "../db/schema.js";
 import type { Context } from "../types.js";
 
@@ -43,6 +43,11 @@ export async function createAuthCode(
   });
 }
 
-export async function consumeAuthCode(context: Context, code: string) {
-  await context.db.update(authCodes).set({ consumed: true }).where(eq(authCodes.code, code));
+export async function consumeAuthCode(context: Context, code: string): Promise<boolean> {
+  const consumedRows = await context.db
+    .update(authCodes)
+    .set({ consumed: true })
+    .where(and(eq(authCodes.code, code), eq(authCodes.consumed, false)))
+    .returning();
+  return consumedRows.length > 0;
 }
