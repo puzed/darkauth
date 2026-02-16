@@ -228,7 +228,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Refresh grant enforces `client_id` binding: only the original client can rotate that refresh token.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
 - **SECURITY**: If the code had `has_zk=true`, include ONLY `zk_drk_hash` for verification. Server NEVER returns `zk_drk_jwe` as it doesn't store it.
-- Consume the code.
+- Atomically consume the code so concurrent redemption attempts cannot both succeed.
 
 ### 5.4 App behavior (ZK vs Standard)
 
