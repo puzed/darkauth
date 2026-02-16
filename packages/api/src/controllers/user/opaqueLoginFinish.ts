@@ -144,6 +144,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
+        clientId: "demo-public-client",
         otpRequired: otpRequired,
         otpVerified: false,
       });
