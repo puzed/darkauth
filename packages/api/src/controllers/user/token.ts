@@ -66,6 +66,36 @@ export function resolveGrantedScopes(allowedScopes: string[], requestedScope?: s
   return requestedScopes.length > 0 ? requestedScopes : allowedScopes;
 }
 
+export function buildUserIdTokenClaims(data: {
+  issuer: string;
+  subject: string;
+  audience: string;
+  expiresAtSeconds: number;
+  issuedAtSeconds: number;
+  email?: string | null;
+  name?: string | null;
+  permissions?: string[];
+  groups?: string[];
+  amr?: string[];
+  nonce?: string;
+}): IdTokenClaims {
+  return {
+    iss: data.issuer,
+    sub: data.subject,
+    aud: data.audience,
+    exp: data.expiresAtSeconds,
+    iat: data.issuedAtSeconds,
+    email: data.email || undefined,
+    email_verified: !!data.email,
+    name: data.name || undefined,
+    permissions: data.permissions && data.permissions.length > 0 ? data.permissions : undefined,
+    groups: data.groups && data.groups.length > 0 ? data.groups : undefined,
+    nonce: data.nonce,
+    acr: data.amr ? "mfa" : undefined,
+    amr: data.amr,
+  };
+}
+
 export const TokenRequestSchema = z.union([
   z.object({
     grant_type: z.literal("authorization_code"),
@@ -203,20 +233,18 @@ export const postToken = withRateLimit("token")(
         const data = (sess?.data || {}) as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
         const issuer = await resolveIssuer(context);
-        const idTokenClaims: IdTokenClaims = {
-          iss: issuer,
-          sub: user.sub,
-          aud: providedClientId,
-          exp: now + idTokenTtl,
-          iat: now,
-          email: user.email || undefined,
-          email_verified: !!user.email,
-          name: user.name || undefined,
-          permissions: uniquePermissions.length > 0 ? uniquePermissions : undefined,
-          groups: groupsList.length > 0 ? groupsList : undefined,
-          acr: amr ? "mfa" : undefined,
+        const idTokenClaims = buildUserIdTokenClaims({
+          issuer,
+          subject: user.sub,
+          audience: providedClientId,
+          expiresAtSeconds: now + idTokenTtl,
+          issuedAtSeconds: now,
+          email: user.email,
+          name: user.name,
+          permissions: uniquePermissions,
+          groups: groupsList,
           amr,
-        };
+        });
         const idToken = await signJWT(
           context,
           idTokenClaims as import("jose").JWTPayload,
@@ -461,20 +489,19 @@ export const postToken = withRateLimit("token")(
       const data = (row?.data || {}) as Record<string, unknown>;
       if (data && data.otpVerified === true) amr = ["pwd", "otp"];
       const issuer = await resolveIssuer(context);
-      const idTokenClaims: IdTokenClaims = {
-        iss: issuer,
-        sub: user.sub,
-        aud: authenticatedClientId,
-        exp: now + idTokenTtl,
-        iat: now,
-        email: user.email || undefined,
-        email_verified: !!user.email,
-        name: user.name || undefined,
-        permissions: uniquePermissions.length > 0 ? uniquePermissions : undefined,
-        groups: groups.length > 0 ? groups : undefined,
-        acr: amr ? "mfa" : undefined,
-        amr: amr,
-      };
+      const idTokenClaims = buildUserIdTokenClaims({
+        issuer,
+        subject: user.sub,
+        audience: authenticatedClientId,
+        expiresAtSeconds: now + idTokenTtl,
+        issuedAtSeconds: now,
+        email: user.email,
+        name: user.name,
+        permissions: uniquePermissions,
+        groups,
+        amr,
+        nonce: authCode.nonce || undefined,
+      });
 
       // Generate and sign ID token
       const idToken = await signJWT(
