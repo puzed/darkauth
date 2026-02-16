@@ -50,6 +50,13 @@
       "when": 1758799980000,
       "tag": "0007_user_opaque_record_history",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1771192080000,
+      "tag": "0008_oidc_nonce_binding",
+      "breakpoints": true
     }
   ]
 }

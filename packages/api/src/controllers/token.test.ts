@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { InvalidRequestError, UnauthorizedClientError } from "../errors.js";
-import { assertClientSecretMatches, resolveGrantedScopes } from "./user/token.js";
+import {
+  assertClientSecretMatches,
+  buildUserIdTokenClaims,
+  resolveGrantedScopes,
+  TokenRequestSchema,
+} from "./user/token.js";
 
 test("resolveGrantedScopes returns allowed scopes when no scope is requested", () => {
   const allowed = ["darkauth.users:read", "darkauth.groups:read"];
@@ -44,4 +49,47 @@ test("assertClientSecretMatches throws unauthorized when decrypt fails", async (
       error instanceof UnauthorizedClientError &&
       error.message === "Client secret verification failed"
   );
+});
+
+test("TokenRequestSchema strips nonce on authorization_code grants", () => {
+  const parsed = TokenRequestSchema.safeParse({
+    grant_type: "authorization_code",
+    code: "code-value",
+    redirect_uri: "https://client.example/callback",
+    nonce: "nonce-value",
+  });
+  assert.equal(parsed.success, true);
+  if (!parsed.success) return;
+  assert.equal("nonce" in parsed.data, false);
+});
+
+test("buildUserIdTokenClaims includes nonce when provided", () => {
+  const claims = buildUserIdTokenClaims({
+    issuer: "https://issuer.example",
+    subject: "user-sub",
+    audience: "client-id",
+    expiresAtSeconds: 200,
+    issuedAtSeconds: 100,
+    email: "user@example.com",
+    name: "Test User",
+    permissions: ["darkauth.users:read"],
+    groups: ["users"],
+    amr: ["pwd", "otp"],
+    nonce: "nonce-value",
+  });
+
+  assert.equal(claims.nonce, "nonce-value");
+  assert.equal(claims.aud, "client-id");
+});
+
+test("buildUserIdTokenClaims omits nonce when not provided", () => {
+  const claims = buildUserIdTokenClaims({
+    issuer: "https://issuer.example",
+    subject: "user-sub",
+    audience: "client-id",
+    expiresAtSeconds: 200,
+    issuedAtSeconds: 100,
+  });
+
+  assert.equal(claims.nonce, undefined);
 });

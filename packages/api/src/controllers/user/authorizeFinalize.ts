@@ -112,6 +112,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         clientId: pendingRequest.clientId,
         userSub: sessionData.sub,
         redirectUri: pendingRequest.redirectUri,
+        nonce: pendingRequest.nonce,
         codeChallenge: pendingRequest.codeChallenge,
         codeChallengeMethod: pendingRequest.codeChallengeMethod || undefined,
         expiresAt: codeExpiresAt,
