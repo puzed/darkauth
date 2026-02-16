@@ -149,7 +149,7 @@ Server stores
 - Pending authorization requests; authorization codes with `has_zk`, `zk_pub_kid`, and `drk_hash`.
 - JWKS (public JWKs; private JWKs encrypted at rest when KEK is available).
 - Clients, settings (including runtime flags for OIDC/PKCE, id token TTLs, etc.).
-- Sessions and refresh tokens.
+- Sessions and refresh tokens, including issuing `client_id` binding for refresh token ownership.
 - Audit logs (admin actions).
 
 Server never stores
@@ -159,6 +159,7 @@ Server never stores
 
 Sessions and claims
 - SPA model: `/session` for minimal info; `/refresh-token` rotates session tokens.
+- OIDC refresh grant enforces client binding: cross-client refresh token reuse is rejected.
 - ID tokens may include `permissions` and `groups` claims when configured.
 
 ## 6) Endpoints (as implemented)

@@ -224,7 +224,8 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 - Validates code (unexpired, not consumed), PKCE (S256), client, `redirect_uri`.
 - Mints `id_token` (and `access_token` if enabled by settings).
-- Returns a `refresh_token` bound to the session.
+- Returns a `refresh_token` bound to the session and issuing `client_id`.
+- Refresh grant enforces `client_id` binding: only the original client can rotate that refresh token.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
 - **SECURITY**: If the code had `has_zk=true`, include ONLY `zk_drk_hash` for verification. Server NEVER returns `zk_drk_jwe` as it doesn't store it.
 - Consume the code.
