@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { InvalidRequestError, UnauthorizedClientError } from "../errors.js";
+import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../errors.js";
 import {
   assertClientSecretMatches,
+  assertRefreshTokenClientBinding,
   buildUserIdTokenClaims,
   resolveGrantedScopes,
+  resolveSessionClientId,
   TokenRequestSchema,
 } from "./user/token.js";
 
@@ -92,4 +94,39 @@ test("buildUserIdTokenClaims omits nonce when not provided", () => {
   });
 
   assert.equal(claims.nonce, undefined);
+});
+
+test("resolveSessionClientId returns client id for valid session data", () => {
+  assert.equal(resolveSessionClientId({ clientId: "demo-client" }), "demo-client");
+});
+
+test("resolveSessionClientId returns null when client id is missing", () => {
+  assert.equal(resolveSessionClientId({}), null);
+});
+
+test("resolveSessionClientId returns null for invalid shapes", () => {
+  assert.equal(resolveSessionClientId(null), null);
+  assert.equal(resolveSessionClientId("bad"), null);
+  assert.equal(resolveSessionClientId({ clientId: 42 }), null);
+});
+
+test("assertRefreshTokenClientBinding accepts matching client ids", () => {
+  assert.doesNotThrow(() => assertRefreshTokenClientBinding("demo-client", "demo-client"));
+});
+
+test("assertRefreshTokenClientBinding rejects mismatched client ids", () => {
+  assert.throws(
+    () => assertRefreshTokenClientBinding("demo-client", "other-client"),
+    (error: unknown) =>
+      error instanceof InvalidGrantError &&
+      error.message === "Refresh token was not issued to this client"
+  );
+});
+
+test("assertRefreshTokenClientBinding rejects missing binding", () => {
+  assert.throws(
+    () => assertRefreshTokenClientBinding(null, "demo-client"),
+    (error: unknown) =>
+      error instanceof InvalidGrantError && error.message === "Invalid or expired refresh token"
+  );
 });

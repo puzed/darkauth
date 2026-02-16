@@ -4,16 +4,13 @@ import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from 
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { signJWT } from "../../services/jwks.js";
-import {
-  createSession,
-  getActorFromRefreshToken,
-  refreshSessionWithToken,
-} from "../../services/sessions.js";
+import { createSession, refreshSessionWithToken } from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
 import type {
   Context,
   ControllerSchema,
   IdTokenClaims,
+  SessionData,
   TokenRequest,
   TokenResponse,
 } from "../../types.js";
@@ -94,6 +91,23 @@ export function buildUserIdTokenClaims(data: {
     acr: data.amr ? "mfa" : undefined,
     amr: data.amr,
   };
+}
+
+export function resolveSessionClientId(sessionData: unknown): string | null {
+  if (!sessionData || typeof sessionData !== "object") return null;
+  const maybeClientId = (sessionData as { clientId?: unknown }).clientId;
+  if (typeof maybeClientId !== "string" || maybeClientId.length === 0) return null;
+  return maybeClientId;
+}
+
+export function assertRefreshTokenClientBinding(
+  issuedClientId: string | null,
+  authenticatedClientId: string | undefined
+): void {
+  if (!issuedClientId) throw new InvalidGrantError("Invalid or expired refresh token");
+  if (issuedClientId !== authenticatedClientId) {
+    throw new InvalidGrantError("Refresh token was not issued to this client");
+  }
 }
 
 export const TokenRequestSchema = z.union([
@@ -187,11 +201,17 @@ export const postToken = withRateLimit("token")(
           clientAuthOk = true;
         }
         if (!clientAuthOk) throw new UnauthorizedClientError("Client authentication failed");
-        const actor = await getActorFromRefreshToken(context, tokenRequest.refresh_token);
-        if (!actor || !actor.userSub)
+        const { sessions } = await import("../../db/schema.js");
+        const { eq } = await import("drizzle-orm");
+        const sessionRow = await context.db.query.sessions.findFirst({
+          where: eq(sessions.refreshToken, tokenRequest.refresh_token),
+        });
+        if (!sessionRow || !sessionRow.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
+        const issuedClientId = resolveSessionClientId(sessionRow.data);
+        assertRefreshTokenClientBinding(issuedClientId, providedClientId);
         const { getUserBySub } = await import("../../models/users.js");
-        const user = await getUserBySub(context, actor.userSub);
+        const user = await getUserBySub(context, sessionRow.userSub);
         if (!user) throw new InvalidGrantError("User not found");
         if (!providedClientId) throw new UnauthorizedClientError("Client authentication failed");
         const client = await (await import("../../models/clients.js")).getClient(
@@ -225,12 +245,7 @@ export const postToken = withRateLimit("token")(
             ? client.idTokenLifetimeSeconds
             : defaultIdTtl;
         let amr: string[] | undefined = ["pwd"];
-        const { sessions } = await import("../../db/schema.js");
-        const { eq } = await import("drizzle-orm");
-        const sess = await context.db.query.sessions.findFirst({
-          where: eq(sessions.refreshToken, tokenRequest.refresh_token),
-        });
-        const data = (sess?.data || {}) as Record<string, unknown>;
+        const data = (sessionRow.data || {}) as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
         const issuer = await resolveIssuer(context);
         const idTokenClaims = buildUserIdTokenClaims({
@@ -527,7 +542,8 @@ export const postToken = withRateLimit("token")(
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
-      };
+        clientId: authenticatedClientId,
+      } satisfies SessionData;
       const s = await createSession(context, "user", sessionData);
       tokenResponse.refresh_token = s.refreshToken;
 
