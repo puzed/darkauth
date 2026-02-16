@@ -318,6 +318,7 @@ export interface SessionData {
   sub?: string;
   email?: string;
   name?: string;
+  clientId?: string;
   adminId?: string;
   adminRole?: "read" | "write";
   pendingAuthId?: string;
