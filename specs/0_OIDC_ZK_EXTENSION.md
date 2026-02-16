@@ -113,7 +113,7 @@ Notational Conventions
   - The fragment JWE is never seen by the AS; it is produced client‑side and transmitted only via URL fragment.
 - Binding and replay:
   - drk_hash binds the out‑of‑band fragment to the authorization code. Clients MUST verify the hash prior to decryption.
-  - Authorization codes MUST be single‑use and short‑lived (≤ 60 s). PKCE S256 MUST be enforced for public clients and SHOULD be enforced generally.
+- Authorization codes MUST be single‑use and short‑lived (≤ 60 s), and code consumption at redemption MUST be atomic to prevent concurrent double redemption. PKCE S256 MUST be enforced for public clients and SHOULD be enforced generally.
 - Downgrade resilience:
   - Servers MUST only honor zk_pub for clients registered with zk_delivery = "fragment-jwe".
   - Servers MUST ignore or reject zk_pub for non‑ZK clients.

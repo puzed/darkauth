@@ -2,7 +2,7 @@
 
 A technical analysis of zero‑knowledge key delivery for OIDC
 
-_2026-02-15_
+_2026-02-16_
 
 # DarkAuth v1 Security Whitepaper
 
@@ -123,7 +123,7 @@ Implementation note
 
 Sequence notes
 - The server NEVER stores or returns the DRK JWE; only the hash is stored/returned. The fragment is visible only to the browser/app.
-- Code TTL is ≤ 60s and codes are single‑use.
+- Code TTL is ≤ 60s and codes are single‑use. Code redemption is consumed atomically at the token endpoint using a compare-and-set update, so concurrent redemption attempts cannot both succeed.
 
 Standard authorization code flow (Mermaid)
 
@@ -186,7 +186,7 @@ Admin (port 9081) — highlights
 
 Constraints
 - PKCE S256 required for public clients and when configured.
-- Code TTL ≤ 60s; single‑use.
+- Code TTL ≤ 60s; single‑use with atomic consume at token redemption.
 - ZK delivery is opt‑in per client; `zk_pub` accepted only when `zk_delivery='fragment-jwe'`.
 - Discovery returns authoritative absolute URLs; clients SHOULD use discovery rather than hard‑coding paths.
 
@@ -225,7 +225,7 @@ Attacks and mitigations
 - Insider reads: No plaintext passwords/DRK stored; KEK encrypts private JWKs and client secrets.
 - Redirect tampering: Clients verify `zk_drk_hash` before using `drk_jwe`.
 - Weak key injection: Strict zk_pub validation and rejection policy.
-- Token endpoint abuse: PKCE S256 for public clients; codes are short‑lived and single‑use.
+- Token endpoint abuse: PKCE S256 for public clients; codes are short‑lived and single‑use with atomic consume semantics at redemption time.
 
 Out of scope
 - Compromised user devices or RP apps mishandling decrypted DRK.
