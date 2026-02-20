@@ -244,6 +244,8 @@ rpId: "localhost"         # Relying party identifier
 - `POST /api/authorize/finalize` - Complete authorization (internal)
 - `POST /api/token` - Token exchange endpoint
 
+Authorization codes are short-lived and single-use. Redemption at the token endpoint is enforced atomically so concurrent redemption attempts cannot both succeed.
+
 ### OPAQUE Authentication
 - `POST /api/opaque/register/start`
 - `POST /api/opaque/register/finish`

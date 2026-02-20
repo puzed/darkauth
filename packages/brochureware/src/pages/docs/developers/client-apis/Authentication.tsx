@@ -39,6 +39,10 @@ const AuthenticationPage = () => {
           <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
             <li>Used by browser or SPA clients that cannot safely store secrets.</li>
             <li>Calls APIs with `Authorization: Bearer &lt;token&gt;`.</li>
+            <li>
+              Uses authorization code + PKCE where codes are short-lived, single-use, and
+              atomically consumed at `/api/token`.
+            </li>
             <li>Authorization is permission-driven, such as `darkauth.users:read`.</li>
             <li>Best for user-delegated access where the user identity matters.</li>
           </ul>
