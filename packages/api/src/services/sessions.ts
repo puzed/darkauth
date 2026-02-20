@@ -1,9 +1,9 @@
 import type { IncomingMessage } from "node:http";
-import { eq, lt } from "drizzle-orm";
+import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { sessions } from "../db/schema.js";
 import { UnauthorizedError } from "../errors.js";
 import type { Context, SessionData } from "../types.js";
-import { generateRandomString } from "../utils/crypto.js";
+import { generateRandomString, sha256Base64Url } from "../utils/crypto.js";
 import { getSetting } from "./settings.js";
 
 async function getDurations(context: Context, cohort: "user" | "admin") {
@@ -51,6 +51,7 @@ export async function createSession(
 ): Promise<{ sessionId: string; refreshToken: string }> {
   const sessionId = generateRandomString(32);
   const refreshToken = generateRandomString(64);
+  const refreshTokenHash = sha256Base64Url(refreshToken);
   const { sessionMs, refreshMs } = await getDurations(context, cohort);
   const expiresAt = new Date(Date.now() + sessionMs);
   const refreshTokenExpiresAt = new Date(Date.now() + refreshMs);
@@ -62,7 +63,7 @@ export async function createSession(
     adminId: data.adminId,
     createdAt: new Date(),
     expiresAt,
-    refreshToken,
+    refreshToken: refreshTokenHash,
     refreshTokenExpiresAt,
     data,
   });
@@ -200,42 +201,52 @@ export async function refreshSessionWithToken(
   context: Context,
   refreshToken: string
 ): Promise<{ sessionId: string; refreshToken: string } | null> {
-  const session = await context.db.query.sessions.findFirst({
-    where: eq(sessions.refreshToken, refreshToken),
+  const refreshTokenHash = sha256Base64Url(refreshToken);
+  const now = new Date();
+
+  return context.db.transaction(async (transaction) => {
+    const [session] = await transaction
+      .update(sessions)
+      .set({ refreshTokenConsumedAt: now })
+      .where(
+        and(
+          eq(sessions.refreshToken, refreshTokenHash),
+          isNull(sessions.refreshTokenConsumedAt),
+          gt(sessions.refreshTokenExpiresAt, now)
+        )
+      )
+      .returning();
+
+    if (!session) {
+      return null;
+    }
+
+    const newSessionId = generateRandomString(32);
+    const newRefreshToken = generateRandomString(64);
+    const newRefreshTokenHash = sha256Base64Url(newRefreshToken);
+    const { sessionMs, refreshMs } = await getDurations(
+      context,
+      session.cohort as "user" | "admin"
+    );
+    const expiresAt = new Date(Date.now() + sessionMs);
+    const refreshTokenExpiresAt = new Date(Date.now() + refreshMs);
+
+    await transaction.insert(sessions).values({
+      id: newSessionId,
+      cohort: session.cohort,
+      userSub: session.userSub,
+      adminId: session.adminId,
+      createdAt: new Date(),
+      expiresAt,
+      refreshToken: newRefreshTokenHash,
+      refreshTokenExpiresAt,
+      data: session.data,
+    });
+
+    await transaction.delete(sessions).where(eq(sessions.id, session.id));
+
+    return { sessionId: newSessionId, refreshToken: newRefreshToken };
   });
-
-  if (!session) return null;
-
-  // Check if refresh token is expired
-  if (!session.refreshTokenExpiresAt || new Date() > session.refreshTokenExpiresAt) {
-    await deleteSession(context, session.id);
-    return null;
-  }
-
-  // Generate new session ID and refresh token
-  const newSessionId = generateRandomString(32);
-  const newRefreshToken = generateRandomString(64);
-  const { sessionMs, refreshMs } = await getDurations(context, session.cohort as "user" | "admin");
-  const expiresAt = new Date(Date.now() + sessionMs);
-  const refreshTokenExpiresAt = new Date(Date.now() + refreshMs);
-
-  // Create new session with same data
-  await context.db.insert(sessions).values({
-    id: newSessionId,
-    cohort: session.cohort,
-    userSub: session.userSub,
-    adminId: session.adminId,
-    createdAt: new Date(),
-    expiresAt,
-    refreshToken: newRefreshToken,
-    refreshTokenExpiresAt,
-    data: session.data,
-  });
-
-  // Delete old session
-  await deleteSession(context, session.id);
-
-  return { sessionId: newSessionId, refreshToken: newRefreshToken };
 }
 
 export async function cleanupExpiredSessions(context: Context): Promise<void> {
@@ -247,8 +258,9 @@ export async function getActorFromRefreshToken(
   context: Context,
   refreshToken: string
 ): Promise<{ adminId?: string | null; userSub?: string | null } | null> {
+  const refreshTokenHash = sha256Base64Url(refreshToken);
   const session = await context.db.query.sessions.findFirst({
-    where: eq(sessions.refreshToken, refreshToken),
+    where: eq(sessions.refreshToken, refreshTokenHash),
   });
   if (!session) return null;
   return { adminId: session.adminId, userSub: session.userSub };
