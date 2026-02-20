@@ -4,7 +4,12 @@ import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from 
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
 import { signJWT } from "../../services/jwks.js";
-import { createSession, refreshSessionWithToken } from "../../services/sessions.js";
+import {
+  createSession,
+  getActorFromSessionId,
+  getSession,
+  refreshSessionWithToken,
+} from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
 import type {
   Context,
@@ -201,17 +206,16 @@ export const postToken = withRateLimit("token")(
           clientAuthOk = true;
         }
         if (!clientAuthOk) throw new UnauthorizedClientError("Client authentication failed");
-        const { sessions } = await import("../../db/schema.js");
-        const { eq } = await import("drizzle-orm");
-        const sessionRow = await context.db.query.sessions.findFirst({
-          where: eq(sessions.refreshToken, tokenRequest.refresh_token),
-        });
-        if (!sessionRow || !sessionRow.userSub)
+        const rotated = await refreshSessionWithToken(context, tokenRequest.refresh_token);
+        if (!rotated) throw new InvalidGrantError("Invalid or expired refresh token");
+        const sessionData = await getSession(context, rotated.sessionId);
+        const sessionActor = await getActorFromSessionId(context, rotated.sessionId);
+        if (!sessionData || !sessionActor?.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
-        const issuedClientId = resolveSessionClientId(sessionRow.data);
+        const issuedClientId = resolveSessionClientId(sessionData);
         assertRefreshTokenClientBinding(issuedClientId, providedClientId);
         const { getUserBySub } = await import("../../models/users.js");
-        const user = await getUserBySub(context, sessionRow.userSub);
+        const user = await getUserBySub(context, sessionActor.userSub);
         if (!user) throw new InvalidGrantError("User not found");
         if (!providedClientId) throw new UnauthorizedClientError("Client authentication failed");
         const client = await (await import("../../models/clients.js")).getClient(
@@ -245,7 +249,7 @@ export const postToken = withRateLimit("token")(
             ? client.idTokenLifetimeSeconds
             : defaultIdTtl;
         let amr: string[] | undefined = ["pwd"];
-        const data = (sessionRow.data || {}) as Record<string, unknown>;
+        const data = sessionData as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
         const issuer = await resolveIssuer(context);
         const idTokenClaims = buildUserIdTokenClaims({
@@ -265,8 +269,6 @@ export const postToken = withRateLimit("token")(
           idTokenClaims as import("jose").JWTPayload,
           `${idTokenTtl}s`
         );
-        const rotated = await refreshSessionWithToken(context, tokenRequest.refresh_token);
-        if (!rotated) throw new InvalidGrantError("Invalid or expired refresh token");
         const tokenResponse: TokenResponse = {
           id_token: idToken,
           token_type: "Bearer",

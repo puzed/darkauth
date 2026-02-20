@@ -57,6 +57,13 @@
       "when": 1771192080000,
       "tag": "0008_oidc_nonce_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1772006400000,
+      "tag": "0009_refresh_token_rotation_hardening",
+      "breakpoints": true
     }
   ]
 }
