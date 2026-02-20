@@ -2,7 +2,7 @@
 
 A technical analysis of zero‑knowledge key delivery for OIDC
 
-_2026-02-16_
+_2026-02-20_
 
 # DarkAuth v1 Security Whitepaper
 
@@ -150,6 +150,7 @@ Server stores
 - JWKS (public JWKs; private JWKs encrypted at rest when KEK is available).
 - Clients, settings (including runtime flags for OIDC/PKCE, id token TTLs, etc.).
 - Sessions and refresh tokens, including issuing `client_id` binding for refresh token ownership.
+- Refresh tokens are stored hashed at rest and rotated with single-use atomic consume semantics.
 - Audit logs (admin actions).
 
 Server never stores
@@ -160,6 +161,7 @@ Server never stores
 Sessions and claims
 - SPA model: `/session` for minimal info; `/refresh-token` rotates session tokens.
 - OIDC refresh grant enforces client binding: cross-client refresh token reuse is rejected.
+- Refresh token replay is rejected: once consumed by a successful rotation, the token cannot be reused.
 - ID tokens may include `permissions` and `groups` claims when configured.
 
 ## 6) Endpoints (as implemented)
