@@ -81,7 +81,7 @@ export default function Authorize({ authRequest }: AuthorizeProps) {
       });
 
       if (response.redirectUrl) {
-        window.location.href = `${response.redirectUrl}&error=access_denied`;
+        window.location.href = response.redirectUrl;
       } else {
         setError("No redirect URL received from server");
       }
