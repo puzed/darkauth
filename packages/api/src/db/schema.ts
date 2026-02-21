@@ -157,6 +157,7 @@ export const sessions = pgTable("sessions", {
   data: jsonb("data").default({}).notNull(),
   refreshToken: text("refresh_token"),
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
+  refreshTokenConsumedAt: timestamp("refresh_token_consumed_at"),
 });
 
 export const opaqueLoginSessions = pgTable("opaque_login_sessions", {
