@@ -127,6 +127,8 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         return;
       }
 
+      await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
+
       onLogin({
         sub: loginFinishResponse.sub,
         name: loginFinishResponse.user?.name || undefined,
@@ -134,40 +136,45 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
         passwordResetRequired: false,
       });
 
-      const keys = await cryptoService.deriveKeysFromExportKey(
-        loginFinish.exportKey,
-        loginFinishResponse.sub
-      );
-
       try {
-        await apiService.getWrappedDrk();
-      } catch (_err) {
+        const keys = await cryptoService.deriveKeysFromExportKey(
+          loginFinish.exportKey,
+          loginFinishResponse.sub
+        );
         try {
-          const drk = await cryptoService.generateDRK();
-          const wrappedDrk = await cryptoService.wrapDRK(
-            drk,
-            keys.wrapKey,
-            loginFinishResponse.sub
-          );
-          await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-          const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
-          saveDrk(loginFinishResponse.sub, drk, wrappedDrkHash);
-          cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
-        } catch (e) {
-          logger.warn(
-            e instanceof Error
-              ? { name: e.name, message: e.message, stack: e.stack }
-              : { detail: String(e) },
-            "Failed to initialize DRK"
-          );
+          await apiService.getWrappedDrk();
+        } catch (_err) {
+          try {
+            const drk = await cryptoService.generateDRK();
+            const wrappedDrk = await cryptoService.wrapDRK(
+              drk,
+              keys.wrapKey,
+              loginFinishResponse.sub
+            );
+            await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+            const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
+            saveDrk(loginFinishResponse.sub, drk, wrappedDrkHash);
+            cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
+          } catch (e) {
+            logger.warn(
+              e instanceof Error
+                ? { name: e.name, message: e.message, stack: e.stack }
+                : { detail: String(e) },
+              "Failed to initialize DRK"
+            );
+          }
         }
+      } catch (e) {
+        logger.warn(
+          e instanceof Error
+            ? { name: e.name, message: e.message, stack: e.stack }
+            : { detail: String(e) },
+          "Post-login key setup failed"
+        );
+      } finally {
+        opaqueService.clearState(loginStart.state);
+        cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
       }
-
-      opaqueService.clearState(loginStart.state);
-
-      // Store export key securely and clear immediately from memory
-      await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
-      cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
     } catch (error) {
       logger.error(error, "Login failed");
 
