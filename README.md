@@ -272,6 +272,8 @@ Authorization codes are short-lived and single-use. Redemption at the token endp
 - `GET /api/session` - Current session info
 - `POST /api/logout` - End session
 
+Refresh tokens are stored hashed at rest and rotated as single-use credentials. Rotation is enforced atomically so concurrent redemption attempts cannot both succeed.
+
 When OTP is enabled and required, login creates a partial session with `data.otp_required=true`. After successful OTP verification, the session includes `data.otp_verified=true`. AMR includes `otp` and ACR is `urn:ietf:params:acr:mfa`.
 
 ### Admin API (Port 9081)

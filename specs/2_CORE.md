@@ -126,7 +126,7 @@ Tables and key fields:
 - wrapped_root_keys: `sub` (pk, fk users.sub), `wrapped_drk` (bytea), `updated_at`.
 - user_encryption_keys: `sub` (pk, fk users.sub), `enc_public_jwk` (jsonb), `enc_private_jwk_wrapped` (bytea|null), `updated_at`.
 - auth_codes: `code` (pk), `client_id` (fk clients.client_id), `user_sub`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `expires_at`, `consumed` (bool), `has_zk` (bool), `zk_pub_kid` (text), `drk_hash` (text|null).
-- sessions: `id` (pk), `cohort` in `user|admin`, `user_sub` (nullable), `admin_id` (nullable), `created_at`, `expires_at`, `data` (jsonb), `refresh_token` (text|null), `refresh_token_expires_at` (timestamp|null).
+- sessions: `id` (pk), `cohort` in `user|admin`, `user_sub` (nullable), `admin_id` (nullable), `created_at`, `expires_at`, `data` (jsonb), `refresh_token` (text|null, SHA-256 base64url hash at rest), `refresh_token_expires_at` (timestamp|null), `refresh_token_consumed_at` (timestamp|null).
 - opaque_login_sessions: `id` (pk), `server_state` (bytea), `identity_s` (text), `identity_u` (text), `created_at`, `expires_at`.
 - pending_auth: `request_id` (pk), `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method`, `zk_pub_kid` (text|null), `created_at`, `expires_at`, `user_sub` (nullable until login), `origin` (for CSRF binding).
 
@@ -226,6 +226,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Mints `id_token` (and `access_token` if enabled by settings).
 - Returns a `refresh_token` bound to the session and issuing `client_id`.
 - Refresh grant enforces `client_id` binding: only the original client can rotate that refresh token.
+- Refresh token rotation is single-use and atomic: exactly one concurrent redemption can succeed.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
 - **SECURITY**: If the code had `has_zk=true`, include ONLY `zk_drk_hash` for verification. Server NEVER returns `zk_drk_jwe` as it doesn't store it.
 - Atomically consume the code so concurrent redemption attempts cannot both succeed.
@@ -340,7 +341,7 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
 
 * **GET `/session`** → minimal info for Auth UI.
 * **POST `/logout`** → revokes current session.
-* **POST `/refresh-token`** → `{ refreshToken }` → issues a new access token and refresh token. For SPA session longevity.
+* **POST `/refresh-token`** → `{ refreshToken }` → issues a new access token and refresh token. Refresh tokens are validated by hash, rotated atomically, and invalidated after first use.
 
 ### 7.6 User Directory
 
