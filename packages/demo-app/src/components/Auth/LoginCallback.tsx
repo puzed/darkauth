@@ -5,22 +5,30 @@ import { useAuthStore } from "../../stores/authStore";
 
 export function LoginCallback() {
   const navigate = useNavigate();
-  const { setSession } = useAuthStore();
+  const { clearSession, setSession } = useAuthStore();
   const [error, setError] = React.useState<string | null>(null);
 
   const processCallback = React.useCallback(async () => {
     try {
+      const params = new URLSearchParams(window.location.search);
+      const callbackError = params.get("error");
+      if (callbackError === "access_denied") {
+        clearSession();
+        navigate(`/${window.location.search}`, { replace: true });
+        return;
+      }
       const session = await handleCallback();
       if (session) {
         setSession(session);
-        navigate("/");
+        navigate("/", { replace: true });
       } else {
-        setError("Failed to process authentication");
+        clearSession();
+        navigate("/", { replace: true });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     }
-  }, [navigate, setSession]);
+  }, [clearSession, navigate, setSession]);
 
   React.useEffect(() => {
     void processCallback();
