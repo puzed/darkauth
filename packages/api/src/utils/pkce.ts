@@ -1,5 +1,5 @@
 import { ValidationError } from "../errors.js";
-import { sha256Base64Url } from "./crypto.js";
+import { constantTimeCompare, sha256Base64Url } from "./crypto.js";
 
 export function verifyCodeChallenge(
   codeVerifier: string,
@@ -15,7 +15,7 @@ export function verifyCodeChallenge(
   }
 
   const expectedChallenge = sha256Base64Url(codeVerifier);
-  return expectedChallenge === codeChallenge;
+  return constantTimeCompare(expectedChallenge, codeChallenge);
 }
 
 export function validateCodeChallenge(codeChallenge: string, method = "S256"): void {
