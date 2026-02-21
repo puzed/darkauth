@@ -422,25 +422,43 @@ class ApiService {
   async authorize(request: AuthorizeRequest): Promise<AuthorizeResponse> {
     const params = new URLSearchParams();
     params.set("request_id", request.requestId);
+    params.set("approve", request.approve ? "true" : "false");
     if (request.drkHash) {
       params.set("drk_hash", request.drkHash);
     }
 
-    const data = await this.request<{ redirect_uri: string; code: string; state?: string }>(
-      "/authorize/finalize",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: params.toString(),
-      }
-    );
+    const data = await this.request<
+      | { redirect_uri: string; code: string; state?: string }
+      | {
+          redirect_uri: string;
+          error: "access_denied";
+          error_description?: string;
+          state?: string;
+        }
+    >("/authorize/finalize", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
 
     const redirectUri: string = data.redirect_uri;
-    const code: string = data.code;
     const state: string | undefined = data.state;
-    const redirectUrl = `${redirectUri}${redirectUri.includes("?") ? "&" : "?"}code=${encodeURIComponent(
-      code
-    )}${state ? `&state=${encodeURIComponent(state)}` : ""}`;
+    const searchParams = new URLSearchParams();
+    if ("code" in data) {
+      searchParams.set("code", data.code);
+    }
+    if ("error" in data) {
+      searchParams.set("error", data.error);
+      if (data.error_description) {
+        searchParams.set("error_description", data.error_description);
+      }
+    }
+    if (state) {
+      searchParams.set("state", state);
+    }
+    const redirectUrl = `${redirectUri}${
+      redirectUri.includes("?") ? "&" : "?"
+    }${searchParams.toString()}`;
 
     return { redirectUrl };
   }

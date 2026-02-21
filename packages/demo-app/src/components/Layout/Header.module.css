@@ -127,7 +127,7 @@
   right: 0;
   margin-top: 0.5rem;
   width: 14rem;
-  background: var(--background, #fff);
+  background: hsl(var(--background));
   border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: 0.5rem;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.06);

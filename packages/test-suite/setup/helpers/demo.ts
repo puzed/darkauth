@@ -225,6 +225,10 @@ export async function openDemoDashboard(
   });
   await demoPage.goto(bundle.demoUi.url);
   await demoPage.waitForLoadState('networkidle');
+  const loginGateButton = demoPage.getByRole('button', { name: 'Login', exact: true });
+  if (await loginGateButton.isVisible().catch(() => false)) {
+    await loginGateButton.click();
+  }
   if (demoPage.url().includes('/login')) {
     await demoPage.fill('input[name="email"], input[type="email"]', user.email);
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);
@@ -302,10 +306,14 @@ export async function verifyNoteAfterRelogin(
   await demoPage.click('button:has-text("Logout")');
   await demoPage.waitForURL((url) => {
     const href = toUrlString(url);
-    return href.includes('/login') || href.includes('/authorize');
+    return href === `${bundle.demoUi.url}/` || href.includes('/login') || href.includes('/authorize');
   }, {
     timeout: 20000,
   });
+  const loginGateButton = demoPage.getByRole('button', { name: 'Login', exact: true });
+  if (await loginGateButton.isVisible().catch(() => false)) {
+    await loginGateButton.click();
+  }
   if (demoPage.url().includes('/login')) {
     await demoPage.fill('input[name="email"], input[type="email"]', user.email);
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);

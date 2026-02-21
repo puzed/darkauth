@@ -40,11 +40,16 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       const body = await readBody(request);
       const formData = parseFormBody(body);
-      const Req = z.object({ request_id: z.string().min(1), drk_hash: z.string().optional() });
+      const Req = z.object({
+        request_id: z.string().min(1),
+        approve: z.enum(["true", "false"]).optional(),
+        drk_hash: z.string().optional(),
+      });
       const parsed = Req.parse(
         Object.fromEntries(formData as unknown as Iterable<[string, string]>)
       );
       const requestId = parsed.request_id;
+      const isApproved = parsed.approve !== "false";
 
       // Look up pending auth request
       const pendingRequest = await getPendingAuth(context, requestId);
@@ -67,6 +72,17 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       if (new Date() > pendingRequest.expiresAt) {
         await deletePendingAuth(context, requestId);
         throw new InvalidRequestError("Authorization request has expired");
+      }
+
+      if (!isApproved) {
+        await deletePendingAuth(context, requestId);
+        sendJson(response, 200, {
+          error: "access_denied",
+          error_description: "The resource owner denied the authorization request",
+          state: pendingRequest.state || undefined,
+          redirect_uri: pendingRequest.redirectUri,
+        });
+        return;
       }
 
       // Update pending auth with user subject
@@ -146,9 +162,19 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
   )
 );
 
-const Req = z.object({ request_id: z.string().min(1), drk_hash: z.string().optional() });
-const Resp = z.object({
+const Req = z.object({
+  request_id: z.string().min(1),
+  approve: z.enum(["true", "false"]).optional(),
+  drk_hash: z.string().optional(),
+});
+const SuccessResp = z.object({
   code: z.string(),
+  state: z.string().optional(),
+  redirect_uri: z.string().url(),
+});
+const DeniedResp = z.object({
+  error: z.literal("access_denied"),
+  error_description: z.string(),
   state: z.string().optional(),
   redirect_uri: z.string().url(),
 });
@@ -165,7 +191,12 @@ export const schema = {
     schema: Req,
   },
   responses: {
-    200: { description: "OK", content: { "application/json": { schema: Resp } } },
+    200: {
+      description: "OK",
+      content: {
+        "application/json": { schema: z.union([SuccessResp, DeniedResp]) },
+      },
+    },
     ...genericErrors,
   },
 } as const satisfies ControllerSchema;
