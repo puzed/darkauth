@@ -173,6 +173,91 @@ test.describe('API - OIDC nonce auth code flow', () => {
     expect(claims.nonce).toBe(nonce)
   })
 
+  test('deny finalize returns access_denied without authorization code', async () => {
+    const user = {
+      email: `nonce-deny-${Date.now()}@example.com`,
+      name: 'Nonce Deny User',
+      password: 'Passw0rd!123'
+    }
+
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
+    const adminToken = await getAdminBearerToken(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password
+    })
+    const clientsRes = await fetch(`${servers.adminUrl}/admin/clients`, {
+      headers: {
+        Authorization: `Bearer ${adminToken}`,
+        Origin: servers.adminUrl
+      }
+    })
+    expect(clientsRes.ok).toBeTruthy()
+    const clientsJson = await clientsRes.json() as {
+      clients: Array<{ clientId: string; redirectUris: string[] }>
+    }
+    const publicClient = clientsJson.clients.find((client) => client.clientId === 'demo-public-client')
+    expect(publicClient).toBeTruthy()
+    const redirectUri = publicClient?.redirectUris?.[0]
+    expect(redirectUri).toBeTruthy()
+    if (!redirectUri) throw new Error('demo-public-client is missing redirect URI')
+
+    const state = `state-${Date.now().toString(36)}`
+    const codeVerifier = Buffer.from(crypto.getRandomValues(new Uint8Array(48))).toString('base64url')
+    const codeChallenge = sha256Base64Url(codeVerifier)
+    const zkPub = await createZkPub()
+
+    const authorizeRes = await fetch(`${servers.userUrl}/api/user/authorize?${new URLSearchParams({
+      client_id: 'demo-public-client',
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'openid profile',
+      state,
+      code_challenge: codeChallenge,
+      code_challenge_method: 'S256',
+      zk_pub: zkPub
+    }).toString()}`, {
+      method: 'GET',
+      redirect: 'manual'
+    })
+
+    if (authorizeRes.status !== 302) {
+      const errorBody = await authorizeRes.text()
+      throw new Error(`authorize failed: ${authorizeRes.status} ${errorBody}`)
+    }
+    const location = authorizeRes.headers.get('location')
+    expect(location).toBeTruthy()
+    if (!location) throw new Error('Missing authorize redirect location')
+    const authorizeRedirectUrl = new URL(location, servers.userUrl)
+    const requestId = authorizeRedirectUrl.searchParams.get('request_id')
+    expect(requestId).toBeTruthy()
+    if (!requestId) throw new Error('Missing request_id')
+
+    const finalizeRes = await fetch(`${servers.userUrl}/api/user/authorize/finalize`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${loginResult.accessToken}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Origin: servers.userUrl
+      },
+      body: new URLSearchParams({ request_id: requestId, approve: 'false' })
+    })
+
+    expect(finalizeRes.ok).toBeTruthy()
+    const finalizeJson = await finalizeRes.json() as {
+      error?: string
+      error_description?: string
+      code?: string
+      state?: string
+      redirect_uri: string
+    }
+    expect(finalizeJson.error).toBe('access_denied')
+    expect(finalizeJson.error_description).toBeTruthy()
+    expect(finalizeJson.state).toBe(state)
+    expect(finalizeJson.redirect_uri).toBe(redirectUri)
+    expect(finalizeJson.code).toBeUndefined()
+  })
+
   test('authorization code can only be redeemed once under concurrent requests', async () => {
     const user = {
       email: `nonce-race-${Date.now()}@example.com`,

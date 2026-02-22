@@ -1,4 +1,4 @@
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js';
 import { installDarkAuth } from '../../setup/install.js';
 import { createAdminUserViaAdmin } from '../../setup/helpers/auth.js';
@@ -65,5 +65,57 @@ test.describe('Demo App Note Flow', () => {
     const demoPage = await openDemoDashboard(context, bundle, user, snapshot);
     const note = await createAndSaveDemoNote(demoPage);
     await verifyNoteAfterRelogin(demoPage, bundle, user, note);
+  });
+
+  test('deny returns user to logged-out app screen with oauth error message', async ({ context }) => {
+    if (!servers || !demoUi || !demoApi || !secondaryAdmin) {
+      throw new Error('servers not initialized');
+    }
+    const bundle: DemoServerBundle = { servers, demoApi, demoUi };
+    const adminPage = await context.newPage();
+    await ensureAdminDashboard(adminPage, servers, secondaryAdmin);
+    await ensureSelfRegistrationEnabled(adminPage);
+    await configureDemoClient(servers, secondaryAdmin, demoUi.url);
+    await adminPage.close();
+    const userData = await registerDemoUser(context, servers);
+    await userData.page.close();
+    const snapshot = userData.snapshot;
+
+    const denyPage = await context.newPage();
+    await denyPage.addInitScript((data) => {
+      (window as any).__APP_CONFIG__ = data.config;
+      if (window.location.origin === data.authOrigin) {
+        for (const [key, value] of data.sessionEntries) window.sessionStorage.setItem(key, value);
+        for (const [key, value] of data.localEntries) window.localStorage.setItem(key, value);
+      }
+    }, {
+      config: {
+        issuer: bundle.servers.userUrl,
+        clientId: 'demo-public-client',
+        redirectUri: `${bundle.demoUi.url}/callback`,
+        demoApi: bundle.demoApi.url,
+      },
+      authOrigin: bundle.servers.userUrl,
+      sessionEntries: snapshot.sessionEntries.filter(
+        (entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'
+      ),
+      localEntries: snapshot.localEntries.filter(
+        (entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'
+      ),
+    });
+    await denyPage.goto(bundle.demoUi.url);
+    const loginGateButton = denyPage.getByRole('button', { name: 'Login', exact: true });
+    if (await loginGateButton.isVisible().catch(() => false)) {
+      await loginGateButton.click();
+    }
+    await denyPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 30000 });
+    await denyPage.getByRole('button', { name: 'Deny', exact: true }).click();
+    await denyPage.waitForURL((url) => url.toString().startsWith(`${bundle.demoUi.url}/?error=access_denied`), {
+      timeout: 30000,
+    });
+    await expect(denyPage.getByText('Login to access the app')).toBeVisible({ timeout: 10000 });
+    await expect(denyPage.getByText('denied', { exact: false })).toBeVisible({ timeout: 10000 });
+    await expect(denyPage.getByRole('button', { name: 'Login', exact: true })).toBeVisible({ timeout: 10000 });
+    await denyPage.close();
   });
 });
