@@ -91,9 +91,32 @@ test.describe('Demo App Recovery', () => {
       accessToken: newAccessToken,
     });
     await recoveryPage.goto(demoUi.url);
+    await recoveryPage.waitForLoadState('networkidle');
+    const loginGateButton = recoveryPage.getByRole('button', { name: 'Login', exact: true });
+    if (await loginGateButton.isVisible().catch(() => false)) {
+      await loginGateButton.click();
+    }
+    await recoveryPage.waitForURL((url) => {
+      const href = url.toString();
+      return href.includes('/authorize') || href.startsWith(demoUi.url);
+    }, {
+      timeout: 20000,
+    });
     const authorizeButton = recoveryPage.locator('button:has-text("Authorize")');
-    await authorizeButton.waitFor({ state: 'visible', timeout: 20000 });
-    await authorizeButton.click();
+    if (recoveryPage.url().includes('/authorize')) {
+      const shouldAuthorize = await Promise.race([
+        authorizeButton.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+        recoveryPage
+          .waitForURL((url) => url.toString().startsWith(`${demoUi.url}/callback`), {
+            timeout: 20000,
+          })
+          .then(() => false)
+          .catch(() => false),
+      ]);
+      if (shouldAuthorize && (await authorizeButton.isVisible())) {
+        await authorizeButton.click();
+      }
+    }
     await expect(recoveryPage.getByText('Key Recovery')).toBeVisible({ timeout: 20000 });
     await recoveryPage.getByLabel('Current Password').fill(newPassword);
     await recoveryPage.getByLabel('Old Password').fill(user.password);
@@ -132,13 +155,18 @@ test.describe('Demo App Recovery', () => {
       userSub: freshSub,
     });
     await freshPage.goto(demoUi.url);
+    await freshPage.waitForLoadState('networkidle');
+    const freshLoginGateButton = freshPage.getByRole('button', { name: 'Login', exact: true });
+    if (await freshLoginGateButton.isVisible().catch(() => false)) {
+      await freshLoginGateButton.click();
+    }
     const freshAuthorizeButton = freshPage.locator('button:has-text("Authorize")');
     const dashboardNewCard = freshPage.locator('[class*="newCard"]').first();
     const dashboardNewNoteButton = freshPage.getByRole('button', { name: 'New Note', exact: true });
     await Promise.race([
-      freshAuthorizeButton.waitFor({ state: 'visible', timeout: 20000 }),
-      dashboardNewCard.waitFor({ state: 'visible', timeout: 20000 }),
-      dashboardNewNoteButton.waitFor({ state: 'visible', timeout: 20000 }),
+      freshAuthorizeButton.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+      dashboardNewCard.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
+      dashboardNewNoteButton.waitFor({ state: 'visible', timeout: 20000 }).then(() => true).catch(() => false),
     ]);
     if (await freshAuthorizeButton.isVisible()) {
       await expect(freshPage.getByText('Key Recovery')).toHaveCount(0);
