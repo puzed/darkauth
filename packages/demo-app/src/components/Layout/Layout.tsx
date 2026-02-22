@@ -11,7 +11,7 @@ export function Layout() {
 
   return (
     <div className={styles.root}>
-      <Header onMenuToggle={() => setIsSidebarOpen(!isSidebarOpen)} />
+      <Header onMenuToggle={() => setIsSidebarOpen((previous) => !previous)} />
       <div className={styles.contentRow}>
         <Sidebar isOpen={isSidebarOpen} />
         {isSidebarOpen && (

@@ -2,12 +2,17 @@
   background-color: hsl(var(--background));
   border: 1px solid hsl(var(--foreground) / 0.1);
   border-radius: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 .divider {
   border-top: 1px solid hsl(var(--foreground) / 0.08);
+  flex: 1 1 auto;
 }
 .content {
-  min-height: 400px;
+  min-height: 60vh;
+  height: 100%;
   padding: 1rem;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
