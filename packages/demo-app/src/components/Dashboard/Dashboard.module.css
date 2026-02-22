@@ -84,43 +84,62 @@
   width: 100%;
   height: 100%;
   padding: 1.25rem;
-  border-radius: 0.75rem;
-  border: 2px dashed #d1d5db;
+  border-radius: 1rem;
+  border: 1px dashed rgba(100, 116, 139, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 0.75rem;
-  background: transparent;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #1f2937;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.newCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.45);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
 :global(.dark) .newCard {
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(148, 163, 184, 0.28);
+  background: linear-gradient(180deg, #1b2435 0%, #131d2d 100%);
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.45);
+}
+
+:global(.dark) .newCard:hover {
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.6);
 }
 
 .newIcon {
   width: 3rem;
   height: 3rem;
   border-radius: 9999px;
-  background: #f3f4f6;
+  background: #dbeafe;
+  color: #1d4ed8;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 :global(.dark) .newIcon {
-  background: rgba(255, 255, 255, 0.1);
-  color: #e5e7eb;
+  background: rgba(96, 165, 250, 0.22);
+  color: #bfdbfe;
 }
 
 .newText {
-  color: #6b7280;
-  font-weight: 500;
+  color: #1e293b;
+  font-weight: 600;
 }
 
 :global(.dark) .newText {
-  color: #d1d5db;
+  color: #e2e8f0;
 }
 
 .loading {

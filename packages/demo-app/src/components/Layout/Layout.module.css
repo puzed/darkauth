@@ -2,7 +2,7 @@
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--background, #f9fafb);
+  background: hsl(var(--background));
 }
 
 .contentRow {
@@ -21,5 +21,5 @@
 .main {
   flex: 1 1 auto;
   overflow-y: auto;
-  background: var(--background, #fff);
+  background: hsl(var(--background));
 }
