@@ -7,14 +7,14 @@
 .tabsList {
   display: flex;
   width: 100%;
-  height: auto !important;
+  height: auto;
   justify-content: flex-start;
   gap: 6px;
   padding: 0 0 0 0;
   overflow-x: auto;
-  background: transparent !important;
+  background: transparent;
   border-bottom: 1px solid hsl(var(--border));
-  border-radius: 0 !important;
+  border-radius: 0;
   margin-bottom: -1px;
 }
 
@@ -22,20 +22,20 @@
   min-width: 110px;
   border: 1px solid transparent;
   border-bottom: none;
-  border-radius: 10px 10px 0 0 !important;
-  color: hsl(var(--muted-foreground)) !important;
-  background: transparent !important;
+  border-radius: 10px 10px 0 0;
+  color: hsl(var(--muted-foreground));
+  background: transparent;
   margin-bottom: -1px;
 }
 
 .tabsTrigger[data-state="active"] {
-  background: hsl(var(--card)) !important;
-  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
   border-color: hsl(var(--border));
 }
 
 .tabsContent {
-  margin-top: 0 !important;
+  margin-top: 0;
   padding-top: 0;
 }
 
@@ -56,14 +56,14 @@
   .tabsTrigger {
     width: 100%;
     justify-content: flex-start;
-    border-radius: 8px !important;
+    border-radius: 8px;
     border: 1px solid hsl(var(--border));
     margin-bottom: 0;
   }
 
   .tabsTrigger[data-state="active"] {
     border-color: hsl(var(--primary));
-    background: hsl(var(--primary) / 0.1) !important;
+    background: hsl(var(--primary) / 0.1);
   }
 
   .tabCard {
