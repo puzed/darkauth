@@ -1,18 +1,22 @@
 import { decryptNote, decryptNoteWithDek, resolveDek } from "@DarkAuth/client";
 import { Plus } from "lucide-react";
 import React from "react";
+import { useLocation } from "react-router-dom";
 import { api } from "../../services/api";
 import { logger } from "../../services/logger";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotesStore } from "../../stores/notesStore";
+import { getPreviewFromNoteContent, parseDecryptedNoteContent } from "../../utils/noteContent";
 import styles from "./Dashboard.module.css";
 import { NoteCard } from "./NoteCard";
 
 export function Dashboard() {
-  const { notes, setNotes, removeNote, isLoading, setLoading, setError } = useNotesStore();
-  const { session } = useAuthStore();
+  const { notes, setNotes, removeNote, selectedTag, isLoading, setLoading, setError } =
+    useNotesStore();
+  const location = useLocation();
+  const { session, user } = useAuthStore();
   const [decryptedNotes, setDecryptedNotes] = React.useState<
-    Map<string, { title: string; preview: string }>
+    Map<string, { title: string; preview: string; tags: string[] }>
   >(new Map());
   const [decryptFailed, setDecryptFailed] = React.useState(false);
   const [wiping, setWiping] = React.useState(false);
@@ -52,28 +56,12 @@ export function Dashboard() {
               );
             }
 
-            try {
-              // Try to parse as JSON (new format)
-              const noteData = JSON.parse(decryptedContent);
-              if (typeof noteData === "object" && noteData.title !== undefined) {
-                const title = noteData.title || "Untitled";
-                // Strip HTML tags from content for preview
-                const plainContent = noteData.content
-                  .replace(/<[^>]*>/g, "")
-                  .replace(/\s+/g, " ")
-                  .trim();
-                const preview = plainContent.substring(0, 150);
-                decrypted.set(note.note_id, { title, preview });
-              } else {
-                throw new Error("Old format");
-              }
-            } catch {
-              // Fallback for old format or plain text
-              const lines = decryptedContent.split("\n");
-              const title = lines[0]?.replace(/^#\s+/, "").replace(/<[^>]*>/g, "") || "Untitled";
-              const preview = lines.slice(1).join(" ").substring(0, 150);
-              decrypted.set(note.note_id, { title, preview });
-            }
+            const parsedNote = parseDecryptedNoteContent(decryptedContent);
+            decrypted.set(note.note_id, {
+              title: parsedNote.title,
+              preview: getPreviewFromNoteContent(parsedNote.content),
+              tags: parsedNote.tags,
+            });
           }
         } catch (error) {
           logger.error({ noteId: note.note_id, error }, "Failed to decrypt note");
@@ -142,6 +130,21 @@ export function Dashboard() {
     );
   }
 
+  const sharedOnly = location.pathname === "/shared/with-me";
+  const visibleNotes = notes.filter((note) => {
+    if (sharedOnly && note.owner_sub === user?.sub) {
+      return false;
+    }
+    if (!selectedTag) {
+      return true;
+    }
+    const decryptedNote = decryptedNotes.get(note.note_id);
+    if (!decryptedNote) {
+      return false;
+    }
+    return decryptedNote.tags.includes(selectedTag);
+  });
+
   return (
     <div className={styles.container}>
       {decryptFailed && (
@@ -168,12 +171,18 @@ export function Dashboard() {
       <div className={styles.heading}>
         <h1 className={styles.title}>Welcome back!</h1>
         <p className={styles.subtitle}>
-          You have {notes.length} {notes.length === 1 ? "note" : "notes"}
+          {sharedOnly
+            ? selectedTag
+              ? `Showing ${visibleNotes.length} shared ${visibleNotes.length === 1 ? "note" : "notes"} tagged #${selectedTag}`
+              : `You have ${visibleNotes.length} shared ${visibleNotes.length === 1 ? "note" : "notes"}`
+            : selectedTag
+              ? `Showing ${visibleNotes.length} ${visibleNotes.length === 1 ? "note" : "notes"} tagged #${selectedTag}`
+              : `You have ${notes.length} ${notes.length === 1 ? "note" : "notes"}`}
         </p>
       </div>
 
       <div className={styles.grid}>
-        {notes.map((note) => {
+        {visibleNotes.map((note) => {
           const decrypted = decryptedNotes.get(note.note_id);
           const canDelete =
             note.owner_sub && session?.drk && useAuthStore.getState().user?.sub === note.owner_sub;

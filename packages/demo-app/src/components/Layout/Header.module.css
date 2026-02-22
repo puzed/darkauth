@@ -1,7 +1,9 @@
 .header {
-  background-color: var(--background, #fff);
+  background-color: hsl(var(--background));
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   padding: 0.75rem 1rem;
+  position: relative;
+  z-index: 50;
 }
 
 .inner {
@@ -22,6 +24,25 @@
   background: transparent;
   border: none;
   cursor: pointer;
+  color: #374151;
+}
+
+.menuButton:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+:global(.dark) .menuButton {
+  color: #e2e8f0;
+}
+
+:global(.dark) .menuButton:hover {
+  background: rgba(148, 163, 184, 0.16);
+}
+
+@media (min-width: 1024px) {
+  .menuButton {
+    display: none;
+  }
 }
 
 .brand {
@@ -45,6 +66,11 @@
 .logoText {
   font-weight: 700;
   font-size: 1.25rem;
+  color: #1f2937;
+}
+
+:global(.dark) .logoText {
+  color: #f8fafc;
 }
 
 .search {
@@ -75,6 +101,23 @@
 
 .searchInput {
   width: 100%;
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.searchInput::placeholder {
+  color: #64748b;
+}
+
+:global(.dark) .searchInput {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+:global(.dark) .searchInput::placeholder {
+  color: #94a3b8;
 }
 
 :global(.input).searchInput {
@@ -97,6 +140,21 @@
   background: transparent;
   border: none;
   cursor: pointer;
+  color: #64748b;
+}
+
+.iconButton:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+}
+
+:global(.dark) .iconButton {
+  color: #cbd5e1;
+}
+
+:global(.dark) .iconButton:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: #f1f5f9;
 }
 
 .avatarButton {
@@ -137,6 +195,12 @@
 .userMenuHeader {
   padding: 0.5rem 1rem;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  color: #111827;
+}
+
+:global(.dark) .userMenuHeader {
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
 }
 
 .menuItem {
@@ -149,6 +213,19 @@
   border: none;
   text-align: left;
   cursor: pointer;
+  color: #1f2937;
+}
+
+.menuItem:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+:global(.dark) .menuItem {
+  color: #e5e7eb;
+}
+
+:global(.dark) .menuItem:hover {
+  background: rgba(148, 163, 184, 0.16);
 }
 
 .danger {
