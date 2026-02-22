@@ -4,7 +4,7 @@
   flex-direction: column;
 }
 .header {
-  background: var(--background, #fff);
+  background: hsl(var(--background));
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   padding: 1rem 1.5rem;
 }
@@ -47,11 +47,14 @@
   flex: 1 1 auto;
   overflow-y: auto;
   padding: 1.5rem;
-  background: var(--background, #f9fafb);
+  background: hsl(var(--background));
 }
 .contentInner {
-  max-width: 56rem;
-  margin: 0 auto;
+  width: 100%;
+}
+
+.editor {
+  min-height: calc(100vh - 18rem);
 }
 .error {
   margin-bottom: 1rem;
@@ -65,6 +68,98 @@
 .titleWrap {
   margin-bottom: 1.5rem;
 }
+
+.tagsWrap {
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+
+.tagsInputContainer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  border: 1px solid hsl(var(--foreground) / 0.18);
+  background: hsl(var(--background));
+  border-radius: 0.75rem;
+  padding: 0.5rem;
+}
+
+.tagPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 9999px;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.8125rem;
+  line-height: 1;
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+:global(.dark) .tagPill {
+  background: rgba(96, 165, 250, 0.24);
+  color: #bfdbfe;
+}
+
+.tagRemove {
+  border: none;
+  background: transparent;
+  padding: 0;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+  font-size: 1rem;
+}
+
+.tagsInput {
+  border: none;
+  background: transparent;
+  color: hsl(var(--foreground));
+  outline: none;
+  min-width: 10rem;
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.tagsInput::placeholder {
+  color: hsl(var(--foreground) / 0.55);
+}
+
+.tagSuggestions {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  border: 1px solid hsl(var(--foreground) / 0.14);
+  border-radius: 0.75rem;
+  background: hsl(var(--background));
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+  padding: 0.35rem;
+  z-index: 20;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.tagSuggestion {
+  border: none;
+  background: transparent;
+  text-align: left;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  color: hsl(var(--foreground));
+}
+
+.tagSuggestion:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+:global(.dark) .tagSuggestion:hover {
+  background: rgba(148, 163, 184, 0.16);
+}
+
 .titleInput {
   width: 100%;
   font-size: 1.875rem;

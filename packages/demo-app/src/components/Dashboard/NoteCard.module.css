@@ -1,15 +1,30 @@
 .card {
   position: relative;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    border-color 150ms ease;
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  border-color: rgba(37, 99, 235, 0.25);
 }
 
 :global(.dark) .card {
-  background: #1f2937;
-  border-color: rgba(255, 255, 255, 0.08);
-  box-shadow: none;
+  background: linear-gradient(180deg, #1b2435 0%, #131d2d 100%);
+  border-color: rgba(148, 163, 184, 0.2);
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.45);
+}
+
+:global(.dark) .card:hover {
+  box-shadow: 0 16px 34px rgba(2, 6, 23, 0.6);
+  border-color: rgba(96, 165, 250, 0.35);
 }
 
 .link {
@@ -26,15 +41,15 @@
 }
 .title {
   font-size: 1.125rem;
-  font-weight: 600;
-  color: #111827;
+  font-weight: 700;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 :global(.dark) .title {
-  color: #f3f4f6;
+  color: #e2e8f0;
 }
 .badges {
   display: flex;
@@ -47,7 +62,7 @@
 }
 
 .preview {
-  color: #4b5563;
+  color: #475569;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
@@ -57,7 +72,7 @@
 }
 
 :global(.dark) .preview {
-  color: #d1d5db;
+  color: #cbd5e1;
 }
 
 .footer {
@@ -65,11 +80,11 @@
   align-items: center;
   justify-content: space-between;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: #64748b;
 }
 
 :global(.dark) .footer {
-  color: #9ca3af;
+  color: #94a3b8;
 }
 .footerGroup {
   display: flex;
@@ -89,9 +104,22 @@
   border: none;
   cursor: pointer;
   opacity: 0;
+  color: #64748b;
 }
 .card:hover .menuButton {
   opacity: 1;
+}
+
+.menuButton:hover {
+  background: rgba(15, 23, 42, 0.08);
+}
+
+:global(.dark) .menuButton {
+  color: #cbd5e1;
+}
+
+:global(.dark) .menuButton:hover {
+  background: rgba(148, 163, 184, 0.16);
 }
 .menuPanel {
   position: absolute;

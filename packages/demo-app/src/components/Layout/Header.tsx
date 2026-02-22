@@ -1,5 +1,5 @@
 import { logout } from "@DarkAuth/client";
-import { LogOut, Menu, Moon, Plus, Search, Sun, User } from "lucide-react";
+import { LogOut, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
@@ -13,11 +13,19 @@ interface HeaderProps {
 export function Header({ onMenuToggle }: HeaderProps) {
   const navigate = useNavigate();
   const { user, clearSession } = useAuthStore();
-  const [isDark, setIsDark] = React.useState(document.documentElement.classList.contains("dark"));
+  const [isDark, setIsDark] = React.useState(() =>
+    document.documentElement.classList.contains("dark")
+  );
   const [showUserMenu, setShowUserMenu] = React.useState(false);
 
+  React.useEffect(() => {
+    setIsDark(document.documentElement.classList.contains("dark"));
+  }, []);
+
   const toggleTheme = () => {
-    if (isDark) {
+    const hasDarkClass = document.documentElement.classList.contains("dark");
+
+    if (hasDarkClass) {
       document.documentElement.classList.remove("dark");
       localStorage.setItem("theme", "light");
       setIsDark(false);
@@ -107,15 +115,6 @@ export function Header({ onMenuToggle }: HeaderProps) {
                   <p style={{ fontWeight: 600 }}>{user?.name || "User"}</p>
                   <p style={{ fontSize: 12, opacity: 0.7 }}>{user?.email}</p>
                 </div>
-
-                <Link
-                  to="/profile"
-                  className={styles.menuItem}
-                  onClick={() => setShowUserMenu(false)}
-                >
-                  <User width={16} height={16} />
-                  <span>Profile Settings</span>
-                </Link>
 
                 <button
                   type="button"
