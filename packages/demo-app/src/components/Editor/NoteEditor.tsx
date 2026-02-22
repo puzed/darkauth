@@ -12,6 +12,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotesStore } from "../../stores/notesStore";
+import { normalizeTags, parseDecryptedNoteContent } from "../../utils/noteContent";
 import { ShareModal } from "../Sharing/ShareModal";
 import styles from "./NoteEditor.module.css";
 import { RichTextEditor } from "./RichTextEditor";
@@ -24,6 +25,9 @@ export function NoteEditor() {
 
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
+  const [tags, setTags] = React.useState<string[]>([]);
+  const [tagInput, setTagInput] = React.useState("");
+  const [knownTags, setKnownTags] = React.useState<string[]>([]);
   const [lastSaved, setLastSaved] = React.useState<Date | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -32,6 +36,22 @@ export function NoteEditor() {
   const [showShare, setShowShare] = React.useState(false);
 
   const saveTimeoutRef = React.useRef<NodeJS.Timeout>();
+
+  const removeTag = (tagToRemove: string) => {
+    setTags((previous) => previous.filter((tag) => tag !== tagToRemove));
+    setHasChanges(true);
+  };
+
+  const addTag = (value: string) => {
+    const nextTags = normalizeTags([...tags, value]);
+    if (nextTags.length === tags.length) {
+      setTagInput("");
+      return;
+    }
+    setTags(nextTags);
+    setTagInput("");
+    setHasChanges(true);
+  };
 
   const loadNote = React.useCallback(async () => {
     if (!noteId || !session?.drk) return;
@@ -55,18 +75,10 @@ export function NoteEditor() {
               return decryptNoteWithDek(dek, noteId, lastChange.ciphertext_b64, lastChange.aad);
             })();
 
-        const noteData = JSON.parse(decryptedContent) as unknown;
-        if (
-          typeof noteData === "object" &&
-          noteData &&
-          (noteData as { title?: string }).title !== undefined
-        ) {
-          setTitle((noteData as { title?: string }).title || "");
-          setContent((noteData as { content?: string }).content || "");
-        } else {
-          setTitle("Untitled");
-          setContent(decryptedContent);
-        }
+        const parsedNote = parseDecryptedNoteContent(decryptedContent);
+        setTitle(parsedNote.title);
+        setContent(parsedNote.content);
+        setTags(parsedNote.tags);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load note");
@@ -75,11 +87,48 @@ export function NoteEditor() {
     }
   }, [noteId, session?.drk, notes]);
 
+  const loadKnownTags = React.useCallback(async () => {
+    if (!session?.drk || notes.length === 0) return;
+
+    const tagSet = new Set<string>();
+    for (const note of notes) {
+      try {
+        const changes = await api.getNoteChanges(note.note_id, 0);
+        if (changes.length === 0) {
+          continue;
+        }
+        const lastChange = changes[changes.length - 1];
+        const isOwner = note.owner_sub === (useAuthStore.getState().user?.sub || "");
+        const decryptedContent = isOwner
+          ? await decryptNote(session.drk, note.note_id, lastChange.ciphertext_b64, lastChange.aad)
+          : await (async () => {
+              const dek = await resolveDek(note.note_id, false, session.drk);
+              return decryptNoteWithDek(
+                dek,
+                note.note_id,
+                lastChange.ciphertext_b64,
+                lastChange.aad
+              );
+            })();
+        const parsedNote = parseDecryptedNoteContent(decryptedContent);
+        for (const tag of parsedNote.tags) {
+          tagSet.add(tag);
+        }
+      } catch {}
+    }
+
+    setKnownTags([...tagSet].sort((first, second) => first.localeCompare(second)));
+  }, [session?.drk, notes]);
+
   React.useEffect(() => {
     if (noteId) {
       void loadNote();
     }
   }, [noteId, loadNote]);
+
+  React.useEffect(() => {
+    void loadKnownTags();
+  }, [loadKnownTags]);
 
   const saveNote = React.useCallback(async () => {
     if (!noteId || !session?.drk || !hasChanges) return;
@@ -92,6 +141,7 @@ export function NoteEditor() {
       const noteData = JSON.stringify({
         title: title,
         content: content,
+        tags: tags,
       });
 
       const noteMeta = notes.find((n) => n.note_id === noteId);
@@ -114,10 +164,10 @@ export function NoteEditor() {
     } finally {
       setIsSaving(false);
     }
-  }, [noteId, session?.drk, hasChanges, title, content, notes]);
+  }, [noteId, session?.drk, hasChanges, title, content, tags, notes]);
 
   React.useEffect(() => {
-    if (hasChanges && (title || content)) {
+    if (hasChanges && (title || content || tags.length > 0)) {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
@@ -130,7 +180,7 @@ export function NoteEditor() {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [title, content, hasChanges, saveNote]);
+  }, [title, content, tags, hasChanges, saveNote]);
 
   const handleTitleChange = (newTitle: string) => {
     setTitle(newTitle);
@@ -141,6 +191,14 @@ export function NoteEditor() {
     setContent(newContent);
     setHasChanges(true);
   };
+
+  const filteredTagSuggestions = React.useMemo(() => {
+    const query = tagInput.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+    return knownTags.filter((tag) => tag.includes(query) && !tags.includes(tag)).slice(0, 6);
+  }, [knownTags, tagInput, tags]);
 
   const handleManualSave = () => {
     if (saveTimeoutRef.current) {
@@ -225,8 +283,75 @@ export function NoteEditor() {
             />
           </div>
 
+          <div className={styles.tagsWrap}>
+            <div className={styles.tagsInputContainer}>
+              {tags.map((tag) => (
+                <span key={tag} className={styles.tagPill}>
+                  <span>#{tag}</span>
+                  <button
+                    type="button"
+                    className={styles.tagRemove}
+                    onClick={() => removeTag(tag)}
+                    aria-label={`Remove ${tag} tag`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                value={tagInput}
+                onChange={(event) => setTagInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === "," || event.key === "Tab") {
+                    const value = tagInput.trim();
+                    if (!value) {
+                      return;
+                    }
+                    event.preventDefault();
+                    addTag(value);
+                  }
+                  if (event.key === "Backspace" && tagInput.length === 0 && tags.length > 0) {
+                    event.preventDefault();
+                    const lastTag = tags[tags.length - 1];
+                    removeTag(lastTag);
+                  }
+                }}
+                onBlur={() => {
+                  const value = tagInput.trim();
+                  if (value) {
+                    addTag(value);
+                  }
+                }}
+                placeholder={tags.length === 0 ? "Add tags..." : "Add another tag..."}
+                className={styles.tagsInput}
+              />
+            </div>
+            {filteredTagSuggestions.length > 0 && (
+              <div className={styles.tagSuggestions}>
+                {filteredTagSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className={styles.tagSuggestion}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      addTag(suggestion);
+                    }}
+                  >
+                    #{suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Rich Text Editor */}
-          <RichTextEditor content={content} onChange={handleContentChange} />
+          <RichTextEditor
+            content={content}
+            onChange={handleContentChange}
+            className={styles.editor}
+          />
         </div>
       </div>
       {showShare && noteId && <ShareModal noteId={noteId} onClose={() => setShowShare(false)} />}

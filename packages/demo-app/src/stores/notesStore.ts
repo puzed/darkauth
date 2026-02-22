@@ -4,6 +4,7 @@ import type { Note } from "../services/api";
 interface NotesStore {
   notes: Note[];
   selectedNoteId: string | null;
+  selectedTag: string | null;
   searchQuery: string;
   isLoading: boolean;
   error: string | null;
@@ -13,6 +14,7 @@ interface NotesStore {
   removeNote: (noteId: string) => void;
   updateNote: (noteId: string, updates: Partial<Note>) => void;
   selectNote: (noteId: string | null) => void;
+  setSelectedTag: (tag: string | null) => void;
   setSearchQuery: (query: string) => void;
   setLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
@@ -21,6 +23,7 @@ interface NotesStore {
 export const useNotesStore = create<NotesStore>((set) => ({
   notes: [],
   selectedNoteId: null,
+  selectedTag: null,
   searchQuery: "",
   isLoading: false,
   error: null,
@@ -44,6 +47,8 @@ export const useNotesStore = create<NotesStore>((set) => ({
     })),
 
   selectNote: (noteId) => set({ selectedNoteId: noteId }),
+
+  setSelectedTag: (tag) => set({ selectedTag: tag }),
 
   setSearchQuery: (query) => set({ searchQuery: query }),
 
