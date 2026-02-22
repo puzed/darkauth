@@ -20,35 +20,38 @@ const queryClient = new QueryClient({
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, setSession } = useAuthStore();
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isRedirecting, setIsRedirecting] = React.useState(false);
+  const [oauthError, setOauthError] = React.useState<string | null>(null);
+
+  const startLogin = React.useCallback(async () => {
+    await initiateLogin();
+  }, []);
 
   const checkAuth = React.useCallback(async () => {
-    // Don't process callback here - let the /callback route handle it
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    const errorDescription = params.get("error_description");
+    if (error === "access_denied") {
+      setOauthError(errorDescription || "Authorization request was denied.");
+    } else {
+      setOauthError(null);
+    }
+
     if (location.search.includes("code=")) {
-      // We're on the wrong route with a code, redirect to callback
-      // IMPORTANT: Preserve the fragment (hash) which contains the JWE!
       window.location.href = `/callback${location.search}${location.hash}`;
       return;
     }
 
-    // Check for stored session
     let session = getStoredSession();
 
     if (!session) {
-      // Try to refresh the session
       session = await refreshSession();
     }
 
     if (session) {
       setSession(session);
-      setIsLoading(false);
-    } else if (!isRedirecting) {
-      // No valid session, redirect to login
-      setIsRedirecting(true);
-      setIsLoading(false);
-      await initiateLogin();
     }
-  }, [isRedirecting, setSession]);
+    setIsLoading(false);
+  }, [setSession]);
 
   React.useEffect(() => {
     void checkAuth();
@@ -65,15 +68,27 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!isAuthenticated && !isRedirecting) {
-    // This shouldn't happen but just in case
-    setIsRedirecting(true);
-    initiateLogin();
-    return null;
-  }
-
-  if (isRedirecting) {
-    return null; // Redirecting to login
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-dark-900">
+        <div className="max-w-md w-full p-8 bg-white dark:bg-dark-800 rounded-xl shadow-lg">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Login to access the app
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              You need to authorize with DarkAuth before viewing your notes.
+            </p>
+            {oauthError ? (
+              <p className="text-sm text-amber-500 dark:text-amber-400 mb-4">{oauthError}</p>
+            ) : null}
+            <button type="button" onClick={() => void startLogin()} className="btn-primary w-full">
+              Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
