@@ -17,8 +17,5 @@ Only the main top level thread/agent should follow these:
   - security-auditor
   - test-writer
 - You can (and should where possible) spawn multiple of the same agent types to complete tasks in parallel.
-- After making your change make sure you:
-  - Get the security-auditor to review your code and provide feedback on any security implications.
-  - Get the documentation-writer to update the documentation to reflect your changes.
-  - Run the `npm run tidy` and `npm run build` when you have finished.
-  - If you get any feedback, analyze it and if it's relevant to the change you made, make the necessary adjustments and then repeat the process until you have no more feedback.
+- After making your change make sure you run the `npm run tidy` and `npm run build` when you have finished.
+
