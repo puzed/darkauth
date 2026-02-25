@@ -66,8 +66,8 @@ export default function RoleEdit() {
       await adminApiService.updateRole(role.id, {
         name,
         description: description.trim() || undefined,
-        permissionKeys: selectedPermissions,
       });
+      await adminApiService.updateRolePermissions(role.id, selectedPermissions);
       navigate("/roles");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save role");

@@ -302,7 +302,11 @@ export async function ensureOpaqueService(
   }
 
   const tempDb = context.services.install?.tempDb;
-  const baseContext = tempDb ? { ...context, db: tempDb } : context;
+  const db = tempDb || context.db;
+  if (!db) {
+    throw new ValidationError("Database not prepared");
+  }
+  const baseContext = tempDb ? { ...context, db } : context;
   const service = await createOpaqueService(baseContext);
   context.services.opaque = service;
   return service;

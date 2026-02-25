@@ -5,7 +5,6 @@ import pino from "pino";
 import { createPglite } from "../db/pglite.js";
 import * as schema from "../db/schema.js";
 import { opaqueLoginSessions } from "../db/schema.js";
-import { ValidationError } from "../errors.js";
 import { ensureDefaultOrganizationAndSchema } from "../models/install.js";
 import { ensureKekService } from "../services/kek.js";
 import { createOpaqueService } from "../services/opaque.js";
@@ -42,18 +41,9 @@ export async function createContext(config: Config): Promise<Context> {
   });
 
   let pool: Pool | null = null;
-  let database: Database;
+  let database = undefined as unknown as Database;
 
-  if (config.inInstallMode) {
-    database = new Proxy(
-      {},
-      {
-        get() {
-          throw new ValidationError("Database not prepared");
-        },
-      }
-    ) as Database;
-  } else {
+  if (!config.inInstallMode) {
     if (config.dbMode === "pglite") {
       const { db, close } = await createPglite(config.pgliteDir || "data/pglite");
       database = db;
