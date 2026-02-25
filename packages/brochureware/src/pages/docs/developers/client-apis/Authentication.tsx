@@ -5,8 +5,8 @@ import { KeyRound, ShieldCheck, UserRoundSearch } from "lucide-react";
 
 const AuthenticationPage = () => {
   return (
-    <div className="space-y-6">
-      <Card className="border-border/50">
+    <div className="space-y-8">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <Badge variant="outline" className="mb-3 border-primary/30 text-primary">
             Developers / Client APIs
@@ -30,7 +30,7 @@ const AuthenticationPage = () => {
         </ul>
       </DocsCallout>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-foreground">
             <UserRoundSearch className="h-5 w-5 text-primary" />
@@ -49,7 +49,7 @@ const AuthenticationPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-foreground">
             <KeyRound className="h-5 w-5 text-primary" />
@@ -70,7 +70,7 @@ const AuthenticationPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-foreground">How to Choose</h3>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base text-muted-foreground">

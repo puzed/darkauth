@@ -13,7 +13,7 @@ const Footer = () => {
       { name: "Changelog", href: "/changelog" }
     ],
     developers: [
-      { name: "Documentation", href: "#docs" },
+      { name: "Documentation", href: "/docs/introduction" },
       { name: "API Reference", href: "/docs/api" },
       { name: "SDKs", href: "/docs/sdks" },
       { name: "GitHub", href: "https://github.com/puzed/" }
@@ -167,11 +167,10 @@ const Footer = () => {
               © {currentYear} DarkAuth. All rights reserved. 
               <span className="ml-2">Your Password Never Leaves Your Device</span>
             </div>
-            
-            <div className="flex items-center space-x-6 text-sm text-secondary-foreground/60">
-              <span>🔐 Zero-Knowledge Security</span>
-              <span>🧩 Open Source</span>
-              <span>🐳 Docker Available</span>
+            <div className="flex items-center gap-6 text-sm text-secondary-foreground/60">
+              <span>Zero-Knowledge Security</span>
+              <span>Open Source</span>
+              <span>Docker Available</span>
             </div>
           </div>
         </div>

@@ -10,10 +10,10 @@ type DocsCalloutProps = {
 
 const DocsCallout = ({ title, icon: Icon, children }: DocsCalloutProps) => {
   return (
-    <Alert className="border-primary/30 bg-primary/10">
-      <Icon className="h-4 w-4" />
-      <AlertTitle>{title}</AlertTitle>
-      <AlertDescription>{children}</AlertDescription>
+    <Alert className="border-primary/25 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent shadow-sm">
+      <Icon className="mt-0.5 h-4 w-4" />
+      <AlertTitle className="text-base">{title}</AlertTitle>
+      <AlertDescription className="mt-2 text-sm leading-6 text-muted-foreground">{children}</AlertDescription>
     </Alert>
   );
 };
