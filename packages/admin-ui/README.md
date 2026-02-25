@@ -57,3 +57,9 @@ See `docs/admin-list-standards.md` for the canonical cross-package standard.
 - `adminApiService` requests are relative to the admin API base path, not the user API base path.
 - Service paths like `/organizations` map to `/api/admin/organizations` on the server.
 - Organization member paths like `/organizations/{organizationId}/members` map to `/api/admin/organizations/{organizationId}/members`.
+
+## Session refresh failure handling
+
+- Admin session refresh is attempted from periodic refresh logic and visibility-triggered refresh logic.
+- The admin UI tracks consecutive refresh failures across these refresh contexts.
+- After 3 consecutive refresh failures, the admin UI clears the current session and logs the admin out.
