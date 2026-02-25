@@ -143,21 +143,21 @@ spec:
       icon: Code,
       title: "Integration Guides",
       description: "Step-by-step guides for popular frameworks",
-      link: "/docs/guides",
+      link: "/docs/guides/public-client-flow",
       badge: "Code Examples"
     },
     {
       icon: Shield,
       title: "Security Model",
       description: "Deep dive into OPAQUE protocol implementation",
-      link: "/docs/security",
+      link: "/docs/concepts/security-model",
       badge: "Technical"
     },
     {
       icon: Settings,
       title: "Deployment Guide", 
       description: "Production deployment and configuration",
-      link: "/docs/deployment",
+      link: "/docs/operations/deployment",
       badge: "DevOps"
     }
   ];
