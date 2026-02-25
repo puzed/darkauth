@@ -56,6 +56,10 @@ interface AdminSessionData {
 const App = () => {
   const [adminSession, setAdminSession] = useState<AdminSessionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const handleRefreshFailureLimitReached = useCallback(() => {
+    setAdminSession(null);
+    authService.clearSession();
+  }, []);
 
   const checkAdminSession = useCallback(async () => {
     try {
@@ -76,12 +80,8 @@ const App = () => {
         authService.saveSession(sessionData);
 
         authService.startSessionRefresh(async () => {
-          try {
-            await adminApiService.getAdminSession();
-          } catch (error) {
-            logger.error(error, "Session refresh failed");
-          }
-        });
+          await adminApiService.getAdminSession();
+        }, handleRefreshFailureLimitReached);
       } else {
         authService.clearSession();
       }
@@ -90,7 +90,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleRefreshFailureLimitReached]);
 
   useEffect(() => {
     adminApiService.setSessionExpiredCallback(() => {
@@ -112,12 +112,8 @@ const App = () => {
     setAdminSession(adminData);
     authService.saveSession(adminData);
     authService.startSessionRefresh(async () => {
-      try {
-        await adminApiService.getAdminSession();
-      } catch (error) {
-        logger.error(error, "Session refresh failed");
-      }
-    });
+      await adminApiService.getAdminSession();
+    }, handleRefreshFailureLimitReached);
   };
 
   const handleLogout = async () => {

@@ -20,6 +20,7 @@ interface StoredLoginInfo {
 const SESSION_STORAGE_KEY = "DarkAuth_admin_session";
 const LOGIN_INFO_KEY = "DarkAuth_admin_login_info";
 const SESSION_REFRESH_INTERVAL = 10 * 60 * 1000;
+const SESSION_REFRESH_FAILURE_LIMIT = 3;
 
 class AuthService {
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
@@ -94,25 +95,36 @@ class AuthService {
     this.stopSessionRefresh();
   }
 
-  startSessionRefresh(onRefresh: () => Promise<void>): void {
+  startSessionRefresh(onRefresh: () => Promise<void>, onFailureLimitReached?: () => void): void {
     this.stopSessionRefresh();
+    let consecutiveFailures = 0;
 
-    // Set up periodic refresh
     this.refreshTimer = setInterval(async () => {
       try {
         await onRefresh();
+        consecutiveFailures = 0;
       } catch (error) {
+        consecutiveFailures += 1;
         logger.error(error, "Session refresh failed");
+        if (consecutiveFailures >= SESSION_REFRESH_FAILURE_LIMIT) {
+          this.clearSession();
+          onFailureLimitReached?.();
+        }
       }
     }, SESSION_REFRESH_INTERVAL);
 
-    // Also refresh when the page becomes visible after being hidden
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
         try {
           await onRefresh();
+          consecutiveFailures = 0;
         } catch (error) {
+          consecutiveFailures += 1;
           logger.error(error, "Session refresh on visibility change failed");
+          if (consecutiveFailures >= SESSION_REFRESH_FAILURE_LIMIT) {
+            this.clearSession();
+            onFailureLimitReached?.();
+          }
         }
       }
     };
