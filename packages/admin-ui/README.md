@@ -51,3 +51,9 @@ Bounds enforced server-side where relevant:
 - `search.length <= 128`
 
 See `docs/admin-list-standards.md` for the canonical cross-package standard.
+
+## Admin API path context
+
+- `adminApiService` requests are relative to the admin API base path, not the user API base path.
+- Service paths like `/organizations` map to `/api/admin/organizations` on the server.
+- Organization member paths like `/organizations/{organizationId}/members` map to `/api/admin/organizations/{organizationId}/members`.
