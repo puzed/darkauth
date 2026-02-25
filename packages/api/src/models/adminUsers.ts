@@ -1,4 +1,4 @@
-import { count, desc, eq } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, or } from "drizzle-orm";
 import { adminUsers } from "../db/schema.js";
 import { ConflictError, NotFoundError } from "../errors.js";
 import type { Context } from "../types.js";
@@ -9,11 +9,24 @@ export async function listAdminUsers(
     page?: number;
     limit?: number;
     search?: string;
+    sortBy?: "createdAt" | "email" | "name" | "role";
+    sortOrder?: "asc" | "desc";
   } = {}
 ) {
   const page = Math.max(1, options.page || 1);
   const limit = Math.min(100, Math.max(1, options.limit || 20));
   const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "email"
+      ? adminUsers.email
+      : sortBy === "name"
+        ? adminUsers.name
+        : sortBy === "role"
+          ? adminUsers.role
+          : adminUsers.createdAt;
 
   const baseSelect = {
     id: adminUsers.id,
@@ -37,7 +50,6 @@ export async function listAdminUsers(
   let totalCount: Array<{ count: number }>;
 
   if (options.search?.trim()) {
-    const { ilike, or } = await import("drizzle-orm");
     const searchTerm = `%${options.search.trim()}%`;
     const searchCondition = or(
       ilike(adminUsers.email, searchTerm),
@@ -48,7 +60,7 @@ export async function listAdminUsers(
       .select(baseSelect)
       .from(adminUsers)
       .where(searchCondition)
-      .orderBy(desc(adminUsers.createdAt))
+      .orderBy(sortFn(sortColumn), sortFn(adminUsers.id))
       .limit(limit)
       .offset(offset);
 
@@ -60,7 +72,7 @@ export async function listAdminUsers(
     adminUsersList = await context.db
       .select(baseSelect)
       .from(adminUsers)
-      .orderBy(desc(adminUsers.createdAt))
+      .orderBy(sortFn(sortColumn), sortFn(adminUsers.id))
       .limit(limit)
       .offset(offset);
 

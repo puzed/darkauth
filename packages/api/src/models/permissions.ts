@@ -1,39 +1,91 @@
-import { count, eq } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { groupPermissions, permissions, userPermissions } from "../db/schema.js";
 import { ConflictError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
 
-export async function listPermissionsWithCounts(context: Context) {
-  const permissionsData = await context.db
-    .select({ key: permissions.key, description: permissions.description })
-    .from(permissions)
-    .orderBy(permissions.key);
+export async function listPermissionsWithCounts(
+  context: Context,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "key" | "description";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "key";
+  const sortOrder = options.sortOrder || "asc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn = sortBy === "description" ? permissions.description : permissions.key;
+  const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
+  const searchCondition = searchTerm
+    ? or(ilike(permissions.key, searchTerm), ilike(permissions.description, searchTerm))
+    : undefined;
 
-  const groupCounts = await context.db
-    .select({
-      permissionKey: groupPermissions.permissionKey,
-      groupCount: count(groupPermissions.groupKey),
-    })
-    .from(groupPermissions)
-    .groupBy(groupPermissions.permissionKey);
+  const totalRows = await (searchCondition
+    ? context.db.select({ count: count() }).from(permissions).where(searchCondition)
+    : context.db.select({ count: count() }).from(permissions));
+  const total = totalRows[0]?.count || 0;
 
-  const userCounts = await context.db
-    .select({
-      permissionKey: userPermissions.permissionKey,
-      userCount: count(userPermissions.userSub),
-    })
-    .from(userPermissions)
-    .groupBy(userPermissions.permissionKey);
+  const permissionsData = await (searchCondition
+    ? context.db
+        .select({ key: permissions.key, description: permissions.description })
+        .from(permissions)
+        .where(searchCondition)
+    : context.db
+        .select({ key: permissions.key, description: permissions.description })
+        .from(permissions)
+  )
+    .orderBy(sortFn(sortColumn), sortFn(permissions.key))
+    .limit(limit)
+    .offset(offset);
+
+  const permissionKeys = permissionsData.map((permission) => permission.key);
+  const groupCounts = permissionKeys.length
+    ? await context.db
+        .select({
+          permissionKey: groupPermissions.permissionKey,
+          groupCount: count(groupPermissions.groupKey),
+        })
+        .from(groupPermissions)
+        .where(inArray(groupPermissions.permissionKey, permissionKeys))
+        .groupBy(groupPermissions.permissionKey)
+    : [];
+
+  const userCounts = permissionKeys.length
+    ? await context.db
+        .select({
+          permissionKey: userPermissions.permissionKey,
+          userCount: count(userPermissions.userSub),
+        })
+        .from(userPermissions)
+        .where(inArray(userPermissions.permissionKey, permissionKeys))
+        .groupBy(userPermissions.permissionKey)
+    : [];
 
   const groupCountMap = new Map(groupCounts.map((gc) => [gc.permissionKey, gc.groupCount]));
   const userCountMap = new Map(userCounts.map((uc) => [uc.permissionKey, uc.userCount]));
 
-  return permissionsData.map((p) => ({
-    key: p.key,
-    description: p.description,
-    groupCount: groupCountMap.get(p.key) || 0,
-    directUserCount: userCountMap.get(p.key) || 0,
-  }));
+  const totalPages = Math.ceil(total / limit);
+  return {
+    permissions: permissionsData.map((p) => ({
+      key: p.key,
+      description: p.description,
+      groupCount: groupCountMap.get(p.key) || 0,
+      directUserCount: userCountMap.get(p.key) || 0,
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  };
 }
 
 export async function createPermission(

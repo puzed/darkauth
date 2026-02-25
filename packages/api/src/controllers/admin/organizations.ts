@@ -6,6 +6,11 @@ import { listOrganizationsAdmin } from "../../models/rbacAdmin.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const OrganizationSchema = z.object({
   id: z.string().uuid(),
@@ -38,9 +43,11 @@ export async function getOrganizations(
 
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   const Query = z.object({
-    page: z.coerce.number().int().positive().default(1),
+    page: listPageQuerySchema.default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "name", "slug"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   });
 
   const parsed = Query.parse(Object.fromEntries(url.searchParams));
@@ -54,9 +61,11 @@ export const schema = {
   tags: ["Organizations"],
   summary: "List organizations",
   query: z.object({
-    page: z.number().int().positive().optional(),
+    page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "name", "slug"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {
     200: {

@@ -5,7 +5,12 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 import { getGroupUsers as getGroupUsersModel } from "../../models/groups.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { sendJsonValidated } from "../../utils/http.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 export async function getGroupUsers(
   context: Context,
@@ -19,8 +24,17 @@ export async function getGroupUsers(
   }
   const Params = z.object({ key: z.string() });
   const { key } = Params.parse({ key: groupKey });
-  const result = await getGroupUsersModel(context, key);
-  sendJson(response, 200, result);
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["sub", "email", "name"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const result = await getGroupUsersModel(context, key, parsed);
+  sendJsonValidated(response, 200, result, Resp);
 }
 
 // OpenAPI schema
@@ -30,7 +44,19 @@ const User = z.object({
   name: z.string().nullable().optional(),
 });
 const Group = z.object({ key: z.string(), name: z.string() });
-const Resp = z.object({ group: Group, users: z.array(User), availableUsers: z.array(User) });
+const Resp = z.object({
+  group: Group,
+  users: z.array(User),
+  availableUsers: z.array(User),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+    hasNext: z.boolean(),
+    hasPrev: z.boolean(),
+  }),
+});
 
 export const schema = {
   method: "GET",
@@ -38,6 +64,13 @@ export const schema = {
   tags: ["Groups"],
   summary: "Get group users",
   params: z.object({ key: z.string() }),
+  query: z.object({
+    page: listPageOpenApiQuerySchema,
+    limit: z.number().int().positive().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["sub", "email", "name"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+  }),
   responses: {
     200: { description: "OK", content: { "application/json": { schema: Resp } } },
     ...genericErrors,

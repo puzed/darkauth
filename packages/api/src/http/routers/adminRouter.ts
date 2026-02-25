@@ -23,6 +23,8 @@ import { postAdminOpaqueLoginStart } from "../../controllers/admin/opaqueLoginSt
 import { postOrganization } from "../../controllers/admin/organizationCreate.js";
 import { deleteOrganization } from "../../controllers/admin/organizationDelete.js";
 import { getOrganization } from "../../controllers/admin/organizationGet.js";
+import { postOrganizationMember } from "../../controllers/admin/organizationMemberCreate.js";
+import { deleteOrganizationMember } from "../../controllers/admin/organizationMemberDelete.js";
 import { deleteOrganizationMemberRole } from "../../controllers/admin/organizationMemberRoleDelete.js";
 import { postOrganizationMemberRoles } from "../../controllers/admin/organizationMemberRolesAdd.js";
 import { putOrganizationMemberRoles } from "../../controllers/admin/organizationMemberRolesUpdate.js";
@@ -251,15 +253,35 @@ export function createAdminRouter(context: Context) {
         );
       }
 
-      const organizationMembersMatch = pathname.match(/^\/admin\/organizations\/([^/]+)\/members$/);
-      if (organizationMembersMatch && method === "GET") {
-        const organizationId = organizationMembersMatch[1];
-        return await getOrganizationMembersAdmin(
+      const organizationMemberMatch = pathname.match(
+        /^\/admin\/organizations\/([^/]+)\/members\/([^/]+)$/
+      );
+      if (organizationMemberMatch && method === "DELETE") {
+        const organizationId = organizationMemberMatch[1];
+        const memberId = organizationMemberMatch[2];
+        return await deleteOrganizationMember(
           context,
           request,
           response,
-          organizationId as string
+          organizationId as string,
+          memberId as string
         );
+      }
+
+      const organizationMembersMatch = pathname.match(/^\/admin\/organizations\/([^/]+)\/members$/);
+      if (organizationMembersMatch) {
+        const organizationId = organizationMembersMatch[1];
+        if (method === "GET") {
+          return await getOrganizationMembersAdmin(
+            context,
+            request,
+            response,
+            organizationId as string
+          );
+        }
+        if (method === "POST") {
+          return await postOrganizationMember(context, request, response, organizationId as string);
+        }
       }
 
       if (pathname === "/admin/roles") {

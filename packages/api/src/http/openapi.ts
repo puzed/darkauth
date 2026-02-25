@@ -23,6 +23,8 @@ import { schema as adminOpaqueLoginStartSchema } from "../controllers/admin/opaq
 import { schema as adminOrganizationCreateSchema } from "../controllers/admin/organizationCreate.js";
 import { schema as adminOrganizationDeleteSchema } from "../controllers/admin/organizationDelete.js";
 import { schema as adminOrganizationGetSchema } from "../controllers/admin/organizationGet.js";
+import { schema as adminOrganizationMemberCreateSchema } from "../controllers/admin/organizationMemberCreate.js";
+import { schema as adminOrganizationMemberDeleteSchema } from "../controllers/admin/organizationMemberDelete.js";
 import { schema as adminOrganizationMemberRoleDeleteSchema } from "../controllers/admin/organizationMemberRoleDelete.js";
 import { schema as adminOrganizationMemberRolesAddSchema } from "../controllers/admin/organizationMemberRolesAdd.js";
 import { schema as adminOrganizationMemberRolesUpdateSchema } from "../controllers/admin/organizationMemberRolesUpdate.js";
@@ -140,6 +142,8 @@ const documentedSchemas: ControllerSchema[] = [
   adminOrganizationGetSchema,
   adminOrganizationUpdateSchema,
   adminOrganizationDeleteSchema,
+  adminOrganizationMemberCreateSchema,
+  adminOrganizationMemberDeleteSchema,
   adminOrganizationMembersSchema,
   adminOrganizationMemberRolesAddSchema,
   adminOrganizationMemberRolesUpdateSchema,

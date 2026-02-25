@@ -1,4 +1,4 @@
-import { and, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import {
   organizationMemberRoles,
   organizationMembers,
@@ -13,11 +13,26 @@ import type { Context } from "../types.js";
 
 export async function listOrganizationsAdmin(
   context: Context,
-  options: { page: number; limit: number; search?: string }
+  options: {
+    page: number;
+    limit: number;
+    search?: string;
+    sortBy?: "createdAt" | "name" | "slug";
+    sortOrder?: "asc" | "desc";
+  }
 ) {
   const page = Math.max(1, options.page);
   const limit = Math.min(100, Math.max(1, options.limit));
   const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "name"
+      ? organizations.name
+      : sortBy === "slug"
+        ? organizations.slug
+        : organizations.createdAt;
   const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
   const condition = searchTerm
     ? or(ilike(organizations.name, searchTerm), ilike(organizations.slug, searchTerm))
@@ -36,7 +51,7 @@ export async function listOrganizationsAdmin(
         .select({ id: organizations.id, slug: organizations.slug, name: organizations.name })
         .from(organizations)
   )
-    .orderBy(desc(organizations.createdAt))
+    .orderBy(sortFn(sortColumn), sortFn(organizations.id))
     .limit(limit)
     .offset(offset);
 
@@ -113,13 +128,58 @@ export async function getOrganizationAdmin(context: Context, organizationId: str
   return { organization, members };
 }
 
-export async function listOrganizationMembersAdmin(context: Context, organizationId: string) {
+export async function listOrganizationMembersAdmin(
+  context: Context,
+  organizationId: string,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "userSub" | "email" | "name" | "status" | "createdAt";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "email"
+      ? users.email
+      : sortBy === "name"
+        ? users.name
+        : sortBy === "status"
+          ? organizationMembers.status
+          : sortBy === "userSub"
+            ? organizationMembers.userSub
+            : organizationMembers.createdAt;
   const [organization] = await context.db
     .select({ id: organizations.id })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
     .limit(1);
   if (!organization) throw new NotFoundError("Organization not found");
+
+  const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
+  const searchCondition = searchTerm
+    ? or(
+        ilike(users.email, searchTerm),
+        ilike(users.name, searchTerm),
+        ilike(organizationMembers.userSub, searchTerm)
+      )
+    : undefined;
+  const scopedCondition = searchCondition
+    ? and(eq(organizationMembers.organizationId, organizationId), searchCondition)
+    : eq(organizationMembers.organizationId, organizationId);
+
+  const totalRows = await context.db
+    .select({ count: count() })
+    .from(organizationMembers)
+    .leftJoin(users, eq(organizationMembers.userSub, users.sub))
+    .where(scopedCondition);
+  const total = totalRows[0]?.count || 0;
 
   const members = await context.db
     .select({
@@ -131,7 +191,10 @@ export async function listOrganizationMembersAdmin(context: Context, organizatio
     })
     .from(organizationMembers)
     .leftJoin(users, eq(organizationMembers.userSub, users.sub))
-    .where(eq(organizationMembers.organizationId, organizationId));
+    .where(scopedCondition)
+    .orderBy(sortFn(sortColumn), sortFn(organizationMembers.id))
+    .limit(limit)
+    .offset(offset);
 
   const memberIds = members.map((member) => member.membershipId);
   const roleRows =
@@ -155,10 +218,174 @@ export async function listOrganizationMembersAdmin(context: Context, organizatio
     rolesByMembership.set(roleRow.membershipId, roleList);
   }
 
-  return members.map((member) => ({
-    ...member,
-    roles: rolesByMembership.get(member.membershipId) || [],
-  }));
+  const totalPages = Math.ceil(total / limit);
+  return {
+    members: members.map((member) => ({
+      ...member,
+      roles: rolesByMembership.get(member.membershipId) || [],
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  };
+}
+
+export async function addOrganizationMemberAdmin(
+  context: Context,
+  organizationId: string,
+  userSub: string
+) {
+  const [organizationRows, userRows] = await Promise.all([
+    context.db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1),
+    context.db
+      .select({ sub: users.sub, email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.sub, userSub))
+      .limit(1),
+  ]);
+
+  const organization = organizationRows[0];
+  const user = userRows[0];
+  if (!organization) throw new NotFoundError("Organization not found");
+  if (!user) throw new NotFoundError("User not found");
+
+  const existingMembership = await context.db.query.organizationMembers.findFirst({
+    where: and(
+      eq(organizationMembers.organizationId, organizationId),
+      eq(organizationMembers.userSub, userSub)
+    ),
+  });
+
+  if (existingMembership && existingMembership.status !== "active") {
+    const [updatedMembership] = await context.db
+      .update(organizationMembers)
+      .set({ status: "active", updatedAt: new Date() })
+      .where(eq(organizationMembers.id, existingMembership.id))
+      .returning();
+    if (!updatedMembership) throw new ValidationError("Failed to add organization member");
+    await context.db
+      .delete(organizationMemberRoles)
+      .where(eq(organizationMemberRoles.organizationMemberId, updatedMembership.id));
+
+    return {
+      membershipId: updatedMembership.id,
+      organizationId,
+      userSub,
+      status: updatedMembership.status,
+      email: user.email,
+      name: user.name,
+      roles: [],
+    };
+  }
+
+  if (existingMembership) {
+    return {
+      membershipId: existingMembership.id,
+      organizationId,
+      userSub,
+      status: existingMembership.status,
+      email: user.email,
+      name: user.name,
+      roles: [],
+    };
+  }
+
+  const [membership] = await context.db
+    .insert(organizationMembers)
+    .values({
+      organizationId,
+      userSub,
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing()
+    .returning();
+
+  if (!membership) {
+    const conflictMembership = await context.db.query.organizationMembers.findFirst({
+      where: and(
+        eq(organizationMembers.organizationId, organizationId),
+        eq(organizationMembers.userSub, userSub)
+      ),
+    });
+    if (!conflictMembership) throw new ValidationError("Failed to add organization member");
+
+    if (conflictMembership.status !== "active") {
+      const [updatedMembership] = await context.db
+        .update(organizationMembers)
+        .set({ status: "active", updatedAt: new Date() })
+        .where(eq(organizationMembers.id, conflictMembership.id))
+        .returning();
+      if (!updatedMembership) throw new ValidationError("Failed to add organization member");
+      await context.db
+        .delete(organizationMemberRoles)
+        .where(eq(organizationMemberRoles.organizationMemberId, updatedMembership.id));
+      return {
+        membershipId: updatedMembership.id,
+        organizationId,
+        userSub,
+        status: updatedMembership.status,
+        email: user.email,
+        name: user.name,
+        roles: [],
+      };
+    }
+
+    return {
+      membershipId: conflictMembership.id,
+      organizationId,
+      userSub,
+      status: conflictMembership.status,
+      email: user.email,
+      name: user.name,
+      roles: [],
+    };
+  }
+
+  return {
+    membershipId: membership.id,
+    organizationId,
+    userSub,
+    status: membership.status,
+    email: user.email,
+    name: user.name,
+    roles: [],
+  };
+}
+
+export async function removeOrganizationMemberAdmin(
+  context: Context,
+  organizationId: string,
+  memberId: string
+) {
+  const member = await context.db.query.organizationMembers.findFirst({
+    where: and(
+      eq(organizationMembers.id, memberId),
+      eq(organizationMembers.organizationId, organizationId)
+    ),
+  });
+  if (!member) throw new NotFoundError("Organization member not found");
+
+  await context.db
+    .delete(organizationMembers)
+    .where(
+      and(
+        eq(organizationMembers.id, memberId),
+        eq(organizationMembers.organizationId, organizationId)
+      )
+    );
+
+  return { success: true as const };
 }
 
 export async function updateOrganizationAdmin(
@@ -194,21 +421,75 @@ export async function deleteOrganizationAdmin(context: Context, organizationId: 
   return { success: true as const };
 }
 
-export async function listRolesAdmin(context: Context) {
-  const roleRows = await context.db
-    .select({
-      id: roles.id,
-      key: roles.key,
-      name: roles.name,
-      description: roles.description,
-      system: roles.system,
-    })
-    .from(roles)
-    .orderBy(roles.key);
+export async function listRolesAdmin(
+  context: Context,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "key" | "name" | "createdAt" | "updatedAt";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "key";
+  const sortOrder = options.sortOrder || "asc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "name"
+      ? roles.name
+      : sortBy === "createdAt"
+        ? roles.createdAt
+        : sortBy === "updatedAt"
+          ? roles.updatedAt
+          : roles.key;
+  const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
+  const searchCondition = searchTerm
+    ? or(
+        ilike(roles.key, searchTerm),
+        ilike(roles.name, searchTerm),
+        ilike(roles.description, searchTerm)
+      )
+    : undefined;
+  const totalRows = await (searchCondition
+    ? context.db.select({ count: count() }).from(roles).where(searchCondition)
+    : context.db.select({ count: count() }).from(roles));
+  const total = totalRows[0]?.count || 0;
 
-  const mappings = await context.db
-    .select({ roleId: rolePermissions.roleId, permissionKey: rolePermissions.permissionKey })
-    .from(rolePermissions);
+  const roleRows = await (searchCondition
+    ? context.db
+        .select({
+          id: roles.id,
+          key: roles.key,
+          name: roles.name,
+          description: roles.description,
+          system: roles.system,
+        })
+        .from(roles)
+        .where(searchCondition)
+    : context.db
+        .select({
+          id: roles.id,
+          key: roles.key,
+          name: roles.name,
+          description: roles.description,
+          system: roles.system,
+        })
+        .from(roles)
+  )
+    .orderBy(sortFn(sortColumn), sortFn(roles.id))
+    .limit(limit)
+    .offset(offset);
+
+  const roleIds = roleRows.map((role) => role.id);
+  const mappings = roleIds.length
+    ? await context.db
+        .select({ roleId: rolePermissions.roleId, permissionKey: rolePermissions.permissionKey })
+        .from(rolePermissions)
+        .where(inArray(rolePermissions.roleId, roleIds))
+    : [];
 
   const permissionsByRole = mappings.reduce((map, row) => {
     const list = map.get(row.roleId) || [];
@@ -217,10 +498,21 @@ export async function listRolesAdmin(context: Context) {
     return map;
   }, new Map<string, string[]>());
 
-  return roleRows.map((role) => ({
-    ...role,
-    permissionKeys: (permissionsByRole.get(role.id) || []).sort(),
-  }));
+  const totalPages = Math.ceil(total / limit);
+  return {
+    roles: roleRows.map((role) => ({
+      ...role,
+      permissionKeys: (permissionsByRole.get(role.id) || []).sort(),
+    })),
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  };
 }
 
 export async function createRoleAdmin(

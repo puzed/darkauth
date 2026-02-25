@@ -2,6 +2,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const GroupSchema = z.object({
   key: z.string(),
@@ -43,9 +48,11 @@ export async function getGroups(
   }
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   const Query = z.object({
-    page: z.coerce.number().int().positive().default(1),
+    page: listPageQuerySchema.default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["key", "name"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("asc"),
   });
   const parsed = Query.parse(Object.fromEntries(url.searchParams));
   const responseData = await listGroupsWithCounts(context, parsed);
@@ -58,9 +65,11 @@ export const schema = {
   tags: ["Groups"],
   summary: "List groups",
   query: z.object({
-    page: z.number().int().positive().optional(),
+    page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["key", "name"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {
     200: {

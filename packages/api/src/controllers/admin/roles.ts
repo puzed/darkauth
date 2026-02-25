@@ -6,6 +6,11 @@ import { listRolesAdmin } from "../../models/rbacAdmin.js";
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const RoleSchema = z.object({
   id: z.string().uuid(),
@@ -16,7 +21,18 @@ const RoleSchema = z.object({
   permissionKeys: z.array(z.string()),
 });
 
-const ResponseSchema = z.object({ roles: z.array(RoleSchema) });
+const PaginationSchema = z.object({
+  page: z.number().int().positive(),
+  limit: z.number().int().positive(),
+  total: z.number().int().nonnegative(),
+  totalPages: z.number().int().nonnegative(),
+  hasNext: z.boolean(),
+  hasPrev: z.boolean(),
+});
+const ResponseSchema = z.object({
+  roles: z.array(RoleSchema),
+  pagination: PaginationSchema,
+});
 
 export async function getRoles(
   context: Context,
@@ -26,8 +42,17 @@ export async function getRoles(
   const session = await requireSession(context, request, true);
   if (!session.adminRole) throw new ForbiddenError("Admin access required");
 
-  const roles = await listRolesAdmin(context);
-  sendJsonValidated(response, 200, { roles }, ResponseSchema);
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["key", "name", "createdAt", "updatedAt"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("asc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const result = await listRolesAdmin(context, parsed);
+  sendJsonValidated(response, 200, result, ResponseSchema);
 }
 
 export const schema = {
@@ -35,6 +60,13 @@ export const schema = {
   path: "/admin/roles",
   tags: ["Roles"],
   summary: "List roles",
+  query: z.object({
+    page: listPageOpenApiQuerySchema,
+    limit: z.number().int().positive().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["key", "name", "createdAt", "updatedAt"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+  }),
   responses: {
     200: {
       description: "OK",
