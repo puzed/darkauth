@@ -10,6 +10,7 @@ This directory contains concise implementation-aligned documentation for DarkAut
 ## API Behavior
 
 - [Organization RBAC](./organization-rbac.md): org memberships, role/permission derivation, org context resolution (`ORG_CONTEXT_REQUIRED`), user org endpoints, admin org/member/role endpoints (including member role add/remove compatibility routes), token org claims, and global-group UI status.
+- [Admin Table and List Standards](./admin-list-standards.md): shared admin table UX, list query contract, pagination shape, and list bounds.
 
 ## Development Guides
 

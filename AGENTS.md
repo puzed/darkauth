@@ -17,7 +17,6 @@ Only the main top level thread/agent should follow these:
   - security-auditor
   - test-writer
 - You can (and should where possible) spawn multiple of the same agent types to complete tasks in parallel.
-- Tell sub-agents explicitly to report back to the main thread frequently providing updates on their progress.
 - After making your change make sure you:
   - Get the security-auditor to review your code and provide feedback on any security implications.
   - Get the documentation-writer to update the documentation to reflect your changes.
