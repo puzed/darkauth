@@ -80,8 +80,6 @@ const App = () => {
             await adminApiService.getAdminSession();
           } catch (error) {
             logger.error(error, "Session refresh failed");
-            setAdminSession(null);
-            authService.clearSession();
           }
         });
       } else {
@@ -118,8 +116,6 @@ const App = () => {
         await adminApiService.getAdminSession();
       } catch (error) {
         logger.error(error, "Session refresh failed");
-        setAdminSession(null);
-        authService.clearSession();
       }
     });
   };

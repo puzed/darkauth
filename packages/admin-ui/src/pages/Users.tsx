@@ -1,6 +1,5 @@
 import {
   Edit,
-  Filter,
   KeyRound,
   RefreshCcw,
   RotateCcw,
@@ -8,27 +7,31 @@ import {
   UserPlus,
   Users as UsersIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
+import rowActionsStyles from "@/components/row-actions.module.css";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-import tableStyles from "@/components/table.module.css";
+import ListPagination from "@/components/table/list-pagination";
+import SortableTableHead from "@/components/table/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
 import UserCell from "@/components/user/user-cell";
-import adminApiService, { type Group, type User } from "@/services/api";
+import { cn } from "@/lib/utils";
+import adminApiService, { type Group, type SortOrder, type User } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
 import { logger } from "@/services/logger";
 import adminOpaqueService from "@/services/opaque-cloudflare";
@@ -50,12 +53,33 @@ export default function Users() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [openActionsRowSub, setOpenActionsRowSub] = useState<string | null>(null);
+  const [rowActionsInFlight, setRowActionsInFlight] = useState<Record<string, boolean>>({});
+  const rowActionsInFlightRef = useRef(new Set<string>());
+
+  const toggleSort = (field: string) => {
+    setCurrentPage(1);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortOrder("asc");
+  };
 
   const loadUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminApiService.getUsersPaged(currentPage, 20, debouncedSearch);
+      const response = await adminApiService.getUsersPaged({
+        page: currentPage,
+        limit: 20,
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+      });
       const base = response.users as UserWithDetails[];
       const enriched = await Promise.all(
         base.map(async (u) => {
@@ -73,20 +97,20 @@ export default function Users() {
       setUsers(enriched);
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
-    } catch (error) {
-      logger.error(error, "Failed to load users");
-      setError(error instanceof Error ? error.message : "Failed to load users");
+    } catch (loadError) {
+      logger.error(loadError, "Failed to load users");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load users");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortBy, sortOrder]);
 
   const loadGroupsAndPermissions = useCallback(async () => {
     try {
       const [groupsData] = await Promise.all([adminApiService.getGroups()]);
       setGroups(groupsData);
-    } catch (error) {
-      logger.error(error, "Failed to load groups");
+    } catch (loadError) {
+      logger.error(loadError, "Failed to load groups");
     }
   }, []);
 
@@ -96,62 +120,91 @@ export default function Users() {
   }, [loadUsers, loadGroupsAndPermissions]);
 
   useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
+  const runUserRowAction = useCallback(async (sub: string, action: () => Promise<void>) => {
+    if (rowActionsInFlightRef.current.has(sub)) return;
+    rowActionsInFlightRef.current.add(sub);
+    setRowActionsInFlight((prev) => ({ ...prev, [sub]: true }));
+    try {
+      await action();
+    } finally {
+      rowActionsInFlightRef.current.delete(sub);
+      setRowActionsInFlight((prev) => {
+        if (!prev[sub]) return prev;
+        const { [sub]: _removed, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, []);
+
   const handleDeleteUser = async (user: User) => {
     if (!confirm(`Delete user ${user.email || user.sub}?`)) return;
-    try {
-      setError(null);
-      await adminApiService.deleteUser(user.sub);
-      setUsers((prev) => prev.filter((u) => u.sub !== user.sub));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete user");
-    }
+    await runUserRowAction(user.sub, async () => {
+      try {
+        setError(null);
+        await adminApiService.deleteUser(user.sub);
+        setUsers((prev) => prev.filter((u) => u.sub !== user.sub));
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : "Failed to delete user");
+      }
+    });
   };
 
   const requirePasswordReset = async (user: User) => {
-    try {
-      await adminApiService.requireUserPasswordReset(user.sub);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to mark reset");
-    }
+    await runUserRowAction(user.sub, async () => {
+      try {
+        await adminApiService.requireUserPasswordReset(user.sub);
+      } catch (resetError) {
+        setError(resetError instanceof Error ? resetError.message : "Failed to mark reset");
+      }
+    });
   };
 
   const setTemporaryPassword = async (user: User) => {
-    const pwd = window.prompt(`Set temporary password for ${user.email}`);
-    if (!pwd) return;
-    try {
-      const start = await adminOpaqueService.startRegistration(pwd);
-      const startResp = await adminApiService.userPasswordSetStart(user.sub, start.request);
-      const finish = await adminOpaqueService.finishRegistration(
-        startResp.message,
-        startResp.serverPublicKey,
-        start.state,
-        startResp.identityU
-      );
-      const hash = await sha256Base64Url(finish.passwordKey);
-      await adminApiService.userPasswordSetFinish(user.sub, finish.request, hash);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to set password");
-    }
+    await runUserRowAction(user.sub, async () => {
+      const pwd = window.prompt(`Set temporary password for ${user.email}`);
+      if (!pwd) return;
+      try {
+        const start = await adminOpaqueService.startRegistration(pwd);
+        const startResp = await adminApiService.userPasswordSetStart(user.sub, start.request);
+        const finish = await adminOpaqueService.finishRegistration(
+          startResp.message,
+          startResp.serverPublicKey,
+          start.state,
+          startResp.identityU
+        );
+        const hash = await sha256Base64Url(finish.passwordKey);
+        await adminApiService.userPasswordSetFinish(user.sub, finish.request, hash);
+      } catch (setError) {
+        setError(setError instanceof Error ? setError.message : "Failed to set password");
+      }
+    });
   };
 
   const removeOtp = async (user: User) => {
-    try {
-      await adminApiService.deleteUserOtp(user.sub);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to remove OTP");
-    }
+    await runUserRowAction(user.sub, async () => {
+      try {
+        await adminApiService.deleteUserOtp(user.sub);
+      } catch (otpError) {
+        setError(otpError instanceof Error ? otpError.message : "Failed to remove OTP");
+      }
+    });
   };
 
   const unlockOtp = async (user: User) => {
-    try {
-      await adminApiService.unlockUserOtp(user.sub);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to unlock OTP");
-    }
+    await runUserRowAction(user.sub, async () => {
+      try {
+        await adminApiService.unlockUserOtp(user.sub);
+      } catch (otpError) {
+        setError(otpError instanceof Error ? otpError.message : "Failed to unlock OTP");
+      }
+    });
   };
 
   const formatDate = (dateString: string) => {
@@ -160,6 +213,10 @@ export default function Users() {
       month: "short",
       day: "numeric",
     });
+  };
+
+  const openUser = (user: User) => {
+    navigate(`/users/${encodeURIComponent(user.sub)}`);
   };
 
   if (loading && users.length === 0) return null;
@@ -195,16 +252,10 @@ export default function Users() {
         <StatsCard title="Groups" value={groups.length} description="Total groups" />
       </StatsGrid>
 
-      {/* Users Table */}
       <ListCard
         title="User Management"
         description="View and manage all user accounts"
         search={{ placeholder: "Search users...", value: searchQuery, onChange: setSearchQuery }}
-        rightActions={
-          <Button variant="outline" size="icon">
-            <Filter size={16} />
-          </Button>
-        }
       >
         {users.length === 0 ? (
           <EmptyState
@@ -215,136 +266,159 @@ export default function Users() {
             }
           />
         ) : (
-          <table className={tableStyles.table}>
-            <thead className={tableStyles.header}>
-              <tr>
-                <th className={tableStyles.head}>User</th>
-                <th className={tableStyles.head}>Email</th>
-                <th className={tableStyles.head}>Groups</th>
-                <th className={tableStyles.head}>Security</th>
-                <th className={tableStyles.head}>Created</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => (
-                <tr key={user.sub} className={tableStyles.row}>
-                  <td className={tableStyles.cell}>
-                    <UserCell name={user.name} email={user.email} sub={user.sub} />
-                  </td>
-                  <td className={tableStyles.cell}>{user.email}</td>
-                  <td className={tableStyles.cell}>
-                    {user.groups && user.groups.length > 0 ? (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {user.groups.slice(0, 2).map((groupKey) => (
-                          <Badge key={groupKey}>
-                            {groups.find((g) => g.key === groupKey)?.name || groupKey}
-                          </Badge>
-                        ))}
-                        {user.groups.length > 2 && <Badge>+{user.groups.length - 2}</Badge>}
-                      </div>
-                    ) : (
-                      <span style={{ color: "hsl(var(--muted-foreground))" }}>No groups</span>
-                    )}
-                  </td>
-                  <td className={tableStyles.cell}>
-                    {user.otp?.enabled ? (
-                      <Badge>OTP</Badge>
-                    ) : user.otp?.pending ? (
-                      <Badge variant="secondary">OTP Pending</Badge>
-                    ) : (
-                      <span style={{ color: "hsl(var(--muted-foreground))" }}>None</span>
-                    )}
-                  </td>
-                  <td className={tableStyles.cell}>{formatDate(user.createdAt)}</td>
-                  <td className={tableStyles.cell}>
-                    <RowActions
-                      items={[
-                        {
-                          key: "edit",
-                          label: "Edit User",
-                          icon: <Edit className="h-4 w-4" />,
-                          onClick: () => navigate(`/users/${user.sub}`),
-                        },
-                        {
-                          key: "reset",
-                          label: "Reset Password",
-                          icon: <KeyRound className="h-4 w-4" />,
-                          onClick: () => {},
-                          children: [
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="User"
+                    isActive={sortBy === "name"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("name")}
+                  />
+                  <SortableTableHead
+                    label="Email"
+                    isActive={sortBy === "email"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("email")}
+                  />
+                  <TableHead>Groups</TableHead>
+                  <TableHead>Security</TableHead>
+                  <SortableTableHead
+                    label="Created"
+                    isActive={sortBy === "createdAt"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("createdAt")}
+                  />
+                  <TableHead className={tableStyles.actionCell}></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => {
+                  const isRowActionInFlight = !!rowActionsInFlight[user.sub];
+                  return (
+                    <TableRow
+                      key={user.sub}
+                      className={cn(openActionsRowSub === user.sub && rowActionsStyles.rowActive)}
+                    >
+                      <TableCell>
+                        <button
+                          type="button"
+                          className={tableStyles.primaryActionButton}
+                          onClick={() => openUser(user)}
+                        >
+                          <UserCell name={user.name} email={user.email} sub={user.sub} />
+                        </button>
+                      </TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        {user.groups && user.groups.length > 0 ? (
+                          <div style={{ display: "inline-flex", gap: 4 }}>
+                            {user.groups.slice(0, 2).map((groupKey) => (
+                              <Badge key={groupKey}>
+                                {groups.find((g) => g.key === groupKey)?.name || groupKey}
+                              </Badge>
+                            ))}
+                            {user.groups.length > 2 && <Badge>+{user.groups.length - 2}</Badge>}
+                          </div>
+                        ) : (
+                          <span style={{ color: "hsl(var(--muted-foreground))" }}>No groups</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {user.otp?.enabled ? (
+                          <Badge>OTP</Badge>
+                        ) : user.otp?.pending ? (
+                          <Badge variant="secondary">OTP Pending</Badge>
+                        ) : (
+                          <span style={{ color: "hsl(var(--muted-foreground))" }}>None</span>
+                        )}
+                      </TableCell>
+                      <TableCell>{formatDate(user.createdAt)}</TableCell>
+                      <TableCell>
+                        <RowActions
+                          open={openActionsRowSub === user.sub}
+                          onOpenChange={(open) => setOpenActionsRowSub(open ? user.sub : null)}
+                          items={[
                             {
-                              key: "set-temp",
-                              label: "Set Temporary Password",
+                              key: "edit",
+                              label: "Edit User",
+                              icon: <Edit className="h-4 w-4" />,
+                              disabled: isRowActionInFlight,
+                              onClick: () => openUser(user),
+                            },
+                            {
+                              key: "reset",
+                              label: "Reset Password",
                               icon: <KeyRound className="h-4 w-4" />,
-                              onClick: () => setTemporaryPassword(user),
+                              disabled: isRowActionInFlight,
+                              onClick: () => {},
+                              children: [
+                                {
+                                  key: "set-temp",
+                                  label: "Set Temporary Password",
+                                  icon: <KeyRound className="h-4 w-4" />,
+                                  disabled: isRowActionInFlight,
+                                  onClick: () => setTemporaryPassword(user),
+                                },
+                                {
+                                  key: "require",
+                                  label: "Require Reset",
+                                  icon: <RotateCcw className="h-4 w-4" />,
+                                  disabled: isRowActionInFlight,
+                                  onClick: () => requirePasswordReset(user),
+                                },
+                              ],
                             },
                             {
-                              key: "require",
-                              label: "Require Reset",
-                              icon: <RotateCcw className="h-4 w-4" />,
-                              onClick: () => requirePasswordReset(user),
+                              key: "otp",
+                              label: "OTP",
+                              icon: <KeyRound className="h-4 w-4" />,
+                              disabled: isRowActionInFlight,
+                              onClick: () => {},
+                              children: [
+                                {
+                                  key: "otp-remove",
+                                  label: "Remove OTP",
+                                  icon: <RotateCcw className="h-4 w-4" />,
+                                  disabled: isRowActionInFlight,
+                                  onClick: () => removeOtp(user),
+                                },
+                                {
+                                  key: "otp-unlock",
+                                  label: "Unlock OTP",
+                                  icon: <RefreshCcw className="h-4 w-4" />,
+                                  disabled: isRowActionInFlight,
+                                  onClick: () => unlockOtp(user),
+                                },
+                              ],
                             },
-                          ],
-                        },
-                        {
-                          key: "otp",
-                          label: "OTP",
-                          icon: <KeyRound className="h-4 w-4" />,
-                          onClick: () => {},
-                          children: [
                             {
-                              key: "otp-remove",
-                              label: "Remove OTP",
-                              icon: <RotateCcw className="h-4 w-4" />,
-                              onClick: () => removeOtp(user),
+                              key: "delete",
+                              label: "Delete User",
+                              icon: <Trash2 className="h-4 w-4" />,
+                              destructive: true,
+                              disabled: isRowActionInFlight,
+                              onClick: () => handleDeleteUser(user),
                             },
-                            {
-                              key: "otp-unlock",
-                              label: "Unlock OTP",
-                              icon: <RefreshCcw className="h-4 w-4" />,
-                              onClick: () => unlockOtp(user),
-                            },
-                          ],
-                        },
-                        {
-                          key: "delete",
-                          label: "Delete User",
-                          icon: <Trash2 className="h-4 w-4" />,
-                          destructive: true,
-                          onClick: () => handleDeleteUser(user),
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <div style={{ marginTop: 20 }}>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </ListCard>
-      {totalPages > 1 && (
-        <div style={{ marginTop: 20 }}>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>{currentPage}</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
     </div>
   );
 }

@@ -89,13 +89,13 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
     <div className={styles.sidebar}>
       <div className={styles.header}>
         <div className={styles.brand}>
-          <div className={styles.logo}>
-            <img src="/favicon.svg" alt="DarkAuth" className={styles.logoIcon} />
-          </div>
-          <div className={styles.brandText}>
+          <div className={styles.logoRow}>
+            <div className={styles.logo}>
+              <img src="/favicon.svg" alt="DarkAuth" className={styles.logoIcon} />
+            </div>
             <h2>DarkAuth</h2>
-            <p>Admin Portal</p>
           </div>
+          <p className={styles.brandSubtitle}>Admin Portal</p>
         </div>
       </div>
 
@@ -123,23 +123,18 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
       </div>
       <div className={styles.userSection}>
         <div className={styles.userMenuContainer}>
-          {open && (
-            <div className={styles.userMenu}>
-              <div className={styles.userMenuHeader}>
-                <p className={styles.userName}>{adminSession?.name || "Admin User"}</p>
-                <p className={styles.userEmail}>{adminSession?.email}</p>
-                {adminSession?.role && <p className={styles.userRole}>Role: {adminSession.role}</p>}
-              </div>
-              <NavLink
-                to="/otp?manage=1"
-                className={styles.userMenuItem}
-                onClick={() => {
-                  if (onClose) onClose();
-                  setOpen(false);
-                }}
-              >
-                Two-Factor Authentication
-              </NavLink>
+          <button type="button" className={styles.userMenuButton} onClick={() => setOpen(!open)}>
+            <div className={styles.userAvatar}>{getInitials()}</div>
+            <div className={styles.userMeta}>
+              <div className={styles.userName}>{adminSession?.name || "Admin User"}</div>
+              <div className={styles.userEmail}>{adminSession?.email}</div>
+            </div>
+            <ChevronDown
+              className={`${styles.userChevron} ${open ? styles.userChevronOpen : ""}`}
+            />
+          </button>
+          <div className={`${styles.userMenu} ${open ? styles.userMenuOpen : ""}`}>
+            <div className={styles.userMenuInner}>
               <div className={styles.appearanceRow}>
                 <span className={styles.appearanceLabel}>Appearance</span>
                 <div className={styles.appearanceControls}>
@@ -182,6 +177,16 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
               >
                 Change Password
               </NavLink>
+              <NavLink
+                to="/otp?manage=1"
+                className={styles.userMenuItem}
+                onClick={() => {
+                  if (onClose) onClose();
+                  setOpen(false);
+                }}
+              >
+                Two-Factor Authentication
+              </NavLink>
               <button
                 type="button"
                 className={`${styles.userMenuItem} ${styles.danger}`}
@@ -191,17 +196,7 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
                 Log out
               </button>
             </div>
-          )}
-          <button type="button" className={styles.userMenuButton} onClick={() => setOpen(!open)}>
-            <div className={styles.userAvatar}>{getInitials()}</div>
-            <div className={styles.userMeta}>
-              <div className={styles.userName}>{adminSession?.name || "Admin User"}</div>
-              <div className={styles.userEmail}>{adminSession?.email}</div>
-            </div>
-            <ChevronDown
-              className={`${styles.userChevron} ${open ? styles.userChevronOpen : ""}`}
-            />
-          </button>
+          </div>
         </div>
       </div>
     </div>

@@ -103,8 +103,6 @@ class AuthService {
         await onRefresh();
       } catch (error) {
         logger.error(error, "Session refresh failed");
-        // If refresh fails, clear the stored session
-        this.clearSession();
       }
     }, SESSION_REFRESH_INTERVAL);
 

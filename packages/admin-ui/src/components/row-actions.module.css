@@ -1,0 +1,61 @@
+.menuContent {
+  min-width: 180px;
+  padding: 6px;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.menuSubContent {
+  min-width: 180px;
+  padding: 6px;
+  box-shadow: none !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.menuLabel {
+  padding: 8px 10px;
+}
+
+.menuSeparator {
+  margin: 6px 0;
+}
+
+.subTrigger {
+  cursor: pointer;
+  gap: 8px;
+}
+
+.actionIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionIcon :global(svg) {
+  width: 14px;
+  height: 14px;
+}
+
+.iconSpacer {
+  width: 8px;
+}
+
+.triggerOpen {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.triggerOpen:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.rowActive {
+  background: hsl(var(--accent) / 0.45);
+}
+
+.rowActive:hover {
+  background: hsl(var(--accent) / 0.55);
+}

@@ -140,7 +140,7 @@ export default function UserEdit() {
               <Input value={new Date(user.createdAt).toLocaleString()} readOnly />
             </FormField>
           </FormGrid>
-          <FormActions>
+          <FormActions withMargin>
             {user && (
               <>
                 <Button

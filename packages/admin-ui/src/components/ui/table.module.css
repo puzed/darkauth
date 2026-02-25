@@ -1,11 +1,13 @@
 .wrapper {
   position: relative;
   width: 100%;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .table {
   width: 100%;
+  min-width: max-content;
   font-size: 14px;
   border-collapse: separate;
   border-spacing: 0;
@@ -19,31 +21,123 @@
   border-bottom: 0;
 }
 
+.head {
+  height: 38px;
+  padding: 0 12px;
+  text-align: left;
+  vertical-align: middle;
+  font-weight: 500;
+  font-size: 0.8125rem;
+  color: hsl(var(--muted-foreground));
+  white-space: nowrap;
+}
+
+.cell {
+  padding: 5px 12px;
+  vertical-align: middle;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 .row {
   border-bottom: 1px solid hsl(var(--border));
   transition: background-color 0.2s ease;
+  height: 36px;
 }
 
 .row:hover {
   background: hsl(var(--muted) / 0.5);
 }
 
-.head {
-  height: 48px;
-  padding: 0 16px;
-  text-align: left;
-  vertical-align: middle;
-  font-weight: 500;
-  color: hsl(var(--muted-foreground));
-}
-
-.cell {
-  padding: 16px;
-  vertical-align: middle;
-}
-
 .caption {
   margin-top: 16px;
   font-size: 14px;
   color: hsl(var(--muted-foreground));
+}
+
+.actionCell {
+  width: 44px;
+  padding-right: 8px;
+  padding-left: 8px;
+  text-align: right;
+}
+
+.head:last-child,
+.cell:last-child {
+  width: 44px;
+  padding-right: 8px;
+  padding-left: 8px;
+  text-align: right;
+}
+
+.actionTrigger {
+  background: transparent;
+  border: 1px solid transparent;
+  color: hsl(var(--muted-foreground));
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.actionTrigger svg {
+  width: 14px;
+  height: 14px;
+}
+
+.actionTrigger:hover {
+  background: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+
+.actionTrigger:focus-visible {
+  outline: none;
+  border-color: hsl(var(--ring));
+}
+
+.headButton {
+  background: transparent;
+  border: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+
+.headButtonActive {
+  color: hsl(var(--foreground));
+}
+
+.primaryActionButton {
+  display: inline-flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.primaryActionButton:hover .primaryActionText,
+.primaryActionButton:focus-visible .primaryActionText {
+  text-decoration: underline;
+}
+
+.primaryActionButton:focus-visible {
+  outline: none;
+}
+
+.primaryActionText {
+  font-weight: 500;
 }
