@@ -48,6 +48,9 @@ jobs:
           file: Dockerfile
           push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           platforms: linux/amd64
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            COMMIT_HASH=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -103,6 +106,9 @@ jobs:
           file: Dockerfile
           push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           platforms: linux/arm64
+          build-args: |
+            APP_VERSION=${{ github.sha }}
+            COMMIT_HASH=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
