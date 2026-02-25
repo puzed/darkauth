@@ -139,8 +139,8 @@ async function _postInstallComplete(
       installCtx,
       demoConfidentialSecretEnc
     );
-    await (await import("../../models/install.js")).ensureDefaultGroupAndSchema(installCtx);
-    await (await import("../../models/install.js")).seedDefaultGroups(installCtx);
+    await (await import("../../models/install.js")).ensureDefaultOrganizationAndSchema(installCtx);
+    await (await import("../../models/install.js")).seedDefaultOrganizationRbac(installCtx);
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"

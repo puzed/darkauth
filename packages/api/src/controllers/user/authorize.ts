@@ -20,6 +20,7 @@ export const AuthorizationRequestSchema = z.object({
   scope: z.string().optional(),
   state: z.string().optional(),
   nonce: z.string().optional(),
+  organization_id: z.string().uuid().optional(),
   code_challenge: z.string().optional(),
   code_challenge_method: z.string().optional(),
   zk_pub: z.string().optional(),
@@ -48,6 +49,9 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   if (!client) {
     throw new UnauthorizedClientError("Unknown client");
+  }
+  if (!client.grantTypes.includes("authorization_code")) {
+    throw new UnauthorizedClientError("authorization_code grant not allowed for this client");
   }
 
   if (!client.redirectUris.includes(authRequest.redirect_uri)) {
@@ -105,10 +109,13 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   const sessionId = getSessionId(request);
   let userSub: string | undefined;
+  let sessionOrganizationId: string | undefined;
 
   if (sessionId) {
     const sessionData = await getSession(context, sessionId);
     userSub = sessionData?.sub;
+    sessionOrganizationId =
+      typeof sessionData?.organizationId === "string" ? sessionData.organizationId : undefined;
   }
 
   await createPendingAuth(context, {
@@ -121,6 +128,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     codeChallengeMethod: authRequest.code_challenge_method,
     zkPubKid,
     userSub,
+    organizationId: authRequest.organization_id || sessionOrganizationId,
     origin: `http://${request.headers.host}`,
     expiresAt,
   });
@@ -134,6 +142,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (authRequest.client_id) qs.set("client_id", authRequest.client_id);
   if (authRequest.redirect_uri) qs.set("redirect_uri", authRequest.redirect_uri);
   if (authRequest.state) qs.set("state", authRequest.state);
+  if (authRequest.organization_id) qs.set("organization_id", authRequest.organization_id);
   const redirectTo = `/${qs.toString() ? `?${qs.toString()}` : ""}`;
   response.statusCode = 302;
   response.setHeader("Location", redirectTo);

@@ -2,10 +2,11 @@
 
 import { createContext } from "../src/context/createContext.js";
 import { adminUsers, settings } from "../src/db/schema.js";
+import { seedDefaultOrganizationRbac } from "../src/models/install.js";
 import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
 import { createKekService, generateKdfParams } from "../src/services/kek.js";
 import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.js";
-import { seedDefaultClients, seedDefaultGroups } from "../src/models/install.js";
+import { seedDefaultClients } from "../src/models/install.js";
 import type { Config, KdfParams } from "../src/types.js";
 import { generateRandomString } from "../src/utils/crypto.js";
 import fs from "node:fs";
@@ -292,7 +293,7 @@ async function install() {
 			await seedDefaultClients(context, demoConfidentialSecretEnc);
 
 		console.log("6. Seeding default group...");
-		await seedDefaultGroups(context);
+		await seedDefaultOrganizationRbac(context);
 
 		console.log("7. Creating default admin user...");
 		const adminEmail = "admin@example.com";

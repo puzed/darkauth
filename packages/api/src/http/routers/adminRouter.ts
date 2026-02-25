@@ -15,18 +15,20 @@ import { deleteClientController } from "../../controllers/admin/clientDelete.js"
 import { getClientSecretController } from "../../controllers/admin/clientSecret.js";
 import { getClients } from "../../controllers/admin/clients.js";
 import { updateClientController } from "../../controllers/admin/clientUpdate.js";
-import { createGroup } from "../../controllers/admin/groupCreate.js";
-import { deleteGroupController } from "../../controllers/admin/groupDelete.js";
-import { getGroup } from "../../controllers/admin/groupGet.js";
-import { getGroups } from "../../controllers/admin/groups.js";
-import { updateGroupController } from "../../controllers/admin/groupUpdate.js";
-import { getGroupUsers } from "../../controllers/admin/groupUsers.js";
-import { updateGroupUsers } from "../../controllers/admin/groupUsersUpdate.js";
 import { getJwks } from "../../controllers/admin/jwks.js";
 import { rotateJwks } from "../../controllers/admin/jwksRotate.js";
 import { postAdminLogout } from "../../controllers/admin/logout.js";
 import { postAdminOpaqueLoginFinish } from "../../controllers/admin/opaqueLoginFinish.js";
 import { postAdminOpaqueLoginStart } from "../../controllers/admin/opaqueLoginStart.js";
+import { postOrganization } from "../../controllers/admin/organizationCreate.js";
+import { deleteOrganization } from "../../controllers/admin/organizationDelete.js";
+import { getOrganization } from "../../controllers/admin/organizationGet.js";
+import { deleteOrganizationMemberRole } from "../../controllers/admin/organizationMemberRoleDelete.js";
+import { postOrganizationMemberRoles } from "../../controllers/admin/organizationMemberRolesAdd.js";
+import { putOrganizationMemberRoles } from "../../controllers/admin/organizationMemberRolesUpdate.js";
+import { getOrganizationMembersAdmin } from "../../controllers/admin/organizationMembers.js";
+import { getOrganizations } from "../../controllers/admin/organizations.js";
+import { putOrganization } from "../../controllers/admin/organizationUpdate.js";
 import {
   getAdminOtpStatus,
   postAdminOtpDisable,
@@ -41,13 +43,17 @@ import { createPermission } from "../../controllers/admin/permissionCreate.js";
 import { deletePermission } from "../../controllers/admin/permissionDelete.js";
 import { getPermissions } from "../../controllers/admin/permissions.js";
 import { postAdminRefreshToken } from "../../controllers/admin/refreshToken.js";
+import { postRole } from "../../controllers/admin/roleCreate.js";
+import { deleteRole } from "../../controllers/admin/roleDelete.js";
+import { getRole } from "../../controllers/admin/roleGet.js";
+import { putRolePermissions } from "../../controllers/admin/rolePermissionsUpdate.js";
+import { getRoles } from "../../controllers/admin/roles.js";
+import { putRole } from "../../controllers/admin/roleUpdate.js";
 import { getAdminSession } from "../../controllers/admin/session.js";
 import { getSettings } from "../../controllers/admin/settings.js";
 import { updateSettings } from "../../controllers/admin/settingsUpdate.js";
 import { createUser } from "../../controllers/admin/userCreate.js";
 import { deleteUser } from "../../controllers/admin/userDelete.js";
-import { getUserGroups } from "../../controllers/admin/userGroups.js";
-import { updateUserGroups } from "../../controllers/admin/userGroupsUpdate.js";
 import { getUserOtp } from "../../controllers/admin/userOtp.js";
 import { deleteUserOtp } from "../../controllers/admin/userOtpDelete.js";
 import { postUserOtpUnlock } from "../../controllers/admin/userOtpUnlock.js";
@@ -145,17 +151,6 @@ export function createAdminRouter(context: Context) {
           return await postUserPasswordReset(context, request, response, userSub as string);
       }
 
-      const userGroupsMatch = pathname.match(/^\/admin\/users\/([^/]+)\/groups$/);
-      if (userGroupsMatch) {
-        const userSub = userGroupsMatch[1];
-        if (method === "GET") {
-          return await getUserGroups(context, request, response, userSub as string);
-        }
-        if (method === "PUT") {
-          return await updateUserGroups(context, request, response, userSub as string);
-        }
-      }
-
       const userSetStartMatch = pathname.match(/^\/admin\/users\/([^/]+)\/password\/set\/start$/);
       if (userSetStartMatch) {
         const userSub = userSetStartMatch[1];
@@ -197,28 +192,94 @@ export function createAdminRouter(context: Context) {
           return await postUserOtpUnlock(context, request, response, userSub as string);
       }
 
-      if (pathname === "/admin/groups") {
-        if (method === "GET") return await getGroups(context, request, response);
-        if (method === "POST") return await createGroup(context, request, response);
+      if (pathname === "/admin/organizations") {
+        if (method === "GET") return await getOrganizations(context, request, response);
+        if (method === "POST") return await postOrganization(context, request, response);
       }
 
-      const groupMatch = pathname.match(/^\/admin\/groups\/([^/]+)$/);
-      if (groupMatch) {
-        const groupKey = groupMatch[1];
-        if (method === "GET") return await getGroup(context, request, response, groupKey as string);
-        if (method === "PUT")
-          return await updateGroupController(context, request, response, groupKey as string);
-        if (method === "DELETE")
-          return await deleteGroupController(context, request, response, groupKey as string);
-      }
-
-      const groupUsersMatch = pathname.match(/^\/admin\/groups\/([^/]+)\/users$/);
-      if (groupUsersMatch) {
-        const groupKey = groupUsersMatch[1];
+      const organizationMatch = pathname.match(/^\/admin\/organizations\/([^/]+)$/);
+      if (organizationMatch) {
+        const organizationId = organizationMatch[1];
         if (method === "GET")
-          return await getGroupUsers(context, request, response, groupKey as string);
+          return await getOrganization(context, request, response, organizationId as string);
         if (method === "PUT")
-          return await updateGroupUsers(context, request, response, groupKey as string);
+          return await putOrganization(context, request, response, organizationId as string);
+        if (method === "DELETE")
+          return await deleteOrganization(context, request, response, organizationId as string);
+      }
+
+      const organizationMemberRolesMatch = pathname.match(
+        /^\/admin\/organizations\/([^/]+)\/members\/([^/]+)\/roles$/
+      );
+      if (organizationMemberRolesMatch) {
+        const organizationId = organizationMemberRolesMatch[1];
+        const memberId = organizationMemberRolesMatch[2];
+        if (method === "PUT") {
+          return await putOrganizationMemberRoles(
+            context,
+            request,
+            response,
+            organizationId as string,
+            memberId as string
+          );
+        }
+        if (method === "POST") {
+          return await postOrganizationMemberRoles(
+            context,
+            request,
+            response,
+            organizationId as string,
+            memberId as string
+          );
+        }
+      }
+
+      const organizationMemberRoleMatch = pathname.match(
+        /^\/admin\/organizations\/([^/]+)\/members\/([^/]+)\/roles\/([^/]+)$/
+      );
+      if (organizationMemberRoleMatch && method === "DELETE") {
+        const organizationId = organizationMemberRoleMatch[1];
+        const memberId = organizationMemberRoleMatch[2];
+        const roleId = organizationMemberRoleMatch[3];
+        return await deleteOrganizationMemberRole(
+          context,
+          request,
+          response,
+          organizationId as string,
+          memberId as string,
+          roleId as string
+        );
+      }
+
+      const organizationMembersMatch = pathname.match(/^\/admin\/organizations\/([^/]+)\/members$/);
+      if (organizationMembersMatch && method === "GET") {
+        const organizationId = organizationMembersMatch[1];
+        return await getOrganizationMembersAdmin(
+          context,
+          request,
+          response,
+          organizationId as string
+        );
+      }
+
+      if (pathname === "/admin/roles") {
+        if (method === "GET") return await getRoles(context, request, response);
+        if (method === "POST") return await postRole(context, request, response);
+      }
+
+      const roleMatch = pathname.match(/^\/admin\/roles\/([^/]+)$/);
+      if (roleMatch) {
+        const roleId = roleMatch[1];
+        if (method === "GET") return await getRole(context, request, response, roleId as string);
+        if (method === "PUT") return await putRole(context, request, response, roleId as string);
+        if (method === "DELETE")
+          return await deleteRole(context, request, response, roleId as string);
+      }
+
+      const rolePermissionsMatch = pathname.match(/^\/admin\/roles\/([^/]+)\/permissions$/);
+      if (rolePermissionsMatch && method === "PUT") {
+        const roleId = rolePermissionsMatch[1];
+        return await putRolePermissions(context, request, response, roleId as string);
       }
 
       if (pathname === "/admin/permissions") {

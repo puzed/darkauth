@@ -22,15 +22,18 @@ import ClientEdit from "./pages/ClientEdit";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import ErrorPage from "./pages/Error";
-import GroupCreate from "./pages/GroupCreate";
-import GroupEdit from "./pages/GroupEdit";
-import Groups from "./pages/Groups";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
+import OrganizationCreate from "./pages/OrganizationCreate";
+import OrganizationEdit from "./pages/OrganizationEdit";
+import Organizations from "./pages/Organizations";
 import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
 import ResetPassword from "./pages/ResetPassword";
+import RoleCreate from "./pages/RoleCreate";
+import RoleEdit from "./pages/RoleEdit";
+import Roles from "./pages/Roles";
 import Settings from "./pages/Settings";
 import UserCreate from "./pages/UserCreate";
 import UserEdit from "./pages/UserEdit";
@@ -292,26 +295,50 @@ const App = () => {
               }
             />
             <Route
-              path="/groups"
+              path="/organizations"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <Groups />
+                  <Organizations />
                 </DashboardLayout>
               }
             />
             <Route
-              path="/groups/new"
+              path="/organizations/new"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <GroupCreate />
+                  <OrganizationCreate />
                 </DashboardLayout>
               }
             />
             <Route
-              path="/groups/:key"
+              path="/organizations/:organizationId"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <GroupEdit />
+                  <OrganizationEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Roles />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <RoleCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles/:roleId"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <RoleEdit />
                 </DashboardLayout>
               }
             />

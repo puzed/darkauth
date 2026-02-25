@@ -74,14 +74,17 @@ test("buildUserIdTokenClaims includes nonce when provided", () => {
     issuedAtSeconds: 100,
     email: "user@example.com",
     name: "Test User",
+    orgId: "8d1285e7-44f3-4d33-9f5c-36b7ec1ee804",
+    orgSlug: "default",
+    roles: ["member"],
     permissions: ["darkauth.users:read"],
-    groups: ["users"],
     amr: ["pwd", "otp"],
     nonce: "nonce-value",
   });
 
   assert.equal(claims.nonce, "nonce-value");
   assert.equal(claims.aud, "client-id");
+  assert.equal(claims.org_slug, "default");
 });
 
 test("buildUserIdTokenClaims omits nonce when not provided", () => {

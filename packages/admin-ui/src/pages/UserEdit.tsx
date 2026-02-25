@@ -9,8 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import TagMultiSelect from "@/components/ui/tag-multi-select";
-import adminApiService, { type Group, type User } from "@/services/api";
+import adminApiService, { type User } from "@/services/api";
 
 export default function UserEdit() {
   const { sub } = useParams<{ sub: string }>();
@@ -21,8 +20,6 @@ export default function UserEdit() {
   const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [allGroups, setAllGroups] = useState<Group[]>([]);
-  const [groupKeys, setGroupKeys] = useState<string[]>([]);
   const [otpStatus, setOtpStatus] = useState<{
     enabled: boolean;
     verified: boolean;
@@ -44,16 +41,10 @@ export default function UserEdit() {
       setUser(u);
       setEmail(u.email);
       setName(u.name || "");
-      const [groups, userGroupKeys] = await Promise.all([
-        adminApiService.getGroups(),
-        adminApiService.getUserGroups(u.sub),
-      ]);
       try {
         const s = await adminApiService.getUserOtpStatus(u.sub);
         setOtpStatus(s);
       } catch {}
-      setAllGroups(groups);
-      setGroupKeys(userGroupKeys);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load user");
     } finally {
@@ -71,7 +62,6 @@ export default function UserEdit() {
       setSubmitting(true);
       setError(null);
       await adminApiService.updateUser(user.sub, { email, name: name || null });
-      await adminApiService.updateUserGroups(user.sub, groupKeys);
       navigate("/users");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save user");
@@ -148,15 +138,6 @@ export default function UserEdit() {
             </FormField>
             <FormField label={<Label>Created</Label>}>
               <Input value={new Date(user.createdAt).toLocaleString()} readOnly />
-            </FormField>
-            <FormField label={<Label>Groups</Label>}>
-              <TagMultiSelect
-                value={groupKeys}
-                options={allGroups.map((g) => ({ value: g.key, label: `${g.name} (${g.key})` }))}
-                placeholder="Add groups"
-                onChange={setGroupKeys}
-                disabled={submitting}
-              />
             </FormField>
           </FormGrid>
           <FormActions>

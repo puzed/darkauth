@@ -44,6 +44,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         request_id: z.string().min(1),
         approve: z.enum(["true", "false"]).optional(),
         drk_hash: z.string().optional(),
+        organization_id: z.string().uuid().optional(),
       });
       const parsed = Req.parse(
         Object.fromEntries(formData as unknown as Iterable<[string, string]>)
@@ -127,6 +128,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         code,
         clientId: pendingRequest.clientId,
         userSub: sessionData.sub,
+        organizationId: parsed.organization_id || pendingRequest.organizationId || undefined,
         redirectUri: pendingRequest.redirectUri,
         nonce: pendingRequest.nonce,
         codeChallenge: pendingRequest.codeChallenge,
@@ -166,6 +168,7 @@ const Req = z.object({
   request_id: z.string().min(1),
   approve: z.enum(["true", "false"]).optional(),
   drk_hash: z.string().optional(),
+  organization_id: z.string().uuid().optional(),
 });
 const SuccessResp = z.object({
   code: z.string(),

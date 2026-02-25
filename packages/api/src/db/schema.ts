@@ -11,6 +11,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -39,6 +40,11 @@ export const tokenEndpointAuthMethodEnum = pgEnum("token_endpoint_auth_method", 
 export const zkDeliveryEnum = pgEnum("zk_delivery", ["none", "fragment-jwe"]);
 export const sessionCohortEnum = pgEnum("session_cohort", ["user", "admin"]);
 export const adminRoleEnum = pgEnum("admin_role", ["read", "write"]);
+export const organizationStatusEnum = pgEnum("organization_status", [
+  "active",
+  "invited",
+  "suspended",
+]);
 
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
@@ -131,6 +137,9 @@ export const authCodes = pgTable("auth_codes", {
   userSub: text("user_sub")
     .notNull()
     .references(() => users.sub, { onDelete: "cascade" }),
+  organizationId: uuid("organization_id").references(() => organizations.id, {
+    onDelete: "set null",
+  }),
   redirectUri: text("redirect_uri").notNull(),
   nonce: text("nonce"),
   codeChallenge: text("code_challenge"),
@@ -185,6 +194,9 @@ export const pendingAuth = pgTable("pending_auth", {
   userSub: text("user_sub").references(() => users.sub, {
     onDelete: "cascade",
   }),
+  organizationId: uuid("organization_id").references(() => organizations.id, {
+    onDelete: "set null",
+  }),
   origin: text("origin").notNull(),
 });
 
@@ -237,6 +249,109 @@ export const permissions = pgTable("permissions", {
   key: text("key").primaryKey(),
   description: text("description").notNull(),
 });
+
+export const organizations = pgTable("organizations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull(),
+  createdByUserSub: text("created_by_user_sub").references(() => users.sub, {
+    onDelete: "set null",
+  }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const organizationMembers = pgTable(
+  "organization_members",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    status: organizationStatusEnum("status").default("active").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueMembershipIdx: uniqueIndex("organization_members_organization_user_idx").on(
+      table.organizationId,
+      table.userSub
+    ),
+    userSubIdx: index("organization_members_user_sub_idx").on(table.userSub),
+    organizationIdIdx: index("organization_members_organization_id_idx").on(table.organizationId),
+  })
+);
+
+export const roles = pgTable("roles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  key: text("key").notNull().unique(),
+  name: text("name").notNull(),
+  description: text("description"),
+  system: boolean("system").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permissionKey: text("permission_key")
+      .notNull()
+      .references(() => permissions.key, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.roleId, table.permissionKey] }),
+    roleIdIdx: index("role_permissions_role_id_idx").on(table.roleId),
+  })
+);
+
+export const organizationMemberRoles = pgTable(
+  "organization_member_roles",
+  {
+    organizationMemberId: uuid("organization_member_id")
+      .notNull()
+      .references(() => organizationMembers.id, { onDelete: "cascade" }),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.organizationMemberId, table.roleId] }),
+    organizationMemberIdIdx: index("organization_member_roles_member_id_idx").on(
+      table.organizationMemberId
+    ),
+  })
+);
+
+export const organizationInvites = pgTable(
+  "organization_invites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    roleIds: uuid("role_ids").array().default([]).notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    acceptedAt: timestamp("accepted_at"),
+    createdByUserSub: text("created_by_user_sub").references(() => users.sub, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdIdx: index("organization_invites_organization_id_idx").on(table.organizationId),
+    emailIdx: index("organization_invites_email_idx").on(table.email),
+    expiresAtIdx: index("organization_invites_expires_at_idx").on(table.expiresAt),
+  })
+);
 
 export const groups = pgTable("groups", {
   key: text("key").primaryKey(),
@@ -327,6 +442,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   }),
   authCodes: many(authCodes),
   sessions: many(sessions),
+  organizations: many(organizationMembers),
   groups: many(userGroups),
   permissions: many(userPermissions),
 }));
@@ -334,6 +450,34 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 export const clientsRelations = relations(clients, ({ many }) => ({
   authCodes: many(authCodes),
   pendingAuth: many(pendingAuth),
+}));
+
+export const organizationsRelations = relations(organizations, ({ one, many }) => ({
+  createdBy: one(users, {
+    fields: [organizations.createdByUserSub],
+    references: [users.sub],
+  }),
+  members: many(organizationMembers),
+  invites: many(organizationInvites),
+  authCodes: many(authCodes),
+  pendingAuth: many(pendingAuth),
+}));
+
+export const organizationMembersRelations = relations(organizationMembers, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [organizationMembers.organizationId],
+    references: [organizations.id],
+  }),
+  user: one(users, {
+    fields: [organizationMembers.userSub],
+    references: [users.sub],
+  }),
+  roles: many(organizationMemberRoles),
+}));
+
+export const rolesRelations = relations(roles, ({ many }) => ({
+  permissions: many(rolePermissions),
+  members: many(organizationMemberRoles),
 }));
 
 export const adminUsersRelations = relations(adminUsers, ({ one, many }) => ({
@@ -359,6 +503,40 @@ export const groupsRelations = relations(groups, ({ many }) => ({
 export const permissionsRelations = relations(permissions, ({ many }) => ({
   groups: many(groupPermissions),
   users: many(userPermissions),
+  roles: many(rolePermissions),
+}));
+
+export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({
+  role: one(roles, {
+    fields: [rolePermissions.roleId],
+    references: [roles.id],
+  }),
+  permission: one(permissions, {
+    fields: [rolePermissions.permissionKey],
+    references: [permissions.key],
+  }),
+}));
+
+export const organizationMemberRolesRelations = relations(organizationMemberRoles, ({ one }) => ({
+  organizationMember: one(organizationMembers, {
+    fields: [organizationMemberRoles.organizationMemberId],
+    references: [organizationMembers.id],
+  }),
+  role: one(roles, {
+    fields: [organizationMemberRoles.roleId],
+    references: [roles.id],
+  }),
+}));
+
+export const organizationInvitesRelations = relations(organizationInvites, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [organizationInvites.organizationId],
+    references: [organizations.id],
+  }),
+  createdBy: one(users, {
+    fields: [organizationInvites.createdByUserSub],
+    references: [users.sub],
+  }),
 }));
 
 export const userGroupsRelations = relations(userGroups, ({ one }) => ({

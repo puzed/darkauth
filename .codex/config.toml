@@ -1,0 +1,15 @@
+[agents.backend-developer]
+description = "Build and update DarkAuth backend features in packages/api."
+config_file = "../agents/backend-developer.role.toml"
+
+[agents.frontend-developer]
+description = "Implement and refine DarkAuth UI behavior in React and CSS Modules."
+config_file = "../agents/frontend-developer.role.toml"
+
+[agents.documentation-writer]
+description = "Write concise, implementation-aligned documentation for DarkAuth."
+config_file = "../agents/documentation-writer.role.toml"
+
+[agents.security-auditor]
+description = "Identify and report security vulnerabilities in DarkAuth's codebase."
+config_file = "../agents/security-auditor.agent.toml"

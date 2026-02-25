@@ -136,6 +136,60 @@ export interface GroupsResponse {
   };
 }
 
+export interface Organization {
+  organizationId: string;
+  slug: string;
+  name: string;
+  memberCount?: number;
+  roleCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OrganizationsResponse {
+  organizations: Organization[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+  };
+}
+
+export interface Role {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  system?: boolean;
+  permissions?: Array<{ key: string; description?: string }>;
+  permissionKeys?: string[];
+  permissionCount?: number;
+}
+
+export interface RolesResponse {
+  roles: Role[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+  };
+}
+
+export interface OrganizationMember {
+  membershipId: string;
+  userSub: string;
+  status: string;
+  email?: string | null;
+  name?: string | null;
+  roles: Array<{ id: string; key: string; name: string }>;
+}
+
 export interface Permission {
   key: string;
   description: string;
@@ -671,7 +725,193 @@ class AdminApiService {
     });
   }
 
-  // Groups Management
+  private normalizeOrganization(organization: unknown): Organization {
+    const raw =
+      organization && typeof organization === "object"
+        ? (organization as Organization & { id?: string })
+        : ({} as Organization & { id?: string });
+    return {
+      ...raw,
+      organizationId: raw.organizationId || raw.id || "",
+    };
+  }
+
+  // Organizations Management
+  async getOrganizationsPaged(
+    page?: number,
+    limit?: number,
+    search?: string
+  ): Promise<OrganizationsResponse> {
+    const params = new URLSearchParams();
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+    if (search) params.append("search", search);
+    const qs = params.toString();
+    const endpoint = qs ? `/organizations?${qs}` : "/organizations";
+    const data = await this.request<OrganizationsResponse | { organizations: Organization[] }>(
+      endpoint
+    );
+    const organizations = data.organizations.map((organization) =>
+      this.normalizeOrganization(organization)
+    );
+
+    if ("pagination" in data) {
+      return {
+        ...data,
+        organizations,
+      };
+    }
+
+    return {
+      organizations,
+      pagination: {
+        page: page || 1,
+        limit: limit || organizations.length || 20,
+        total: organizations.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  async getOrganization(organizationId: string): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      `/organizations/${organizationId}`
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async createOrganization(organization: { name: string; slug?: string }): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      "/organizations",
+      {
+        method: "POST",
+        body: JSON.stringify(organization),
+      }
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async updateOrganization(
+    organizationId: string,
+    updates: { name?: string; slug?: string }
+  ): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      `/organizations/${organizationId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      }
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async deleteOrganization(organizationId: string): Promise<void> {
+    await this.request(`/organizations/${organizationId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<{ members: OrganizationMember[] }> {
+    return this.request(`/organizations/${organizationId}/members`);
+  }
+
+  async assignOrganizationMemberRoles(
+    organizationId: string,
+    memberId: string,
+    roleIds: string[]
+  ): Promise<{ assigned: Array<{ id: string; key: string; name: string }> }> {
+    return this.request(`/organizations/${organizationId}/members/${memberId}/roles`, {
+      method: "POST",
+      body: JSON.stringify({ roleIds }),
+    });
+  }
+
+  async removeOrganizationMemberRole(
+    organizationId: string,
+    memberId: string,
+    roleId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(`/organizations/${organizationId}/members/${memberId}/roles/${roleId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Roles Management
+  async getRoles(): Promise<Role[]> {
+    const data = await this.request<{ roles: Role[] } | Role[]>("/roles");
+    return Array.isArray(data) ? data : data.roles;
+  }
+
+  async getRolesPaged(page?: number, limit?: number, search?: string): Promise<RolesResponse> {
+    const params = new URLSearchParams();
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+    if (search) params.append("search", search);
+    const qs = params.toString();
+    const endpoint = qs ? `/roles?${qs}` : "/roles";
+    const data = await this.request<RolesResponse | { roles: Role[] } | Role[]>(endpoint);
+
+    if (Array.isArray(data)) {
+      return {
+        roles: data,
+        pagination: {
+          page: page || 1,
+          limit: limit || data.length || 20,
+          total: data.length,
+          totalPages: 1,
+        },
+      };
+    }
+
+    if ("pagination" in data) {
+      return data;
+    }
+
+    return {
+      roles: data.roles,
+      pagination: {
+        page: page || 1,
+        limit: limit || data.roles.length || 20,
+        total: data.roles.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  async getRole(roleId: string): Promise<Role> {
+    const data = await this.request<Role | { role: Role }>(`/roles/${roleId}`);
+    return "role" in data ? data.role : data;
+  }
+
+  async createRole(data: {
+    key: string;
+    name: string;
+    description?: string;
+    permissionKeys?: string[];
+  }): Promise<Role> {
+    const response = await this.request<Role | { role: Role }>("/roles", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return "role" in response ? response.role : response;
+  }
+
+  async updateRole(
+    roleId: string,
+    updates: { name?: string; description?: string; permissionKeys?: string[] }
+  ): Promise<Role> {
+    const response = await this.request<Role | { role: Role }>(`/roles/${roleId}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+    return "role" in response ? response.role : response;
+  }
+
+  async deleteRole(roleId: string): Promise<void> {
+    await this.request(`/roles/${roleId}`, { method: "DELETE" });
+  }
+
+  // Legacy Groups Management
   async getGroups(): Promise<Group[]> {
     const data = await this.request<{ groups: Group[] }>("/groups");
     return data.groups;

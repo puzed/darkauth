@@ -22,7 +22,8 @@ import styles from "./app-sidebar.module.css";
 const mainItems: SidebarNavItem[] = [
   { title: "Dashboard", url: "/", icon: Home },
   { title: "Users", url: "/users", icon: Users },
-  { title: "Groups", url: "/groups", icon: Shield },
+  { title: "Organizations", url: "/organizations", icon: Shield },
+  { title: "Roles", url: "/roles", icon: KeyRound },
   { title: "Clients", url: "/clients", icon: Lock },
   { title: "Branding", url: "/branding", icon: Monitor },
 ];
