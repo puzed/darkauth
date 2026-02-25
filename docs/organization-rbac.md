@@ -6,6 +6,9 @@ Implementation reference:
 - `packages/api/src/models/organizations.ts`
 - `packages/api/src/controllers/user/organizations.ts`
 - `packages/api/src/controllers/admin/organizations.ts`
+- `packages/api/src/controllers/admin/organizationMembers.ts`
+- `packages/api/src/controllers/admin/organizationMemberCreate.ts`
+- `packages/api/src/controllers/admin/organizationMemberDelete.ts`
 - `packages/api/src/controllers/admin/organizationMemberRolesUpdate.ts`
 - `packages/api/src/controllers/admin/roles.ts`
 - `packages/api/src/controllers/admin/rolePermissionsUpdate.ts`
@@ -66,12 +69,19 @@ Admin session requirements:
 
 Organizations:
 - `GET /admin/organizations`
-  - Query: `page`, `limit`, `search`.
+  - Query: `page`, `limit`, `search`, `sortBy`, `sortOrder`.
+  - Uses the shared admin list contract in `docs/admin-list-standards.md`.
 - `POST /admin/organizations`
 - `GET /admin/organizations/{organizationId}`
 - `PUT /admin/organizations/{organizationId}`
 - `DELETE /admin/organizations/{organizationId}`
 - `GET /admin/organizations/{organizationId}/members`
+  - Query: `page`, `limit`, `search`, `sortBy`, `sortOrder`.
+  - Uses the shared admin list contract in `docs/admin-list-standards.md`.
+- `POST /admin/organizations/{organizationId}/members`
+  - Adds a member by `userSub`.
+- `DELETE /admin/organizations/{organizationId}/members/{memberId}`
+  - Removes a member from the organization.
 - `PUT /admin/organizations/{organizationId}/members/{memberId}/roles`
   - Replaces the member role set with `roleIds`.
 - `POST /admin/organizations/{organizationId}/members/{memberId}/roles`
