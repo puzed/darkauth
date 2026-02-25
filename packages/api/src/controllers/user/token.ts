@@ -115,7 +115,7 @@ export function assertRefreshTokenClientBinding(
   issuedClientId: string | null,
   authenticatedClientId: string | undefined
 ): void {
-  if (!issuedClientId) throw new InvalidGrantError("Invalid or expired refresh token");
+  if (!issuedClientId) return;
   if (issuedClientId !== authenticatedClientId) {
     throw new InvalidGrantError("Refresh token was not issued to this client");
   }
@@ -241,6 +241,7 @@ export const postToken = withRateLimit("token")(
         const { getUserOrgAccess, resolveOrganizationContext } = await import(
           "../../models/rbac.js"
         );
+        const { getUserAccess } = await import("../../models/access.js");
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
@@ -250,11 +251,15 @@ export const postToken = withRateLimit("token")(
           user.sub,
           sessionOrganizationId
         );
-        const { roleKeys, permissions: uniquePermissions } = await getUserOrgAccess(
+        const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
           context,
           user.sub,
           organizationId
         );
+        const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+        const uniquePermissions = Array.from(
+          new Set([...organizationPermissions, ...userAccessPermissions])
+        ).sort();
         if (sessionOrganizationId !== organizationId) {
           await updateSession(context, rotated.sessionId, {
             ...(sessionData as SessionData),
@@ -511,16 +516,21 @@ export const postToken = withRateLimit("token")(
       }
 
       const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.js");
+      const { getUserAccess } = await import("../../models/access.js");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
         user.sub,
         authCode.organizationId || undefined
       );
-      const { roleKeys, permissions: uniquePermissions } = await getUserOrgAccess(
+      const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
         context,
         user.sub,
         organizationId
       );
+      const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+      const uniquePermissions = Array.from(
+        new Set([...organizationPermissions, ...userAccessPermissions])
+      ).sort();
 
       const codeConsumed = await (await import("../../models/authCodes.js")).consumeAuthCode(
         context,

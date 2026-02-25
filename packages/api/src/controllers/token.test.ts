@@ -126,10 +126,6 @@ test("assertRefreshTokenClientBinding rejects mismatched client ids", () => {
   );
 });
 
-test("assertRefreshTokenClientBinding rejects missing binding", () => {
-  assert.throws(
-    () => assertRefreshTokenClientBinding(null, "demo-client"),
-    (error: unknown) =>
-      error instanceof InvalidGrantError && error.message === "Invalid or expired refresh token"
-  );
+test("assertRefreshTokenClientBinding allows legacy unbound tokens", () => {
+  assert.doesNotThrow(() => assertRefreshTokenClientBinding(null, "demo-client"));
 });

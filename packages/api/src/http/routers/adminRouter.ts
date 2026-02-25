@@ -15,6 +15,13 @@ import { deleteClientController } from "../../controllers/admin/clientDelete.js"
 import { getClientSecretController } from "../../controllers/admin/clientSecret.js";
 import { getClients } from "../../controllers/admin/clients.js";
 import { updateClientController } from "../../controllers/admin/clientUpdate.js";
+import { createGroup } from "../../controllers/admin/groupCreate.js";
+import { deleteGroupController } from "../../controllers/admin/groupDelete.js";
+import { getGroup } from "../../controllers/admin/groupGet.js";
+import { getGroups } from "../../controllers/admin/groups.js";
+import { updateGroupController } from "../../controllers/admin/groupUpdate.js";
+import { getGroupUsers } from "../../controllers/admin/groupUsers.js";
+import { updateGroupUsers } from "../../controllers/admin/groupUsersUpdate.js";
 import { getJwks } from "../../controllers/admin/jwks.js";
 import { rotateJwks } from "../../controllers/admin/jwksRotate.js";
 import { postAdminLogout } from "../../controllers/admin/logout.js";
@@ -56,6 +63,8 @@ import { getSettings } from "../../controllers/admin/settings.js";
 import { updateSettings } from "../../controllers/admin/settingsUpdate.js";
 import { createUser } from "../../controllers/admin/userCreate.js";
 import { deleteUser } from "../../controllers/admin/userDelete.js";
+import { getUserGroups } from "../../controllers/admin/userGroups.js";
+import { updateUserGroups } from "../../controllers/admin/userGroupsUpdate.js";
 import { getUserOtp } from "../../controllers/admin/userOtp.js";
 import { deleteUserOtp } from "../../controllers/admin/userOtpDelete.js";
 import { postUserOtpUnlock } from "../../controllers/admin/userOtpUnlock.js";
@@ -153,6 +162,17 @@ export function createAdminRouter(context: Context) {
           return await postUserPasswordReset(context, request, response, userSub as string);
       }
 
+      const userGroupsMatch = pathname.match(/^\/admin\/users\/([^/]+)\/groups$/);
+      if (userGroupsMatch) {
+        const userSub = userGroupsMatch[1];
+        if (method === "GET") {
+          return await getUserGroups(context, request, response, userSub as string);
+        }
+        if (method === "PUT") {
+          return await updateUserGroups(context, request, response, userSub as string);
+        }
+      }
+
       const userSetStartMatch = pathname.match(/^\/admin\/users\/([^/]+)\/password\/set\/start$/);
       if (userSetStartMatch) {
         const userSub = userSetStartMatch[1];
@@ -192,6 +212,30 @@ export function createAdminRouter(context: Context) {
         const userSub = userOtpUnlockMatch[1];
         if (method === "POST")
           return await postUserOtpUnlock(context, request, response, userSub as string);
+      }
+
+      if (pathname === "/admin/groups") {
+        if (method === "GET") return await getGroups(context, request, response);
+        if (method === "POST") return await createGroup(context, request, response);
+      }
+
+      const groupMatch = pathname.match(/^\/admin\/groups\/([^/]+)$/);
+      if (groupMatch) {
+        const groupKey = groupMatch[1];
+        if (method === "GET") return await getGroup(context, request, response, groupKey as string);
+        if (method === "PUT")
+          return await updateGroupController(context, request, response, groupKey as string);
+        if (method === "DELETE")
+          return await deleteGroupController(context, request, response, groupKey as string);
+      }
+
+      const groupUsersMatch = pathname.match(/^\/admin\/groups\/([^/]+)\/users$/);
+      if (groupUsersMatch) {
+        const groupKey = groupUsersMatch[1];
+        if (method === "GET")
+          return await getGroupUsers(context, request, response, groupKey as string);
+        if (method === "PUT")
+          return await updateGroupUsers(context, request, response, groupKey as string);
       }
 
       if (pathname === "/admin/organizations") {
