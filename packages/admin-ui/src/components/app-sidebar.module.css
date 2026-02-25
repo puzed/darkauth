@@ -294,7 +294,9 @@
   border: 1px solid hsl(var(--border) / 0.5);
   overflow: hidden;
   max-height: 0;
-  transition: max-height 0.3s ease, opacity 0.3s ease;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.3s ease;
   opacity: 0;
 }
 
