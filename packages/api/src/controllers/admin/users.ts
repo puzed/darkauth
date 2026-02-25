@@ -10,7 +10,15 @@ const UserSchema = z.object({
   name: z.string().nullable().optional(),
   createdAt: z.date().or(z.string()),
   passwordResetRequired: z.boolean().optional(),
-  groups: z.array(z.string()).optional(),
+  organizationRoles: z
+    .array(
+      z.object({
+        organizationId: z.string().uuid(),
+        organizationSlug: z.string(),
+        roleKeys: z.array(z.string()),
+      })
+    )
+    .optional(),
 });
 const PaginationSchema = z.object({
   page: z.number().int().positive(),

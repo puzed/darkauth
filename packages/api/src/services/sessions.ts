@@ -266,6 +266,23 @@ export async function getActorFromRefreshToken(
   return { adminId: session.adminId, userSub: session.userSub };
 }
 
+export async function getRefreshTokenSessionData(
+  context: Context,
+  refreshToken: string
+): Promise<SessionData | null> {
+  const refreshTokenHash = sha256Base64Url(refreshToken);
+  const now = new Date();
+  const session = await context.db.query.sessions.findFirst({
+    where: and(
+      eq(sessions.refreshToken, refreshTokenHash),
+      isNull(sessions.refreshTokenConsumedAt),
+      gt(sessions.refreshTokenExpiresAt, now)
+    ),
+  });
+  if (!session) return null;
+  return session.data as SessionData;
+}
+
 export async function getActorFromSessionId(
   context: Context,
   sessionId: string

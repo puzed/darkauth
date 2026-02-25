@@ -5,7 +5,8 @@ import pino from "pino";
 import { createPglite } from "../db/pglite.js";
 import * as schema from "../db/schema.js";
 import { opaqueLoginSessions } from "../db/schema.js";
-import { ensureDefaultGroupAndSchema } from "../models/install.js";
+import { ValidationError } from "../errors.js";
+import { ensureDefaultOrganizationAndSchema } from "../models/install.js";
 import { ensureKekService } from "../services/kek.js";
 import { createOpaqueService } from "../services/opaque.js";
 import { cleanupExpiredSessions } from "../services/sessions.js";
@@ -43,27 +44,38 @@ export async function createContext(config: Config): Promise<Context> {
   let pool: Pool | null = null;
   let database: Database;
 
-  if (config.dbMode === "pglite") {
-    const { db, close } = await createPglite(config.pgliteDir || "data/pglite");
-    database = db;
-    cleanupFunctions.push(async () => {
-      await close();
-    });
+  if (config.inInstallMode) {
+    database = new Proxy(
+      {},
+      {
+        get() {
+          throw new ValidationError("Database not prepared");
+        },
+      }
+    ) as Database;
   } else {
-    pool = new Pool({
-      connectionString: config.postgresUri,
-      keepAlive: true,
-    });
+    if (config.dbMode === "pglite") {
+      const { db, close } = await createPglite(config.pgliteDir || "data/pglite");
+      database = db;
+      cleanupFunctions.push(async () => {
+        await close();
+      });
+    } else {
+      pool = new Pool({
+        connectionString: config.postgresUri,
+        keepAlive: true,
+      });
 
-    pool.on("error", (err) => {
-      logger.error({ err }, "Database pool error");
-    });
+      pool.on("error", (err) => {
+        logger.error({ err }, "Database pool error");
+      });
 
-    database = drizzlePg(pool, { schema });
+      database = drizzlePg(pool, { schema });
 
-    cleanupFunctions.push(async () => {
-      await pool?.end();
-    });
+      cleanupFunctions.push(async () => {
+        await pool?.end();
+      });
+    }
   }
 
   const services: Context["services"] = {};
@@ -103,9 +115,9 @@ export async function createContext(config: Config): Promise<Context> {
 
   if (!config.inInstallMode) {
     try {
-      await ensureDefaultGroupAndSchema(context);
+      await ensureDefaultOrganizationAndSchema(context);
     } catch (err) {
-      logger.warn({ err }, "ensureDefaultGroupAndSchema failed");
+      logger.warn({ err }, "ensureDefaultOrganizationAndSchema failed");
     }
   }
 

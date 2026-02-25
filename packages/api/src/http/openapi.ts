@@ -15,17 +15,20 @@ import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDe
 import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.js";
 import { schema as adminClientsSchema } from "../controllers/admin/clients.js";
 import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.js";
-import { schema as adminGroupCreateSchema } from "../controllers/admin/groupCreate.js";
-import { schema as adminGroupDeleteSchema } from "../controllers/admin/groupDelete.js";
-import { schema as adminGroupsSchema } from "../controllers/admin/groups.js";
-import { schema as adminGroupUpdateSchema } from "../controllers/admin/groupUpdate.js";
-import { schema as adminGroupUsersSchema } from "../controllers/admin/groupUsers.js";
-import { schema as adminGroupUsersUpdateSchema } from "../controllers/admin/groupUsersUpdate.js";
 import { schema as adminJwksSchema } from "../controllers/admin/jwks.js";
 import { schema as adminJwksRotateSchema } from "../controllers/admin/jwksRotate.js";
 import { schema as adminLogoutSchema } from "../controllers/admin/logout.js";
 import { schema as adminOpaqueLoginFinishSchema } from "../controllers/admin/opaqueLoginFinish.js";
 import { schema as adminOpaqueLoginStartSchema } from "../controllers/admin/opaqueLoginStart.js";
+import { schema as adminOrganizationCreateSchema } from "../controllers/admin/organizationCreate.js";
+import { schema as adminOrganizationDeleteSchema } from "../controllers/admin/organizationDelete.js";
+import { schema as adminOrganizationGetSchema } from "../controllers/admin/organizationGet.js";
+import { schema as adminOrganizationMemberRoleDeleteSchema } from "../controllers/admin/organizationMemberRoleDelete.js";
+import { schema as adminOrganizationMemberRolesAddSchema } from "../controllers/admin/organizationMemberRolesAdd.js";
+import { schema as adminOrganizationMemberRolesUpdateSchema } from "../controllers/admin/organizationMemberRolesUpdate.js";
+import { schema as adminOrganizationMembersSchema } from "../controllers/admin/organizationMembers.js";
+import { schema as adminOrganizationsSchema } from "../controllers/admin/organizations.js";
+import { schema as adminOrganizationUpdateSchema } from "../controllers/admin/organizationUpdate.js";
 import {
   getAdminOtpStatusSchema,
   postAdminOtpDisableSchema,
@@ -39,13 +42,17 @@ import { schema as adminPermissionCreateSchema } from "../controllers/admin/perm
 import { schema as adminPermissionDeleteSchema } from "../controllers/admin/permissionDelete.js";
 import { schema as adminPermissionsSchema } from "../controllers/admin/permissions.js";
 import { schema as adminRefreshTokenSchema } from "../controllers/admin/refreshToken.js";
+import { schema as adminRoleCreateSchema } from "../controllers/admin/roleCreate.js";
+import { schema as adminRoleDeleteSchema } from "../controllers/admin/roleDelete.js";
+import { schema as adminRoleGetSchema } from "../controllers/admin/roleGet.js";
+import { schema as adminRolePermissionsUpdateSchema } from "../controllers/admin/rolePermissionsUpdate.js";
+import { schema as adminRolesSchema } from "../controllers/admin/roles.js";
+import { schema as adminRoleUpdateSchema } from "../controllers/admin/roleUpdate.js";
 import { schema as adminSessionSchema } from "../controllers/admin/session.js";
 import { schema as adminSettingsSchema } from "../controllers/admin/settings.js";
 import { schema as adminSettingsUpdateSchema } from "../controllers/admin/settingsUpdate.js";
 import { schema as adminUserCreateSchema } from "../controllers/admin/userCreate.js";
 import { schema as adminUserDeleteSchema } from "../controllers/admin/userDelete.js";
-import { schema as adminUserGroupsSchema } from "../controllers/admin/userGroups.js";
-import { schema as adminUserGroupsUpdateSchema } from "../controllers/admin/userGroupsUpdate.js";
 import { schema as adminUserOtpSchema } from "../controllers/admin/userOtp.js";
 import { schema as adminUserOtpDeleteSchema } from "../controllers/admin/userOtpDelete.js";
 import { schema as adminUserOtpUnlockSchema } from "../controllers/admin/userOtpUnlock.js";
@@ -66,6 +73,15 @@ import { schema as userOpaqueLoginFinishSchema } from "../controllers/user/opaqu
 import { schema as userOpaqueLoginStartSchema } from "../controllers/user/opaqueLoginStart.js";
 import { schema as userOpaqueRegisterFinishSchema } from "../controllers/user/opaqueRegisterFinish.js";
 import { schema as userOpaqueRegisterStartSchema } from "../controllers/user/opaqueRegisterStart.js";
+import {
+  createOrganizationSchema as userCreateOrganizationSchema,
+  organizationInvitesSchema as userOrganizationInvitesSchema,
+  organizationMemberRoleDeleteSchema as userOrganizationMemberRoleDeleteSchema,
+  organizationMemberRolesSchema as userOrganizationMemberRolesSchema,
+  organizationMembersSchema as userOrganizationMembersSchema,
+  organizationSchema as userOrganizationSchema,
+  organizationsSchema as userOrganizationsSchema,
+} from "../controllers/user/organizations.js";
 import { schema as userOtpReauthSchema } from "../controllers/user/otpReauth.js";
 import { schema as userOtpSetupInitSchema } from "../controllers/user/otpSetupInit.js";
 import { schema as userOtpSetupVerifySchema } from "../controllers/user/otpSetupVerify.js";
@@ -119,12 +135,21 @@ const documentedSchemas: ControllerSchema[] = [
   adminClientSecretSchema,
   adminClientUpdateSchema,
   adminClientDeleteSchema,
-  adminGroupsSchema,
-  adminGroupCreateSchema,
-  adminGroupUpdateSchema,
-  adminGroupDeleteSchema,
-  adminGroupUsersSchema,
-  adminGroupUsersUpdateSchema,
+  adminOrganizationsSchema,
+  adminOrganizationCreateSchema,
+  adminOrganizationGetSchema,
+  adminOrganizationUpdateSchema,
+  adminOrganizationDeleteSchema,
+  adminOrganizationMembersSchema,
+  adminOrganizationMemberRolesAddSchema,
+  adminOrganizationMemberRolesUpdateSchema,
+  adminOrganizationMemberRoleDeleteSchema,
+  adminRolesSchema,
+  adminRoleCreateSchema,
+  adminRoleGetSchema,
+  adminRoleUpdateSchema,
+  adminRoleDeleteSchema,
+  adminRolePermissionsUpdateSchema,
   adminPermissionsSchema,
   adminPermissionCreateSchema,
   adminPermissionDeleteSchema,
@@ -134,8 +159,6 @@ const documentedSchemas: ControllerSchema[] = [
   adminUserUpdateSchema,
   adminUserDeleteSchema,
   adminUsersSchema,
-  adminUserGroupsSchema,
-  adminUserGroupsUpdateSchema,
   adminUserOtpSchema,
   adminUserOtpDeleteSchema,
   adminUserOtpUnlockSchema,
@@ -163,6 +186,13 @@ const documentedSchemas: ControllerSchema[] = [
   userOpaqueLoginFinishSchema,
   userOpaqueRegisterStartSchema,
   userOpaqueRegisterFinishSchema,
+  userOrganizationsSchema,
+  userCreateOrganizationSchema,
+  userOrganizationSchema,
+  userOrganizationMembersSchema,
+  userOrganizationInvitesSchema,
+  userOrganizationMemberRolesSchema,
+  userOrganizationMemberRoleDeleteSchema,
   userPasswordChangeStartSchema,
   userPasswordChangeFinishSchema,
   userPasswordChangeVerifyStartSchema,

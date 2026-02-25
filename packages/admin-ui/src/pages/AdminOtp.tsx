@@ -368,9 +368,12 @@ export default function AdminOtp() {
           inputMode="text"
           autoComplete="one-time-code"
           autoFocus
-          placeholder="123456 or BACKUP-CODE"
+          placeholder="123456"
           style={{ fontSize: 24, textAlign: "center", letterSpacing: 6 }}
         />
+        <p style={{ marginTop: 8, fontSize: 14, textAlign: "center" }}>
+          You can also use a backup code.
+        </p>
       </div>
       <div className={styles.actions}>
         <Button

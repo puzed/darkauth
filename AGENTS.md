@@ -1,12 +1,25 @@
-# CLAUDE.md
-
-This file provides guidance to AI agents when working with code in this repository.
-
-Rules:
+## Rules For All
+The main thread and sub agents must follow this section:
+- Use todo plans to break down your work then keep this up to date as you go.
 - ALWAYS consider removing things to fix the users issues. Not every needs an additive solution.
-- Code should be simple and reusable. Don't overcomplicate things.
+- Code should be simple and reusable. Don't over-complicate things.
 - NEVER write comments.
-- Don't try and run the project. It's already running in another shell.
-- ALWAYS follow the [specs/1_CODE_GUIDE.md](specs/1_CODE_GUIDE.md)
-- If you are running the test-suite you must use the dot reporter or the tests will hang as they start an http server
-- ALWAYS run the `npm run tidy` and `npm run build` when you have finished.
+- Tell sub agents they are a sub agent, so they ignore the rules below.
+
+## Rules For Main Thread Only
+WARNING: If you are a Sub Agent ignore this section.
+
+Only the main top level thread/agent should follow these:
+- ALWAYS (unless you are a subagent) use an agent for mutations. Never change files in the main thread:
+  - backend-developer
+  - documentation-writer
+  - frontend-developer
+  - security-auditor
+  - test-writer
+- You can (and should where possible) spawn multiple of the same agent types to complete tasks in parallel.
+- Tell sub-agents explicitly to report back to the main thread frequently providing updates on their progress.
+- After making your change make sure you:
+  - Get the security-auditor to review your code and provide feedback on any security implications.
+  - Get the documentation-writer to update the documentation to reflect your changes.
+  - Run the `npm run tidy` and `npm run build` when you have finished.
+  - If you get any feedback, analyze it and if it's relevant to the change you made, make the necessary adjustments and then repeat the process until you have no more feedback.
