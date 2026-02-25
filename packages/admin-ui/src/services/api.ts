@@ -964,13 +964,23 @@ class AdminApiService {
 
   async updateRole(
     roleId: string,
-    updates: { name?: string; description?: string; permissionKeys?: string[] }
+    updates: { name?: string; description?: string }
   ): Promise<Role> {
     const response = await this.request<Role | { role: Role }>(`/roles/${roleId}`, {
       method: "PUT",
       body: JSON.stringify(updates),
     });
     return "role" in response ? response.role : response;
+  }
+
+  async updateRolePermissions(
+    roleId: string,
+    permissionKeys: string[]
+  ): Promise<{ roleId: string; permissionKeys: string[] }> {
+    return this.request(`/roles/${roleId}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({ permissionKeys }),
+    });
   }
 
   async deleteRole(roleId: string): Promise<void> {
