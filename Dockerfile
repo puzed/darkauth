@@ -1,5 +1,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+ARG APP_VERSION=""
+ARG COMMIT_HASH=""
+ENV APP_VERSION=$APP_VERSION
+ENV COMMIT_HASH=$COMMIT_HASH
 RUN apk add --no-cache python3 make g++ git
 COPY package.json package-lock.json ./
 COPY packages ./packages

@@ -124,6 +124,9 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/amd64
+          build-args: |
+            APP_VERSION=${{ needs.release.outputs.tag }}
+            COMMIT_HASH=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,name=ghcr.io/${{ needs.release.outputs.repo }},name-canonical=true,push-by-digest=true
@@ -153,6 +156,9 @@ jobs:
           file: Dockerfile
           push: true
           platforms: linux/arm64
+          build-args: |
+            APP_VERSION=${{ needs.release.outputs.tag }}
+            COMMIT_HASH=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           outputs: type=image,name=ghcr.io/${{ needs.release.outputs.repo }},name-canonical=true,push-by-digest=true

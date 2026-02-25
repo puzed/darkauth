@@ -99,3 +99,35 @@
   letter-spacing: 0.08em;
   font-size: 11px;
 }
+
+.updateBanner {
+  width: 100%;
+  border: 1px solid hsl(45 90% 42%);
+  background: hsl(48 96% 89%);
+  color: hsl(35 88% 24%);
+  border-radius: 10px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.updateBanner:hover {
+  background: hsl(48 96% 84%);
+}
+
+.updateBanner:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+[data-da-theme="dark"] .updateBanner {
+  border-color: hsl(44 90% 48% / 0.55);
+  background: hsl(42 85% 23%);
+  color: hsl(48 95% 78%);
+}
+
+[data-da-theme="dark"] .updateBanner:hover {
+  background: hsl(42 85% 27%);
+}
