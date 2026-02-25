@@ -1,4 +1,4 @@
-import { count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import {
   groupPermissions,
   groups,
@@ -123,11 +123,28 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
 
 export async function listUsers(
   context: Context,
-  options: { page?: number; limit?: number; search?: string } = {}
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "createdAt" | "email" | "name" | "sub";
+    sortOrder?: "asc" | "desc";
+  } = {}
 ) {
   const page = Math.max(1, options.page || 1);
   const limit = Math.min(100, Math.max(1, options.limit || 20));
   const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "email"
+      ? users.email
+      : sortBy === "name"
+        ? users.name
+        : sortBy === "sub"
+          ? users.sub
+          : users.createdAt;
 
   const baseQuery = context.db
     .select({
@@ -149,7 +166,7 @@ export async function listUsers(
     : context.db.select({ count: count() }).from(users));
 
   const usersList = await (searchCondition ? baseQuery.where(searchCondition) : baseQuery)
-    .orderBy(desc(users.createdAt))
+    .orderBy(sortFn(sortColumn), sortFn(users.sub))
     .limit(limit)
     .offset(offset);
 

@@ -9,7 +9,11 @@ import { attachActorInfo, countAuditLogs, listAuditLogs } from "../../models/aud
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
-import { getPaginationFromUrl } from "../../utils/pagination.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 export const AuditLogSchema = z.object({
   id: z.string(),
@@ -51,6 +55,8 @@ export const AuditLogsListResponseSchema = z.object({
     resourceId: z.string().optional(),
     success: z.boolean().optional(),
     search: z.string().optional(),
+    sortBy: z.enum(["timestamp", "eventType", "resourceType", "success", "statusCode"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
 
@@ -65,50 +71,57 @@ export async function getAuditLogs(
     throw new ForbiddenError("Admin access required");
   }
 
-  // Parse query parameters
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const { page, limit, offset } = getPaginationFromUrl(url, 20, 100);
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    startDate: z.string().optional(),
+    endDate: z.string().optional(),
+    eventType: z.string().optional(),
+    userId: z.string().optional(),
+    adminId: z.string().optional(),
+    clientId: z.string().optional(),
+    resourceType: z.string().optional(),
+    resourceId: z.string().optional(),
+    success: z
+      .union([z.boolean(), z.enum(["true", "false"])])
+      .optional()
+      .transform((value) => {
+        if (typeof value === "boolean") return value;
+        if (value === "true") return true;
+        if (value === "false") return false;
+        return undefined;
+      }),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["timestamp", "eventType", "resourceType", "success", "statusCode"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const page = parsed.page;
+  const limit = parsed.limit;
+  const offset = (page - 1) * limit;
+  const startDate = parsed.startDate ? new Date(parsed.startDate) : undefined;
+  const endDate = parsed.endDate ? new Date(parsed.endDate) : undefined;
 
-  // Parse filter parameters
-  const startDate = url.searchParams.get("startDate")
-    ? new Date(url.searchParams.get("startDate") || "")
-    : undefined;
-  const endDate = url.searchParams.get("endDate")
-    ? new Date(url.searchParams.get("endDate") || "")
-    : undefined;
-  const eventType = url.searchParams.get("eventType") || undefined;
-  const userId = url.searchParams.get("userId") || undefined;
-  const adminId = url.searchParams.get("adminId") || undefined;
-  const clientId = url.searchParams.get("clientId") || undefined;
-  const resourceType = url.searchParams.get("resourceType") || undefined;
-  const resourceId = url.searchParams.get("resourceId") || undefined;
-  const success = url.searchParams.get("success")
-    ? url.searchParams.get("success") === "true"
-    : undefined;
-  const search = url.searchParams.get("search") || undefined;
-
-  // Build filters object
   const filters: AuditLogFilters = {
     startDate,
     endDate,
-    eventType,
-    userId,
-    adminId,
-    clientId,
-    resourceType,
-    resourceId,
-    success,
-    search,
+    eventType: parsed.eventType,
+    userId: parsed.userId,
+    adminId: parsed.adminId,
+    clientId: parsed.clientId,
+    resourceType: parsed.resourceType,
+    resourceId: parsed.resourceId,
+    success: parsed.success,
+    search: parsed.search,
+    sortBy: parsed.sortBy,
+    sortOrder: parsed.sortOrder,
     limit,
     offset,
   };
 
-  // Query audit logs with filters
   const auditLogsList = await listAuditLogs(context, filters);
-
   const enriched = await attachActorInfo(context, auditLogsList);
-
-  // Get total count for pagination (using same filters but without limit/offset)
   const total = await countAuditLogs(context, filters);
   const totalPages = Math.ceil(total / limit);
 
@@ -125,14 +138,16 @@ export async function getAuditLogs(
     filters: {
       startDate: startDate?.toISOString(),
       endDate: endDate?.toISOString(),
-      eventType,
-      userId,
-      adminId,
-      clientId,
-      resourceType,
-      resourceId,
-      success,
-      search,
+      eventType: parsed.eventType,
+      userId: parsed.userId,
+      adminId: parsed.adminId,
+      clientId: parsed.clientId,
+      resourceType: parsed.resourceType,
+      resourceId: parsed.resourceId,
+      success: parsed.success,
+      search: parsed.search,
+      sortBy: parsed.sortBy,
+      sortOrder: parsed.sortOrder,
     },
   };
 
@@ -145,7 +160,7 @@ export const schema = {
   tags: ["Audit Logs"],
   summary: "List audit logs",
   query: z.object({
-    page: z.number().int().positive().optional(),
+    page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
@@ -156,7 +171,9 @@ export const schema = {
     resourceType: z.string().optional(),
     resourceId: z.string().optional(),
     success: z.boolean().optional(),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["timestamp", "eventType", "resourceType", "success", "statusCode"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {
     200: {

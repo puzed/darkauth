@@ -2,6 +2,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { listAdminUsers } from "../../models/adminUsers.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const AdminRoleSchema = z.enum(["read", "write"]);
 const AdminUserSchema = z.object({
@@ -28,7 +33,6 @@ export const AdminUsersListResponseSchema = z.object({
 import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { sendJsonValidated } from "../../utils/http.js";
-import { getPaginationFromUrl } from "../../utils/pagination.js";
 
 export async function getAdminUsers(
   context: Context,
@@ -40,73 +44,29 @@ export async function getAdminUsers(
     throw new ForbiddenError("Write access required");
   }
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const { page, limit } = getPaginationFromUrl(url, 20, 100);
-  const search = url.searchParams.get("search");
-  const result = await listAdminUsers(context, { page, limit, search: search || undefined });
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "email", "name", "role"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const result = await listAdminUsers(context, parsed);
   sendJsonValidated(response, 200, result, AdminUsersListResponseSchema);
 }
 
-// export const openApiSchema = createRouteSpec({
-//   method: "get",
-//   path: "/admin/admin-users",
-//   tags: ["Admin Users"],
-//   summary: "List admin users",
-//   request: {
-//     query: {
-//       page: { type: "number", required: false, description: "Page number" },
-//       limit: { type: "number", required: false, description: "Items per page" },
-//       search: { type: "string", required: false, description: "Search term" },
-//     },
-//   },
-//   responses: {
-//     200: {
-//       description: "OK",
-//       content: {
-//         "application/json": {
-//           schema: AdminUsersListResponseSchema,
-//         , ...genericErrors },
-//       },
-//     },
-//     401: {
-//       description: "Unauthorized",
-//       content: {
-//         "application/json": {
-//           schema: UnauthorizedResponseSchema,
-//         },
-//       },
-//     },
-//     403: {
-//       description: "Forbidden",
-//       content: {
-//         "application/json": {
-//           schema: ForbiddenResponseSchema,
-//           example: {
-//             error: "FORBIDDEN",
-//             message: "Write access required",
-//             code: "FORBIDDEN",
-//           },
-//         },
-//       },
-//     },
-//     500: {
-//       description: "Internal Server Error",
-//       content: {
-//         "application/json": {
-//           schema: ErrorResponseSchema,
-//         },
-//       },
-//     },
-//   },
-// });
 export const schema = {
   method: "GET",
   path: "/admin/admin-users",
   tags: ["Admin Users"],
   summary: "List admin users",
   query: z.object({
-    page: z.number().int().positive().optional(),
+    page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "email", "name", "role"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {
     200: {

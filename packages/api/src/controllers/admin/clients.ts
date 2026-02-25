@@ -2,6 +2,11 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const ClientResponseSchema = z.object({
   clientId: z.string(),
@@ -28,6 +33,14 @@ const ClientResponseSchema = z.object({
 });
 export const ClientsListResponseSchema = z.object({
   clients: z.array(ClientResponseSchema),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    limit: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().nonnegative(),
+    hasNext: z.boolean(),
+    hasPrev: z.boolean(),
+  }),
 });
 
 import { listClients } from "../../models/clients.js";
@@ -46,12 +59,16 @@ export async function getClients(
     throw new ForbiddenError("Admin access required");
   }
 
-  const clientsData = await listClients(context);
-
-  const responseData = {
-    clients: clientsData,
-  };
-
+  const url = new URL(request.url || "", `http://${request.headers.host}`);
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "updatedAt", "clientId", "name", "type"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const responseData = await listClients(context, parsed);
   sendJsonValidated(response, 200, responseData, ClientsListResponseSchema);
 }
 
@@ -60,6 +77,13 @@ export const schema = {
   path: "/admin/clients",
   tags: ["Clients"],
   summary: "List OAuth clients",
+  query: z.object({
+    page: listPageOpenApiQuerySchema,
+    limit: z.number().int().positive().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "updatedAt", "clientId", "name", "type"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+  }),
   responses: {
     200: {
       description: "OK",
