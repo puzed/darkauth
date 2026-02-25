@@ -189,3 +189,92 @@ All colors MUST be HSL.
   @apply underline hover:no-underline;
   color: hsl(var(--primary));
 }
+
+.docs-shell {
+  background:
+    radial-gradient(circle at 100% 0%, hsl(var(--primary) / 0.08) 0%, transparent 45%),
+    radial-gradient(circle at 0% 12%, hsl(var(--primary) / 0.05) 0%, transparent 36%),
+    hsl(var(--background));
+}
+
+.docs-nav-link {
+  @apply flex items-start gap-2 rounded-md px-3 py-2 text-sm leading-5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+}
+
+.docs-nav-link-active {
+  @apply bg-primary/10 font-medium text-primary;
+}
+
+.docs-content > div {
+  @apply space-y-8;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.docs-content h2 {
+  @apply tracking-tight;
+}
+
+.docs-content h3 {
+  @apply tracking-tight;
+}
+
+.docs-content p {
+  @apply leading-7;
+}
+
+.docs-content ul,
+.docs-content ol {
+  @apply leading-7;
+}
+
+.docs-content pre {
+  @apply rounded-lg border-border/60 bg-muted/40;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.docs-content code {
+  font-size: 0.82rem;
+}
+
+.docs-content pre code {
+  display: block;
+  min-width: 100%;
+  width: max-content;
+}
+
+.docs-content .shadow-sm {
+  @apply bg-card/90;
+}
+
+.docs-sidebar-nav {
+  @apply p-3 md:p-4;
+}
+
+.docs-nav-section {
+  @apply border-b border-border/60 py-2;
+}
+
+.docs-nav-section:last-child {
+  border-bottom: 0;
+}
+
+.docs-nav-section-title {
+  @apply mb-2 flex items-center gap-2 px-3 text-[0.72rem] font-semibold uppercase tracking-[0.08em] text-foreground/70;
+}
+
+.docs-content {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.docs-content > * {
+  min-width: 0;
+}
+
+.docs-content .rounded-lg {
+  min-width: 0;
+  max-width: 100%;
+}
