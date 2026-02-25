@@ -23,6 +23,49 @@ import adminApiService, {
   type User,
 } from "@/services/api";
 
+type ChangelogEntry = {
+  date: string;
+  title: string;
+  changes: string[];
+  filename: string;
+};
+
+const CURRENT_APP_VERSION = (import.meta.env.VITE_APP_VERSION || "").trim();
+
+function normalizeVersionTag(value: string): string {
+  return value.trim().replace(/^v/i, "");
+}
+
+function parseVersion(value: string): {
+  major: number;
+  minor: number;
+  patch: number;
+  prerelease: string;
+} | null {
+  const match = value
+    .trim()
+    .match(/^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/);
+  if (!match) return null;
+  return {
+    major: Number.parseInt(match[1], 10),
+    minor: Number.parseInt(match[2] || "0", 10),
+    patch: Number.parseInt(match[3] || "0", 10),
+    prerelease: match[4] || "",
+  };
+}
+
+function compareVersions(a: string, b: string): number {
+  const parsedA = parseVersion(a);
+  const parsedB = parseVersion(b);
+  if (!parsedA || !parsedB) return 0;
+  if (parsedA.major !== parsedB.major) return parsedA.major > parsedB.major ? 1 : -1;
+  if (parsedA.minor !== parsedB.minor) return parsedA.minor > parsedB.minor ? 1 : -1;
+  if (parsedA.patch !== parsedB.patch) return parsedA.patch > parsedB.patch ? 1 : -1;
+  if (!parsedA.prerelease && parsedB.prerelease) return 1;
+  if (parsedA.prerelease && !parsedB.prerelease) return -1;
+  return parsedA.prerelease.localeCompare(parsedB.prerelease);
+}
+
 export default function Dashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -31,12 +74,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [_error, setError] = useState<string | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [latestChangelog, setLatestChangelog] = useState<{
-    date: string;
-    title: string;
-    changes: string[];
-    filename: string;
-  } | null>(null);
+  const [changelogEntry, setChangelogEntry] = useState<ChangelogEntry | null>(null);
+  const [newerVersion, setNewerVersion] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -59,8 +98,22 @@ export default function Dashboard() {
         const res = await fetch("https://release.darkauth.com/changelog.json");
         if (res.ok) {
           const data = await res.json();
-          const entries = data.entries || [];
-          setLatestChangelog(entries[0] || null);
+          const entries = (data.entries || []) as ChangelogEntry[];
+          const selectedEntry = entries.find(
+            (entry) => normalizeVersionTag(entry.title) === normalizeVersionTag(CURRENT_APP_VERSION)
+          );
+          setChangelogEntry(selectedEntry || null);
+
+          if (!CURRENT_APP_VERSION) {
+            setNewerVersion(null);
+          } else {
+            const latestKnownVersion = entries[0]?.title || "";
+            setNewerVersion(
+              latestKnownVersion && compareVersions(latestKnownVersion, CURRENT_APP_VERSION) > 0
+                ? latestKnownVersion
+                : null
+            );
+          }
         }
       } catch {}
     } catch (e) {
@@ -205,7 +258,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center" }}>
-              <CardTitle>Latest Changelog</CardTitle>
+              <CardTitle>Changelog</CardTitle>
               <Button
                 variant="outline"
                 size="sm"
@@ -220,18 +273,27 @@ export default function Dashboard() {
           <CardContent>
             {loading ? (
               <div>Loading...</div>
-            ) : latestChangelog ? (
+            ) : changelogEntry ? (
               <div style={{ display: "grid", gap: 12 }}>
+                {newerVersion ? (
+                  <button
+                    type="button"
+                    className={styles.updateBanner}
+                    onClick={() => window.open("https://darkauth.com/changelog", "_blank")}
+                  >
+                    New version available: {newerVersion}
+                  </button>
+                ) : null}
                 <div
                   style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center" }}
                 >
-                  <div style={{ fontWeight: 600 }}>{latestChangelog.title}</div>
+                  <div style={{ fontWeight: 600 }}>{changelogEntry.title}</div>
                   <div style={{ color: "hsl(var(--muted-foreground))", fontSize: 12 }}>
-                    {latestChangelog.date}
+                    {changelogEntry.date}
                   </div>
                 </div>
                 <div className={changelogStyles.changelog}>
-                  {latestChangelog.changes.map((change) => (
+                  {changelogEntry.changes.map((change) => (
                     <div key={`cl-${change.substring(0, 40)}`}>
                       {convertMarkdownToComponents(change, 0)}
                     </div>
@@ -239,7 +301,9 @@ export default function Dashboard() {
                 </div>
               </div>
             ) : (
-              <div style={{ color: "hsl(var(--muted-foreground))" }}>No changelog entries</div>
+              <div style={{ color: "hsl(var(--muted-foreground))" }}>
+                No changelog entry for version {CURRENT_APP_VERSION || "unknown"}
+              </div>
             )}
           </CardContent>
         </Card>
