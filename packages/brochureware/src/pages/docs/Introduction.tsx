@@ -1,96 +1,102 @@
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, Lock, Server, Users, Workflow } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import DocsCallout from "@/pages/docs/components/DocsCallout";
+import { Lock, ShieldCheck, ServerCog, Users } from "lucide-react";
 
 const IntroductionPage = () => {
   return (
-    <div className="space-y-6">
-      <Card className="border-border/50">
-        <CardContent className="p-6">
-          <Badge variant="outline" className="mb-3 border-primary/30 text-primary">
+    <div className="space-y-8">
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <Badge variant="outline" className="mb-2 border-primary/30 text-primary">
             Introduction
           </Badge>
-          <h2 className="text-2xl font-bold text-foreground">What DarkAuth Is</h2>
-          <p className="mt-3 text-base leading-6 text-muted-foreground">
-            DarkAuth is a self-hosted authentication server with OIDC compatibility and a
-            zero-knowledge security model. It uses OPAQUE for password authentication so the
-            server never learns user passwords, and it supports client-side key flows for
-            applications that need encrypted data without giving the server decryption capability.
+          <CardTitle className="text-2xl">DarkAuth for Integrators</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-base leading-7 text-muted-foreground">
+            DarkAuth is a self-hosted authentication platform built for teams that want strong security
+            without giving up practical integration paths. It combines OPAQUE password auth, OIDC/OAuth
+            compatibility, and scoped application/admin APIs so teams can build user dashboards,
+            management tooling, and service-to-service workflows against one consistent auth surface.
           </p>
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-border/50">
-          <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-foreground">
+      <DocsCallout title="What you can document or build with this site" icon={ShieldCheck}>
+        <ul className="list-disc space-y-2 pl-5 text-base">
+          <li>Product feature walk-throughs for implementers and security reviewers.</li>
+          <li>Endpoint-level integration and SDK recipes.</li>
+          <li>Operational runbooks for install, branding, and production hardening.</li>
+        </ul>
+      </DocsCallout>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="mb-1 flex items-center gap-2 text-foreground">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Security First</h3>
+              <h3 className="font-semibold">Zero-Knowledge Password Model</h3>
             </div>
-            <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
-              <li>OPAQUE-based password auth</li>
-              <li>No plaintext password handling on the server</li>
-              <li>Support for encrypted key material workflows</li>
-            </ul>
+            <p className="text-base text-muted-foreground">
+              OPAQUE keeps password-derived secrets out of the server while still enabling robust
+              login and recovery flows.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              This is separate from data encryption. If you use the demo client or the optional ZK
+              flows, data keys are derived and transported through public-key wrapping.
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
-          <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-foreground">
-              <Lock className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">OIDC Compatible</h3>
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="mb-1 flex items-center gap-2 text-foreground">
+              <ServerCog className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">OIDC + Admin Surfaces</h3>
             </div>
-            <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
-              <li>Discovery, authorize and token endpoints</li>
-              <li>Works with public and confidential clients</li>
-              <li>PKCE support for browser-based apps</li>
-            </ul>
+            <p className="text-base text-muted-foreground">
+              A user API on port 9080 and admin API on port 9081 are available. The same codebase
+              handles both auth flows and management operations with explicit permission checks.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Documentation is split between user-facing guides and admin/operations guidance.
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
-          <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-foreground">
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="mb-1 flex items-center gap-2 text-foreground">
               <Users className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">User Directory APIs</h3>
+              <h3 className="font-semibold">Org-Aware Access Control</h3>
             </div>
-            <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
-              <li>Search users from `/api/users`</li>
-              <li>Fetch single user records from `/api/users/:sub`</li>
-              <li>Permission-aware responses by auth method</li>
-            </ul>
+            <p className="text-base text-muted-foreground">
+              Users can belong to organizations, and effective permissions are resolved from org roles at
+              auth and token issuance time.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              The docs include a dedicated integration section for org context and RBAC behaviors.
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="border-border/50">
-          <CardContent className="p-5">
-            <div className="mb-3 flex items-center gap-2 text-foreground">
-              <Workflow className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Practical Architecture</h3>
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-6 space-y-3">
+            <div className="mb-1 flex items-center gap-2 text-foreground">
+              <Lock className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Integrator-First Surface</h3>
             </div>
-            <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
-              <li>Separate user and admin APIs</li>
-              <li>Role and permission model for access control</li>
-              <li>Designed for self-hosted deployment and customization</li>
-            </ul>
+            <p className="text-base text-muted-foreground">
+              Use guide flows for frontend OAuth integration, confidential backend clients, SDK usage,
+              and endpoint-level reference for API contracts.
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Each page maps to concrete routes in `packages/api` and is tested through Playwright flows.
+            </p>
           </CardContent>
         </Card>
       </div>
-
-      <Card className="border-border/50">
-        <CardContent className="p-6">
-          <div className="mb-3 flex items-center gap-2 text-foreground">
-            <Server className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Start Here</h3>
-          </div>
-          <p className="text-base leading-6 text-muted-foreground">
-            If you are integrating a frontend or backend with DarkAuth user directory APIs, continue
-            to <strong>Developers → Client APIs → Authentication</strong>. That page shows the
-            two supported access patterns with working request examples.
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 };
