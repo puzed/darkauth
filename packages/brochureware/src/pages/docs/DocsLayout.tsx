@@ -1,82 +1,70 @@
+import { Link, Outlet, useLocation } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { BookOpen, Folder, FileText } from "lucide-react";
-import { Link, Outlet, useLocation } from "react-router-dom";
+import { docsSections, type DocsLink } from "./docsNavigation";
 
-function sidebarItemClass(isActive: boolean) {
-  if (isActive) {
-    return "flex items-center gap-2 rounded-md bg-primary/10 px-3 py-2 text-base text-primary";
+function isActive(path: string, locationPath: string) {
+  if (path === "/docs") {
+    return locationPath === "/docs" || locationPath === "/docs/introduction";
   }
 
-  return "flex items-center gap-2 rounded-md px-3 py-2 text-base text-muted-foreground hover:bg-muted hover:text-foreground";
+  if (path === "/how-it-works" || path === "/changelog") {
+    return locationPath === path;
+  }
+
+  return locationPath === path || locationPath.startsWith(`${path}/`);
+}
+
+function navLinkClass(active: boolean) {
+  if (active) {
+    return "docs-nav-link docs-nav-link-active";
+  }
+
+  return "docs-nav-link";
+}
+
+function sectionLinks(links: DocsLink[], locationPath: string) {
+  return links.map((link) => (
+    <Link key={link.path} to={link.path} className={navLinkClass(isActive(link.path, locationPath))}>
+      <span>{link.title}</span>
+    </Link>
+  ));
 }
 
 const DocsLayout = () => {
   const location = useLocation();
-  const isIntroductionActive =
-    location.pathname === "/docs" || location.pathname === "/docs/introduction";
-  const isAuthenticationActive =
-    location.pathname === "/docs/developers/client-apis/authentication";
-  const isUsersApiActive =
-    location.pathname === "/docs/developers/client-apis/users";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="docs-shell min-h-screen">
       <Header />
-      <section className="py-12">
+      <section className="py-10 md:py-14">
         <div className="container max-w-7xl">
-          <div className="mb-6">
-            <Badge variant="outline" className="border-primary/30 text-primary">
-              <BookOpen className="mr-2 h-4 w-4" />
-              Documentation
-            </Badge>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-foreground">DarkAuth Docs</h1>
+          <div className="mb-8 md:mb-12">
+            <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">DarkAuth Docs</h1>
+            <p className="mt-3 max-w-3xl text-base text-muted-foreground md:text-lg">
+              Integrator-first documentation for implementation, API usage, and deployment.
+            </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-[280px_1fr]">
-            <Card className="h-fit border-border/50">
-              <CardContent className="p-4">
-                <nav className="space-y-2">
-                  <Link to="/docs/introduction" className={sidebarItemClass(isIntroductionActive)}>
-                    <FileText className="h-4 w-4" />
-                    <span>Introduction</span>
-                  </Link>
-
-                  <div className="rounded-md border border-border/50 p-2">
-                    <div className="flex items-center gap-2 px-2 py-1 text-base font-medium text-foreground">
-                      <Folder className="h-4 w-4" />
-                      <span>Developers</span>
-                    </div>
-                    <div className="mt-1 ml-4 rounded-md border border-border/50 p-2">
-                      <div className="flex items-center gap-2 px-2 py-1 text-base font-medium text-foreground">
-                        <Folder className="h-4 w-4" />
-                        <span>Client APIs</span>
+          <div className="grid items-start gap-8 lg:grid-cols-[290px_minmax(0,1fr)] xl:gap-10">
+            <Card className="docs-sidebar h-fit border-border/70 bg-card/95 shadow-sm">
+              <CardContent className="p-0">
+                <nav className="docs-sidebar-nav">
+                  {docsSections.map((section) => (
+                    <div key={section.title} className="docs-nav-section">
+                      <div className="docs-nav-section-title">
+                        <section.icon className="h-4 w-4" />
+                        <span>{section.title}</span>
                       </div>
-                      <div className="mt-1 ml-4">
-                        <Link
-                          to="/docs/developers/client-apis/authentication"
-                          className={sidebarItemClass(isAuthenticationActive)}
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span>Authentication</span>
-                        </Link>
-                        <Link
-                          to="/docs/developers/client-apis/users"
-                          className={sidebarItemClass(isUsersApiActive)}
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span>Users (/api/users)</span>
-                        </Link>
-                      </div>
+                      <div className="space-y-0.5">{sectionLinks(section.links, location.pathname)}</div>
                     </div>
-                  </div>
+                  ))}
                 </nav>
               </CardContent>
             </Card>
 
-            <main>
+            <main className="docs-content min-w-0">
               <Outlet />
             </main>
           </div>

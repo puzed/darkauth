@@ -2,10 +2,20 @@ import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
+import { useLocation } from "react-router-dom";
 
 const Header = () => {
+  const location = useLocation();
+  const isDocsRoute = location.pathname === "/docs" || location.pathname.startsWith("/docs/");
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header
+      className={
+        isDocsRoute
+          ? "w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+          : "sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      }
+    >
       <div className="container flex h-16 max-w-7xl items-center justify-between">
         <a href="/" className="flex items-center space-x-3">
           <img src="/favicon.svg" alt="DarkAuth Logo" className="h-10 w-10 dark:brightness-[100]" />

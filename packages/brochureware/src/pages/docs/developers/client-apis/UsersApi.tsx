@@ -77,8 +77,8 @@ const managementResponseExample = `{
 
 const UsersApiPage = () => {
   return (
-    <div className="space-y-6">
-      <Card className="border-border/50">
+    <div className="space-y-8">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <Badge variant="outline" className="mb-3 border-primary/30 text-primary">
             Developers / Client APIs
@@ -105,7 +105,7 @@ const UsersApiPage = () => {
         </ul>
       </DocsCallout>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-foreground">
             <ListChecks className="h-5 w-5 text-primary" />
@@ -119,39 +119,39 @@ const UsersApiPage = () => {
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-foreground">
             <UserRoundSearch className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Example: Bearer Client</h3>
           </div>
-          <pre className="overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-xs sm:text-base">
             <code>{bearerExample}</code>
           </pre>
           <p className="mt-4 text-base font-medium text-foreground">Example response</p>
-          <pre className="mt-2 overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
+          <pre className="mt-2 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-xs sm:text-base">
             <code>{bearerResponseExample}</code>
           </pre>
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <div className="mb-3 flex items-center gap-2 text-foreground">
             <UserRoundSearch className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Example: Confidential Client</h3>
           </div>
-          <pre className="overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-xs sm:text-base">
             <code>{clientCredentialsExample}</code>
           </pre>
           <p className="mt-4 text-base font-medium text-foreground">Example response</p>
-          <pre className="mt-2 overflow-x-auto rounded-md border border-border/50 bg-muted/40 p-4 text-xs sm:text-base">
+          <pre className="mt-2 overflow-x-auto rounded-md border border-border/60 bg-muted/40 p-4 text-xs sm:text-base">
             <code>{managementResponseExample}</code>
           </pre>
         </CardContent>
       </Card>
 
-      <Card className="border-border/50">
+      <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">
           <h3 className="text-lg font-semibold text-foreground">Status Codes</h3>
           <ul className="mt-3 list-disc space-y-2 pl-5 text-base text-muted-foreground">
