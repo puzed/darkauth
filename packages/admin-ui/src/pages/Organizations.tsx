@@ -1,12 +1,4 @@
-import {
-  Building2,
-  Edit,
-  Filter,
-  Plus,
-  RefreshCcw,
-  Trash2,
-  Users as UsersIcon,
-} from "lucide-react";
+import { Building2, Edit, Plus, RefreshCcw, Trash2, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -15,19 +7,22 @@ import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-import tableStyles from "@/components/table.module.css";
+import ListPagination from "@/components/table/list-pagination";
+import SortableTableHead from "@/components/table/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import adminApiService, { type Organization } from "@/services/api";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
+import adminApiService, { type Organization, type SortOrder } from "@/services/api";
 import { logger } from "@/services/logger";
+import styles from "./Organizations.module.css";
 
 export default function Organizations() {
   const navigate = useNavigate();
@@ -39,38 +34,64 @@ export default function Organizations() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  const toggleSort = (field: string) => {
+    setCurrentPage(1);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortOrder("asc");
+  };
 
   const loadOrganizations = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminApiService.getOrganizationsPaged(
-        currentPage,
-        20,
-        debouncedSearch
-      );
+      const response = await adminApiService.getOrganizationsPaged({
+        page: currentPage,
+        limit: 20,
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+      });
       setOrganizations(response.organizations);
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
-    } catch (error) {
-      logger.error(error, "Failed to load organizations");
-      setError(error instanceof Error ? error.message : "Failed to load organizations");
+    } catch (loadError) {
+      logger.error(loadError, "Failed to load organizations");
+      setError("Unable to load organizations. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     loadOrganizations();
   }, [loadOrganizations]);
 
   useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
   const getOrganizationId = (organization: Organization) =>
     organization.organizationId || (organization as Organization & { id?: string }).id || "";
+
+  const openOrganization = (organization: Organization) => {
+    const organizationId = getOrganizationId(organization);
+    if (!organizationId) {
+      setError("Organization ID is missing");
+      return;
+    }
+    navigate(`/organizations/${encodeURIComponent(organizationId)}`);
+  };
 
   const handleDeleteOrganization = async (organization: Organization) => {
     const organizationId = getOrganizationId(organization);
@@ -85,8 +106,9 @@ export default function Organizations() {
       await adminApiService.deleteOrganization(organizationId);
       setOrganizations((prev) => prev.filter((org) => getOrganizationId(org) !== organizationId));
       setTotalCount((prev) => Math.max(prev - 1, 0));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete organization");
+    } catch (deleteError) {
+      logger.error(deleteError, "Failed to delete organization");
+      setError("Unable to delete organization. Please try again.");
     }
   };
 
@@ -141,11 +163,6 @@ export default function Organizations() {
           value: searchQuery,
           onChange: setSearchQuery,
         }}
-        rightActions={
-          <Button variant="outline" size="icon">
-            <Filter size={16} />
-          </Button>
-        }
       >
         {organizations.length === 0 ? (
           <EmptyState
@@ -156,97 +173,88 @@ export default function Organizations() {
             }
           />
         ) : (
-          <table className={tableStyles.table}>
-            <thead className={tableStyles.header}>
-              <tr>
-                <th className={tableStyles.head}>Name</th>
-                <th className={tableStyles.head}>Slug</th>
-                <th className={tableStyles.head}>Members</th>
-                <th className={tableStyles.head}>Roles</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {organizations.map((organization, index) => {
-                const organizationId = getOrganizationId(organization);
-                const rowKey =
-                  organizationId || organization.slug || organization.name || `${index}`;
-                return (
-                  <tr key={rowKey} className={tableStyles.row}>
-                    <td className={tableStyles.cell} style={{ fontWeight: 500 }}>
-                      {organization.name}
-                    </td>
-                    <td className={tableStyles.cell}>
-                      <code
-                        style={{
-                          backgroundColor: "hsl(var(--muted))",
-                          padding: "2px 6px",
-                          borderRadius: 4,
-                          fontSize: "0.875rem",
-                        }}
-                      >
-                        {organization.slug}
-                      </code>
-                    </td>
-                    <td className={tableStyles.cell}>
-                      <Badge variant="outline">{organization.memberCount || 0}</Badge>
-                    </td>
-                    <td className={tableStyles.cell}>
-                      <Badge variant="secondary">{organization.roleCount || 0}</Badge>
-                    </td>
-                    <td className={tableStyles.cell}>
-                      <RowActions
-                        items={[
-                          {
-                            key: "edit",
-                            label: "Manage Organization",
-                            icon: <Edit className="h-4 w-4" />,
-                            onClick: () =>
-                              organizationId
-                                ? navigate(`/organizations/${organizationId}`)
-                                : setError("Organization ID is missing"),
-                          },
-                          {
-                            key: "delete",
-                            label: "Delete Organization",
-                            icon: <Trash2 className="h-4 w-4" />,
-                            destructive: true,
-                            onClick: () => handleDeleteOrganization(organization),
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="Name"
+                    isActive={sortBy === "name"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("name")}
+                  />
+                  <SortableTableHead
+                    label="Slug"
+                    isActive={sortBy === "slug"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("slug")}
+                  />
+                  <TableHead>Members</TableHead>
+                  <TableHead>Roles</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {organizations.map((organization, index) => {
+                  const organizationId = getOrganizationId(organization);
+                  const rowKey =
+                    organizationId || organization.slug || organization.name || `${index}`;
+                  return (
+                    <TableRow key={rowKey}>
+                      <TableCell>
+                        <button
+                          type="button"
+                          className={tableStyles.primaryActionButton}
+                          onClick={() => openOrganization(organization)}
+                        >
+                          <span className={tableStyles.primaryActionText}>{organization.name}</span>
+                        </button>
+                      </TableCell>
+                      <TableCell>
+                        <code className={styles.slugCode}>{organization.slug}</code>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{organization.memberCount || 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{organization.roleCount || 0}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <RowActions
+                          items={[
+                            {
+                              key: "edit",
+                              label: "Manage Organization",
+                              icon: <Edit className="h-4 w-4" />,
+                              onClick: () => openOrganization(organization),
+                            },
+                            {
+                              key: "delete",
+                              label: "Delete Organization",
+                              icon: <Trash2 className="h-4 w-4" />,
+                              destructive: true,
+                              onClick: () => handleDeleteOrganization(organization),
+                            },
+                          ]}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+            <div style={{ marginTop: 20 }}>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </ListCard>
-
-      {totalPages > 1 && (
-        <div style={{ marginTop: 20 }}>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>{currentPage}</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
     </div>
   );
 }

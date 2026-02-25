@@ -8,6 +8,7 @@ import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import Stack from "@/components/layout/stack";
+import RowActions from "@/components/row-actions";
 import MutedText from "@/components/text/muted-text";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +31,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
 import adminApiService, { type Group, type Permission } from "@/services/api";
 
 export default function GroupEdit() {
@@ -292,7 +294,7 @@ export default function GroupEdit() {
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead></TableHead>
+                    <TableHead className={tableStyles.actionCell}></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -300,16 +302,20 @@ export default function GroupEdit() {
                     <TableRow key={u.sub}>
                       <TableCell>{u.email}</TableCell>
                       <TableCell>{u.name || "-"}</TableCell>
-                      <TableCell style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setGroupUsers(groupUsers.filter((x) => x.sub !== u.sub))}
-                          disabled={submitting}
-                          aria-label="Remove user"
-                        >
-                          <Trash2 size={16} />
-                        </Button>
+                      <TableCell>
+                        <RowActions
+                          items={[
+                            {
+                              key: "remove",
+                              label: "Remove user",
+                              icon: <Trash2 size={16} />,
+                              destructive: true,
+                              disabled: submitting,
+                              onClick: () =>
+                                setGroupUsers(groupUsers.filter((x) => x.sub !== u.sub)),
+                            },
+                          ]}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}

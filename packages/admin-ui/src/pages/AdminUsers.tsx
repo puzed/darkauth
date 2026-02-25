@@ -7,19 +7,21 @@ import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-import tableStyles from "@/components/table.module.css";
+import ListPagination from "@/components/table/list-pagination";
+import SortableTableHead from "@/components/table/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
 import { useToast } from "@/hooks/use-toast";
-import adminApiService, { type AdminUser } from "@/services/api";
+import adminApiService, { type AdminUser, type SortOrder } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
 import { logger } from "@/services/logger";
 import adminOpaqueService from "@/services/opaque-cloudflare";
@@ -35,34 +37,55 @@ export default function AdminUsers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  const toggleSort = (field: string) => {
+    setCurrentPage(1);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortOrder("asc");
+  };
 
   const loadAdminUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminApiService.getAdminUsers(currentPage, 20, debouncedSearch);
+      const response = await adminApiService.getAdminUsers({
+        page: currentPage,
+        limit: 20,
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+      });
       setAdminUsers(response.adminUsers);
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
-    } catch (error) {
-      logger.error(error, "Failed to load admin users");
-      setError(error instanceof Error ? error.message : "Failed to load admin users");
+    } catch (loadError) {
+      logger.error(loadError, "Failed to load admin users");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load admin users");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to load admin users",
+        description: loadError instanceof Error ? loadError.message : "Failed to load admin users",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch, toast]);
+  }, [currentPage, debouncedSearch, sortBy, sortOrder, toast]);
 
   useEffect(() => {
     loadAdminUsers();
   }, [loadAdminUsers]);
 
   useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
@@ -76,11 +99,12 @@ export default function AdminUsers() {
         description: `Admin user ${adminUser.email} deleted successfully`,
       });
       loadAdminUsers();
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete admin user");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete admin user");
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete admin user",
+        description:
+          deleteError instanceof Error ? deleteError.message : "Failed to delete admin user",
         variant: "destructive",
       });
     }
@@ -93,10 +117,10 @@ export default function AdminUsers() {
         title: "Reset required",
         description: `Password reset required for ${adminUser.email}`,
       });
-    } catch (error) {
+    } catch (resetError) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed",
+        description: resetError instanceof Error ? resetError.message : "Failed",
         variant: "destructive",
       });
     }
@@ -115,15 +139,15 @@ export default function AdminUsers() {
         startResp.message,
         startResp.serverPublicKey,
         start.state,
-        startResp.identityU
+        adminUser.id
       );
       const hash = await sha256Base64Url(finish.passwordKey);
       await adminApiService.adminUserPasswordSetFinish(adminUser.id, finish.request, hash);
       toast({ title: "Password set", description: "User must change on next login" });
-    } catch (error) {
+    } catch (tempError) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed",
+        description: tempError instanceof Error ? tempError.message : "Failed",
         variant: "destructive",
       });
     }
@@ -135,6 +159,10 @@ export default function AdminUsers() {
       month: "short",
       day: "numeric",
     });
+  };
+
+  const openAdminUser = (adminUser: AdminUser) => {
+    navigate(`/settings/admin-users/${encodeURIComponent(adminUser.id)}/edit`);
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -201,94 +229,107 @@ export default function AdminUsers() {
             />
           )
         ) : (
-          <table className={tableStyles.table}>
-            <thead className={tableStyles.header}>
-              <tr>
-                <th className={tableStyles.head}>Name</th>
-                <th className={tableStyles.head}>Email</th>
-                <th className={tableStyles.head}>Role</th>
-                <th className={tableStyles.head}>Created</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {adminUsers.map((adminUser) => (
-                <tr key={adminUser.id} className={tableStyles.row}>
-                  <td className={tableStyles.cell}>{adminUser.name}</td>
-                  <td className={tableStyles.cell}>{adminUser.email}</td>
-                  <td className={tableStyles.cell}>
-                    <Badge variant={getRoleBadgeVariant(adminUser.role)}>{adminUser.role}</Badge>
-                  </td>
-                  <td className={tableStyles.cell}>{formatDate(adminUser.createdAt)}</td>
-                  <td className={tableStyles.cell}>
-                    <RowActions
-                      items={[
-                        {
-                          key: "edit",
-                          label: "Edit",
-                          icon: <Edit />,
-                          onClick: () => navigate(`/settings/admin-users/${adminUser.id}/edit`),
-                        },
-                        {
-                          key: "reset",
-                          label: "Reset Password",
-                          icon: <KeyRound />,
-                          onClick: () => {},
-                          children: [
-                            {
-                              key: "set-temp",
-                              label: "Set Temporary Password",
-                              icon: <KeyRound />,
-                              onClick: () => setTemporaryPassword(adminUser),
-                            },
-                            {
-                              key: "require",
-                              label: "Require Reset",
-                              icon: <RotateCcw />,
-                              onClick: () => requirePasswordReset(adminUser),
-                            },
-                          ],
-                        },
-                        {
-                          key: "delete",
-                          label: "Delete",
-                          icon: <Trash2 />,
-                          onClick: () => handleDeleteAdminUser(adminUser),
-                          destructive: true,
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="Name"
+                    isActive={sortBy === "name"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("name")}
+                  />
+                  <SortableTableHead
+                    label="Email"
+                    isActive={sortBy === "email"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("email")}
+                  />
+                  <SortableTableHead
+                    label="Role"
+                    isActive={sortBy === "role"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("role")}
+                  />
+                  <SortableTableHead
+                    label="Created"
+                    isActive={sortBy === "createdAt"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("createdAt")}
+                  />
+                  <TableHead className={tableStyles.actionCell}></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {adminUsers.map((adminUser) => (
+                  <TableRow key={adminUser.id}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className={tableStyles.primaryActionButton}
+                        onClick={() => openAdminUser(adminUser)}
+                      >
+                        <span className={tableStyles.primaryActionText}>{adminUser.name}</span>
+                      </button>
+                    </TableCell>
+                    <TableCell>{adminUser.email}</TableCell>
+                    <TableCell>
+                      <Badge variant={getRoleBadgeVariant(adminUser.role)}>{adminUser.role}</Badge>
+                    </TableCell>
+                    <TableCell>{formatDate(adminUser.createdAt)}</TableCell>
+                    <TableCell>
+                      <RowActions
+                        items={[
+                          {
+                            key: "edit",
+                            label: "Edit",
+                            icon: <Edit />,
+                            onClick: () => openAdminUser(adminUser),
+                          },
+                          {
+                            key: "reset",
+                            label: "Reset Password",
+                            icon: <KeyRound />,
+                            onClick: () => {},
+                            children: [
+                              {
+                                key: "set-temp",
+                                label: "Set Temporary Password",
+                                icon: <KeyRound />,
+                                onClick: () => setTemporaryPassword(adminUser),
+                              },
+                              {
+                                key: "require",
+                                label: "Require Reset",
+                                icon: <RotateCcw />,
+                                onClick: () => requirePasswordReset(adminUser),
+                              },
+                            ],
+                          },
+                          {
+                            key: "delete",
+                            label: "Delete",
+                            icon: <Trash2 />,
+                            onClick: () => handleDeleteAdminUser(adminUser),
+                            destructive: true,
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div style={{ marginTop: 20 }}>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </ListCard>
-
-      {totalPages > 1 && (
-        <div style={{ marginTop: 20 }}>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>{currentPage}</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
     </div>
   );
 }
