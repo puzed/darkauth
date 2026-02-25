@@ -115,7 +115,7 @@ export function assertRefreshTokenClientBinding(
   issuedClientId: string | null,
   authenticatedClientId: string | undefined
 ): void {
-  if (!issuedClientId) throw new InvalidGrantError("Invalid or expired refresh token");
+  if (!issuedClientId) return;
   if (issuedClientId !== authenticatedClientId) {
     throw new InvalidGrantError("Refresh token was not issued to this client");
   }
