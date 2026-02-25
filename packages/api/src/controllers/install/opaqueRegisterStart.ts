@@ -69,29 +69,36 @@ export async function postInstallOpaqueRegisterStart(
 
     if (!context.services.install?.tempDb) {
       try {
-        if (data.dbMode === "pglite" && data.pgliteDir) {
-          const requestedDir = path.resolve(process.cwd(), data.pgliteDir);
+        const requestedDbMode = data.dbMode || "pglite";
+        const requestedPgliteDir = data.pgliteDir || context.config.pgliteDir || "data/pglite";
+
+        if (requestedDbMode === "pglite") {
+          const requestedDir = path.resolve(process.cwd(), requestedPgliteDir);
           const activeDir = path.resolve(process.cwd(), context.config.pgliteDir || "data/pglite");
-          if (context.config.dbMode === "pglite" && requestedDir === activeDir) {
+          if (
+            !context.config.inInstallMode &&
+            context.config.dbMode === "pglite" &&
+            requestedDir === activeDir
+          ) {
             context.services.install = {
               ...(context.services.install || {}),
               tempDb: context.db,
               chosenDbMode: "pglite",
-              chosenPgliteDir: data.pgliteDir,
+              chosenPgliteDir: requestedPgliteDir,
             };
           } else {
             context.logger.info("[install:opaque:start] Starting PGLite");
-            const { db, close } = await createPglite(data.pgliteDir);
+            const { db, close } = await createPglite(requestedPgliteDir);
             context.services.install = {
               ...(context.services.install || {}),
               tempDb: db,
               tempDbClose: close,
               chosenDbMode: "pglite",
-              chosenPgliteDir: data.pgliteDir,
+              chosenPgliteDir: requestedPgliteDir,
             };
             context.logger.info("[install:opaque:start] PGLite setup complete");
           }
-        } else if (data.dbMode === "remote" && data.postgresUri) {
+        } else if (requestedDbMode === "remote" && data.postgresUri) {
           context.logger.info(
             { uri: data.postgresUri },
             "[install:opaque:start] Using existing Postgres"
