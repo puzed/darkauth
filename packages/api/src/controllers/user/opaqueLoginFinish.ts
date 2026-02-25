@@ -149,6 +149,19 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         )
         .limit(1);
       if (rows.length > 0) otpRequired = true;
+      const groupOtpRows = await context.db
+        .select({ groupKey: userGroups.groupKey })
+        .from(userGroups)
+        .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+        .where(
+          and(
+            eq(userGroups.userSub, user.sub),
+            eq(groups.enableLogin, true),
+            eq(groups.requireOtp, true)
+          )
+        )
+        .limit(1);
+      if (groupOtpRows.length > 0) otpRequired = true;
 
       const sessionOrganization =
         activeMemberships.length === 1
