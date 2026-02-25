@@ -1,4 +1,4 @@
-import { MoreHorizontal } from "lucide-react";
+import { MoreVertical } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   DropdownMenu,
@@ -11,7 +11,9 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import tableStyles from "./table.module.css";
+import tableStyles from "@/components/ui/table.module.css";
+import { cn } from "@/lib/utils";
+import styles from "./row-actions.module.css";
 
 export type RowAction = {
   key: string;
@@ -26,30 +28,50 @@ export type RowAction = {
 export default function RowActions({
   label = "Actions",
   items,
+  open,
+  onOpenChange,
 }: {
   label?: string;
   items: RowAction[];
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }) {
+  const renderIcon = (icon?: ReactNode) => {
+    if (!icon) {
+      return null;
+    }
+
+    return (
+      <>
+        <span className={styles.actionIcon}>{icon}</span>
+        <span className={styles.iconSpacer} />
+      </>
+    );
+  };
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
-        <button type="button" className={tableStyles.actionTrigger} aria-label={label}>
-          <MoreHorizontal className="h-4 w-4" />
+        <button
+          type="button"
+          className={cn(tableStyles.actionTrigger, open && styles.triggerOpen)}
+          aria-label={label}
+        >
+          <MoreVertical className="h-4 w-4" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>{label}</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className={styles.menuContent}>
+        <DropdownMenuLabel className={styles.menuLabel}>{label}</DropdownMenuLabel>
         {items.map((it, idx) => (
           <div key={it.key}>
-            {idx > 0 && <DropdownMenuSeparator />}
+            {idx > 0 && <DropdownMenuSeparator className={styles.menuSeparator} />}
             {it.children && it.children.length > 0 ? (
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  {it.icon}
-                  {it.icon ? <span style={{ width: 8 }} /> : null}
+                <DropdownMenuSubTrigger className={styles.subTrigger}>
+                  {renderIcon(it.icon)}
                   {it.label}
                 </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent>
+                <DropdownMenuSubContent className={styles.menuSubContent}>
                   {it.children.map((child) => (
                     <DropdownMenuItem
                       key={child.key}
@@ -57,8 +79,7 @@ export default function RowActions({
                       onClick={child.onClick}
                       disabled={child.disabled}
                     >
-                      {child.icon}
-                      {child.icon ? <span style={{ width: 8 }} /> : null}
+                      {renderIcon(child.icon)}
                       {child.label}
                     </DropdownMenuItem>
                   ))}
@@ -70,8 +91,7 @@ export default function RowActions({
                 onClick={it.onClick}
                 disabled={it.disabled}
               >
-                {it.icon}
-                {it.icon ? <span style={{ width: 8 }} /> : null}
+                {renderIcon(it.icon)}
                 {it.label}
               </DropdownMenuItem>
             )}

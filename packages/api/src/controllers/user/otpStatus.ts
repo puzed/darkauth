@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { groups, userGroups } from "../../db/schema.js";
+import { organizationMemberRoles, organizationMembers, roles } from "../../db/schema.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getOtpStatusModel } from "../../models/otp.js";
 import { requireSession } from "../../services/sessions.js";
@@ -30,14 +30,18 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
     if (!required) {
       try {
         const rows = await context.db
-          .select({ groupKey: userGroups.groupKey })
-          .from(userGroups)
-          .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+          .select({ roleKey: roles.key })
+          .from(organizationMembers)
+          .innerJoin(
+            organizationMemberRoles,
+            eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
+          )
+          .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
           .where(
             and(
-              eq(userGroups.userSub, session.sub as string),
-              eq(groups.enableLogin, true),
-              eq(groups.requireOtp, true)
+              eq(organizationMembers.userSub, session.sub as string),
+              eq(organizationMembers.status, "active"),
+              eq(roles.key, "otp_required")
             )
           )
           .limit(1);

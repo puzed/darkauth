@@ -22,15 +22,18 @@ import ClientEdit from "./pages/ClientEdit";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import ErrorPage from "./pages/Error";
-import GroupCreate from "./pages/GroupCreate";
-import GroupEdit from "./pages/GroupEdit";
-import Groups from "./pages/Groups";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
+import OrganizationCreate from "./pages/OrganizationCreate";
+import OrganizationEdit from "./pages/OrganizationEdit";
+import Organizations from "./pages/Organizations";
 import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
 import ResetPassword from "./pages/ResetPassword";
+import RoleCreate from "./pages/RoleCreate";
+import RoleEdit from "./pages/RoleEdit";
+import Roles from "./pages/Roles";
 import Settings from "./pages/Settings";
 import UserCreate from "./pages/UserCreate";
 import UserEdit from "./pages/UserEdit";
@@ -53,6 +56,10 @@ interface AdminSessionData {
 const App = () => {
   const [adminSession, setAdminSession] = useState<AdminSessionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const handleRefreshFailureLimitReached = useCallback(() => {
+    setAdminSession(null);
+    authService.clearSession();
+  }, []);
 
   const checkAdminSession = useCallback(async () => {
     try {
@@ -73,14 +80,8 @@ const App = () => {
         authService.saveSession(sessionData);
 
         authService.startSessionRefresh(async () => {
-          try {
-            await adminApiService.getAdminSession();
-          } catch (error) {
-            logger.error(error, "Session refresh failed");
-            setAdminSession(null);
-            authService.clearSession();
-          }
-        });
+          await adminApiService.getAdminSession();
+        }, handleRefreshFailureLimitReached);
       } else {
         authService.clearSession();
       }
@@ -89,7 +90,7 @@ const App = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [handleRefreshFailureLimitReached]);
 
   useEffect(() => {
     adminApiService.setSessionExpiredCallback(() => {
@@ -111,14 +112,8 @@ const App = () => {
     setAdminSession(adminData);
     authService.saveSession(adminData);
     authService.startSessionRefresh(async () => {
-      try {
-        await adminApiService.getAdminSession();
-      } catch (error) {
-        logger.error(error, "Session refresh failed");
-        setAdminSession(null);
-        authService.clearSession();
-      }
-    });
+      await adminApiService.getAdminSession();
+    }, handleRefreshFailureLimitReached);
   };
 
   const handleLogout = async () => {
@@ -292,26 +287,50 @@ const App = () => {
               }
             />
             <Route
-              path="/groups"
+              path="/organizations"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <Groups />
+                  <Organizations />
                 </DashboardLayout>
               }
             />
             <Route
-              path="/groups/new"
+              path="/organizations/new"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <GroupCreate />
+                  <OrganizationCreate />
                 </DashboardLayout>
               }
             />
             <Route
-              path="/groups/:key"
+              path="/organizations/:organizationId"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <GroupEdit />
+                  <OrganizationEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <Roles />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles/new"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <RoleCreate />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/roles/:roleId"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <RoleEdit />
                 </DashboardLayout>
               }
             />

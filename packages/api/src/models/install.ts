@@ -3,8 +3,12 @@ import {
   adminOpaqueRecords,
   adminUsers,
   clients,
-  groups,
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
   permissions,
+  rolePermissions,
+  roles,
   settings,
 } from "../db/schema.js";
 import { ConflictError, NotFoundError } from "../errors.js";
@@ -84,7 +88,7 @@ export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null
         "http://localhost:3000",
         "https://app.example.com",
       ],
-      grantTypes: ["authorization_code"],
+      grantTypes: ["authorization_code", "refresh_token"],
       responseTypes: ["code"],
       scopes: ["openid", "profile", "email"],
       allowedZkOrigins: [
@@ -125,13 +129,7 @@ export async function seedDefaultClients(
   await context.db.insert(clients).values(buildDefaultClientSeeds(demoConfidentialSecretEnc));
 }
 
-export async function seedDefaultGroups(context: Context) {
-  const existing = await context.db.query.groups.findFirst({ where: eq(groups.key, "default") });
-  if (!existing) {
-    await context.db
-      .insert(groups)
-      .values({ key: "default", name: "Default", enableLogin: true, requireOtp: false });
-  }
+export async function seedDefaultOrganizationRbac(context: Context) {
   const usersReadPermission = await context.db.query.permissions.findFirst({
     where: eq(permissions.key, "darkauth.users:read"),
   });
@@ -141,32 +139,107 @@ export async function seedDefaultGroups(context: Context) {
       description: "Allows searching and reading users from the user directory endpoints",
     });
   }
+  const orgManagePermission = await context.db.query.permissions.findFirst({
+    where: eq(permissions.key, "darkauth.org:manage"),
+  });
+  if (!orgManagePermission) {
+    await context.db.insert(permissions).values({
+      key: "darkauth.org:manage",
+      description: "Allows management of organization members, roles, and invites",
+    });
+  }
+
+  const existingOrg = await context.db.query.organizations.findFirst({
+    where: eq(organizations.slug, "default"),
+  });
+  if (!existingOrg) {
+    await context.db
+      .insert(organizations)
+      .values({ slug: "default", name: "Default", createdAt: new Date(), updatedAt: new Date() });
+  }
+
+  const defaultOrg = await context.db.query.organizations.findFirst({
+    where: eq(organizations.slug, "default"),
+  });
+  if (!defaultOrg) return;
+
+  await context.db
+    .insert(roles)
+    .values([
+      { key: "member", name: "Member", system: true, createdAt: new Date(), updatedAt: new Date() },
+      {
+        key: "org_admin",
+        name: "Organization Admin",
+        system: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        key: "otp_required",
+        name: "OTP Required",
+        system: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ])
+    .onConflictDoNothing();
+
+  const orgAdminRole = await context.db.query.roles.findFirst({
+    where: eq(roles.key, "org_admin"),
+  });
+  if (orgAdminRole) {
+    await context.db
+      .insert(rolePermissions)
+      .values([
+        { roleId: orgAdminRole.id, permissionKey: "darkauth.org:manage" },
+        { roleId: orgAdminRole.id, permissionKey: "darkauth.users:read" },
+      ])
+      .onConflictDoNothing();
+  }
 }
 
-export async function ensureDefaultGroupAndSchema(context: Context) {
+export async function ensureDefaultOrganizationAndSchema(context: Context) {
   try {
     await context.db.execute(
-      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "enable_login" boolean NOT NULL DEFAULT true;`
+      `CREATE TYPE IF NOT EXISTS "organization_status" AS ENUM ('active', 'invited', 'suspended');`
     );
   } catch {}
   try {
     await context.db.execute(
-      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "require_otp" boolean NOT NULL DEFAULT false;`
+      `CREATE TABLE IF NOT EXISTS "organizations" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        "slug" text NOT NULL UNIQUE,
+        "name" text NOT NULL,
+        "created_by_user_sub" text,
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now()
+      );`
     );
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp") VALUES ('default','Default',true,false) ON CONFLICT ("key") DO NOTHING;`
+      `CREATE TABLE IF NOT EXISTS "organization_members" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        "organization_id" uuid NOT NULL,
+        "user_sub" text NOT NULL,
+        "status" "organization_status" NOT NULL DEFAULT 'active',
+        "created_at" timestamp NOT NULL DEFAULT now(),
+        "updated_at" timestamp NOT NULL DEFAULT now()
+      );`
     );
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "permissions" ("key", "description") VALUES ('darkauth.users:read','Allows searching and reading users from the user directory endpoints') ON CONFLICT ("key") DO NOTHING;`
+      `INSERT INTO "organizations" ("slug", "name") VALUES ('default','Default') ON CONFLICT ("slug") DO NOTHING;`
     );
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "user_groups" ("user_sub", "group_key") SELECT u.sub, 'default' FROM users u LEFT JOIN user_groups ug ON ug.user_sub = u.sub WHERE ug.user_sub IS NULL;`
+      `INSERT INTO "organization_members" ("organization_id", "user_sub", "status")
+       SELECT o.id, u.sub, 'active'::organization_status
+       FROM users u
+       JOIN organizations o ON o.slug = 'default'
+       ON CONFLICT DO NOTHING;`
     );
   } catch {}
   try {
@@ -197,5 +270,76 @@ export async function ensureDefaultGroupAndSchema(context: Context) {
         created_at timestamp NOT NULL DEFAULT now()
       );`
     );
+  } catch {}
+
+  try {
+    await context.db.execute(
+      `CREATE TABLE IF NOT EXISTS "groups" (
+        "key" text PRIMARY KEY,
+        "name" text NOT NULL,
+        "enable_login" boolean NOT NULL DEFAULT true,
+        "require_otp" boolean NOT NULL DEFAULT false
+      );`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "enable_login" boolean NOT NULL DEFAULT true;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "require_otp" boolean NOT NULL DEFAULT false;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `CREATE TABLE IF NOT EXISTS "user_groups" (
+        "user_sub" text NOT NULL,
+        "group_key" text NOT NULL,
+        PRIMARY KEY ("user_sub", "group_key")
+      );`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp")
+       VALUES ('default', 'Default', true, false)
+       ON CONFLICT ("key") DO NOTHING;`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `INSERT INTO "user_groups" ("user_sub", "group_key")
+       SELECT u.sub, 'default' FROM users u
+       ON CONFLICT DO NOTHING;`
+    );
+  } catch {}
+
+  try {
+    await seedDefaultOrganizationRbac(context);
+  } catch {}
+
+  try {
+    const defaultOrg = await context.db.query.organizations.findFirst({
+      where: eq(organizations.slug, "default"),
+    });
+    const memberRole = await context.db.query.roles.findFirst({ where: eq(roles.key, "member") });
+    if (!defaultOrg || !memberRole) return;
+    const memberships = await context.db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, defaultOrg.id));
+    if (memberships.length > 0) {
+      await context.db
+        .insert(organizationMemberRoles)
+        .values(
+          memberships.map((membership) => ({
+            organizationMemberId: membership.id,
+            roleId: memberRole.id,
+          }))
+        )
+        .onConflictDoNothing();
+    }
   } catch {}
 }

@@ -3,7 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod/v4";
 import { ForbiddenError, UnauthorizedError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
-import { getUserAccess } from "../../models/access.js";
+import { getClient } from "../../models/clients.js";
 import { getUserBySubWithGroups, getUsersBySubsWithGroups, listUsers } from "../../models/users.js";
 import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
 import { requireSession } from "../../services/sessions.js";
@@ -33,14 +33,18 @@ export function hasRequiredScope(scopeClaim: unknown): boolean {
 }
 
 type UsersReadMode = "directory" | "management";
+type UsersReadPermission = { mode: UsersReadMode; organizationId?: string };
 
 export function resolveUsersReadModeFromPayload(
   payload: Record<string, unknown>
 ): UsersReadMode | null {
-  if (payload.grant_type === "client_credentials" && hasRequiredScope(payload.scope)) {
+  if (
+    payload.token_use === "access" &&
+    payload.grant_type === "client_credentials" &&
+    hasRequiredScope(payload.scope)
+  ) {
     return "management";
   }
-
   if (hasRequiredPermission(payload.permissions)) {
     return "directory";
   }
@@ -48,10 +52,21 @@ export function resolveUsersReadModeFromPayload(
   return null;
 }
 
+function resolveAuthorizedParty(payload: Record<string, unknown>): string | null {
+  if (typeof payload.azp !== "string" || payload.azp.length === 0) return null;
+  return payload.azp;
+}
+
+function hasMatchingAudience(payload: Record<string, unknown>, clientId: string): boolean {
+  if (typeof payload.aud === "string") return payload.aud === clientId;
+  if (Array.isArray(payload.aud)) return payload.aud.some((aud) => aud === clientId);
+  return false;
+}
+
 async function requireUsersReadPermission(
   context: Context,
   request: IncomingMessage
-): Promise<UsersReadMode> {
+): Promise<UsersReadPermission> {
   const auth = request.headers.authorization || "";
   const tokenMatch = /^Bearer\s+(.+)$/.exec(auth);
 
@@ -62,8 +77,19 @@ async function requireUsersReadPermission(
       const payload = verified.payload as Record<string, unknown>;
 
       const mode = resolveUsersReadModeFromPayload(payload);
-      if (mode) {
-        return mode;
+      if (mode === "directory") {
+        return { mode };
+      }
+      if (mode === "management") {
+        const clientId = resolveAuthorizedParty(payload);
+        if (!clientId || !hasMatchingAudience(payload, clientId)) {
+          throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
+        }
+        const client = await getClient(context, clientId);
+        if (!client || !client.grantTypes.includes("client_credentials")) {
+          throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
+        }
+        return { mode };
       }
 
       throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
@@ -79,12 +105,18 @@ async function requireUsersReadPermission(
   if (!sessionData.sub) {
     throw new UnauthorizedError("User session required");
   }
-  const access = await getUserAccess(context, sessionData.sub);
+  const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.js");
+  const { organizationId } = await resolveOrganizationContext(
+    context,
+    sessionData.sub,
+    sessionData.organizationId
+  );
+  const access = await getUserOrgAccess(context, sessionData.sub, organizationId);
   if (!access.permissions.includes(usersReadPermissionKey)) {
     throw new ForbiddenError("Missing required permission: darkauth.users:read");
   }
 
-  return "directory";
+  return { mode: "directory", organizationId };
 }
 
 export async function getUserDirectoryEntry(
@@ -93,11 +125,11 @@ export async function getUserDirectoryEntry(
   response: ServerResponse,
   sub: string
 ) {
-  const mode = await requireUsersReadPermission(context, request);
+  const permission = await requireUsersReadPermission(context, request);
   const Params = z.object({ sub: z.string() });
   const { sub: parsedSub } = Params.parse({ sub });
 
-  if (mode === "management") {
+  if (permission.mode === "management") {
     context.logger.info({ sub: parsedSub }, "users management get");
     const user = await getUserBySubWithGroups(context, parsedSub);
     if (!user) {
@@ -109,7 +141,7 @@ export async function getUserDirectoryEntry(
   }
 
   context.logger.info({ sub: parsedSub }, "user directory get");
-  const row = await getDirectoryEntry(context, parsedSub);
+  const row = await getDirectoryEntry(context, parsedSub, permission.organizationId);
   if (!row) {
     sendJson(response, 404, { error: "user_not_found" });
     return;
@@ -122,11 +154,11 @@ export async function searchUserDirectory(
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  const mode = await requireUsersReadPermission(context, request);
+  const permission = await requireUsersReadPermission(context, request);
 
   const url = new URL(request.url || "", `http://${request.headers.host}`);
 
-  if (mode === "management") {
+  if (permission.mode === "management") {
     const Query = z.object({
       sids: z.string().optional(),
       q: z.string().optional(),
@@ -167,7 +199,7 @@ export async function searchUserDirectory(
     return;
   }
   context.logger.info({ q }, "users search");
-  const rows = await searchDirectory(context, q);
+  const rows = await searchDirectory(context, q, permission.organizationId);
 
   type JwkLike = { kty?: unknown };
   const isJwkWithStringKty = (x: unknown): x is { kty: string } =>

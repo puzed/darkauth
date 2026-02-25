@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import { and, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
 import { auditLogs } from "../db/schema.js";
 import type { Context } from "../types.js";
 
@@ -39,6 +39,8 @@ export interface AuditFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  sortBy?: "timestamp" | "eventType" | "resourceType" | "success" | "statusCode";
+  sortOrder?: "asc" | "desc";
 }
 
 // Sanitize sensitive data from request bodies
@@ -138,7 +140,7 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
 }
 
 // Query audit logs with filters
-export async function queryAuditLogs(context: Context, filters: AuditFilters) {
+export function buildAuditLogConditions(filters: AuditFilters): SQL<unknown>[] {
   const conditions: SQL<unknown>[] = [];
 
   if (filters.startDate) {
@@ -189,18 +191,40 @@ export async function queryAuditLogs(context: Context, filters: AuditFilters) {
     }
   }
 
-  const query = context.db
-    .select()
-    .from(auditLogs)
-    .orderBy(desc(auditLogs.timestamp))
-    .limit(filters.limit || 100)
-    .offset(filters.offset || 0);
+  return conditions;
+}
 
-  if (conditions.length > 0) {
-    return query.where(and(...conditions));
-  }
+export async function queryAuditLogs(context: Context, filters: AuditFilters) {
+  const conditions = buildAuditLogConditions(filters);
+  const sortBy = filters.sortBy || "timestamp";
+  const sortOrder = filters.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "eventType"
+      ? auditLogs.eventType
+      : sortBy === "resourceType"
+        ? auditLogs.resourceType
+        : sortBy === "success"
+          ? auditLogs.success
+          : sortBy === "statusCode"
+            ? auditLogs.statusCode
+            : auditLogs.timestamp;
+  const baseQuery = context.db.select().from(auditLogs);
+  const filteredQuery = conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
+  const orderedQuery = filteredQuery.orderBy(sortFn(sortColumn), sortFn(auditLogs.id));
+  const limitedQuery =
+    typeof filters.limit === "number" ? orderedQuery.limit(filters.limit) : orderedQuery;
+  const offsetQuery =
+    typeof filters.offset === "number" ? limitedQuery.offset(filters.offset) : limitedQuery;
+  return offsetQuery;
+}
 
-  return query;
+export async function countAuditLogs(context: Context, filters: AuditFilters) {
+  const conditions = buildAuditLogConditions(filters);
+  const baseQuery = context.db.select({ count: count() }).from(auditLogs);
+  const filteredQuery = conditions.length > 0 ? baseQuery.where(and(...conditions)) : baseQuery;
+  const rows = await filteredQuery;
+  return Number(rows[0]?.count ?? 0);
 }
 
 // Get audit log by ID

@@ -9,6 +9,15 @@ import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.js";
 import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.js";
 import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.js";
+import {
+  deleteOrganizationMemberRole,
+  getOrganization,
+  getOrganizationMembers,
+  getOrganizations,
+  postOrganizationInvites,
+  postOrganizationMemberRoles,
+  postOrganizations,
+} from "../../controllers/user/organizations.js";
 import { postOtpReauth } from "../../controllers/user/otpReauth.js";
 import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.js";
 import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.js";
@@ -327,6 +336,66 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/refresh-token") {
         return await postUserRefreshToken(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/organizations") {
+        return await getOrganizations(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/organizations") {
+        return await postOrganizations(context, request, response);
+      }
+
+      const orgMatch = pathname.match(/^\/organizations\/([^/]+)$/);
+      if (method === "GET" && orgMatch) {
+        return await getOrganization(context, request, response, orgMatch[1] as string);
+      }
+
+      const orgMembersMatch = pathname.match(/^\/organizations\/([^/]+)\/members$/);
+      if (method === "GET" && orgMembersMatch) {
+        return await getOrganizationMembers(
+          context,
+          request,
+          response,
+          orgMembersMatch[1] as string
+        );
+      }
+
+      const orgInvitesMatch = pathname.match(/^\/organizations\/([^/]+)\/invites$/);
+      if (method === "POST" && orgInvitesMatch) {
+        return await postOrganizationInvites(
+          context,
+          request,
+          response,
+          orgInvitesMatch[1] as string
+        );
+      }
+
+      const orgMemberRolesMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/members\/([^/]+)\/roles$/
+      );
+      if (method === "POST" && orgMemberRolesMatch) {
+        return await postOrganizationMemberRoles(
+          context,
+          request,
+          response,
+          orgMemberRolesMatch[1] as string,
+          orgMemberRolesMatch[2] as string
+        );
+      }
+
+      const orgMemberRoleDeleteMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/members\/([^/]+)\/roles\/([^/]+)$/
+      );
+      if (method === "DELETE" && orgMemberRoleDeleteMatch) {
+        return await deleteOrganizationMemberRole(
+          context,
+          request,
+          response,
+          orgMemberRoleDeleteMatch[1] as string,
+          orgMemberRoleDeleteMatch[2] as string,
+          orgMemberRoleDeleteMatch[3] as string
+        );
       }
 
       if (method === "GET" && pathname === "/users") {

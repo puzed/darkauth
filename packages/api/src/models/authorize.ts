@@ -13,6 +13,7 @@ export async function createPendingAuth(
     codeChallengeMethod?: string;
     zkPubKid?: string;
     userSub?: string;
+    organizationId?: string;
     origin: string;
     expiresAt: Date;
   }
@@ -27,6 +28,7 @@ export async function createPendingAuth(
     codeChallengeMethod: data.codeChallengeMethod,
     zkPubKid: data.zkPubKid,
     userSub: data.userSub,
+    organizationId: data.organizationId,
     origin: data.origin,
     createdAt: new Date(),
     expiresAt: data.expiresAt,

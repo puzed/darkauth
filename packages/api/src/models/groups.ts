@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { groupPermissions, groups, permissions, userGroups, users } from "../db/schema.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
@@ -44,21 +44,69 @@ export async function setGroupUsers(context: Context, groupKey: string, userSubs
   return { success: true as const, users: updatedUsers };
 }
 
-export async function getGroupUsers(context: Context, groupKey: string) {
+export async function getGroupUsers(
+  context: Context,
+  groupKey: string,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "sub" | "email" | "name";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
   const group = await context.db.query.groups.findFirst({ where: eq(groups.key, groupKey) });
   if (!group) throw new NotFoundError("Group not found");
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "name";
+  const sortOrder = options.sortOrder || "asc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn = sortBy === "sub" ? users.sub : sortBy === "email" ? users.email : users.name;
+  const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
+  const searchCondition = searchTerm
+    ? or(
+        ilike(users.sub, searchTerm),
+        ilike(users.email, searchTerm),
+        ilike(users.name, searchTerm)
+      )
+    : undefined;
+  const whereCondition = searchCondition
+    ? and(eq(userGroups.groupKey, groupKey), searchCondition)
+    : eq(userGroups.groupKey, groupKey);
+  const totalRows = await context.db
+    .select({ count: count() })
+    .from(userGroups)
+    .innerJoin(users, eq(userGroups.userSub, users.sub))
+    .where(whereCondition);
+  const total = totalRows[0]?.count || 0;
+
   const groupUsersList = await context.db
     .select({ sub: users.sub, email: users.email, name: users.name })
     .from(userGroups)
     .innerJoin(users, eq(userGroups.userSub, users.sub))
-    .where(eq(userGroups.groupKey, groupKey));
+    .where(whereCondition)
+    .orderBy(sortFn(sortColumn), sortFn(users.sub))
+    .limit(limit)
+    .offset(offset);
+  const totalPages = Math.ceil(total / limit);
   const allUsers = await context.db
     .select({ sub: users.sub, email: users.email, name: users.name })
-    .from(users);
+    .from(users)
+    .orderBy(asc(users.name), asc(users.sub));
   return {
     group: { key: group.key, name: group.name },
     users: groupUsersList,
     availableUsers: allUsers,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
   };
 }
 

@@ -64,6 +64,13 @@
       "when": 1772006400000,
       "tag": "0009_refresh_token_rotation_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772009400000,
+      "tag": "0010_org_scoped_rbac",
+      "breakpoints": true
     }
   ]
 }

@@ -5,7 +5,7 @@ import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { getAdminBearerToken, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 
-test.describe('Admin - Groups Default and Enable Login', () => {
+test.describe('Admin - Organizations Default', () => {
   let servers: TestServers;
 
   let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
@@ -32,48 +32,28 @@ test.describe('Admin - Groups Default and Enable Login', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('Default group exists and enable login can be toggled', async ({ page }) => {
+  test('Default organization exists and can be opened from UI', async ({ page }) => {
     await ensureAdminDashboard(page, servers, adminCred);
 
-    await page.click('a[href="/groups"], button:has-text("Groups")');
-    await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
-    const defaultRow = page.locator('tbody tr', { has: page.locator('td >> span', { hasText: 'Default' }) }).first();
+    await page.click('a[href="/organizations"]');
+    await expect(page.getByRole('heading', { name: 'Organizations', exact: true })).toBeVisible();
+    const defaultRow = page
+      .locator('tbody tr', { has: page.locator('code', { hasText: 'default' }) })
+      .first();
     await expect(defaultRow).toBeVisible();
-    await defaultRow.locator('button[aria-label="Actions"]').click();
-    await page.locator('[role="menuitem"]:has-text("Edit Group")').click();
-    await expect(page.getByRole('heading', { name: 'Edit Group', exact: true })).toBeVisible();
-    const checkbox = page.locator('label:has-text("Enable Login")').locator('..').locator('[role="checkbox"]');
-    await expect(checkbox).toBeVisible();
-
-    const wasChecked = (await checkbox.getAttribute('aria-checked')) === 'true';
-    await checkbox.click();
-    await page.getByRole('button', { name: /save changes/i }).click();
-    await page.waitForURL('**/groups');
-
-    const row2 = page.locator('tbody tr', { has: page.locator('td >> span', { hasText: 'Default' }) }).first();
-    await row2.locator('button[aria-label="Actions"]').click();
-    await page.locator('[role="menuitem"]:has-text("Edit Group")').click();
-    await expect(page.getByRole('heading', { name: 'Edit Group', exact: true })).toBeVisible();
-    const checkbox2 = page.locator('label:has-text("Enable Login")').locator('..').locator('[role="checkbox"]');
-    await expect(checkbox2).toBeVisible();
-    const nowChecked = (await checkbox2.getAttribute('aria-checked')) === 'true';
-    expect(nowChecked).toBe(!wasChecked);
-
-    await checkbox2.click();
-    await page.getByRole('button', { name: /save changes/i }).click();
-    await page.waitForURL('**/groups');
+    await defaultRow.locator('button', { hasText: 'Default' }).click();
+    await expect(page.getByRole('heading', { name: 'Manage Organization', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Members', exact: true })).toBeVisible();
   });
 
-  test('Enable Login value persists via API', async () => {
+  test('Default organization exists via API', async () => {
     const token = await getAdminBearerToken(servers, adminCred);
-    const res = await fetch(`${servers.adminUrl}/admin/groups`, {
+    const res = await fetch(`${servers.adminUrl}/admin/organizations`, {
       headers: { 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl }
     });
     expect(res.ok).toBeTruthy();
-    const json = await res.json() as { groups: Array<{ key: string; enableLogin?: boolean }> };
-    const def = json.groups.find(g => g.key === 'default');
+    const json = await res.json() as { organizations: Array<{ slug: string }> };
+    const def = json.organizations.find(org => org.slug === 'default');
     expect(def).toBeTruthy();
-    // enableLogin may be omitted for legacy DB; it should default to true
-    expect(def && (def.enableLogin === undefined || typeof def.enableLogin === 'boolean')).toBeTruthy();
   });
 });

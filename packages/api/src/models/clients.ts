@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { asc, count, desc, eq, ilike, or } from "drizzle-orm";
 import { clients } from "../db/schema.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
@@ -13,34 +13,109 @@ export async function deleteClient(context: Context, clientId: string) {
   return { success: true } as const;
 }
 
-export async function listClients(context: Context) {
-  const { desc } = await import("drizzle-orm");
-  const rows = await context.db
-    .select({
-      clientId: clients.clientId,
-      name: clients.name,
-      showOnUserDashboard: clients.showOnUserDashboard,
-      type: clients.type,
-      tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
-      requirePkce: clients.requirePkce,
-      zkDelivery: clients.zkDelivery,
-      zkRequired: clients.zkRequired,
-      allowedJweAlgs: clients.allowedJweAlgs,
-      allowedJweEncs: clients.allowedJweEncs,
-      redirectUris: clients.redirectUris,
-      postLogoutRedirectUris: clients.postLogoutRedirectUris,
-      grantTypes: clients.grantTypes,
-      responseTypes: clients.responseTypes,
-      scopes: clients.scopes,
-      allowedZkOrigins: clients.allowedZkOrigins,
-      idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
-      refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
-      createdAt: clients.createdAt,
-      updatedAt: clients.updatedAt,
-    })
-    .from(clients)
-    .orderBy(desc(clients.createdAt));
-  return rows;
+export async function listClients(
+  context: Context,
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "createdAt" | "updatedAt" | "clientId" | "name" | "type";
+    sortOrder?: "asc" | "desc";
+  } = {}
+) {
+  const page = Math.max(1, options.page || 1);
+  const limit = Math.min(100, Math.max(1, options.limit || 20));
+  const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "updatedAt"
+      ? clients.updatedAt
+      : sortBy === "clientId"
+        ? clients.clientId
+        : sortBy === "name"
+          ? clients.name
+          : sortBy === "type"
+            ? clients.type
+            : clients.createdAt;
+  const searchTerm = options.search?.trim() ? `%${options.search.trim()}%` : undefined;
+  const searchCondition = searchTerm
+    ? or(ilike(clients.clientId, searchTerm), ilike(clients.name, searchTerm))
+    : undefined;
+
+  const totalRows = await (searchCondition
+    ? context.db.select({ count: count() }).from(clients).where(searchCondition)
+    : context.db.select({ count: count() }).from(clients));
+  const total = totalRows[0]?.count || 0;
+
+  const rows = await (searchCondition
+    ? context.db
+        .select({
+          clientId: clients.clientId,
+          name: clients.name,
+          showOnUserDashboard: clients.showOnUserDashboard,
+          type: clients.type,
+          tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
+          requirePkce: clients.requirePkce,
+          zkDelivery: clients.zkDelivery,
+          zkRequired: clients.zkRequired,
+          allowedJweAlgs: clients.allowedJweAlgs,
+          allowedJweEncs: clients.allowedJweEncs,
+          redirectUris: clients.redirectUris,
+          postLogoutRedirectUris: clients.postLogoutRedirectUris,
+          grantTypes: clients.grantTypes,
+          responseTypes: clients.responseTypes,
+          scopes: clients.scopes,
+          allowedZkOrigins: clients.allowedZkOrigins,
+          idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
+          refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
+          createdAt: clients.createdAt,
+          updatedAt: clients.updatedAt,
+        })
+        .from(clients)
+        .where(searchCondition)
+    : context.db
+        .select({
+          clientId: clients.clientId,
+          name: clients.name,
+          showOnUserDashboard: clients.showOnUserDashboard,
+          type: clients.type,
+          tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
+          requirePkce: clients.requirePkce,
+          zkDelivery: clients.zkDelivery,
+          zkRequired: clients.zkRequired,
+          allowedJweAlgs: clients.allowedJweAlgs,
+          allowedJweEncs: clients.allowedJweEncs,
+          redirectUris: clients.redirectUris,
+          postLogoutRedirectUris: clients.postLogoutRedirectUris,
+          grantTypes: clients.grantTypes,
+          responseTypes: clients.responseTypes,
+          scopes: clients.scopes,
+          allowedZkOrigins: clients.allowedZkOrigins,
+          idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
+          refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
+          createdAt: clients.createdAt,
+          updatedAt: clients.updatedAt,
+        })
+        .from(clients)
+  )
+    .orderBy(sortFn(sortColumn), sortFn(clients.clientId))
+    .limit(limit)
+    .offset(offset);
+
+  const totalPages = Math.ceil(total / limit);
+  return {
+    clients: rows,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1,
+    },
+  };
 }
 
 export async function createClient(

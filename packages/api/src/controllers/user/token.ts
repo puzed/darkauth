@@ -7,8 +7,10 @@ import { signJWT } from "../../services/jwks.js";
 import {
   createSession,
   getActorFromSessionId,
+  getRefreshTokenSessionData,
   getSession,
   refreshSessionWithToken,
+  updateSession,
 } from "../../services/sessions.js";
 import { getSetting } from "../../services/settings.js";
 import type {
@@ -76,8 +78,10 @@ export function buildUserIdTokenClaims(data: {
   issuedAtSeconds: number;
   email?: string | null;
   name?: string | null;
+  orgId?: string;
+  orgSlug?: string | null;
+  roles?: string[];
   permissions?: string[];
-  groups?: string[];
   amr?: string[];
   nonce?: string;
 }): IdTokenClaims {
@@ -90,8 +94,10 @@ export function buildUserIdTokenClaims(data: {
     email: data.email || undefined,
     email_verified: !!data.email,
     name: data.name || undefined,
+    org_id: data.orgId || undefined,
+    org_slug: data.orgSlug || undefined,
+    roles: data.roles && data.roles.length > 0 ? data.roles : undefined,
     permissions: data.permissions && data.permissions.length > 0 ? data.permissions : undefined,
-    groups: data.groups && data.groups.length > 0 ? data.groups : undefined,
     nonce: data.nonce,
     acr: data.amr ? "mfa" : undefined,
     amr: data.amr,
@@ -109,7 +115,7 @@ export function assertRefreshTokenClientBinding(
   issuedClientId: string | null,
   authenticatedClientId: string | undefined
 ): void {
-  if (!issuedClientId) throw new InvalidGrantError("Invalid or expired refresh token");
+  if (!issuedClientId) return;
   if (issuedClientId !== authenticatedClientId) {
     throw new InvalidGrantError("Refresh token was not issued to this client");
   }
@@ -189,6 +195,8 @@ export const postToken = withRateLimit("token")(
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "client_secret_basic")
             throw new UnauthorizedClientError("Invalid client auth method");
+          if (!client.grantTypes.includes("refresh_token"))
+            throw new UnauthorizedClientError("refresh_token grant not allowed for this client");
           await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
           providedClientId = client.clientId;
           clientAuthOk = true;
@@ -202,18 +210,24 @@ export const postToken = withRateLimit("token")(
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "none")
             throw new UnauthorizedClientError("Invalid client auth method");
+          if (!client.grantTypes.includes("refresh_token"))
+            throw new UnauthorizedClientError("refresh_token grant not allowed for this client");
           providedClientId = client.clientId;
           clientAuthOk = true;
         }
         if (!clientAuthOk) throw new UnauthorizedClientError("Client authentication failed");
+        const existingSessionData = await getRefreshTokenSessionData(
+          context,
+          tokenRequest.refresh_token
+        );
+        const issuedClientId = resolveSessionClientId(existingSessionData);
+        assertRefreshTokenClientBinding(issuedClientId, providedClientId);
         const rotated = await refreshSessionWithToken(context, tokenRequest.refresh_token);
         if (!rotated) throw new InvalidGrantError("Invalid or expired refresh token");
         const sessionData = await getSession(context, rotated.sessionId);
         const sessionActor = await getActorFromSessionId(context, rotated.sessionId);
         if (!sessionData || !sessionActor?.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
-        const issuedClientId = resolveSessionClientId(sessionData);
-        assertRefreshTokenClientBinding(issuedClientId, providedClientId);
         const { getUserBySub } = await import("../../models/users.js");
         const user = await getUserBySub(context, sessionActor.userSub);
         if (!user) throw new InvalidGrantError("User not found");
@@ -224,11 +238,35 @@ export const postToken = withRateLimit("token")(
         );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
-        const { getUserAccess } = await import("../../models/access.js");
-        const { groupsList, permissions: uniquePermissions } = await getUserAccess(
-          context,
-          user.sub
+        const { getUserOrgAccess, resolveOrganizationContext } = await import(
+          "../../models/rbac.js"
         );
+        const { getUserAccess } = await import("../../models/access.js");
+        const sessionOrganizationId =
+          typeof (sessionData as SessionData).organizationId === "string"
+            ? (sessionData as SessionData).organizationId
+            : undefined;
+        const { organizationId, organizationSlug } = await resolveOrganizationContext(
+          context,
+          user.sub,
+          sessionOrganizationId
+        );
+        const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
+          context,
+          user.sub,
+          organizationId
+        );
+        const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+        const uniquePermissions = Array.from(
+          new Set([...organizationPermissions, ...userAccessPermissions])
+        ).sort();
+        if (sessionOrganizationId !== organizationId) {
+          await updateSession(context, rotated.sessionId, {
+            ...(sessionData as SessionData),
+            organizationId,
+            organizationSlug: organizationSlug || undefined,
+          });
+        }
         const now = Math.floor(Date.now() / 1000);
         let defaultIdTtl = 300;
         const idSettings = (await getSetting(context, "id_token")) as
@@ -260,8 +298,10 @@ export const postToken = withRateLimit("token")(
           issuedAtSeconds: now,
           email: user.email,
           name: user.name,
+          orgId: organizationId,
+          orgSlug: organizationSlug,
+          roles: roleKeys,
           permissions: uniquePermissions,
-          groups: groupsList,
           amr,
         });
         const idToken = await signJWT(
@@ -408,6 +448,9 @@ export const postToken = withRateLimit("token")(
       if (!client) {
         throw new UnauthorizedClientError("Unknown client");
       }
+      if (!client.grantTypes.includes("authorization_code")) {
+        throw new UnauthorizedClientError("authorization_code grant not allowed for this client");
+      }
 
       // Handle client authentication
       let authenticatedClientId: string | undefined;
@@ -472,10 +515,22 @@ export const postToken = withRateLimit("token")(
         throw new InvalidGrantError("User not found");
       }
 
+      const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.js");
       const { getUserAccess } = await import("../../models/access.js");
-      const access = await getUserAccess(context, user.sub);
-      const uniquePermissions = access.permissions;
-      const groups = access.groupsList;
+      const { organizationId, organizationSlug } = await resolveOrganizationContext(
+        context,
+        user.sub,
+        authCode.organizationId || undefined
+      );
+      const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
+        context,
+        user.sub,
+        organizationId
+      );
+      const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+      const uniquePermissions = Array.from(
+        new Set([...organizationPermissions, ...userAccessPermissions])
+      ).sort();
 
       const codeConsumed = await (await import("../../models/authCodes.js")).consumeAuthCode(
         context,
@@ -505,14 +560,7 @@ export const postToken = withRateLimit("token")(
         client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
           ? client.idTokenLifetimeSeconds
           : defaultIdTtl;
-      let amr: string[] | undefined = ["pwd"];
-      const { sessions } = await import("../../db/schema.js");
-      const { and, eq, gt } = await import("drizzle-orm");
-      const row = await context.db.query.sessions.findFirst({
-        where: and(eq(sessions.userSub, user.sub), gt(sessions.expiresAt, new Date())),
-      });
-      const data = (row?.data || {}) as Record<string, unknown>;
-      if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+      const amr: string[] = ["pwd"];
       const issuer = await resolveIssuer(context);
       const idTokenClaims = buildUserIdTokenClaims({
         issuer,
@@ -522,8 +570,10 @@ export const postToken = withRateLimit("token")(
         issuedAtSeconds: now,
         email: user.email,
         name: user.name,
+        orgId: organizationId,
+        orgSlug: organizationSlug,
+        roles: roleKeys,
         permissions: uniquePermissions,
-        groups,
         amr,
         nonce: authCode.nonce || undefined,
       });
@@ -552,6 +602,8 @@ export const postToken = withRateLimit("token")(
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
+        organizationId,
+        organizationSlug: organizationSlug || undefined,
         clientId: authenticatedClientId,
       } satisfies SessionData;
       const s = await createSession(context, "user", sessionData);

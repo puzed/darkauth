@@ -1,45 +1,100 @@
-import { Edit, Filter, Plus, RefreshCcw, Shield, Trash2 } from "lucide-react";
+import { Edit, Plus, RefreshCcw, Shield, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import EmptyState from "@/components/empty-state";
+import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
+import RowActions from "@/components/row-actions";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-// Page-specific CSS removed; using shared components only
-import tableStyles from "@/components/table.module.css";
+import ListPagination from "@/components/table/list-pagination";
+import SortableTableHead from "@/components/table/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import adminApiService, { type Client } from "@/services/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
+import adminApiService, { type Client, type SortOrder } from "@/services/api";
 
 export default function Clients() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [_deleting, setDeleting] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+
+  const toggleSort = (field: string) => {
+    setCurrentPage(1);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortOrder("asc");
+  };
 
   const loadClients = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await adminApiService.getClients();
-      setClients(data);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load clients");
+      const response = await adminApiService.getClientsPaged({
+        page: currentPage,
+        limit: 20,
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+      });
+      setClients(response.clients);
+      setTotalPages(response.pagination.totalPages);
+      setTotalCount(response.pagination.total);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load clients");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [currentPage, debouncedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     loadClients();
   }, [loadClients]);
 
-  const filteredClients = clients.filter(
-    (client) =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.clientId.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  const handleDelete = async (client: Client) => {
+    if (!confirm(`Delete client ${client.clientId}?`)) return;
+    try {
+      setDeleting(client.clientId);
+      await adminApiService.deleteClient(client.clientId);
+      setClients((prev) => prev.filter((c) => c.clientId !== client.clientId));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete client");
+    } finally {
+      setDeleting(null);
+    }
+  };
+
+  const openClient = (client: Client) => {
+    navigate(`/clients/${encodeURIComponent(client.clientId)}`);
+  };
 
   return (
     <div>
@@ -60,14 +115,20 @@ export default function Clients() {
         }
       />
 
+      {error && <ErrorBanner>{error}</ErrorBanner>}
+
       <StatsGrid>
         <StatsCard
           title="Total Clients"
           icon={<Shield size={16} />}
-          value={clients.length}
+          value={totalCount}
           description="Total configured"
         />
-        <StatsCard title="Active Clients" value={clients.length} description="Enabled" />
+        <StatsCard
+          title="Active Clients"
+          value={clients.length}
+          description="Visible on this page"
+        />
         <StatsCard
           title="Public"
           value={clients.filter((c) => c.type === "public").length}
@@ -84,79 +145,94 @@ export default function Clients() {
         title="Client Applications"
         description="Manage OAuth/OIDC client configurations"
         search={{ placeholder: "Search clients...", value: searchQuery, onChange: setSearchQuery }}
-        rightActions={
-          <Button variant="outline" size="icon">
-            <Filter size={16} />
-          </Button>
-        }
       >
-        {error && <div>{error}</div>}
         {loading ? (
           <div>Loading clients...</div>
-        ) : filteredClients.length === 0 ? (
-          <div>No clients found</div>
+        ) : clients.length === 0 ? (
+          <EmptyState
+            icon={<Shield />}
+            title="No clients found"
+            description="Create your first client to get started."
+          />
         ) : (
-          <table className={tableStyles.table}>
-            <thead className={tableStyles.header}>
-              <tr>
-                <th className={tableStyles.head}>Client</th>
-                <th className={tableStyles.head}>Type</th>
-                <th className={tableStyles.head}>Created</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredClients.map((client) => (
-                <tr key={client.clientId} className={tableStyles.row}>
-                  <td className={tableStyles.cell}>
-                    <div>
-                      <div className={tableStyles.clientName}>{client.name}</div>
-                      <div className={tableStyles.clientSub}>{client.clientId}</div>
-                    </div>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <Badge>{client.type}</Badge>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    {new Date(client.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <div className={tableStyles.actionsInline}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/clients/${client.clientId}`)}
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="Client"
+                    isActive={sortBy === "name"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("name")}
+                  />
+                  <SortableTableHead
+                    label="Type"
+                    isActive={sortBy === "type"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("type")}
+                  />
+                  <SortableTableHead
+                    label="Created"
+                    isActive={sortBy === "createdAt"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("createdAt")}
+                  />
+                  <TableHead className={tableStyles.actionCell}>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {clients.map((client) => (
+                  <TableRow key={client.clientId}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className={tableStyles.primaryActionButton}
+                        onClick={() => openClient(client)}
                       >
-                        <Edit className="h-4 w-4" />
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={async () => {
-                          if (!confirm(`Delete client ${client.clientId}?`)) return;
-                          try {
-                            setDeleting(client.clientId);
-                            await adminApiService.deleteClient(client.clientId);
-                            setClients((prev) =>
-                              prev.filter((c) => c.clientId !== client.clientId)
-                            );
-                          } catch (e) {
-                            setError(e instanceof Error ? e.message : "Failed to delete client");
-                          } finally {
-                            setDeleting(null);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        <div>
+                          <div className={tableStyles.primaryActionText}>{client.name}</div>
+                          <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>
+                            {client.clientId}
+                          </div>
+                        </div>
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <Badge>{client.type}</Badge>
+                    </TableCell>
+                    <TableCell>{new Date(client.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <RowActions
+                        items={[
+                          {
+                            key: "edit",
+                            label: "Edit",
+                            icon: <Edit className="h-4 w-4" />,
+                            onClick: () => openClient(client),
+                          },
+                          {
+                            key: "delete",
+                            label: "Delete",
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            disabled: deleting === client.clientId,
+                            onClick: () => handleDelete(client),
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div style={{ marginTop: 20 }}>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </ListCard>
     </div>

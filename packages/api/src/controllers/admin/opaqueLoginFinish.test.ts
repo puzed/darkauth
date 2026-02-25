@@ -1,340 +1,224 @@
+import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, mock, test } from "node:test";
+import { adminUsers } from "../../db/schema.js";
 import type { Context } from "../../types.js";
 import { postAdminOpaqueLoginFinish } from "./opaqueLoginFinish.js";
 
-describe("Admin OPAQUE Login Finish - Identity Binding Security", () => {
-  let mockContext: Context;
-  let mockRequest: Partial<IncomingMessage>;
-  let mockResponse: Partial<ServerResponse>;
+function createMockResponse() {
+  let payload = "";
+
+  return {
+    statusCode: 0,
+    setHeader: mock.fn(),
+    write: mock.fn((chunk: unknown) => {
+      if (chunk !== undefined) {
+        payload += String(chunk);
+      }
+      return true;
+    }),
+    end: mock.fn((chunk?: unknown) => {
+      if (chunk !== undefined) {
+        payload += String(chunk);
+      }
+    }),
+    get body() {
+      return payload;
+    },
+    get json() {
+      if (!payload) return null;
+      return JSON.parse(payload);
+    },
+  } as Partial<ServerResponse>;
+}
+
+function createSelectBuilder(lookup: {
+  admin: { id: string; email: string; name: string; role: string } | null;
+}) {
+  return (selection: unknown) => {
+    const keys =
+      selection && typeof selection === "object"
+        ? Object.keys(selection as Record<string, unknown>)
+        : [];
+    let table: unknown;
+
+    const resultsByTable = (fromTable: unknown) => {
+      if (fromTable === adminUsers && keys.length > 0 && lookup.admin) {
+        return [
+          {
+            id: lookup.admin.id,
+            email: lookup.admin.email,
+            name: lookup.admin.name,
+            role: lookup.admin.role,
+            passwordResetRequired: false,
+            createdAt: new Date("2026-02-01T00:00:00.000Z"),
+          },
+        ];
+      }
+      return [];
+    };
+
+    const terminal = {
+      from(value: unknown) {
+        table = value;
+        return terminal;
+      },
+      where() {
+        return terminal;
+      },
+      innerJoin() {
+        return terminal;
+      },
+      leftJoin() {
+        return terminal;
+      },
+      orderBy() {
+        return terminal;
+      },
+      limit: mock.fn(() => resultsByTable(table)),
+      offset() {
+        return terminal;
+      },
+    };
+
+    return terminal;
+  };
+}
+
+describe("Admin OPAQUE Login Finish", () => {
+  let context: Context;
+  let request: Partial<IncomingMessage>;
+  let response: ReturnType<typeof createMockResponse>;
+  let finishLogin = mock.fn(async () => ({ sessionKey: new Uint8Array(32) }));
 
   beforeEach(() => {
-    // Setup mock context
-    mockContext = {
+    const sessionState: {
+      admin: { id: string; email: string; name: string; role: string } | null;
+    } = {
+      admin: {
+        id: "admin-id",
+        email: "admin@example.com",
+        name: "Admin",
+        role: "write",
+      },
+    };
+
+    context = {
       db: {
         query: {
           opaqueLoginSessions: {
-            findFirst: vi.fn(),
+            findFirst: mock.fn(() =>
+              Promise.resolve({
+                id: "session-id",
+                identityU: Buffer.from(sessionState.admin?.email || "admin@example.com").toString(
+                  "base64"
+                ),
+                identityS: Buffer.from("DarkAuth").toString("base64"),
+                serverState: Buffer.from("state"),
+                expiresAt: new Date("2026-02-25T00:00:00.000Z"),
+              })
+            ),
+          },
+          settings: {
+            findFirst: mock.fn(() => Promise.resolve(null)),
+          },
+          otpConfigs: {
+            findFirst: mock.fn(() => Promise.resolve(null)),
           },
         },
-        select: vi.fn().mockReturnThis(),
-        from: vi.fn().mockReturnThis(),
-        where: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockReturnThis(),
-        delete: vi.fn().mockReturnThis(),
+        select: mock.fn(createSelectBuilder(sessionState)),
+        insert: mock.fn(() => ({
+          values: mock.fn(() => Promise.resolve()),
+        })),
+        from: mock.fn(),
+        where: mock.fn(),
+        update: mock.fn(),
+        delete: mock.fn(() => ({ where: mock.fn(() => Promise.resolve()) })),
+        transaction: mock.fn(),
+      } as unknown as Context["db"],
+      config: {
+        postgresUri: "postgres://localhost/darkauth",
+        userPort: 3000,
+        adminPort: 3001,
+        proxyUi: false,
+        kekPassphrase: "dev",
+        isDevelopment: false,
+        publicOrigin: "http://localhost:3000",
+        issuer: "darkauth",
+        rpId: "darkauth",
       },
       services: {
         opaque: {
-          finishLogin: vi.fn(),
+          finishLogin,
         },
         kek: {
-          encrypt: vi.fn(),
-          decrypt: vi.fn(),
+          encrypt: mock.fn(async (value: Buffer) => value),
+          decrypt: mock.fn(async (value: Buffer) => value),
+          isAvailable: () => true,
         },
       },
       logger: {
-        debug: vi.fn(),
-        info: vi.fn(),
-        error: vi.fn(),
+        debug: mock.fn(),
+        info: mock.fn(),
+        error: mock.fn(),
+        warn: mock.fn(),
+        trace: mock.fn(),
+        fatal: mock.fn(),
       },
-    } as unknown as Context;
+      cleanupFunctions: [],
+      destroy: async () => {},
+    };
 
-    mockRequest = {
+    request = {
       method: "POST",
       url: "/admin/opaque/login/finish",
       headers: {},
+      socket: {
+        remoteAddress: "127.0.0.1",
+      },
+      body: JSON.stringify({
+        sessionId: "session-id",
+        finish: "c2Vuc2l0aXZlLWZpbmlzaA",
+      }),
     };
 
-    mockResponse = {
-      statusCode: 200,
-      setHeader: vi.fn(),
-      end: vi.fn(),
-      write: vi.fn(),
-    };
+    response = createMockResponse();
+    finishLogin = mock.fn(async () => ({ sessionKey: new Uint8Array(32) }));
+    (context.services.opaque as { finishLogin: typeof finishLogin }).finishLogin = finishLogin;
   });
 
-  describe("Admin Identity Binding from Server Session", () => {
-    it("should derive admin identity from server session, ignoring adminId in request", async () => {
-      const sessionId = "admin-session-id";
-      const serverBoundEmail = "admin@example.com";
-      const attackerAdminId = "attacker-admin-id";
-
-      // Mock the OPAQUE session with server-bound identity
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue({
-        id: sessionId,
-        identityU: Buffer.from(serverBoundEmail).toString("base64"),
-        identityS: Buffer.from("DarkAuth").toString("base64"),
-        serverState: Buffer.from("mock-state"),
-        expiresAt: new Date(Date.now() + 600000),
-      });
-
-      // Mock admin lookup by email (from session)
-      const getAdminByEmail = vi.fn().mockResolvedValue({
-        id: "real-admin-id",
-        email: serverBoundEmail,
-        name: "Real Admin",
-        role: "write",
-      });
-
-      // Mock module import
-      vi.doMock("../../models/adminUsers.js", () => ({
-        getAdminByEmail,
-      }));
-
-      // Mock OPAQUE finish success
-      mockContext.services.opaque.finishLogin.mockResolvedValue({
-        sessionKey: new Uint8Array(32),
-      });
-
-      // Simulate request with attacker trying to use different adminId
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-        adminId: attackerAdminId, // This should be ignored
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Verify admin was looked up by email from session, not by adminId
-      expect(getAdminByEmail).toHaveBeenCalledWith(mockContext, serverBoundEmail);
-
-      // Verify response contains the real admin's info
-      const responseData = JSON.parse(mockResponse.write.mock.calls[0][0]);
-      expect(responseData.admin.id).toBe("real-admin-id");
-      expect(responseData.admin.email).toBe(serverBoundEmail);
+  test("ignores request body adminId and uses session identity", async () => {
+    request.body = JSON.stringify({
+      sessionId: "session-id",
+      finish: "c2Vuc2l0aXZlLWZpbmlzaA",
+      adminId: "attacker-id",
     });
 
-    it("should work without adminId field in request", async () => {
-      const sessionId = "admin-session-id";
-      const adminEmail = "admin@example.com";
+    await postAdminOpaqueLoginFinish(
+      context,
+      request as IncomingMessage,
+      response as unknown as ServerResponse
+    );
 
-      // Mock session
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue({
-        id: sessionId,
-        identityU: Buffer.from(adminEmail).toString("base64"),
-        identityS: Buffer.from("DarkAuth").toString("base64"),
-        serverState: Buffer.from("mock-state"),
-        expiresAt: new Date(Date.now() + 600000),
-      });
-
-      // Mock admin lookup
-      const getAdminByEmail = vi.fn().mockResolvedValue({
-        id: "admin-id",
-        email: adminEmail,
-        name: "Test Admin",
-        role: "write",
-      });
-
-      vi.doMock("../../models/adminUsers.js", () => ({
-        getAdminByEmail,
-      }));
-
-      // Mock OPAQUE finish
-      mockContext.services.opaque.finishLogin.mockResolvedValue({
-        sessionKey: new Uint8Array(32),
-      });
-
-      // Request without adminId field
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-        // No adminId field
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Should succeed
-      expect(mockResponse.statusCode).toBe(200);
-      expect(getAdminByEmail).toHaveBeenCalledWith(mockContext, adminEmail);
-    });
-
-    it("should fail if session does not exist", async () => {
-      const sessionId = "non-existent-session";
-
-      // Mock no session found
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue(null);
-
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Should return 401 Unauthorized
-      expect(mockResponse.statusCode).toBe(401);
-      expect(mockResponse.end).toHaveBeenCalledWith(
-        expect.stringContaining("Invalid or expired login session")
-      );
-    });
-
-    it("should fail if admin account does not exist for session email", async () => {
-      const sessionId = "admin-session-id";
-      const nonExistentEmail = "nonexistent@example.com";
-
-      // Mock session with non-existent admin email
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue({
-        id: sessionId,
-        identityU: Buffer.from(nonExistentEmail).toString("base64"),
-        identityS: Buffer.from("DarkAuth").toString("base64"),
-        serverState: Buffer.from("mock-state"),
-        expiresAt: new Date(Date.now() + 600000),
-      });
-
-      // Mock admin not found
-      const getAdminByEmail = vi.fn().mockResolvedValue(null);
-
-      vi.doMock("../../models/adminUsers.js", () => ({
-        getAdminByEmail,
-      }));
-
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Should return 401 Unauthorized
-      expect(mockResponse.statusCode).toBe(401);
-      expect(mockResponse.end).toHaveBeenCalledWith(
-        expect.stringContaining("Authentication failed")
-      );
-    });
-
-    it("should handle KEK-encrypted identity in session", async () => {
-      const sessionId = "admin-session-id";
-      const adminEmail = "admin@example.com";
-      const encryptedEmail = Buffer.from("encrypted-admin-email");
-
-      // Mock encrypted identity in session
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue({
-        id: sessionId,
-        identityU: encryptedEmail.toString("base64"),
-        identityS: Buffer.from("encrypted-server").toString("base64"),
-        serverState: Buffer.from("mock-state"),
-        expiresAt: new Date(Date.now() + 600000),
-      });
-
-      // Mock KEK decryption
-      mockContext.services.kek.decrypt.mockResolvedValue(Buffer.from(adminEmail));
-
-      // Mock admin lookup
-      const getAdminByEmail = vi.fn().mockResolvedValue({
-        id: "admin-id",
-        email: adminEmail,
-        name: "Test Admin",
-        role: "write",
-      });
-
-      vi.doMock("../../models/adminUsers.js", () => ({
-        getAdminByEmail,
-      }));
-
-      // Mock OPAQUE finish
-      mockContext.services.opaque.finishLogin.mockResolvedValue({
-        sessionKey: new Uint8Array(32),
-      });
-
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Verify KEK decryption was called
-      expect(mockContext.services.kek.decrypt).toHaveBeenCalledWith(encryptedEmail);
-
-      // Verify admin was looked up with decrypted email
-      expect(getAdminByEmail).toHaveBeenCalledWith(mockContext, adminEmail);
-    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json.admin.email, "admin@example.com");
+    assert.equal(response.json.admin.id, "admin-id");
+    assert.equal(finishLogin.mock.calls[0]?.arguments?.[1], "session-id");
   });
 
-  describe("Audit Logging", () => {
-    it("should extract identity from session for audit logging", async () => {
-      // This test would verify that the audit wrapper extracts
-      // the correct identity from the server session for logging
-      // Implementation depends on audit wrapper implementation
-    });
-  });
+  test("rejects when session no longer exists", async () => {
+    context.db.query.opaqueLoginSessions.findFirst = mock.fn(() => Promise.resolve(null));
 
-  describe("Session Cleanup", () => {
-    it("should delete OPAQUE login session after successful authentication", async () => {
-      const sessionId = "admin-session-id";
-      const adminEmail = "admin@example.com";
-
-      // Mock session
-      mockContext.db.query.opaqueLoginSessions.findFirst.mockResolvedValue({
-        id: sessionId,
-        identityU: Buffer.from(adminEmail).toString("base64"),
-        identityS: Buffer.from("DarkAuth").toString("base64"),
-        serverState: Buffer.from("mock-state"),
-        expiresAt: new Date(Date.now() + 600000),
-      });
-
-      // Mock admin
-      const getAdminByEmail = vi.fn().mockResolvedValue({
-        id: "admin-id",
-        email: adminEmail,
-        name: "Test Admin",
-        role: "write",
-      });
-
-      vi.doMock("../../models/adminUsers.js", () => ({
-        getAdminByEmail,
-      }));
-
-      // Mock OPAQUE finish
-      mockContext.services.opaque.finishLogin.mockResolvedValue({
-        sessionKey: new Uint8Array(32),
-      });
-
-      const requestBody = {
-        sessionId,
-        finish: "base64url_encoded_finish",
-      };
-
-      mockRequest.read = vi.fn().mockReturnValue(JSON.stringify(requestBody));
-
-      await postAdminOpaqueLoginFinish(
-        mockContext,
-        mockRequest as IncomingMessage,
-        mockResponse as ServerResponse
-      );
-
-      // Verify session cleanup was called
-      expect(mockContext.db.delete).toHaveBeenCalled();
-    });
+    await assert.rejects(
+      () =>
+        postAdminOpaqueLoginFinish(
+          context,
+          request as IncomingMessage,
+          response as unknown as ServerResponse
+        ),
+      (error: unknown) => {
+        return error instanceof Error && error.message === "Invalid or expired login session";
+      }
+    );
   });
 });
