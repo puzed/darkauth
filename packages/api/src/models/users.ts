@@ -1,14 +1,28 @@
-import { count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { groupPermissions, groups, userGroups, userPermissions, users } from "../db/schema.js";
+import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import {
+  groupPermissions,
+  groups,
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
+  roles,
+  userGroups,
+  userPermissions,
+  users,
+} from "../db/schema.js";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
 import type { Context } from "../types.js";
 
 async function getAccessMapsForSubs(context: Context, subs: string[]) {
   let groupsByUser = new Map<string, string[]>();
   const permissionsByUser = new Map<string, string[]>();
+  const organizationRolesByUser = new Map<
+    string,
+    Array<{ organizationId: string; organizationSlug: string; roleKeys: string[] }>
+  >();
 
   if (subs.length === 0) {
-    return { groupsByUser, permissionsByUser };
+    return { groupsByUser, permissionsByUser, organizationRolesByUser };
   }
 
   const groupRows = await context.db
@@ -64,16 +78,73 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
     permissionsByUser.set(sub, Array.from(new Set([...direct, ...inherited])));
   }
 
-  return { groupsByUser, permissionsByUser };
+  const orgRoleRows = await context.db
+    .select({
+      userSub: organizationMembers.userSub,
+      organizationId: organizations.id,
+      organizationSlug: organizations.slug,
+      roleKey: roles.key,
+    })
+    .from(organizationMembers)
+    .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+    .leftJoin(
+      organizationMemberRoles,
+      eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
+    )
+    .leftJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
+    .where(inArray(organizationMembers.userSub, subs));
+
+  for (const row of orgRoleRows) {
+    const list = organizationRolesByUser.get(row.userSub) || [];
+    let org = list.find((item) => item.organizationId === row.organizationId);
+    if (!org) {
+      org = {
+        organizationId: row.organizationId,
+        organizationSlug: row.organizationSlug,
+        roleKeys: [],
+      };
+      list.push(org);
+    }
+    if (row.roleKey && !org.roleKeys.includes(row.roleKey)) {
+      org.roleKeys.push(row.roleKey);
+    }
+    organizationRolesByUser.set(row.userSub, list);
+  }
+
+  for (const sub of subs) {
+    const list = organizationRolesByUser.get(sub) || [];
+    for (const org of list) org.roleKeys.sort();
+    list.sort((a, b) => a.organizationSlug.localeCompare(b.organizationSlug));
+    organizationRolesByUser.set(sub, list);
+  }
+
+  return { groupsByUser, permissionsByUser, organizationRolesByUser };
 }
 
 export async function listUsers(
   context: Context,
-  options: { page?: number; limit?: number; search?: string } = {}
+  options: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: "createdAt" | "email" | "name" | "sub";
+    sortOrder?: "asc" | "desc";
+  } = {}
 ) {
   const page = Math.max(1, options.page || 1);
   const limit = Math.min(100, Math.max(1, options.limit || 20));
   const offset = (page - 1) * limit;
+  const sortBy = options.sortBy || "createdAt";
+  const sortOrder = options.sortOrder || "desc";
+  const sortFn = sortOrder === "asc" ? asc : desc;
+  const sortColumn =
+    sortBy === "email"
+      ? users.email
+      : sortBy === "name"
+        ? users.name
+        : sortBy === "sub"
+          ? users.sub
+          : users.createdAt;
 
   const baseQuery = context.db
     .select({
@@ -95,12 +166,15 @@ export async function listUsers(
     : context.db.select({ count: count() }).from(users));
 
   const usersList = await (searchCondition ? baseQuery.where(searchCondition) : baseQuery)
-    .orderBy(desc(users.createdAt))
+    .orderBy(sortFn(sortColumn), sortFn(users.sub))
     .limit(limit)
     .offset(offset);
 
   const subs = usersList.map((u) => u.sub);
-  const { groupsByUser, permissionsByUser } = await getAccessMapsForSubs(context, subs);
+  const { groupsByUser, permissionsByUser, organizationRolesByUser } = await getAccessMapsForSubs(
+    context,
+    subs
+  );
 
   const total = totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
@@ -110,6 +184,7 @@ export async function listUsers(
       ...u,
       groups: groupsByUser.get(u.sub) || [],
       permissions: permissionsByUser.get(u.sub) || [],
+      organizationRoles: organizationRolesByUser.get(u.sub) || [],
     })),
     pagination: {
       page,
@@ -137,8 +212,29 @@ export async function createUser(
   const sub = subInput || (await (await import("../utils/crypto.js")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
-    const { userGroups } = await import("../db/schema.js");
-    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" });
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
+    const defaultOrg = await tx.query.organizations.findFirst({
+      where: eq(organizations.slug, "default"),
+    });
+    if (defaultOrg) {
+      const [membership] = await tx
+        .insert(organizationMembers)
+        .values({
+          organizationId: defaultOrg.id,
+          userSub: sub,
+          status: "active",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      const memberRole = await tx.query.roles.findFirst({ where: eq(roles.key, "member") });
+      if (membership && memberRole) {
+        await tx
+          .insert(organizationMemberRoles)
+          .values({ organizationMemberId: membership.id, roleId: memberRole.id })
+          .onConflictDoNothing();
+      }
+    }
   });
   return { sub, email, name, createdAt: new Date().toISOString() };
 }

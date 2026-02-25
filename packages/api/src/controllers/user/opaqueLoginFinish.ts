@@ -1,7 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { groups, opaqueLoginSessions, userGroups } from "../../db/schema.js";
+import {
+  groups,
+  opaqueLoginSessions,
+  organizationMemberRoles,
+  organizationMembers,
+  roles,
+  userGroups,
+} from "../../db/schema.js";
 import { AppError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
@@ -99,19 +106,20 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         throw new UnauthorizedError("Authentication failed");
       }
 
-      // Enforce group login gating: must belong to at least one group with enable_login = true
-      let hasEnabledGroup = false;
-      {
-        const { and } = await import("drizzle-orm");
-        const rows = await context.db
-          .select({ groupKey: userGroups.groupKey })
-          .from(userGroups)
-          .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-          .where(and(eq(userGroups.userSub, user.sub), eq(groups.enableLogin, true)))
-          .limit(1);
-        hasEnabledGroup = rows.length > 0;
+      const { getUserOrganizations } = await import("../../models/rbac.js");
+      const organizations = await getUserOrganizations(context, user.sub);
+      const activeMemberships = organizations.filter(
+        (membership) => membership.status === "active"
+      );
+      if (activeMemberships.length === 0) {
+        throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
       }
-      if (!hasEnabledGroup) {
+      const loginGroups = await context.db
+        .select({ enableLogin: groups.enableLogin })
+        .from(userGroups)
+        .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+        .where(eq(userGroups.userSub, user.sub));
+      if (loginGroups.length > 0 && !loginGroups.some((group) => Boolean(group.enableLogin))) {
         throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
       }
 
@@ -124,8 +132,24 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       ) {
         otpRequired = true;
       }
-      const { and } = await import("drizzle-orm");
       const rows = await context.db
+        .select({ roleKey: roles.key })
+        .from(organizationMembers)
+        .innerJoin(
+          organizationMemberRoles,
+          eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
+        )
+        .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
+        .where(
+          and(
+            eq(organizationMembers.userSub, user.sub),
+            eq(organizationMembers.status, "active"),
+            eq(roles.key, "otp_required")
+          )
+        )
+        .limit(1);
+      if (rows.length > 0) otpRequired = true;
+      const groupOtpRows = await context.db
         .select({ groupKey: userGroups.groupKey })
         .from(userGroups)
         .innerJoin(groups, eq(userGroups.groupKey, groups.key))
@@ -137,13 +161,22 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
           )
         )
         .limit(1);
-      if (rows.length > 0) otpRequired = true;
+      if (groupOtpRows.length > 0) otpRequired = true;
+
+      const sessionOrganization =
+        activeMemberships.length === 1
+          ? {
+              organizationId: activeMemberships[0]?.organizationId,
+              organizationSlug: activeMemberships[0]?.slug,
+            }
+          : {};
 
       // Create user session
       const { sessionId: createdSessionId, refreshToken } = await createSession(context, "user", {
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
+        ...sessionOrganization,
         clientId: "demo-public-client",
         otpRequired: otpRequired,
         otpVerified: false,

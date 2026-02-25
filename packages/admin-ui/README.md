@@ -1,73 +1,65 @@
-# Welcome to your Lovable project
+# Admin UI
 
-## Project info
+Admin console for DarkAuth (`packages/admin-ui`).
 
-**URL**: https://lovable.dev/projects/e77367a3-f1f5-4527-86ad-a125c80d43ab
+## Shared list/table behavior
 
-## How can I edit this code?
+- Tables use `src/components/ui/table.tsx` + `src/components/ui/table.module.css`.
+- Horizontal overflow is handled inside the table wrapper (`overflow-x: auto`).
+- Headers and cells are no-wrap (`white-space: nowrap`).
+- Sortable headers use `src/components/table/sortable-table-head.tsx`.
+- Primary/main table column content uses `tableStyles.primaryActionButton` and triggers the table default action (same as the first row action) where applicable.
+- Row actions use vertical kebab menus via `src/components/row-actions.tsx` + `src/components/row-actions.module.css`.
+- Row-action menu item icons are standardized to `14x14` (`.actionIcon :global(svg)` in `src/components/row-actions.module.css`).
+- Row-action menus use cleaner trigger spacing and open-state trigger treatment (`.triggerOpen`).
+- Users list highlights the row that owns the open row-action menu (`src/pages/Users.tsx`, `.rowActive`).
+- Users row actions are guarded per user (`runUserRowAction` in `src/pages/Users.tsx`) so repeated clicks while an action is running are ignored and row-action items are disabled until completion.
+- Row-action menu and submenu shadows are removed (`.menuContent`, `.menuSubContent`).
+- Row-action submenu triggers use pointer cursor and `gap: 8px` for icon/label alignment (`.subTrigger`).
+- Page scrolling is internal to dashboard content (`src/components/dashboard-layout.module.css`).
+- Organizations list uses a compact table variant (`src/pages/Organizations.tsx` + `src/pages/Organizations.module.css`): tighter header/row/cell spacing, a 28x28 right-aligned row-action trigger, and a visually hidden `Actions` header label for accessibility.
+- Organization edit page includes a dedicated `Members` section (`src/pages/OrganizationEdit.tsx`) for membership and role management.
+- Members section includes an `Add User` modal flow (`src/pages/OrganizationEdit.tsx`).
+- `Add User` modal supports searching users by name, email, or subject (`sub`) before selection.
+- `Add` in the modal calls `adminApiService.addOrganizationMember` (`POST /organizations/{organizationId}/members`) and refreshes the member list.
+- Organization member role assignment is not inline via dropdown on the edit form.
+- Member roles are updated per row action (`Edit Roles`) using an `Edit Roles` modal with multi-select checkboxes.
+- Saving from `Edit Roles` uses a single atomic replace call (`adminApiService.updateOrganizationMemberRoles` → `PUT /organizations/{organizationId}/members/{memberId}/roles`) before refreshing the members list.
 
-There are several ways of editing your application.
+## Admin list API contract consumed by UI
 
-**Use Lovable**
+List screens use standard query params:
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e77367a3-f1f5-4527-86ad-a125c80d43ab) and start prompting.
+- `page`
+- `limit`
+- `search`
+- `sortBy`
+- `sortOrder`
 
-Changes made via Lovable will be committed automatically to this repo.
+Expected pagination response shape:
 
-**Use your preferred IDE**
+- `pagination.page`
+- `pagination.limit`
+- `pagination.total`
+- `pagination.totalPages`
+- `pagination.hasNext`
+- `pagination.hasPrev`
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+Bounds enforced server-side where relevant:
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- `page <= 10000`
+- `search.length <= 128`
 
-Follow these steps:
+See `docs/admin-list-standards.md` for the canonical cross-package standard.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Admin API path context
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- `adminApiService` requests are relative to the admin API base path, not the user API base path.
+- Service paths like `/organizations` map to `/api/admin/organizations` on the server.
+- Organization member paths like `/organizations/{organizationId}/members` map to `/api/admin/organizations/{organizationId}/members`.
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Session refresh failure handling
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/e77367a3-f1f5-4527-86ad-a125c80d43ab) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- Admin session refresh is attempted from periodic refresh logic and visibility-triggered refresh logic.
+- The admin UI tracks consecutive refresh failures across these refresh contexts.
+- After 3 consecutive refresh failures, the admin UI clears the current session and logs the admin out.

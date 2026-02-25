@@ -36,13 +36,13 @@ project/
 │   │   │       │   ├── post.ts
 │   │   │       │   └── [userId]/
 │   │   │       │       ├── get.ts
-│   │   │       │       └── post.ts
+│   │   │       │       └── put.ts
 │   │   │       └── posts/
 │   │   │           ├── get.ts
 │   │   │           ├── post.ts
 │   │   │           └── [postId]/
 │   │   │               ├── get.ts
-│   │   │               └── post.ts
+│   │   │               └── put.ts
 │   │   ├── tests/
 │   │   │   ├── helpers/
 │   │   │   │   └── createTestServer.ts
@@ -52,9 +52,9 @@ project/
 │   │   │       └── users/
 │   │   │           ├── get.test.ts
 │   │   │           ├── post.test.ts
-│   │   │           └── [postId]/
+│   │   │           └── [userId]/
 │   │   │               ├── get.test.ts
-│   │   │               └── post.test.ts
+│   │   │               └── put.test.ts
 │   │   ├── drizzle/
 │   │   │   └── migrations/
 │   │   ├── drizzle.config.ts
@@ -79,13 +79,35 @@ project/
 ## Core Concepts
 
 - Use the context pattern instead of complex dependency injection frameworks.
+- Prefer local, explicit code first. Introduce abstractions only when repetition or mixed concerns clearly justify them.
 - Comments should be rarely be needed as code should be written to be self-documenting.
 - Comments should be used to explain why a unintuitive code block or hack is needed, not what it does.
-- Never abbreviate anything, variables, functions, etc.
+- Avoid unclear abbreviations. Standard technical abbreviations (`db`, `url`, `id`, `api`) are acceptable.
+- Use `type` aliases instead of `interface`. `interface` declaration merging is implicit/global magic and is not allowed.
 - Prefer built in Node functionality over third party libraries.
 - Only mock external systems, not the internal ones this project needs. For example, don't mock our postgres database, use a real one in the tests. But it would be okay to mock the Twilio API, it's a third party.
  - UI packages (ui and admin-ui) are built with React + TypeScript + CSS Modules and compiled to static assets served by the Node HTTP server. Do not introduce server-side rendering frameworks.
 - Use npm workspaces to manage the monorepo structure with separate packages for api, ui, and admin-ui.
+
+### Abstraction Discipline
+
+- Do not abstract on first implementation. Write the straightforward version first.
+- Usually do not abstract on second implementation either. Confirm the pattern is stable.
+- Abstract on repeated, stable patterns (typically the third time) or when an extraction clearly reduces cognitive load in a hot file.
+- Every abstraction must reduce complexity at call sites; if it only moves complexity, remove it.
+- Avoid speculative helper layers and pass-through wrappers.
+
+Good abstractions in this code style:
+- `utils/createRouter.ts` to keep request routing/validation/error translation out of `createServer.ts`.
+- `utils/waitForHealth.ts` to keep readiness polling out of server lifecycle orchestration.
+
+When to keep code inline:
+- One-off logic with a single call site.
+- Logic that is clearer where it is used than behind a generic helper.
+
+Server factory rule:
+- If you run a single HTTP server, keep a single `createServer(...)` factory.
+- Do not add nested server factories like `createApiServer(...)` unless you actually run multiple distinct servers with distinct responsibilities.
 
 ### Server Lifecycle And Portability
 
@@ -94,14 +116,16 @@ project/
 - Do not rely on globals for server state. All resources live in context and are created/destroyed via explicit lifecycle calls.
 
 Lifecycle API (conceptual):
-- createServer(context) returns an object exposing: start(), stop(), restart(), getContext(), and references to all running HTTP servers.
+- createServer(context) returns an object exposing: start(), stop(), restart(), context, and references to all running HTTP servers.
 - start() resolves only when all HTTP servers are bound on their configured ports and report healthy via a readiness endpoint.
 - stop() resolves only when all HTTP servers are closed, open sockets destroyed, timers cleared, and resources released. No leaks.
-- restart() = stop old servers and context, build a brand‑new context, build brand‑new servers on the same ports, then start and wait for readiness. Never reuse the old context.
+- restart() = stop and then start the same managed server instance on the same ports, then wait for readiness.
+- If you need a brand‑new context/server graph, call stop(), construct a new server via createServer(...), then start() it.
 - Ports per server are defined in config and must remain stable across restarts. Avoid hard‑coded port numbers.
 
 Readiness and health:
 - Every HTTP server exposes a lightweight health endpoint for readiness checks used by start/restart and tests.
+- Health/readiness endpoints are normal routed endpoints implemented through the same `routes` table and controller file conventions.
 - Callers should not insert arbitrary sleeps; lifecycle methods guarantee readiness before resolving.
 
 ### Controllers And Models
@@ -109,10 +133,12 @@ Readiness and health:
 - Controllers live in files following `controllers/{entity}/{optionalSegment}/{method}.ts`, for example `controllers/users/[userId]/get.ts`.
 - Controllers are thin HTTP adapters. They parse input, enforce authentication and authorization, call models and services, and shape HTTP responses. They contain no database logic.
 - HTTP routing uses `URLPattern` objects for declarative matching. Each route declares a method and `URLPattern`, and handlers receive parsed parameters from the pattern match.
+- Routers should parse and validate route params/query only. Controllers own request-body parsing (for example via `getBodyFromRequest(context, request, mode, options?)`).
+- Do not special-case endpoints in `createServer` (including `/health`, `/ready`, `/openapi`). If an endpoint exists, it must be declared in the route table and handled by a controller.
 - Models encapsulate domain and data logic. They validate inputs relevant to the domain, perform all database access, apply invariants, and return plain data objects. They contain no HTTP concerns.
 - Controllers register OpenAPI via zod schemas and map domain data from models to the response. OpenAPI types describe the external shape; model types describe the internal domain.
 - Types used by models are defined with zod and inferred types near the model functions, or shared in `schemas/` when reused by multiple callers. Controllers import those types to validate I/O, but do not redefine domain types.
-- Permissions and cohort checks exist only in controllers (or dedicated auth middleware). Models should assume the caller is authorized.
+- Permissions and cohort checks exist only in controllers (or explicit auth helper functions called by controllers). Models should assume the caller is authorized.
 - Services handle external protocols or multi-step processes (e.g. email or payments). Prefer orchestrating services from controllers (or dedicated service/orchestrator functions). Models should not trigger cross-boundary side effects (email, queues, third-party APIs). If a workflow requires side effects alongside data changes, expose a service like `registerUser` that composes model calls and invokes side effects explicitly.
 
 Rules:
@@ -133,7 +159,7 @@ Models should:
 - Provide clean, typed interfaces for data access
 - Handle pagination, filtering, and search logic
 - Throw appropriate errors (`NotFoundError`, `ConflictError`, `ValidationError`, etc.)
-- Be pure functions that take `Context` as the first parameter
+- Be deterministic functions with explicit dependencies that take `Context` as the first parameter
 
 Models should NOT:
 - Handle HTTP requests/responses
@@ -149,11 +175,11 @@ Controllers are thin HTTP layers that coordinate between the transport (HTTP), a
 Controllers should:
 - Handle HTTP request/response lifecycle
 - Parse and validate query parameters and request bodies
-- Manage authentication and authorization (via session middleware)
+- Manage authentication and authorization (via explicit session/auth helpers)
 - Call appropriate model functions with validated data
 - Handle OpenAPI specification registration
 - Transform model responses for HTTP responses
-- Let error handling bubble to the top-level middleware
+- Let error handling bubble to the top-level HTTP error handler
 
 Controllers should NOT:
 - Contain database queries or business logic
@@ -167,13 +193,18 @@ Pattern:
 
 ```typescript
 // Controller (HTTP layer)
-export async function getUsersController(context: Context, request: IncomingMessage, response: ServerResponse) {
+export async function getUsersController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  query: { page?: string; limit?: string; search?: string },
+) {
   const sessionData = await requireSession(context, request, true);
   if (!sessionData.adminRole) throw new ForbiddenError("Admin access required");
 
-  const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const { page, limit } = getPaginationFromUrl(url, 20, 100);
-  const search = url.searchParams.get("search");
+  const page = query.page ? Number(query.page) : 1;
+  const limit = query.limit ? Number(query.limit) : 20;
+  const search = query.search;
 
   const result = await listUsers(context, { page, limit, search: search || undefined });
   sendJsonValidated(response, 200, result, UsersListResponseSchema);
@@ -222,7 +253,7 @@ export async function getUsersController(context: Context, request: IncomingMess
 #### Error Handling
 
 - Models: throw business logic errors (`NotFoundError`, `ConflictError`, `ValidationError`).
-- Controllers: validate inputs and allow errors to bubble to the HTTP error middleware.
+- Controllers: validate inputs and allow errors to bubble to the HTTP error handler.
 
 #### Testing Strategy
 
@@ -261,19 +292,20 @@ Use AppError for application-specific errors that bubble up to the HTTP layer fo
 - All background timers, intervals, DB pools, and service instances are owned by context and registered for cleanup.
 
 Background work safety:
-- When a server is stopping or restarting, nothing spawned from that server may continue using the old context. This includes background jobs, queues, schedulers, and loggers.
-- Provide a liveness token or generation number on context. Background tasks must check it and abort if the context is closed or generation has changed.
-- If work must survive restart, flush it before stop or persist it to a durable queue and resume with the new context after restart.
+- When a server is stopping or restarting, nothing spawned from that server may continue once context is stopping/closed. This includes background jobs, queues, schedulers, and loggers.
+- Provide a liveness/closed signal on context. Background tasks must check it and abort when context is stopping or closed.
+- If your application performs a full context rebuild (stop + new createServer), use an instance/version token to detect stale work from older instances.
+- If work must survive restart, flush it before stop or persist it to a durable queue and resume after start.
 - Never write to databases, queues, or files using a closed or stale context.
 
-Fresh context on restart:
-- Always rebuild context from the source of truth (env, config files, database) rather than reusing mutated in‑memory state.
-- Recreate connection pools and service instances; do not carry handles across restarts.
+Fresh context policy:
+- Rebuilding a fresh context is an explicit operation by creating a new server instance after stop(), not an implicit requirement of restart().
+- When rebuilding, source config from env/config files and recreate pools/services from scratch.
 
 Readiness workflow:
 - start() resolves only when all servers report healthy.
 - stop() resolves only when all servers are closed and resources are cleaned.
-- restart() resolves only when new servers are healthy on the same ports.
+- restart() resolves only when the restarted server is healthy on the same ports.
 
 
 ### types.ts
@@ -281,32 +313,74 @@ Readiness workflow:
 import { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from './db/schema';
 
-export interface Context {
+export type Context = {
   db: NodePgDatabase<typeof schema>;
   config: Config;
   services: Services;
   destroy: () => Promise<void>;
-}
+};
 
-export interface Services {
+export type Services = {
   emailProvider?: {
     send: (options: { to: string; subject: string; html: string }) => Promise<{ messageId: string }>;
   };
   paymentProvider?: {
     createCharge: (amount: number, token: string) => Promise<{ id: string; status: string }>;
   };
-}
+};
 
-export interface Config {
+export type Config = {
   port: number;
   databaseUrl: string;
   jwtSecret: string;
-}
+  publicBaseUrl: string;
+  maxBodyBytes: number;
+};
+
+export type ControllerSchema = {
+  params?: unknown;
+  query?: unknown;
+  body?: unknown;
+};
+```
 
 ### Ports And Bindings
 - Define ports per server in config (by name if multiple). Do not hard‑code numeric ports in code.
 - Keep bindings stable across restarts so clients and tests can rely on addresses.
+- Local dev defaults (if any) belong in `.env.example` or docs, not runtime fallbacks in production code.
+
+### No Runtime Defaults
+- Prefer explicit configuration over implicit behavior.
+- Do not use runtime fallback values for configuration (`||`, `??`, default params, or schema `.default(...)`) for app settings.
+- Missing configuration should fail fast during startup with a clear error.
+- This applies to security and non-security settings (ports, feature flags, titles, limits, etc).
+- Put sample values in `.env.example` and documentation, not in executable runtime defaults.
+- Database-level defaults for persisted columns are allowed when intentional (`defaultNow`, `defaultRandom`, etc); this rule is about runtime app configuration.
+
+Example:
+```env
+# .env.example
+SITE_TITLE="Example Site"
 ```
+
+```typescript
+// Good
+const ConfigSchema = z.object({
+  siteTitle: z.string().min(1),
+});
+
+const config = ConfigSchema.parse({
+  siteTitle: process.env.SITE_TITLE,
+});
+
+// Bad
+const siteTitle = process.env.SITE_TITLE || "Example Site";
+```
+
+### Security Defaults
+- Never ship insecure fallback secrets (for example `JWT_SECRET='development-secret'` in runtime code).
+- Fail fast at startup when required secrets/config values are missing.
+- Treat `Host` as untrusted input; never use it for security decisions or canonical URL generation.
 
 ### errors.ts
 - Note: this is one of the very rare times a class is appropriate in a functional project.
@@ -385,7 +459,7 @@ export const postsRelations = relations(posts, ({ one }) => ({
 
 ### schemas/users.ts
 ```typescript
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { users } from '../db/schema';
 
@@ -464,8 +538,8 @@ export const UpdatePostSchema = z.object({
 });
 
 export const ListPostsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(10),
-  offset: z.coerce.number().int().min(0).default(0),
+  limit: z.coerce.number().int().min(1).max(100),
+  offset: z.coerce.number().int().min(0),
   published: z.coerce.boolean().optional(),
 });
 
@@ -505,9 +579,8 @@ export function createContext(config: Config) {
       // emailProvider: createEmailProvider(config),
       // paymentProvider: createPaymentProvider(config),
     },
-    cleanupFunctions,
     async destroy() {
-      for (const cleanup of this.cleanupFunctions) {
+      for (const cleanup of cleanupFunctions) {
         await cleanup();
       }
     },
@@ -630,8 +703,9 @@ export function createServer(context: Context) {
         return;
       }
 
-      const url = new URL(request.url, `http://${request.headers.host ?? 'localhost'}`);
-
+      // Do not trust Host header; use configured base URL for parsing only.
+      const baseUrl = context.config.publicBaseUrl;
+      const url = new URL(request.url, baseUrl);
       for (const route of routes) {
         if (request.method !== route.method) continue;
 
@@ -642,7 +716,6 @@ export function createServer(context: Context) {
         const schema = controller.schema as z.ZodObject<any> | undefined;
         const paramsSchema = schema?.shape?.params as z.ZodTypeAny | undefined;
         const querySchema = schema?.shape?.query as z.ZodTypeAny | undefined;
-        const bodySchema = schema?.shape?.body as z.ZodTypeAny | undefined;
 
         const params = paramsSchema
           ? paramsSchema.parse(match.pathname.groups ?? {})
@@ -652,19 +725,12 @@ export function createServer(context: Context) {
           ? querySchema.parse(Object.fromEntries(url.searchParams.entries()))
           : {};
 
-        let body: unknown = undefined;
-        if (bodySchema) {
-          const rawBody = await readBody(request);
-          body = bodySchema.parse(parseJsonSafely(rawBody));
-        }
-
         await controller.handler({
           context,
           request,
           response,
           params,
           query,
-          body,
         } as Handler<typeof controller.schema>);
         return;
       }
@@ -678,26 +744,90 @@ export function createServer(context: Context) {
 }
 ```
 
-The new routing system uses dynamic imports for controllers and provides strongly typed handler functions. Each controller exports a `schema` object with `params` and `body` validation, and a `handler` function that receives validated data.
+The routing system uses dynamic imports for controllers, validates route params/query, and passes `request` through so controllers can parse and validate body content explicitly. In this style, handler payloads are runtime-validated at the router/controller boundary and can be narrowed further inside controllers as needed.
+
+Frameworkless routing is only justified if we can measure value. Track:
+- Cold start time and p95 request latency versus a framework baseline.
+- Bundle/runtime dependency count and security advisories.
+- Developer onboarding time for adding a new endpoint.
+- Defect rate in HTTP edge-cases (parsing, status codes, headers, timeouts).
 
 ### main.ts
 ```typescript
 import { createContext } from './createContext';
 import { createServer } from './createServer';
+import { once } from 'events';
+import type { Server } from 'http';
+import { z } from 'zod';
+
+const RuntimeConfigSchema = z.object({
+  PORT: z.coerce.number().int().min(0).max(65535),
+  DATABASE_URL: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
+  PUBLIC_BASE_URL: z.string().url(),
+  MAX_BODY_BYTES: z.coerce.number().int().positive(),
+});
+
+function loadConfig() {
+  const env = RuntimeConfigSchema.parse(process.env);
+  return {
+    port: env.PORT,
+    databaseUrl: env.DATABASE_URL,
+    jwtSecret: env.JWT_SECRET,
+    publicBaseUrl: env.PUBLIC_BASE_URL,
+    maxBodyBytes: env.MAX_BODY_BYTES,
+  };
+}
+
+type ManagedServer = {
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  restart: () => Promise<void>;
+};
+
+function createManagedServer(): ManagedServer {
+  let context = createContext(loadConfig());
+  let server: Server = createServer(context);
+  const sockets = new Set<import('net').Socket>();
+
+  server.on('connection', (socket) => {
+    sockets.add(socket);
+    socket.on('close', () => sockets.delete(socket));
+  });
+
+  async function start() {
+    server.listen(context.config.port);
+    await once(server, 'listening');
+  }
+
+  async function stop() {
+    for (const socket of sockets) socket.destroy();
+    await new Promise<void>((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+    await context.destroy();
+  }
+
+  async function restart() {
+    await stop();
+    context = createContext({ ...context.config });
+    server = createServer(context);
+    await start();
+  }
+
+  return { start, stop, restart };
+}
 
 async function main() {
-  const config = {
-    port: parseInt(process.env.PORT || '3000', 10),
-    databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost/myapp',
-    jwtSecret: process.env.JWT_SECRET || 'development-secret',
+  const managed = createManagedServer();
+  await managed.start();
+
+  const shutdown = async () => {
+    await managed.stop();
   };
 
-  const context = createContext(config);
-  const server = createServer(context);
-
-  server.listen(config.port, () => {
-    console.log(`Server listening on port ${config.port}`);
-  });
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
 
 main().catch(console.error);
@@ -1001,15 +1131,28 @@ export async function handler({ context, body, response }: Handler<typeof schema
 ### utils/http.ts
 ```typescript
 import { IncomingMessage } from 'http';
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { ValidationError } from '../errors';
-import { ControllerSchema } from '../types';
 
-export function readBody(request: IncomingMessage) {
+type BodySchemaSpec = {
+  body: {
+    contentType: string;
+    schema: z.ZodTypeAny;
+  };
+};
+
+export function readBody(request: IncomingMessage, maxBytes: number) {
   return new Promise<string>((resolve, reject) => {
     let body = '';
+    let size = 0;
     request.setEncoding('utf8');
     request.on('data', (chunk) => {
+      size += Buffer.byteLength(chunk);
+      if (size > maxBytes) {
+        request.destroy();
+        reject(new ValidationError(`Request body too large (max ${maxBytes} bytes)`));
+        return;
+      }
       body += chunk;
     });
     request.on('end', () => resolve(body));
@@ -1026,13 +1169,13 @@ export function parseJsonSafely(jsonString: string): unknown {
 }
 
 export async function getBodyFromRequest<
-  TSchema extends ControllerSchema & { body: { schema: z.ZodTypeAny } }
+  TSchema extends BodySchemaSpec
 >(request: IncomingMessage, schema: TSchema) {
   if (!request.headers['content-type']?.includes(schema.body.contentType)) {
     throw new ValidationError(`Unsupported content type. Expected ${schema.body.contentType}`);
   }
 
-  const rawBody = await readBody(request);
+  const rawBody = await readBody(request, 1_048_576);
   if (rawBody.length === 0) {
     throw new ValidationError('Request body is required');
   }
@@ -1206,8 +1349,12 @@ Before running tests, you need to set up a test database. This ensures tests run
 # Create test database
 createdb myapp_test
 
-# Set environment variable
+# Set required test environment variables
+export TEST_PORT="0"
 export TEST_DATABASE_URL="postgresql://localhost/myapp_test"
+export TEST_JWT_SECRET="test-secret"
+export TEST_PUBLIC_BASE_URL="http://localhost"
+export TEST_MAX_BODY_BYTES="1048576"
 
 # Run migrations on test database
 DATABASE_URL=$TEST_DATABASE_URL npm run db:migrate
@@ -1219,15 +1366,15 @@ import { createServer } from '../../src/createServer';
 import { createContext } from '../../src/createContext';
 import { Context } from '../../src/types';
 import http from 'node:http';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
 import * as schema from '../../src/db/schema';
 
 export function createTestContext() {
   const config = {
-    port: 0,
-    databaseUrl: process.env.TEST_DATABASE_URL || 'postgresql://localhost/myapp_test',
-    jwtSecret: 'test-secret',
+    port: Number(process.env.TEST_PORT!),
+    databaseUrl: process.env.TEST_DATABASE_URL!,
+    jwtSecret: process.env.TEST_JWT_SECRET!,
+    publicBaseUrl: process.env.TEST_PUBLIC_BASE_URL!,
+    maxBodyBytes: Number(process.env.TEST_MAX_BODY_BYTES!),
   };
 
   return createContext(config);
@@ -1649,22 +1796,17 @@ describe('Email Service Integration', () => {
 
 **You probably don't need lodash.** Modern JavaScript has most of what you need built-in.
 
-### Avoid Vertical Dependency Stacks
+### Avoid Deep Coupling To A Single HTTP Stack
 
-Frameworks like Express create dependency chains that become maintenance nightmares:
+The risk is not "Express is bad"; the risk is deep coupling to framework-specific middleware and mutable request state.
 
 ```
-express → express-body-parser → express-passport → express-session → express-rate-limit
+app + framework-specific middleware + custom plugin assumptions + framework adapters
 ```
 
-When Express updates, every middleware might break. When `express-body-parser` updates, you're stuck coordinating versions across the entire stack.
+When you couple business logic to framework internals, upgrades become expensive regardless of framework.
 
-**Better approach:** Use focused, single-purpose libraries.
-
-Instead of:
-- `express-body-parser` → Use a standalone body parser like `@fastify/formbody`
-- `express-passport` → Use a dedicated auth library like `jose` for JWT
-- `express-session` → Use a session library that works with any framework
+**Better approach:** Keep routing/HTTP concerns at the edge, keep domain logic framework-agnostic, and use focused libraries (`jose`, `zod`, DB driver/ORM) behind explicit functions.
 
 ### Middleware is an Anti-Pattern
 
@@ -1698,7 +1840,7 @@ export default defineConfig({
   schema: './src/db/schema.ts',
   out: './drizzle',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgresql://localhost/myapp',
+    url: process.env.DATABASE_URL!,
   },
 });
 ```
@@ -1712,7 +1854,7 @@ import * as schema from './schema';
 
 async function runMigrations() {
   const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || 'postgresql://localhost/myapp',
+    connectionString: process.env.DATABASE_URL!,
   });
 
   const db = drizzle(pool, { schema });
@@ -1733,9 +1875,11 @@ runMigrations().catch(console.error);
 
 **For Node.js Applications:**
 - Don't compile TypeScript to JavaScript
-- Use `tsx` to run TypeScript files directly: `tsx src/main.ts`
+- Use Node's built-in type stripping to run TypeScript files directly: `node src/main.ts`
 - Faster development cycle, no build step needed
 - Simpler deployment (just copy source files)
+- Caveat: all local ESM imports must include the full `.ts` filename (including dynamic imports)
+- DO NOT import with `.js` extension UNLESS the actual source file is `.js` and not `.ts`.
 
 **For Libraries:**
 - Always compile to JavaScript before publishing
@@ -1747,13 +1891,20 @@ runMigrations().catch(console.error);
 
 ```bash
 # Development
-tsx --watch src/main.ts
+node --watch src/main.ts
 
 # Production (still no compilation needed)
-tsx src/main.ts
+node src/main.ts
 
 # With environment variables
-DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
+DATABASE_URL=postgresql://localhost/myapp node src/main.ts
+```
+
+```typescript
+import { findTodoById } from "../../../models/todos.ts";
+import { TodoIdParamSchema, TodoSchema } from "../../../schemas/todos.ts";
+import type { Controller } from "../../../types.ts";
+import { sendJsonValidated } from "../../../utils/http.ts";
 ```
 
 ### Root package.json (Workspace Configuration)
@@ -1784,17 +1935,16 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "tsx src/main.ts",
-    "start": "tsx src/main.ts",
-    "test": "tsx --test tests/**/*.test.ts",
-    "db:migrate": "tsx src/db/migrate.ts",
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "test": "node --test tests",
+    "db:migrate": "node src/db/migrate.ts",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
-    "tsx": "^4.0.0",
     "drizzle-orm": "^0.29.0",
     "pg": "^8.11.0",
-    "zod": "^3.22.0"
+    "zod": "^4.0.0"
   }
 }
 ```
@@ -1855,14 +2005,13 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "test": "tsx --test src/**/*.test.ts",
+    "test": "node --test src",
     "prepublishOnly": "npm run build"
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": ["dist"],
   "devDependencies": {
-    "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }
 }
@@ -1875,7 +2024,7 @@ DATABASE_URL=postgresql://localhost/myapp tsx src/main.ts
 Each controller should export a `schema` object that mirrors the OpenAPI path definition while reusing the same Zod validators used for runtime validation:
 
 ```typescript
-import { z } from 'zod/v4';
+import { z } from 'zod';
 import { ControllerDefinition, ControllerSchema, Handler } from '../../types';
 import { UserSchema } from '../../schemas/users';
 
@@ -1928,7 +2077,7 @@ Create an `/openapi` endpoint that collects all controller schemas:
 
 ```typescript
 // In createServer.ts
-import { z, toJSONSchema } from 'zod/v4';
+import { z, toJSONSchema } from 'zod';
 import { controller as listUsersController } from './controllers/users/get';
 import { controller as createUserController } from './controllers/users/post';
 import { controller as getUserController } from './controllers/users/[userId]/get';

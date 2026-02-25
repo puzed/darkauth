@@ -7,6 +7,25 @@ export interface ApiError {
   details?: unknown;
 }
 
+export type SortOrder = "asc" | "desc";
+
+export interface ListQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: SortOrder;
+}
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNext?: boolean;
+  hasPrev?: boolean;
+}
+
 // Admin Authentication
 export interface AdminOpaqueLoginStartRequest {
   email: string;
@@ -91,26 +110,12 @@ export interface AdminUser {
 
 export interface AdminUsersResponse {
   adminUsers: AdminUser[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
+  pagination: PaginationMeta;
 }
 
 export interface UsersResponse {
   users: User[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext?: boolean;
-    hasPrev?: boolean;
-  };
+  pagination: PaginationMeta;
 }
 
 // Groups and Permissions
@@ -126,19 +131,63 @@ export interface Group {
 
 export interface GroupsResponse {
   groups: Group[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext?: boolean;
-    hasPrev?: boolean;
-  };
+  pagination: PaginationMeta;
+}
+
+export interface Organization {
+  organizationId: string;
+  slug: string;
+  name: string;
+  memberCount?: number;
+  roleCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OrganizationsResponse {
+  organizations: Organization[];
+  pagination: PaginationMeta;
+}
+
+export interface Role {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  system?: boolean;
+  permissions?: Array<{ key: string; description?: string }>;
+  permissionKeys?: string[];
+  permissionCount?: number;
+}
+
+export interface RolesResponse {
+  roles: Role[];
+  pagination: PaginationMeta;
+}
+
+export interface OrganizationMember {
+  membershipId: string;
+  userSub: string;
+  status: string;
+  email?: string | null;
+  name?: string | null;
+  roles: Array<{ id: string; key: string; name: string }>;
+}
+
+export interface OrganizationMemberWithOrganizationId extends OrganizationMember {
+  organizationId: string;
 }
 
 export interface Permission {
   key: string;
   description: string;
+  groupCount?: number;
+  directUserCount?: number;
+}
+
+export interface PermissionsResponse {
+  permissions: Permission[];
+  pagination: PaginationMeta;
 }
 
 // OAuth Clients
@@ -164,6 +213,11 @@ export interface Client {
   clientSecret?: string; // Only returned when creating/updating
   idTokenLifetimeSeconds?: number;
   refreshTokenLifetimeSeconds?: number;
+}
+
+export interface ClientsResponse {
+  clients: Client[];
+  pagination: PaginationMeta;
 }
 
 export interface CreateClientRequest {
@@ -246,22 +300,14 @@ export interface AuditLog {
 
 export interface AuditLogsResponse {
   auditLogs: AuditLog[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+  pagination: PaginationMeta;
 }
 
-export interface AuditLogFilters {
+export interface AuditLogFilters extends ListQueryParams {
   eventType?: string;
   success?: boolean;
   startDate?: string;
   endDate?: string;
-  search?: string;
-  page?: number;
-  limit?: number;
 }
 
 export interface AdminSetting {
@@ -329,21 +375,37 @@ class AdminApiService {
     this.isRefreshing = true;
     this.refreshPromise = (async () => {
       try {
-        const response = await fetch("/api/admin/refresh-token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ refreshToken: this.refreshToken }),
-        });
+        const doRefresh = async () => {
+          // Check if another tab already refreshed the session while we were waiting for the lock
+          const currentRefreshToken = localStorage.getItem("adminRefreshToken");
+          if (currentRefreshToken && currentRefreshToken !== this.refreshToken) {
+            this.accessToken = localStorage.getItem("adminAccessToken");
+            this.refreshToken = currentRefreshToken;
+            return;
+          }
 
-        if (!response.ok) {
-          throw new Error("Failed to refresh token");
-        }
+          const response = await fetch("/api/admin/refresh-token", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ refreshToken: this.refreshToken }),
+          });
 
-        const data = await response.json();
-        if (data.accessToken && data.refreshToken) {
-          this.setTokens(data.accessToken, data.refreshToken);
+          if (!response.ok) {
+            throw new Error("Failed to refresh token");
+          }
+
+          const data = await response.json();
+          if (data.accessToken && data.refreshToken) {
+            this.setTokens(data.accessToken, data.refreshToken);
+          }
+        };
+
+        if (typeof navigator !== "undefined" && navigator.locks) {
+          await navigator.locks.request("darkauth_admin_refresh", doRefresh);
+        } else {
+          await doRefresh();
         }
       } finally {
         this.isRefreshing = false;
@@ -360,6 +422,39 @@ class AdminApiService {
 
   setServerErrorCallback(callback: () => void): void {
     this.onServerError = callback;
+  }
+
+  private normalizeListParams(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): ListQueryParams {
+    if (typeof pageOrParams === "object" && pageOrParams !== null) {
+      return pageOrParams;
+    }
+
+    return {
+      page: pageOrParams,
+      limit,
+      search,
+    };
+  }
+
+  private createListSearchParams(params?: ListQueryParams): URLSearchParams {
+    const query = new URLSearchParams();
+
+    if (params?.page) query.append("page", params.page.toString());
+    if (params?.limit) query.append("limit", params.limit.toString());
+    if (params?.search) query.append("search", params.search);
+    if (params?.sortBy) query.append("sortBy", params.sortBy);
+    if (params?.sortOrder) query.append("sortOrder", params.sortOrder);
+
+    return query;
+  }
+
+  private getPagedEndpoint(base: string, params?: ListQueryParams): string {
+    const query = this.createListSearchParams(params).toString();
+    return query ? `${base}?${query}` : base;
   }
 
   private async request<T>(
@@ -601,14 +696,13 @@ class AdminApiService {
     return data.users;
   }
 
-  async getUsersPaged(page?: number, limit?: number, search?: string): Promise<UsersResponse> {
-    const params = new URLSearchParams();
-    if (page) params.append("page", page.toString());
-    if (limit) params.append("limit", limit.toString());
-    if (search) params.append("search", search);
-    const qs = params.toString();
-    const endpoint = qs ? `/users?${qs}` : "/users";
-    return this.request(endpoint);
+  async getUsersPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<UsersResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    return this.request(this.getPagedEndpoint("/users", params));
   }
 
   async createUser(user: { email: string; name?: string; sub?: string }): Promise<User> {
@@ -671,20 +765,241 @@ class AdminApiService {
     });
   }
 
-  // Groups Management
+  private normalizeOrganization(organization: unknown): Organization {
+    const raw =
+      organization && typeof organization === "object"
+        ? (organization as Organization & { id?: string })
+        : ({} as Organization & { id?: string });
+    return {
+      ...raw,
+      organizationId: raw.organizationId || raw.id || "",
+    };
+  }
+
+  // Organizations Management
+  async getOrganizationsPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<OrganizationsResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    const endpoint = this.getPagedEndpoint("/organizations", params);
+    const data = await this.request<OrganizationsResponse | { organizations: Organization[] }>(
+      endpoint
+    );
+    const organizations = data.organizations.map((organization) =>
+      this.normalizeOrganization(organization)
+    );
+
+    if ("pagination" in data) {
+      return {
+        ...data,
+        organizations,
+      };
+    }
+
+    return {
+      organizations,
+      pagination: {
+        page: params.page || 1,
+        limit: params.limit || organizations.length || 20,
+        total: organizations.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  async getOrganization(organizationId: string): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      `/organizations/${organizationId}`
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async createOrganization(organization: { name: string; slug?: string }): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      "/organizations",
+      {
+        method: "POST",
+        body: JSON.stringify(organization),
+      }
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async updateOrganization(
+    organizationId: string,
+    updates: { name?: string; slug?: string }
+  ): Promise<Organization> {
+    const data = await this.request<Organization | { organization: Organization }>(
+      `/organizations/${organizationId}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(updates),
+      }
+    );
+    return this.normalizeOrganization("organization" in data ? data.organization : data);
+  }
+
+  async deleteOrganization(organizationId: string): Promise<void> {
+    await this.request(`/organizations/${organizationId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<{ members: OrganizationMember[] }> {
+    return this.request(`/organizations/${organizationId}/members`);
+  }
+
+  async addOrganizationMember(
+    organizationId: string,
+    userSub: string
+  ): Promise<OrganizationMemberWithOrganizationId> {
+    const data = await this.request<
+      OrganizationMemberWithOrganizationId | { member: OrganizationMemberWithOrganizationId }
+    >(`/organizations/${organizationId}/members`, {
+      method: "POST",
+      body: JSON.stringify({ userSub }),
+    });
+    return "member" in data ? data.member : data;
+  }
+
+  async assignOrganizationMemberRoles(
+    organizationId: string,
+    memberId: string,
+    roleIds: string[]
+  ): Promise<{ assigned: Array<{ id: string; key: string; name: string }> }> {
+    return this.request(`/organizations/${organizationId}/members/${memberId}/roles`, {
+      method: "POST",
+      body: JSON.stringify({ roleIds }),
+    });
+  }
+
+  async updateOrganizationMemberRoles(
+    organizationId: string,
+    memberId: string,
+    roleIds: string[]
+  ): Promise<{ memberId: string; organizationId: string; roleIds: string[] }> {
+    return this.request(`/organizations/${organizationId}/members/${memberId}/roles`, {
+      method: "PUT",
+      body: JSON.stringify({ roleIds }),
+    });
+  }
+
+  async removeOrganizationMemberRole(
+    organizationId: string,
+    memberId: string,
+    roleId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(`/organizations/${organizationId}/members/${memberId}/roles/${roleId}`, {
+      method: "DELETE",
+    });
+  }
+
+  async removeOrganizationMember(organizationId: string, memberId: string): Promise<void> {
+    await this.request(`/organizations/${organizationId}/members/${memberId}`, {
+      method: "DELETE",
+    });
+  }
+
+  // Roles Management
+  async getRoles(): Promise<Role[]> {
+    const data = await this.request<{ roles: Role[] } | Role[]>("/roles");
+    return Array.isArray(data) ? data : data.roles;
+  }
+
+  async getRolesPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<RolesResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    const endpoint = this.getPagedEndpoint("/roles", params);
+    const data = await this.request<RolesResponse | { roles: Role[] } | Role[]>(endpoint);
+
+    if (Array.isArray(data)) {
+      return {
+        roles: data,
+        pagination: {
+          page: params.page || 1,
+          limit: params.limit || data.length || 20,
+          total: data.length,
+          totalPages: 1,
+        },
+      };
+    }
+
+    if ("pagination" in data) {
+      return data;
+    }
+
+    return {
+      roles: data.roles,
+      pagination: {
+        page: params.page || 1,
+        limit: params.limit || data.roles.length || 20,
+        total: data.roles.length,
+        totalPages: 1,
+      },
+    };
+  }
+
+  async getRole(roleId: string): Promise<Role> {
+    const data = await this.request<Role | { role: Role }>(`/roles/${roleId}`);
+    return "role" in data ? data.role : data;
+  }
+
+  async createRole(data: {
+    key: string;
+    name: string;
+    description?: string;
+    permissionKeys?: string[];
+  }): Promise<Role> {
+    const response = await this.request<Role | { role: Role }>("/roles", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+    return "role" in response ? response.role : response;
+  }
+
+  async updateRole(
+    roleId: string,
+    updates: { name?: string; description?: string }
+  ): Promise<Role> {
+    const response = await this.request<Role | { role: Role }>(`/roles/${roleId}`, {
+      method: "PUT",
+      body: JSON.stringify(updates),
+    });
+    return "role" in response ? response.role : response;
+  }
+
+  async updateRolePermissions(
+    roleId: string,
+    permissionKeys: string[]
+  ): Promise<{ roleId: string; permissionKeys: string[] }> {
+    return this.request(`/roles/${roleId}/permissions`, {
+      method: "PUT",
+      body: JSON.stringify({ permissionKeys }),
+    });
+  }
+
+  async deleteRole(roleId: string): Promise<void> {
+    await this.request(`/roles/${roleId}`, { method: "DELETE" });
+  }
+
+  // Legacy Groups Management
   async getGroups(): Promise<Group[]> {
     const data = await this.request<{ groups: Group[] }>("/groups");
     return data.groups;
   }
 
-  async getGroupsPaged(page?: number, limit?: number, search?: string): Promise<GroupsResponse> {
-    const params = new URLSearchParams();
-    if (page) params.append("page", page.toString());
-    if (limit) params.append("limit", limit.toString());
-    if (search) params.append("search", search);
-    const qs = params.toString();
-    const endpoint = qs ? `/groups?${qs}` : "/groups";
-    return this.request(endpoint);
+  async getGroupsPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<GroupsResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    return this.request(this.getPagedEndpoint("/groups", params));
   }
 
   async getGroup(key: string): Promise<Group> {
@@ -764,8 +1079,32 @@ class AdminApiService {
 
   // Permissions Management
   async getPermissions(): Promise<Permission[]> {
-    const data = await this.request<{ permissions: Permission[] }>("/permissions");
+    const data = await this.getPermissionsPaged();
     return data.permissions;
+  }
+
+  async getPermissionsPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<PermissionsResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    const endpoint = this.getPagedEndpoint("/permissions", params);
+    const data = await this.request<PermissionsResponse | { permissions: Permission[] }>(endpoint);
+
+    if ("pagination" in data) {
+      return data;
+    }
+
+    return {
+      permissions: data.permissions,
+      pagination: {
+        page: params.page || 1,
+        limit: params.limit || data.permissions.length || 20,
+        total: data.permissions.length,
+        totalPages: 1,
+      },
+    };
   }
 
   async createPermission(permission: { key: string; description: string }): Promise<Permission> {
@@ -783,12 +1122,45 @@ class AdminApiService {
 
   // OAuth Clients Management
   async getClients(): Promise<Client[]> {
-    const data = await this.request<Client[] | { clients: Client[] }>("/clients");
-    return Array.isArray(data)
-      ? data
-      : data && typeof data === "object" && "clients" in data
-        ? data.clients
-        : [];
+    const data = await this.getClientsPaged();
+    return data.clients;
+  }
+
+  async getClientsPaged(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<ClientsResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    const endpoint = this.getPagedEndpoint("/clients", params);
+    const data = await this.request<ClientsResponse | Client[] | { clients: Client[] }>(endpoint);
+
+    if (Array.isArray(data)) {
+      return {
+        clients: data,
+        pagination: {
+          page: params.page || 1,
+          limit: params.limit || data.length || 20,
+          total: data.length,
+          totalPages: 1,
+        },
+      };
+    }
+
+    if ("pagination" in data) {
+      return data;
+    }
+
+    const clients = data.clients || [];
+    return {
+      clients,
+      pagination: {
+        page: params.page || 1,
+        limit: params.limit || clients.length || 20,
+        total: clients.length,
+        totalPages: 1,
+      },
+    };
   }
 
   async createClient(client: CreateClientRequest): Promise<Client> {
@@ -821,7 +1193,7 @@ class AdminApiService {
   }
 
   async getSystemSettings(): Promise<SystemSettings> {
-    const response = await this.request("/settings");
+    const response = await this.request<{ settings: AdminSetting[] }>("/settings");
     // Extract specific settings from the raw response
     const settings = response.settings || [];
     const result: SystemSettings = {
@@ -844,8 +1216,9 @@ class AdminApiService {
   }
 
   // JWKS Management
-  async getJwks(): Promise<JwksInfo> {
-    return this.request("/jwks");
+  async getJwks(params?: ListQueryParams): Promise<JwksInfo> {
+    const endpoint = params ? this.getPagedEndpoint("/jwks", params) : "/jwks";
+    return this.request(endpoint);
   }
 
   async rotateJwks(): Promise<{ kid: string; message: string }> {
@@ -864,6 +1237,8 @@ class AdminApiService {
     if (filters?.search) params.append("search", filters.search);
     if (filters?.page) params.append("page", filters.page.toString());
     if (filters?.limit) params.append("limit", filters.limit.toString());
+    if (filters?.sortBy) params.append("sortBy", filters.sortBy);
+    if (filters?.sortOrder) params.append("sortOrder", filters.sortOrder);
 
     const queryString = params.toString();
     const endpoint = queryString ? `/audit-logs?${queryString}` : "/audit-logs";
@@ -877,12 +1252,11 @@ class AdminApiService {
   }
 
   async exportAuditLogs(filters?: AuditLogFilters): Promise<Blob> {
-    const params = new URLSearchParams();
+    const params = this.createListSearchParams(filters);
     if (filters?.eventType) params.append("eventType", filters.eventType);
     if (filters?.success !== undefined) params.append("success", filters.success.toString());
     if (filters?.startDate) params.append("startDate", filters.startDate);
     if (filters?.endDate) params.append("endDate", filters.endDate);
-    if (filters?.search) params.append("search", filters.search);
 
     const queryString = params.toString();
     const endpoint = queryString ? `/audit-logs/export?${queryString}` : "/audit-logs/export";
@@ -907,16 +1281,13 @@ class AdminApiService {
   }
 
   // Admin Users Management
-  async getAdminUsers(page?: number, limit?: number, search?: string): Promise<AdminUsersResponse> {
-    const params = new URLSearchParams();
-    if (page) params.append("page", page.toString());
-    if (limit) params.append("limit", limit.toString());
-    if (search) params.append("search", search);
-
-    const queryString = params.toString();
-    const endpoint = queryString ? `/admin-users?${queryString}` : "/admin-users";
-
-    return this.request(endpoint);
+  async getAdminUsers(
+    pageOrParams?: number | ListQueryParams,
+    limit?: number,
+    search?: string
+  ): Promise<AdminUsersResponse> {
+    const params = this.normalizeListParams(pageOrParams, limit, search);
+    return this.request(this.getPagedEndpoint("/admin-users", params));
   }
 
   async createAdminUser(data: {

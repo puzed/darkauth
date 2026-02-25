@@ -97,7 +97,8 @@ async function _postInstallComplete(
       "[install:post] Selecting database"
     );
 
-    const db = context.services.install?.tempDb || context.db;
+    const db =
+      context.services.install?.tempDb || (!context.config.inInstallMode ? context.db : undefined);
 
     if (!db) {
       context.logger.error("[install:post] No database available!");
@@ -139,8 +140,8 @@ async function _postInstallComplete(
       installCtx,
       demoConfidentialSecretEnc
     );
-    await (await import("../../models/install.js")).ensureDefaultGroupAndSchema(installCtx);
-    await (await import("../../models/install.js")).seedDefaultGroups(installCtx);
+    await (await import("../../models/install.js")).ensureDefaultOrganizationAndSchema(installCtx);
+    await (await import("../../models/install.js")).seedDefaultOrganizationRbac(installCtx);
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"

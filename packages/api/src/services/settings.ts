@@ -2,8 +2,14 @@ import { eq } from "drizzle-orm";
 import { settings } from "../db/schema.js";
 import type { Context } from "../types.js";
 
+function resolveSettingsDb(context: Context) {
+  return context.services.install?.tempDb || context.db;
+}
+
 export async function getSetting(context: Context, key: string): Promise<unknown> {
-  const result = await context.db.query.settings.findFirst({
+  const db = resolveSettingsDb(context);
+  if (!db) return undefined;
+  const result = await db.query.settings.findFirst({
     where: eq(settings.key, key),
   });
 
@@ -16,7 +22,11 @@ export async function setSetting(
   value: unknown,
   secure = false
 ): Promise<void> {
-  await context.db
+  const db = resolveSettingsDb(context);
+  if (!db) {
+    throw new Error("Database not prepared");
+  }
+  await db
     .insert(settings)
     .values({
       key,
@@ -35,7 +45,9 @@ export async function setSetting(
 }
 
 export async function getAllSettings(context: Context): Promise<Record<string, unknown>> {
-  const results = await context.db.query.settings.findMany();
+  const db = resolveSettingsDb(context);
+  if (!db) return {};
+  const results = await db.query.settings.findMany();
 
   const settingsMap: Record<string, unknown> = {};
   for (const setting of results) {

@@ -5,6 +5,9 @@ test-results-light
 test-results-dark
 test-results
 playwright-report
+packages/test-suite/test-results-*
+packages/test-suite/playwright-report
+packages/test-suite/blob-report
 test-screenshots
 .serena
 config.yaml

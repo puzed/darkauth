@@ -1,5 +1,13 @@
 import { eq } from "drizzle-orm";
-import { opaqueRecords, userGroups, users } from "../db/schema.js";
+import {
+  opaqueRecords,
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
+  roles,
+  userGroups,
+  users,
+} from "../db/schema.js";
 import { ValidationError } from "../errors.js";
 import { createSession } from "../services/sessions.js";
 import type { Context } from "../types.js";
@@ -34,7 +42,29 @@ export async function userOpaqueRegisterFinish(
     await tx
       .insert(users)
       .values({ sub, email: data.email, name: data.name, createdAt: new Date() });
-    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" });
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
+    const defaultOrg = await tx.query.organizations.findFirst({
+      where: eq(organizations.slug, "default"),
+    });
+    if (defaultOrg) {
+      const [membership] = await tx
+        .insert(organizationMembers)
+        .values({
+          organizationId: defaultOrg.id,
+          userSub: sub,
+          status: "active",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .returning();
+      const memberRole = await tx.query.roles.findFirst({ where: eq(roles.key, "member") });
+      if (membership && memberRole) {
+        await tx
+          .insert(organizationMemberRoles)
+          .values({ organizationMemberId: membership.id, roleId: memberRole.id })
+          .onConflictDoNothing();
+      }
+    }
     await tx.insert(opaqueRecords).values({
       sub,
       envelope: Buffer.from(opaqueRecord.envelope),

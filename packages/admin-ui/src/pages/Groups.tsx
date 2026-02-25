@@ -1,4 +1,4 @@
-import { Edit, Filter, Plus, RefreshCcw, Shield, Trash2, Users as UsersIcon } from "lucide-react";
+import { Edit, Plus, RefreshCcw, Shield, Trash2, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -7,18 +7,20 @@ import PageHeader from "@/components/layout/page-header";
 import ListCard from "@/components/list/list-card";
 import RowActions from "@/components/row-actions";
 import StatsCard, { StatsGrid } from "@/components/stats-card";
-import tableStyles from "@/components/table.module.css";
+import ListPagination from "@/components/table/list-pagination";
+import SortableTableHead from "@/components/table/sortable-table-head";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
-import adminApiService, { type Group } from "@/services/api";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import tableStyles from "@/components/ui/table.module.css";
+import adminApiService, { type Group, type SortOrder } from "@/services/api";
 import { logger } from "@/services/logger";
 
 export default function Groups() {
@@ -31,29 +33,50 @@ export default function Groups() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("asc");
+
+  const toggleSort = (field: string) => {
+    setCurrentPage(1);
+    if (sortBy === field) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortBy(field);
+    setSortOrder("asc");
+  };
 
   const loadGroups = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminApiService.getGroupsPaged(currentPage, 20, debouncedSearch);
+      const response = await adminApiService.getGroupsPaged({
+        page: currentPage,
+        limit: 20,
+        search: debouncedSearch,
+        sortBy,
+        sortOrder,
+      });
       setGroups(response.groups);
       setTotalPages(response.pagination.totalPages);
       setTotalCount(response.pagination.total);
-    } catch (error) {
-      logger.error(error, "Failed to load groups");
-      setError(error instanceof Error ? error.message : "Failed to load groups");
+    } catch (loadError) {
+      logger.error(loadError, "Failed to load groups");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load groups");
     } finally {
       setLoading(false);
     }
-  }, [currentPage, debouncedSearch]);
+  }, [currentPage, debouncedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     loadGroups();
   }, [loadGroups]);
 
   useEffect(() => {
-    const handle = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    const handle = setTimeout(() => {
+      setDebouncedSearch(searchQuery);
+      setCurrentPage(1);
+    }, 300);
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
@@ -63,9 +86,13 @@ export default function Groups() {
       setError(null);
       await adminApiService.deleteGroup(group.key);
       setGroups((prev) => prev.filter((g) => g.key !== group.key));
-    } catch (error) {
-      setError(error instanceof Error ? error.message : "Failed to delete group");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete group");
     }
+  };
+
+  const openGroup = (group: Group) => {
+    navigate(`/groups/${encodeURIComponent(group.key)}`);
   };
 
   const totalPermissions = groups.reduce((total, group) => total + (group.permissionCount || 0), 0);
@@ -118,11 +145,6 @@ export default function Groups() {
         title="Group Management"
         description="View and manage all user groups"
         search={{ placeholder: "Search groups...", value: searchQuery, onChange: setSearchQuery }}
-        rightActions={
-          <Button variant="outline" size="icon">
-            <Filter size={16} />
-          </Button>
-        }
       >
         {groups.length === 0 ? (
           <EmptyState
@@ -133,95 +155,95 @@ export default function Groups() {
             }
           />
         ) : (
-          <table className={tableStyles.table}>
-            <thead className={tableStyles.header}>
-              <tr>
-                <th className={tableStyles.head}>Group</th>
-                <th className={tableStyles.head}>Key</th>
-                <th className={tableStyles.head}>Permissions</th>
-                <th className={tableStyles.head}>Users</th>
-                <th className={`${tableStyles.head} ${tableStyles.actionCell}`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((group) => (
-                <tr key={group.key} className={tableStyles.row}>
-                  <td className={tableStyles.cell}>
-                    <div style={{ display: "flex", flexDirection: "column" }}>
-                      <span style={{ fontWeight: 500 }}>{group.name}</span>
-                    </div>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <code
-                      style={{
-                        backgroundColor: "hsl(var(--muted))",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        fontSize: "0.875rem",
-                      }}
-                    >
-                      {group.key}
-                    </code>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <Badge variant="secondary">
-                      {group.permissionCount || 0} permission
-                      {(group.permissionCount || 0) !== 1 ? "s" : ""}
-                    </Badge>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <Badge variant="outline">
-                      {group.userCount || 0} user{(group.userCount || 0) !== 1 ? "s" : ""}
-                    </Badge>
-                  </td>
-                  <td className={tableStyles.cell}>
-                    <RowActions
-                      items={[
-                        {
-                          key: "edit",
-                          label: "Edit Group",
-                          icon: <Edit className="h-4 w-4" />,
-                          onClick: () => navigate(`/groups/${group.key}`),
-                        },
-                        {
-                          key: "delete",
-                          label: "Delete Group",
-                          icon: <Trash2 className="h-4 w-4" />,
-                          destructive: true,
-                          onClick: () => handleDeleteGroup(group),
-                        },
-                      ]}
-                    />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableTableHead
+                    label="Group"
+                    isActive={sortBy === "name"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("name")}
+                  />
+                  <SortableTableHead
+                    label="Key"
+                    isActive={sortBy === "key"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("key")}
+                  />
+                  <TableHead>Permissions</TableHead>
+                  <TableHead>Users</TableHead>
+                  <TableHead className={tableStyles.actionCell}></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {groups.map((group) => (
+                  <TableRow key={group.key}>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className={tableStyles.primaryActionButton}
+                        onClick={() => openGroup(group)}
+                      >
+                        <span className={tableStyles.primaryActionText}>{group.name}</span>
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <code
+                        style={{
+                          backgroundColor: "hsl(var(--muted))",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          fontSize: "0.875rem",
+                        }}
+                      >
+                        {group.key}
+                      </code>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">
+                        {group.permissionCount || 0} permission
+                        {(group.permissionCount || 0) !== 1 ? "s" : ""}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {group.userCount || 0} user{(group.userCount || 0) !== 1 ? "s" : ""}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <RowActions
+                        items={[
+                          {
+                            key: "edit",
+                            label: "Edit Group",
+                            icon: <Edit className="h-4 w-4" />,
+                            onClick: () => openGroup(group),
+                          },
+                          {
+                            key: "delete",
+                            label: "Delete Group",
+                            icon: <Trash2 className="h-4 w-4" />,
+                            destructive: true,
+                            onClick: () => handleDeleteGroup(group),
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div style={{ marginTop: 20 }}>
+              <ListPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          </>
         )}
       </ListCard>
-      {totalPages > 1 && (
-        <div style={{ marginTop: 20 }}>
-          <Pagination>
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                />
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationLink isActive>{currentPage}</PaginationLink>
-              </PaginationItem>
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,6 +3,11 @@ import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import type { Context, ControllerSchema } from "../../types.js";
+import {
+  listPageOpenApiQuerySchema,
+  listPageQuerySchema,
+  listSearchQuerySchema,
+} from "./listQueryBounds.js";
 
 const UserSchema = z.object({
   sub: z.string(),
@@ -10,7 +15,15 @@ const UserSchema = z.object({
   name: z.string().nullable().optional(),
   createdAt: z.date().or(z.string()),
   passwordResetRequired: z.boolean().optional(),
-  groups: z.array(z.string()).optional(),
+  organizationRoles: z
+    .array(
+      z.object({
+        organizationId: z.string().uuid(),
+        organizationSlug: z.string(),
+        roleKeys: z.array(z.string()),
+      })
+    )
+    .optional(),
 });
 const PaginationSchema = z.object({
   page: z.number().int().positive(),
@@ -28,7 +41,6 @@ export const UsersListResponseSchema = z.object({
 import { listUsers } from "../../models/users.js";
 import { requireSession } from "../../services/sessions.js";
 import { sendJsonValidated } from "../../utils/http.js";
-import { getPaginationFromUrl } from "../../utils/pagination.js";
 
 export async function getUsers(
   context: Context,
@@ -42,10 +54,15 @@ export async function getUsers(
   }
 
   const url = new URL(request.url || "", `http://${request.headers.host}`);
-  const { page, limit } = getPaginationFromUrl(url, 20, 100);
-  const search = url.searchParams.get("search") || undefined;
-
-  const responseData = await listUsers(context, { page, limit, search });
+  const Query = z.object({
+    page: listPageQuerySchema.default(1),
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "email", "name", "sub"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
+  });
+  const parsed = Query.parse(Object.fromEntries(url.searchParams));
+  const responseData = await listUsers(context, parsed);
 
   sendJsonValidated(response, 200, responseData, UsersListResponseSchema);
 }
@@ -56,9 +73,11 @@ export const schema = {
   tags: ["Users"],
   summary: "List users",
   query: z.object({
-    page: z.number().int().positive().optional(),
+    page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
-    search: z.string().optional(),
+    search: listSearchQuerySchema,
+    sortBy: z.enum(["createdAt", "email", "name", "sub"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {
     200: {

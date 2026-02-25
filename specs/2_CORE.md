@@ -347,8 +347,9 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
 
 Authenticated endpoints to discover users and their published public encryption keys:
 
-- **GET `/users/search?q=...`** → `{ users: [{ sub, display_name, public_key_jwk }] }` matching by name or email.
-- **GET `/users/:sub`** → `{ sub, display_name, public_key_jwk }` for a specific user.
+- **GET `/users/search?q=...`** → `{ users: [{ sub, display_name, public_key_jwk }] }` matching by name or email within the caller's active organization context.
+- **GET `/users/:sub`** → `{ sub, display_name, public_key_jwk }` for a specific user within the caller's active organization context.
+- Service clients using `client_credentials` with `darkauth.users:read` may use the same endpoints in management mode for cross-organization directory access.
 
 ### 7.7 Admin API (port 9081)
 

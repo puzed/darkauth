@@ -1,6 +1,11 @@
 import { inArray } from "drizzle-orm";
 import { adminUsers, users } from "../db/schema.js";
-import { exportAuditLogs, getAuditLogById, queryAuditLogs } from "../services/audit.js";
+import {
+  countAuditLogs as countAuditLogsAggregate,
+  exportAuditLogs,
+  getAuditLogById,
+  queryAuditLogs,
+} from "../services/audit.js";
 import type { Context } from "../types.js";
 
 export interface AuditLogFilters {
@@ -16,6 +21,8 @@ export interface AuditLogFilters {
   search?: string;
   limit?: number;
   offset?: number;
+  sortBy?: "timestamp" | "eventType" | "resourceType" | "success" | "statusCode";
+  sortOrder?: "asc" | "desc";
 }
 
 export async function attachActorInfo(
@@ -83,12 +90,11 @@ export async function listAuditLogs(context: Context, filters: AuditLogFilters) 
 }
 
 export async function countAuditLogs(context: Context, filters: AuditLogFilters) {
-  const list = await queryAuditLogs(context, {
+  return await countAuditLogsAggregate(context, {
     ...filters,
     limit: undefined,
     offset: undefined,
   });
-  return list.length;
 }
 
 export async function getAuditLogWithActor(context: Context, id: string) {

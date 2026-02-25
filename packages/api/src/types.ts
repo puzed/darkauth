@@ -193,8 +193,10 @@ export interface IdTokenClaims extends JoseJWTPayload {
   email_verified?: boolean;
   name?: string;
   picture?: string;
+  org_id?: string;
+  org_slug?: string;
+  roles?: string[];
   permissions?: string[];
-  groups?: string[];
   [key: string]: unknown;
 }
 
@@ -276,8 +278,10 @@ export interface JWTPayload extends JoseJWTPayload {
   email_verified?: boolean;
   name?: string;
   picture?: string;
+  org_id?: string;
+  org_slug?: string;
+  roles?: string[];
   permissions?: string[];
-  groups?: string[];
   purpose?: string; // For password change tokens and other internal purposes
 }
 
@@ -298,6 +302,7 @@ export interface AuthorizationRequest {
   scope: string;
   state?: string;
   nonce?: string;
+  organization_id?: string;
   code_challenge?: string;
   code_challenge_method?: string;
   zk_pub?: string;
@@ -318,6 +323,8 @@ export interface SessionData {
   sub?: string;
   email?: string;
   name?: string;
+  organizationId?: string;
+  organizationSlug?: string;
   clientId?: string;
   adminId?: string;
   adminRole?: "read" | "write";

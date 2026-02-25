@@ -11,6 +11,7 @@ test.describe.configure({ mode: 'serial' });
 test.describe('Admin - Permissions Management', () => {
   let servers: TestServers;
   let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
+  let testRoleId = '';
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'admin-permissions' });
@@ -92,7 +93,7 @@ test.describe('Admin - Permissions Management', () => {
     expect(createRes.status).toBe(409);
   });
 
-  test('Can assign permissions to a group via API', async () => {
+  test('Can assign permissions to a role via API', async () => {
     const token = await getAdminBearerToken(servers, adminCred);
 
     // Create another permission
@@ -110,34 +111,36 @@ test.describe('Admin - Permissions Management', () => {
     });
     expect(createRes.ok).toBeTruthy();
 
-    // Update the default group with permissions
-    const updateRes = await fetch(`${servers.adminUrl}/admin/groups/default`, {
-      method: 'PUT',
+    const roleRes = await fetch(`${servers.adminUrl}/admin/roles`, {
+      method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Origin': servers.adminUrl,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
+        key: 'api-test-role',
+        name: 'API Test Role',
         permissionKeys: ['api:test:read', 'api:test:write']
       })
     });
 
-    if (!updateRes.ok) {
-      const errorText = await updateRes.text();
-      console.error('Group update failed:', updateRes.status, errorText);
+    if (!roleRes.ok) {
+      const errorText = await roleRes.text();
+      console.error('Role create failed:', roleRes.status, errorText);
     }
-    expect(updateRes.ok).toBeTruthy();
-    const updated = await updateRes.json() as { success: boolean; permissions?: Array<{ key: string }> };
-    expect(updated.success).toBeTruthy();
-    expect(updated.permissions).toBeDefined();
-    expect(updated.permissions?.length).toBe(2);
+    expect(roleRes.ok).toBeTruthy();
+    const created = await roleRes.json() as { role: { id: string; permissionKeys: string[] } };
+    testRoleId = created.role.id;
+    expect(created.role.permissionKeys.length).toBe(2);
+    expect(created.role.permissionKeys.includes('api:test:read')).toBeTruthy();
+    expect(created.role.permissionKeys.includes('api:test:write')).toBeTruthy();
   });
 
-  test('Can get group with permissions via API', async () => {
+  test('Can get role with permissions via API', async () => {
     const token = await getAdminBearerToken(servers, adminCred);
 
-    const res = await fetch(`${servers.adminUrl}/admin/groups/default`, {
+    const res = await fetch(`${servers.adminUrl}/admin/roles/${testRoleId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Origin': servers.adminUrl
@@ -145,18 +148,18 @@ test.describe('Admin - Permissions Management', () => {
     });
 
     expect(res.ok).toBeTruthy();
-    const group = await res.json() as {
-      key: string;
-      name: string;
-      permissions: Array<{ key: string; description: string }>;
-      permissionCount: number;
+    const payload = await res.json() as {
+      role: {
+        id: string;
+        permissionKeys: string[];
+      };
     };
 
-    expect(group.key).toBe('default');
-    expect(group.permissions).toBeDefined();
-    expect(Array.isArray(group.permissions)).toBeTruthy();
-    expect(group.permissions.length).toBe(2);
-    expect(group.permissionCount).toBe(2);
+    expect(payload.role.id).toBe(testRoleId);
+    expect(Array.isArray(payload.role.permissionKeys)).toBeTruthy();
+    expect(payload.role.permissionKeys.length).toBe(2);
+    expect(payload.role.permissionKeys.includes('api:test:read')).toBeTruthy();
+    expect(payload.role.permissionKeys.includes('api:test:write')).toBeTruthy();
   });
 
   test('Can delete a permission via API', async () => {
@@ -220,52 +223,42 @@ test.describe('Admin - Permissions Management', () => {
     await expect(page.locator('code', { hasText: 'ui:test:permission' })).toBeVisible();
   });
 
-  test('Permissions appear on group edit page', async ({ page }) => {
+  test('Permissions appear on role edit page', async ({ page }) => {
     await ensureAdminDashboard(page, servers, adminCred);
 
-    // Navigate to groups
-    await page.click('a[href="/groups"]');
-    await expect(page.getByRole('heading', { name: 'Groups', exact: true })).toBeVisible();
-
-    // Edit the default group
-    const defaultRow = page.locator('tbody tr', { has: page.locator('td >> span', { hasText: 'Default' }) }).first();
-    await expect(defaultRow).toBeVisible();
-    await defaultRow.locator('button[aria-label="Actions"]').click();
-    await page.locator('[role="menuitem"]:has-text("Edit Group")').click();
-
-    // Check that permissions section shows permissions
+    await page.click('a[href="/roles"]');
+    await expect(page.getByRole('heading', { name: 'Roles', exact: true })).toBeVisible();
+    const roleRow = page.locator('tbody tr', {
+      has: page.locator('td', { hasText: 'API Test Role' }),
+    }).first();
+    await expect(roleRow).toBeVisible();
+    await roleRow.locator('button', { hasText: 'API Test Role' }).click();
+    await expect(page.getByRole('heading', { name: 'Edit Role', exact: true })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Permissions', exact: true })).toBeVisible();
-
-    // Should see the permissions we created
     await expect(page.locator('label', { hasText: 'api:test:read' })).toBeVisible();
     await expect(page.locator('label', { hasText: 'api:test:write' })).toBeVisible();
   });
 
-  test('Can toggle permissions on group edit page', async ({ page }) => {
+  test('Can toggle permissions on role edit page', async ({ page }) => {
     await ensureAdminDashboard(page, servers, adminCred);
 
-    // Navigate to groups and edit default
-    await page.click('a[href="/groups"]');
-    const defaultRow = page.locator('tbody tr', { has: page.locator('td >> span', { hasText: 'Default' }) }).first();
-    await defaultRow.locator('button[aria-label="Actions"]').click();
-    await page.locator('[role="menuitem"]:has-text("Edit Group")').click();
-
-    // Find a permission checkbox and toggle it
+    await page.click('a[href="/roles"]');
+    const roleRow = page.locator('tbody tr', {
+      has: page.locator('td', { hasText: 'API Test Role' }),
+    }).first();
+    await roleRow.locator('button', { hasText: 'API Test Role' }).click();
     const permCheckbox = page.locator(`#permission-ui\\:test\\:permission`);
     await expect(permCheckbox).toBeVisible();
 
     const wasChecked = (await permCheckbox.getAttribute('aria-checked')) === 'true';
     await permCheckbox.click();
-
-    // Save changes
     await page.getByRole('button', { name: /save changes/i }).click();
-    await page.waitForURL('**/groups');
+    await page.waitForURL('**/roles');
 
-    // Go back and verify the change persisted
-    const row2 = page.locator('tbody tr', { has: page.locator('td >> span', { hasText: 'Default' }) }).first();
-    await row2.locator('button[aria-label="Actions"]').click();
-    await page.locator('[role="menuitem"]:has-text("Edit Group")').click();
-
+    const roleRow2 = page.locator('tbody tr', {
+      has: page.locator('td', { hasText: 'API Test Role' }),
+    }).first();
+    await roleRow2.locator('button', { hasText: 'API Test Role' }).click();
     const permCheckbox2 = page.locator(`#permission-ui\\:test\\:permission`);
     const nowChecked = (await permCheckbox2.getAttribute('aria-checked')) === 'true';
     expect(nowChecked).toBe(!wasChecked);
