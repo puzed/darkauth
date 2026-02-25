@@ -10,12 +10,10 @@ The main thread and sub agents must follow this section:
 WARNING: If you are a Sub Agent ignore this section.
 
 Only the main top level thread/agent should follow these:
-- ALWAYS (unless you are a subagent) use an agent for mutations. Never change files in the main thread:
+- You can spawn multiple of the same sub agents for large tasks.
   - backend-developer
   - documentation-writer
   - frontend-developer
   - security-auditor
   - test-writer
-- You can (and should where possible) spawn multiple of the same agent types to complete tasks in parallel.
 - After making your change make sure you run the `npm run tidy` and `npm run build` when you have finished.
-

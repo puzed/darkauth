@@ -1,17 +1,11 @@
 .menuContent {
   min-width: 180px;
   padding: 6px;
-  box-shadow: none !important;
-  filter: none !important;
-  backdrop-filter: none !important;
 }
 
 .menuSubContent {
   min-width: 180px;
   padding: 6px;
-  box-shadow: none !important;
-  filter: none !important;
-  backdrop-filter: none !important;
 }
 
 .menuLabel {
