@@ -18,9 +18,9 @@ test("hasRequiredScope supports space-delimited scope claim strings", () => {
   assert.equal(hasRequiredScope("openid darkauth.users:read profile"), true);
 });
 
-test("resolveUsersReadModeFromPayload returns null for permission-only claims", () => {
+test("resolveUsersReadModeFromPayload returns directory for permission-only claims", () => {
   const mode = resolveUsersReadModeFromPayload({ permissions: ["darkauth.users:read"] });
-  assert.equal(mode, null);
+  assert.equal(mode, "directory");
 });
 
 test("resolveUsersReadModeFromPayload returns management for access token client_credentials scope", () => {

@@ -5,6 +5,7 @@ import {
   organizationMembers,
   organizations,
   roles,
+  userGroups,
   users,
 } from "../db/schema.js";
 import { ValidationError } from "../errors.js";
@@ -41,6 +42,7 @@ export async function userOpaqueRegisterFinish(
     await tx
       .insert(users)
       .values({ sub, email: data.email, name: data.name, createdAt: new Date() });
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
     const defaultOrg = await tx.query.organizations.findFirst({
       where: eq(organizations.slug, "default"),
     });

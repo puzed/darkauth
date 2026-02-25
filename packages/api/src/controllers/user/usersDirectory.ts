@@ -45,6 +45,9 @@ export function resolveUsersReadModeFromPayload(
   ) {
     return "management";
   }
+  if (hasRequiredPermission(payload.permissions)) {
+    return "directory";
+  }
 
   return null;
 }
@@ -74,7 +77,10 @@ async function requireUsersReadPermission(
       const payload = verified.payload as Record<string, unknown>;
 
       const mode = resolveUsersReadModeFromPayload(payload);
-      if (mode) {
+      if (mode === "directory") {
+        return { mode };
+      }
+      if (mode === "management") {
         const clientId = resolveAuthorizedParty(payload);
         if (!clientId || !hasMatchingAudience(payload, clientId)) {
           throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");

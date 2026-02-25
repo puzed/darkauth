@@ -2,10 +2,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
+  groups,
   opaqueLoginSessions,
   organizationMemberRoles,
   organizationMembers,
   roles,
+  userGroups,
 } from "../../db/schema.js";
 import { AppError, UnauthorizedError, ValidationError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
@@ -110,6 +112,14 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         (membership) => membership.status === "active"
       );
       if (activeMemberships.length === 0) {
+        throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
+      }
+      const loginGroups = await context.db
+        .select({ enableLogin: groups.enableLogin })
+        .from(userGroups)
+        .innerJoin(groups, eq(userGroups.groupKey, groups.key))
+        .where(eq(userGroups.userSub, user.sub));
+      if (loginGroups.length > 0 && !loginGroups.some((group) => Boolean(group.enableLogin))) {
         throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
       }
 

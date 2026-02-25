@@ -212,6 +212,7 @@ export async function createUser(
   const sub = subInput || (await (await import("../utils/crypto.js")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
+    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
     const defaultOrg = await tx.query.organizations.findFirst({
       where: eq(organizations.slug, "default"),
     });
