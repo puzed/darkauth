@@ -18,13 +18,14 @@ test("hasRequiredScope supports space-delimited scope claim strings", () => {
   assert.equal(hasRequiredScope("openid darkauth.users:read profile"), true);
 });
 
-test("resolveUsersReadModeFromPayload returns directory for user permission claim", () => {
+test("resolveUsersReadModeFromPayload returns null for permission-only claims", () => {
   const mode = resolveUsersReadModeFromPayload({ permissions: ["darkauth.users:read"] });
-  assert.equal(mode, "directory");
+  assert.equal(mode, null);
 });
 
-test("resolveUsersReadModeFromPayload returns management for client_credentials scope", () => {
+test("resolveUsersReadModeFromPayload returns management for access token client_credentials scope", () => {
   const mode = resolveUsersReadModeFromPayload({
+    token_use: "access",
     grant_type: "client_credentials",
     scope: "darkauth.users:read",
   });
