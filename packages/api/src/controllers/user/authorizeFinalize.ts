@@ -82,7 +82,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const codeExpiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds as per spec
 
       const drkHashFromClient = parsed.drk_hash;
-      const hasZk = !!(pendingRequest.zkPubKid && drkHashFromClient);
+      const hasZk = !!pendingRequest.zkPubKid;
+      if (hasZk && !drkHashFromClient) {
+        throw new InvalidRequestError("drk_hash is required for ZK authorization requests");
+      }
 
       // Store authorization code with PKCE support
       await createAuthCode(context, {
