@@ -180,6 +180,7 @@ export const opaqueLoginSessions = pgTable("opaque_login_sessions", {
 
 export const pendingAuth = pgTable("pending_auth", {
   requestId: text("request_id").primaryKey(),
+  sessionId: text("session_id"),
   clientId: text("client_id")
     .notNull()
     .references(() => clients.clientId, { onDelete: "cascade" }),
