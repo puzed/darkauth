@@ -5,7 +5,6 @@ export async function createPendingAuth(
   context: Context,
   data: {
     requestId: string;
-    sessionId?: string;
     clientId: string;
     redirectUri: string;
     state?: string;
@@ -21,7 +20,6 @@ export async function createPendingAuth(
 ) {
   await context.db.insert(pendingAuth).values({
     requestId: data.requestId,
-    sessionId: data.sessionId,
     clientId: data.clientId,
     redirectUri: data.redirectUri,
     state: data.state,
@@ -52,7 +50,7 @@ export async function deletePendingAuth(context: Context, requestId: string) {
   await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
 }
 
-export async function consumePendingAuth(context: Context, requestId: string, sessionId: string) {
+export async function consumePendingAuth(context: Context, requestId: string, userSub: string) {
   const { pendingAuth } = await import("../db/schema.js");
   const { and, eq, isNull, or } = await import("drizzle-orm");
   const [row] = await context.db
@@ -60,7 +58,7 @@ export async function consumePendingAuth(context: Context, requestId: string, se
     .where(
       and(
         eq(pendingAuth.requestId, requestId),
-        or(isNull(pendingAuth.sessionId), eq(pendingAuth.sessionId, sessionId))
+        or(isNull(pendingAuth.userSub), eq(pendingAuth.userSub, userSub))
       )
     )
     .returning();
