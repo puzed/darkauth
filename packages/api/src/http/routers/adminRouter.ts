@@ -51,7 +51,6 @@ import { postAdminPasswordChangeStart } from "../../controllers/admin/passwordCh
 import { createPermission } from "../../controllers/admin/permissionCreate.js";
 import { deletePermission } from "../../controllers/admin/permissionDelete.js";
 import { getPermissions } from "../../controllers/admin/permissions.js";
-import { postAdminRefreshToken } from "../../controllers/admin/refreshToken.js";
 import { postRole } from "../../controllers/admin/roleCreate.js";
 import { deleteRole } from "../../controllers/admin/roleDelete.js";
 import { getRole } from "../../controllers/admin/roleGet.js";
@@ -92,7 +91,6 @@ export function createAdminRouter(context: Context) {
       const publicEndpoints = [
         "/admin/opaque/login/start",
         "/admin/opaque/login/finish",
-        "/admin/refresh-token", // Uses refresh token in body, not session header
         // Note: /admin/session is checked separately as it returns different data based on auth
       ];
 
@@ -117,10 +115,6 @@ export function createAdminRouter(context: Context) {
 
       if (method === "POST" && pathname === "/admin/logout") {
         return await postAdminLogout(context, request, response);
-      }
-
-      if (method === "POST" && pathname === "/admin/refresh-token") {
-        return await postAdminRefreshToken(context, request, response);
       }
 
       if (method === "POST" && pathname === "/admin/opaque/login/start") {

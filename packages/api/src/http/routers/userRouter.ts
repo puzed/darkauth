@@ -29,7 +29,6 @@ import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordCha
 import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.js";
 import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.js";
 import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.js";
-import { postUserRefreshToken } from "../../controllers/user/refreshToken.js";
 import { getSession } from "../../controllers/user/session.js";
 import { postToken } from "../../controllers/user/token.js";
 import {
@@ -332,10 +331,6 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/logout") {
         return await postLogout(context, request, response);
-      }
-
-      if (method === "POST" && pathname === "/refresh-token") {
-        return await postUserRefreshToken(context, request, response);
       }
 
       if (method === "GET" && pathname === "/organizations") {
