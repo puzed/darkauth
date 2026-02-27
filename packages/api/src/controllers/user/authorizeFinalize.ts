@@ -4,13 +4,8 @@ import { InvalidRequestError, NotFoundError } from "../../errors.js";
 import { genericErrors } from "../../http/openapi-helpers.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { createAuthCode } from "../../models/authCodes.js";
-import {
-  deletePendingAuth,
-  getPendingAuth,
-  setPendingAuthUserSub,
-} from "../../models/authorize.js";
-import { getWrappedDrk } from "../../models/wrappedRootKeys.js";
-import { requireSession } from "../../services/sessions.js";
+import { consumePendingAuth } from "../../models/authorize.js";
+import { getSessionId, requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { generateRandomString } from "../../utils/crypto.js";
@@ -33,8 +28,9 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
     ): Promise<void> => {
       // Require authenticated session
       const sessionData = await requireSession(context, request);
+      const currentSessionId = getSessionId(request);
 
-      if (!sessionData.sub) {
+      if (!sessionData.sub || !currentSessionId) {
         throw new InvalidRequestError("User session required");
       }
 
@@ -53,7 +49,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const isApproved = parsed.approve !== "false";
 
       // Look up pending auth request
-      const pendingRequest = await getPendingAuth(context, requestId);
+      const pendingRequest = await consumePendingAuth(context, requestId, currentSessionId);
 
       if (!pendingRequest) {
         throw new NotFoundError("Authorization request not found or expired");
@@ -71,12 +67,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       // Check if request has expired
       if (new Date() > pendingRequest.expiresAt) {
-        await deletePendingAuth(context, requestId);
         throw new InvalidRequestError("Authorization request has expired");
       }
 
       if (!isApproved) {
-        await deletePendingAuth(context, requestId);
         sendJson(response, 200, {
           error: "access_denied",
           error_description: "The resource owner denied the authorization request",
@@ -86,41 +80,14 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         return;
       }
 
-      // Update pending auth with user subject
-      await setPendingAuthUserSub(context, requestId, sessionData.sub);
-
       // Create authorization code
       const code = generateRandomString(32);
       const codeExpiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds as per spec
 
-      // Handle ZK delivery if needed
-      let hasZk = false;
-      let drkHash: string | undefined;
-
-      // Check if this is a ZK-enabled request that includes drk_hash from client-side JWE creation
+      const hasZk = !!pendingRequest.zkPubKid;
       const drkHashFromClient = parsed.drk_hash;
-
-      if (pendingRequest.zkPubKid && drkHashFromClient) {
-        // ZK client has already created the JWE client-side and provided the hash
-        hasZk = true;
-        drkHash = drkHashFromClient;
-        context.logger.info(
-          { requestId, clientId: pendingRequest.clientId },
-          "authorize finalize using client-provided drk hash"
-        );
-      } else if (pendingRequest.zkPubKid) {
-        // Legacy support: server-side check for DRK existence
-        // In the proper ZK flow, client-side handles DRK unwrapping and JWE creation
-        try {
-          await getWrappedDrk(context, sessionData.sub);
-          hasZk = true;
-          // Note: In proper ZK flow, drkHash should come from client JWE creation
-          // This is fallback for incomplete client implementation
-          context.logger.warn(
-            { requestId, clientId: pendingRequest.clientId },
-            "authorize finalize missing drk hash, falling back to wrapped DRK presence"
-          );
-        } catch {}
+      if (hasZk && !drkHashFromClient) {
+        throw new InvalidRequestError("drk_hash is required for ZK authorization requests");
       }
 
       // Store authorization code with PKCE support
@@ -136,11 +103,8 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         expiresAt: codeExpiresAt,
         hasZk,
         zkPubKid: pendingRequest.zkPubKid,
-        drkHash,
+        drkHash: drkHashFromClient,
       });
-
-      // Clean up pending auth request
-      await deletePendingAuth(context, requestId);
 
       // Return JSON with code and state as specified in CORE.md
       // Client-side JavaScript will handle the redirect with fragment
@@ -155,7 +119,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
           requestId,
           clientId: pendingRequest.clientId,
           hasZk,
-          drkHashStored: !!drkHash,
+          drkHashStored: !!drkHashFromClient,
           redirectUri: pendingRequest.redirectUri,
         },
         "authorize finalize completed"

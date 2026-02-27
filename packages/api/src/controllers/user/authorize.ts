@@ -8,9 +8,8 @@ import { getClient } from "../../models/clients.js";
 import { getSession, getSessionId } from "../../services/sessions.js";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.js";
 import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.js";
-import { generateRandomString, toBase64Url } from "../../utils/crypto.js";
+import { generateRandomString } from "../../utils/crypto.js";
 import { parseQueryParams } from "../../utils/http.js";
-import { validateP256PublicKeyJWK } from "../../utils/jwk.js";
 import { validateCodeChallenge } from "../../utils/pkce.js";
 
 export const AuthorizationRequestSchema = z.object({
@@ -83,20 +82,8 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   let zkPubKid: string | undefined;
   let canonicalZkPub: string | undefined;
   if (authRequest.zk_pub && client.zkDelivery === "fragment-jwe") {
-    try {
-      parseZkPub(authRequest.zk_pub);
-      canonicalZkPub = authRequest.zk_pub;
-    } catch (_e) {
-      const legacyJson = authRequest.zk_pub;
-      let jwk: unknown;
-      try {
-        jwk = JSON.parse(legacyJson);
-      } catch {
-        throw new InvalidRequestError("zk_pub must be base64url(JSON JWK) or valid JSON JWK");
-      }
-      validateP256PublicKeyJWK(jwk);
-      canonicalZkPub = toBase64Url(Buffer.from(JSON.stringify(jwk)));
-    }
+    parseZkPub(authRequest.zk_pub);
+    canonicalZkPub = authRequest.zk_pub;
     zkPubKid = createZkPubKid(canonicalZkPub);
   } else if (authRequest.zk_pub && client.zkDelivery === "none") {
     throw new InvalidRequestError("This client does not support ZK delivery");
@@ -120,6 +107,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   await createPendingAuth(context, {
     requestId,
+    sessionId: sessionId || undefined,
     clientId: authRequest.client_id,
     redirectUri: authRequest.redirect_uri,
     state: authRequest.state,
