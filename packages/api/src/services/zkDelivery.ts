@@ -302,7 +302,6 @@ export function parseZkPub(zkPubParam: string): ECJWKPublic {
       throw new ValidationError("Invalid zk_pub JWK format - must be P-256 public key");
     }
 
-    // Ensure key is cryptographically valid and importable on the expected curve.
     createPublicKey({ key: jwk, format: "jwk" });
 
     return jwk;

@@ -107,7 +107,6 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   await createPendingAuth(context, {
     requestId,
-    sessionId: sessionId || undefined,
     clientId: authRequest.client_id,
     redirectUri: authRequest.redirect_uri,
     state: authRequest.state,

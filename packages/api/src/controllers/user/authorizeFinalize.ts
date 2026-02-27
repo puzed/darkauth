@@ -5,7 +5,7 @@ import { genericErrors } from "../../http/openapi-helpers.js";
 import { withRateLimit } from "../../middleware/rateLimit.js";
 import { createAuthCode } from "../../models/authCodes.js";
 import { consumePendingAuth } from "../../models/authorize.js";
-import { getSessionId, requireSession } from "../../services/sessions.js";
+import { requireSession } from "../../services/sessions.js";
 import type { Context, ControllerSchema } from "../../types.js";
 import { withAudit } from "../../utils/auditWrapper.js";
 import { generateRandomString } from "../../utils/crypto.js";
@@ -26,11 +26,9 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       response: ServerResponse,
       ..._params: unknown[]
     ): Promise<void> => {
-      // Require authenticated session
       const sessionData = await requireSession(context, request);
-      const currentSessionId = getSessionId(request);
 
-      if (!sessionData.sub || !currentSessionId) {
+      if (!sessionData.sub) {
         throw new InvalidRequestError("User session required");
       }
 
@@ -48,8 +46,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const requestId = parsed.request_id;
       const isApproved = parsed.approve !== "false";
 
-      // Look up pending auth request
-      const pendingRequest = await consumePendingAuth(context, requestId, currentSessionId);
+      const pendingRequest = await consumePendingAuth(context, requestId, sessionData.sub);
 
       if (!pendingRequest) {
         throw new NotFoundError("Authorization request not found or expired");
@@ -84,11 +81,8 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const code = generateRandomString(32);
       const codeExpiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds as per spec
 
-      const hasZk = !!pendingRequest.zkPubKid;
       const drkHashFromClient = parsed.drk_hash;
-      if (hasZk && !drkHashFromClient) {
-        throw new InvalidRequestError("drk_hash is required for ZK authorization requests");
-      }
+      const hasZk = !!(pendingRequest.zkPubKid && drkHashFromClient);
 
       // Store authorization code with PKCE support
       await createAuthCode(context, {
@@ -103,7 +97,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         expiresAt: codeExpiresAt,
         hasZk,
         zkPubKid: pendingRequest.zkPubKid,
-        drkHash: drkHashFromClient,
+        drkHash: hasZk ? drkHashFromClient : undefined,
       });
 
       // Return JSON with code and state as specified in CORE.md
