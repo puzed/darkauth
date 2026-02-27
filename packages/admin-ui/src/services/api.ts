@@ -329,8 +329,6 @@ class AdminApiService {
   private onSessionExpired?: () => void;
   private onServerError?: () => void;
   private refreshToken: string | null = null;
-  private isRefreshing = false;
-  private refreshPromise: Promise<void> | null = null;
 
   constructor() {
     this.baseUrl = "/api/admin";
@@ -361,59 +359,6 @@ class AdminApiService {
     this.refreshToken = null;
     localStorage.removeItem("adminAccessToken");
     localStorage.removeItem("adminRefreshToken");
-  }
-
-  private async refreshSession(): Promise<void> {
-    if (!this.refreshToken) {
-      throw new Error("No refresh token available");
-    }
-
-    if (this.isRefreshing && this.refreshPromise) {
-      return this.refreshPromise;
-    }
-
-    this.isRefreshing = true;
-    this.refreshPromise = (async () => {
-      try {
-        const doRefresh = async () => {
-          // Check if another tab already refreshed the session while we were waiting for the lock
-          const currentRefreshToken = localStorage.getItem("adminRefreshToken");
-          if (currentRefreshToken && currentRefreshToken !== this.refreshToken) {
-            this.accessToken = localStorage.getItem("adminAccessToken");
-            this.refreshToken = currentRefreshToken;
-            return;
-          }
-
-          const response = await fetch("/api/admin/refresh-token", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ refreshToken: this.refreshToken }),
-          });
-
-          if (!response.ok) {
-            throw new Error("Failed to refresh token");
-          }
-
-          const data = await response.json();
-          if (data.accessToken && data.refreshToken) {
-            this.setTokens(data.accessToken, data.refreshToken);
-          }
-        };
-
-        if (typeof navigator !== "undefined" && navigator.locks) {
-          await navigator.locks.request("darkauth_admin_refresh", doRefresh);
-        } else {
-          await doRefresh();
-        }
-      } finally {
-        this.isRefreshing = false;
-        this.refreshPromise = null;
-      }
-    })();
-
-    return this.refreshPromise;
   }
 
   setSessionExpiredCallback(callback: () => void): void {
@@ -457,11 +402,7 @@ class AdminApiService {
     return query ? `${base}?${query}` : base;
   }
 
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    retryCount = 0
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers = new Headers({ "Content-Type": "application/json" });
@@ -487,30 +428,8 @@ class AdminApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle session expiration with refresh token
-        if (
-          (response.status === 401 || response.status === 403) &&
-          retryCount === 0 &&
-          this.refreshToken
-        ) {
-          try {
-            // Try to refresh the session
-            await this.refreshSession();
-            // Retry the original request
-            return this.request<T>(endpoint, options, retryCount + 1);
-          } catch (_refreshError) {
-            // Refresh failed, clear everything and notify
-            this.clearTokens();
-            authService.clearSession();
-            if (this.onSessionExpired) {
-              this.onSessionExpired();
-            }
-            throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-          }
-        }
-
-        // Handle other auth errors without refresh token
-        if ((response.status === 401 || response.status === 403) && !this.refreshToken) {
+        if (response.status === 401 || response.status === 403) {
+          this.clearTokens();
           // Clear stored session
           authService.clearSession();
 
