@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { TooManyRequestsError } from "../errors.js";
-import type { Context } from "../types.js";
-import { sendError } from "../utils/http.js";
-import { checkRateLimit, type RateLimitType, setRateLimitHeaders } from "../utils/security.js";
+import { TooManyRequestsError } from "../errors.ts";
+import type { Context } from "../types.ts";
+import { sendError } from "../utils/http.ts";
+import { checkRateLimit, type RateLimitType, setRateLimitHeaders } from "../utils/security.ts";
 
 /**
  * Rate limiting middleware
@@ -34,7 +34,7 @@ export function withRateLimit(
       if (extractIdentifier && request.method === "POST") {
         try {
           // Read body for identifier extraction (if needed)
-          const { readBody, parseJsonSafely } = await import("../utils/http.js");
+          const { readBody, parseJsonSafely } = await import("../utils/http.ts");
           const bodyStr = await readBody(request);
           const body = parseJsonSafely(bodyStr);
           identifier = extractIdentifier(body);
@@ -50,7 +50,7 @@ export function withRateLimit(
       const rateLimitResult = await checkRateLimit(context, request, limitType, identifier);
 
       // Always set rate limit headers
-      const config = await import("../utils/security.js").then((m) =>
+      const config = await import("../utils/security.ts").then((m) =>
         m.getRateLimitConfig(context, limitType)
       );
       setRateLimitHeaders(
@@ -84,7 +84,7 @@ export async function getCachedBody(request: IncomingMessage): Promise<string> {
     return (request as BodyCachedRequest).body as string;
   }
 
-  const { readBody } = await import("../utils/http.js");
+  const { readBody } = await import("../utils/http.ts");
   const body = await readBody(request);
   (request as BodyCachedRequest).body = body;
   return body;

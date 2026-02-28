@@ -1,5 +1,5 @@
-import { createContext } from "./createContext";
-import { createServer } from "./createServer";
+import { createContext } from "./createContext.ts";
+import { createServer } from "./createServer.ts";
 
 async function main() {
   const context = await createContext();

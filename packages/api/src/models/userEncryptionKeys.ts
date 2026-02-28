@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { userEncryptionKeys } from "../db/schema.js";
-import { NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+import { userEncryptionKeys } from "../db/schema.ts";
+import { NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function setEncPublicJwk(context: Context, sub: string, encPublicJwk: unknown) {
   if (!sub) throw new ValidationError("User sub is required");

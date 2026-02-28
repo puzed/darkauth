@@ -1,14 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { adminPasswordChangeFinish } from "../../models/adminPasswords.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+import { ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { adminPasswordChangeFinish } from "../../models/adminPasswords.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.ts";
 
 const Req = z.object({ record: z.string(), export_key_hash: z.string() });
 const AdminPasswordChangeFinishResponseSchema = z.object({ success: z.boolean() });

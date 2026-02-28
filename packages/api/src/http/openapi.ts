@@ -1,36 +1,36 @@
 import { toJSONSchema, z } from "zod/v4";
-import { deleteAdminUserOtpSchema, getAdminUserOtpSchema } from "../controllers/admin/adminOtp.js";
-import { schema as adminAdminUserCreateSchema } from "../controllers/admin/adminUserCreate.js";
-import { schema as adminAdminUserDeleteSchema } from "../controllers/admin/adminUserDelete.js";
-import { schema as adminAdminUserPasswordResetSchema } from "../controllers/admin/adminUserPasswordReset.js";
-import { schema as adminAdminUserPasswordSetFinishSchema } from "../controllers/admin/adminUserPasswordSetFinish.js";
-import { schema as adminAdminUserPasswordSetStartSchema } from "../controllers/admin/adminUserPasswordSetStart.js";
-import { schema as adminAdminUsersSchema } from "../controllers/admin/adminUsers.js";
-import { schema as adminAdminUserUpdateSchema } from "../controllers/admin/adminUserUpdate.js";
-import { schema as adminAuditLogDetailSchema } from "../controllers/admin/auditLogDetail.js";
-import { schema as adminAuditLogExportSchema } from "../controllers/admin/auditLogExport.js";
-import { schema as adminAuditLogsSchema } from "../controllers/admin/auditLogs.js";
-import { schema as adminClientCreateSchema } from "../controllers/admin/clientCreate.js";
-import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDelete.js";
-import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.js";
-import { schema as adminClientsSchema } from "../controllers/admin/clients.js";
-import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.js";
-import { schema as adminJwksSchema } from "../controllers/admin/jwks.js";
-import { schema as adminJwksRotateSchema } from "../controllers/admin/jwksRotate.js";
-import { schema as adminLogoutSchema } from "../controllers/admin/logout.js";
-import { schema as adminOpaqueLoginFinishSchema } from "../controllers/admin/opaqueLoginFinish.js";
-import { schema as adminOpaqueLoginStartSchema } from "../controllers/admin/opaqueLoginStart.js";
-import { schema as adminOrganizationCreateSchema } from "../controllers/admin/organizationCreate.js";
-import { schema as adminOrganizationDeleteSchema } from "../controllers/admin/organizationDelete.js";
-import { schema as adminOrganizationGetSchema } from "../controllers/admin/organizationGet.js";
-import { schema as adminOrganizationMemberCreateSchema } from "../controllers/admin/organizationMemberCreate.js";
-import { schema as adminOrganizationMemberDeleteSchema } from "../controllers/admin/organizationMemberDelete.js";
-import { schema as adminOrganizationMemberRoleDeleteSchema } from "../controllers/admin/organizationMemberRoleDelete.js";
-import { schema as adminOrganizationMemberRolesAddSchema } from "../controllers/admin/organizationMemberRolesAdd.js";
-import { schema as adminOrganizationMemberRolesUpdateSchema } from "../controllers/admin/organizationMemberRolesUpdate.js";
-import { schema as adminOrganizationMembersSchema } from "../controllers/admin/organizationMembers.js";
-import { schema as adminOrganizationsSchema } from "../controllers/admin/organizations.js";
-import { schema as adminOrganizationUpdateSchema } from "../controllers/admin/organizationUpdate.js";
+import { deleteAdminUserOtpSchema, getAdminUserOtpSchema } from "../controllers/admin/adminOtp.ts";
+import { schema as adminAdminUserCreateSchema } from "../controllers/admin/adminUserCreate.ts";
+import { schema as adminAdminUserDeleteSchema } from "../controllers/admin/adminUserDelete.ts";
+import { schema as adminAdminUserPasswordResetSchema } from "../controllers/admin/adminUserPasswordReset.ts";
+import { schema as adminAdminUserPasswordSetFinishSchema } from "../controllers/admin/adminUserPasswordSetFinish.ts";
+import { schema as adminAdminUserPasswordSetStartSchema } from "../controllers/admin/adminUserPasswordSetStart.ts";
+import { schema as adminAdminUsersSchema } from "../controllers/admin/adminUsers.ts";
+import { schema as adminAdminUserUpdateSchema } from "../controllers/admin/adminUserUpdate.ts";
+import { schema as adminAuditLogDetailSchema } from "../controllers/admin/auditLogDetail.ts";
+import { schema as adminAuditLogExportSchema } from "../controllers/admin/auditLogExport.ts";
+import { schema as adminAuditLogsSchema } from "../controllers/admin/auditLogs.ts";
+import { schema as adminClientCreateSchema } from "../controllers/admin/clientCreate.ts";
+import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDelete.ts";
+import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.ts";
+import { schema as adminClientsSchema } from "../controllers/admin/clients.ts";
+import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.ts";
+import { schema as adminJwksSchema } from "../controllers/admin/jwks.ts";
+import { schema as adminJwksRotateSchema } from "../controllers/admin/jwksRotate.ts";
+import { schema as adminLogoutSchema } from "../controllers/admin/logout.ts";
+import { schema as adminOpaqueLoginFinishSchema } from "../controllers/admin/opaqueLoginFinish.ts";
+import { schema as adminOpaqueLoginStartSchema } from "../controllers/admin/opaqueLoginStart.ts";
+import { schema as adminOrganizationCreateSchema } from "../controllers/admin/organizationCreate.ts";
+import { schema as adminOrganizationDeleteSchema } from "../controllers/admin/organizationDelete.ts";
+import { schema as adminOrganizationGetSchema } from "../controllers/admin/organizationGet.ts";
+import { schema as adminOrganizationMemberCreateSchema } from "../controllers/admin/organizationMemberCreate.ts";
+import { schema as adminOrganizationMemberDeleteSchema } from "../controllers/admin/organizationMemberDelete.ts";
+import { schema as adminOrganizationMemberRoleDeleteSchema } from "../controllers/admin/organizationMemberRoleDelete.ts";
+import { schema as adminOrganizationMemberRolesAddSchema } from "../controllers/admin/organizationMemberRolesAdd.ts";
+import { schema as adminOrganizationMemberRolesUpdateSchema } from "../controllers/admin/organizationMemberRolesUpdate.ts";
+import { schema as adminOrganizationMembersSchema } from "../controllers/admin/organizationMembers.ts";
+import { schema as adminOrganizationsSchema } from "../controllers/admin/organizations.ts";
+import { schema as adminOrganizationUpdateSchema } from "../controllers/admin/organizationUpdate.ts";
 import {
   getAdminOtpStatusSchema,
   postAdminOtpDisableSchema,
@@ -38,43 +38,43 @@ import {
   postAdminOtpSetupInitSchema,
   postAdminOtpSetupVerifySchema,
   postAdminOtpVerifySchema,
-} from "../controllers/admin/otp.js";
-import { schema as adminPasswordChangeFinishSchema } from "../controllers/admin/passwordChangeFinish.js";
-import { schema as adminPermissionCreateSchema } from "../controllers/admin/permissionCreate.js";
-import { schema as adminPermissionDeleteSchema } from "../controllers/admin/permissionDelete.js";
-import { schema as adminPermissionsSchema } from "../controllers/admin/permissions.js";
-import { schema as adminRefreshTokenSchema } from "../controllers/admin/refreshToken.js";
-import { schema as adminRoleCreateSchema } from "../controllers/admin/roleCreate.js";
-import { schema as adminRoleDeleteSchema } from "../controllers/admin/roleDelete.js";
-import { schema as adminRoleGetSchema } from "../controllers/admin/roleGet.js";
-import { schema as adminRolePermissionsUpdateSchema } from "../controllers/admin/rolePermissionsUpdate.js";
-import { schema as adminRolesSchema } from "../controllers/admin/roles.js";
-import { schema as adminRoleUpdateSchema } from "../controllers/admin/roleUpdate.js";
-import { schema as adminSessionSchema } from "../controllers/admin/session.js";
-import { schema as adminSettingsSchema } from "../controllers/admin/settings.js";
-import { schema as adminSettingsUpdateSchema } from "../controllers/admin/settingsUpdate.js";
-import { schema as adminUserCreateSchema } from "../controllers/admin/userCreate.js";
-import { schema as adminUserDeleteSchema } from "../controllers/admin/userDelete.js";
-import { schema as adminUserOtpSchema } from "../controllers/admin/userOtp.js";
-import { schema as adminUserOtpDeleteSchema } from "../controllers/admin/userOtpDelete.js";
-import { schema as adminUserOtpUnlockSchema } from "../controllers/admin/userOtpUnlock.js";
-import { schema as adminUserPasswordResetSchema } from "../controllers/admin/userPasswordReset.js";
-import { schema as adminUserPasswordSetFinishSchema } from "../controllers/admin/userPasswordSetFinish.js";
-import { schema as adminUserPasswordSetStartSchema } from "../controllers/admin/userPasswordSetStart.js";
-import { schema as adminUserPermissionsSchema } from "../controllers/admin/userPermissions.js";
-import { schema as adminUserPermissionsUpdateSchema } from "../controllers/admin/userPermissionsUpdate.js";
-import { schema as adminUsersSchema } from "../controllers/admin/users.js";
-import { schema as adminUserUpdateSchema } from "../controllers/admin/userUpdate.js";
-import { schema as userAuthorizeSchema } from "../controllers/user/authorize.js";
-import { schema as userAuthorizeFinalizeSchema } from "../controllers/user/authorizeFinalize.js";
-import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.js";
-import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.js";
-import { schema as userAppsSchema } from "../controllers/user/getUserApps.js";
-import { schema as userLogoutSchema } from "../controllers/user/logout.js";
-import { schema as userOpaqueLoginFinishSchema } from "../controllers/user/opaqueLoginFinish.js";
-import { schema as userOpaqueLoginStartSchema } from "../controllers/user/opaqueLoginStart.js";
-import { schema as userOpaqueRegisterFinishSchema } from "../controllers/user/opaqueRegisterFinish.js";
-import { schema as userOpaqueRegisterStartSchema } from "../controllers/user/opaqueRegisterStart.js";
+} from "../controllers/admin/otp.ts";
+import { schema as adminPasswordChangeFinishSchema } from "../controllers/admin/passwordChangeFinish.ts";
+import { schema as adminPermissionCreateSchema } from "../controllers/admin/permissionCreate.ts";
+import { schema as adminPermissionDeleteSchema } from "../controllers/admin/permissionDelete.ts";
+import { schema as adminPermissionsSchema } from "../controllers/admin/permissions.ts";
+import { schema as adminRefreshTokenSchema } from "../controllers/admin/refreshToken.ts";
+import { schema as adminRoleCreateSchema } from "../controllers/admin/roleCreate.ts";
+import { schema as adminRoleDeleteSchema } from "../controllers/admin/roleDelete.ts";
+import { schema as adminRoleGetSchema } from "../controllers/admin/roleGet.ts";
+import { schema as adminRolePermissionsUpdateSchema } from "../controllers/admin/rolePermissionsUpdate.ts";
+import { schema as adminRolesSchema } from "../controllers/admin/roles.ts";
+import { schema as adminRoleUpdateSchema } from "../controllers/admin/roleUpdate.ts";
+import { schema as adminSessionSchema } from "../controllers/admin/session.ts";
+import { schema as adminSettingsSchema } from "../controllers/admin/settings.ts";
+import { schema as adminSettingsUpdateSchema } from "../controllers/admin/settingsUpdate.ts";
+import { schema as adminUserCreateSchema } from "../controllers/admin/userCreate.ts";
+import { schema as adminUserDeleteSchema } from "../controllers/admin/userDelete.ts";
+import { schema as adminUserOtpSchema } from "../controllers/admin/userOtp.ts";
+import { schema as adminUserOtpDeleteSchema } from "../controllers/admin/userOtpDelete.ts";
+import { schema as adminUserOtpUnlockSchema } from "../controllers/admin/userOtpUnlock.ts";
+import { schema as adminUserPasswordResetSchema } from "../controllers/admin/userPasswordReset.ts";
+import { schema as adminUserPasswordSetFinishSchema } from "../controllers/admin/userPasswordSetFinish.ts";
+import { schema as adminUserPasswordSetStartSchema } from "../controllers/admin/userPasswordSetStart.ts";
+import { schema as adminUserPermissionsSchema } from "../controllers/admin/userPermissions.ts";
+import { schema as adminUserPermissionsUpdateSchema } from "../controllers/admin/userPermissionsUpdate.ts";
+import { schema as adminUsersSchema } from "../controllers/admin/users.ts";
+import { schema as adminUserUpdateSchema } from "../controllers/admin/userUpdate.ts";
+import { schema as userAuthorizeSchema } from "../controllers/user/authorize.ts";
+import { schema as userAuthorizeFinalizeSchema } from "../controllers/user/authorizeFinalize.ts";
+import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
+import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
+import { schema as userAppsSchema } from "../controllers/user/getUserApps.ts";
+import { schema as userLogoutSchema } from "../controllers/user/logout.ts";
+import { schema as userOpaqueLoginFinishSchema } from "../controllers/user/opaqueLoginFinish.ts";
+import { schema as userOpaqueLoginStartSchema } from "../controllers/user/opaqueLoginStart.ts";
+import { schema as userOpaqueRegisterFinishSchema } from "../controllers/user/opaqueRegisterFinish.ts";
+import { schema as userOpaqueRegisterStartSchema } from "../controllers/user/opaqueRegisterStart.ts";
 import {
   createOrganizationSchema as userCreateOrganizationSchema,
   organizationInvitesSchema as userOrganizationInvitesSchema,
@@ -83,30 +83,30 @@ import {
   organizationMembersSchema as userOrganizationMembersSchema,
   organizationSchema as userOrganizationSchema,
   organizationsSchema as userOrganizationsSchema,
-} from "../controllers/user/organizations.js";
-import { schema as userOtpReauthSchema } from "../controllers/user/otpReauth.js";
-import { schema as userOtpSetupInitSchema } from "../controllers/user/otpSetupInit.js";
-import { schema as userOtpSetupVerifySchema } from "../controllers/user/otpSetupVerify.js";
-import { schema as userOtpStatusSchema } from "../controllers/user/otpStatus.js";
-import { schema as userOtpVerifySchema } from "../controllers/user/otpVerify.js";
-import { schema as userPasswordChangeFinishSchema } from "../controllers/user/passwordChangeFinish.js";
-import { schema as userPasswordChangeStartSchema } from "../controllers/user/passwordChangeStart.js";
-import { schema as userPasswordChangeVerifyFinishSchema } from "../controllers/user/passwordChangeVerifyFinish.js";
-import { schema as userPasswordChangeVerifyStartSchema } from "../controllers/user/passwordChangeVerifyStart.js";
-import { schema as userRefreshTokenSchema } from "../controllers/user/refreshToken.js";
-import { schema as userSessionSchema } from "../controllers/user/session.js";
-import { schema as userTokenSchema } from "../controllers/user/token.js";
+} from "../controllers/user/organizations.ts";
+import { schema as userOtpReauthSchema } from "../controllers/user/otpReauth.ts";
+import { schema as userOtpSetupInitSchema } from "../controllers/user/otpSetupInit.ts";
+import { schema as userOtpSetupVerifySchema } from "../controllers/user/otpSetupVerify.ts";
+import { schema as userOtpStatusSchema } from "../controllers/user/otpStatus.ts";
+import { schema as userOtpVerifySchema } from "../controllers/user/otpVerify.ts";
+import { schema as userPasswordChangeFinishSchema } from "../controllers/user/passwordChangeFinish.ts";
+import { schema as userPasswordChangeStartSchema } from "../controllers/user/passwordChangeStart.ts";
+import { schema as userPasswordChangeVerifyFinishSchema } from "../controllers/user/passwordChangeVerifyFinish.ts";
+import { schema as userPasswordChangeVerifyStartSchema } from "../controllers/user/passwordChangeVerifyStart.ts";
+import { schema as userRefreshTokenSchema } from "../controllers/user/refreshToken.ts";
+import { schema as userSessionSchema } from "../controllers/user/session.ts";
+import { schema as userTokenSchema } from "../controllers/user/token.ts";
 import {
   getUserSchema as userDirectoryGetSchema,
   schema as userDirectorySearchSchema,
-} from "../controllers/user/usersDirectory.js";
-import { schema as userWellKnownJwksSchema } from "../controllers/user/wellKnownJwks.js";
-import { schema as userWellKnownOpenidSchema } from "../controllers/user/wellKnownOpenid.js";
-import { schema as userWrappedDrkSchema } from "../controllers/user/wrappedDrk.js";
-import { schema as userWrappedDrkPutSchema } from "../controllers/user/wrappedDrkPut.js";
-import { schema as userWrappedEncPrivGetSchema } from "../controllers/user/wrappedEncPrivGet.js";
-import { schema as userWrappedEncPrivPutSchema } from "../controllers/user/wrappedEncPrivPut.js";
-import type { ControllerSchema } from "../types.js";
+} from "../controllers/user/usersDirectory.ts";
+import { schema as userWellKnownJwksSchema } from "../controllers/user/wellKnownJwks.ts";
+import { schema as userWellKnownOpenidSchema } from "../controllers/user/wellKnownOpenid.ts";
+import { schema as userWrappedDrkSchema } from "../controllers/user/wrappedDrk.ts";
+import { schema as userWrappedDrkPutSchema } from "../controllers/user/wrappedDrkPut.ts";
+import { schema as userWrappedEncPrivGetSchema } from "../controllers/user/wrappedEncPrivGet.ts";
+import { schema as userWrappedEncPrivPutSchema } from "../controllers/user/wrappedEncPrivPut.ts";
+import type { ControllerSchema } from "../types.ts";
 
 const documentedSchemas: ControllerSchema[] = [
   adminSessionSchema,

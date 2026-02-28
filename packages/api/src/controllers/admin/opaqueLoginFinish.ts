@@ -1,18 +1,18 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { opaqueLoginSessions } from "../../db/schema.js";
-import { UnauthorizedError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { getAdminByEmail } from "../../models/adminUsers.js";
-import { getOtpStatusModel } from "../../models/otp.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { createSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendJson } from "../../utils/http.js";
+import { opaqueLoginSessions } from "../../db/schema.ts";
+import { UnauthorizedError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { getAdminByEmail } from "../../models/adminUsers.ts";
+import { getOtpStatusModel } from "../../models/otp.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { createSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 interface OpaqueLoginFinishRequest {
   finish: string;
@@ -145,7 +145,7 @@ async function postAdminOpaqueLoginFinishHandler(
   // Create admin session
   let otpRequired = false;
   const otpInventory = await getOtpStatusModel(context, "admin", adminUser.id);
-  const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
+  const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
   const forced = !!(
     s &&
     typeof s === "object" &&

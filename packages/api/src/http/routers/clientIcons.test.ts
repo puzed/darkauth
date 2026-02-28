@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { mock, test } from "node:test";
-import { createAdminRouter } from "./adminRouter.js";
-import { createUserRouter } from "./userRouter.js";
+import { createAdminRouter } from "./adminRouter.ts";
+import { createUserRouter } from "./userRouter.ts";
 
 function createLogger() {
   return {

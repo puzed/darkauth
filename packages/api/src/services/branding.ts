@@ -1,6 +1,6 @@
-import { settings } from "../db/schema.js";
-import type { Context } from "../types.js";
-import { getSetting } from "./settings.js";
+import { settings } from "../db/schema.ts";
+import type { Context } from "../types.ts";
+import { getSetting } from "./settings.ts";
 
 type BrandingConfig = {
   identity: { title: string; tagline: string };

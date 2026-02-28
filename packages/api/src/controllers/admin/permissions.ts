@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
 import {
   listPageOpenApiQuerySchema,
   listPageQuerySchema,
   listSearchQuerySchema,
-} from "./listQueryBounds.js";
+} from "./listQueryBounds.ts";
 
 const PermissionResponseSchema = z.object({
   key: z.string(),
@@ -26,10 +26,10 @@ export const PermissionsListResponseSchema = z.object({
   }),
 });
 
-import { listPermissionsWithCounts } from "../../models/permissions.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJsonValidated } from "../../utils/http.js";
+import { listPermissionsWithCounts } from "../../models/permissions.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJsonValidated } from "../../utils/http.ts";
 
 export async function getPermissions(
   context: Context,

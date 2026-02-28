@@ -1,17 +1,17 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import { z } from "zod/v4";
-import { createPglite } from "../../db/pglite.js";
+import { createPglite } from "../../db/pglite.ts";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
   ValidationError,
-} from "../../errors.js";
-import { ensureOpaqueService } from "../../services/opaque.js";
-import { isSystemInitialized } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+} from "../../errors.ts";
+import { ensureOpaqueService } from "../../services/opaque.ts";
+import { isSystemInitialized } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.ts";
 
 const Req = z.object({
   token: z.string().optional(),
@@ -120,7 +120,7 @@ export async function postInstallOpaqueRegisterStart(
             throw connErr;
           }
           context.logger.info("[install:opaque:start] Importing schema");
-          const schema = await import("../../db/schema.js");
+          const schema = await import("../../db/schema.ts");
           context.logger.info(
             { schemaKeys: Object.keys(schema) },
             "[install:opaque:start] Schema imported"

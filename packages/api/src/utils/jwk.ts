@@ -1,4 +1,4 @@
-import { ValidationError } from "../errors.js";
+import { ValidationError } from "../errors.ts";
 
 /**
  * Interface representing a P-256 ECDH public key in JWK format

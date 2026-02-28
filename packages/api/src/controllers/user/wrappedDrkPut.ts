@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { UnauthorizedError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { setWrappedDrk as setWrappedDrkModel } from "../../models/wrappedRootKeys.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { UnauthorizedError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { setWrappedDrk as setWrappedDrkModel } from "../../models/wrappedRootKeys.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export const putWrappedDrk = withAudit({
   eventType: "DRK_UPDATE",

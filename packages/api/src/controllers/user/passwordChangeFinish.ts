@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { userPasswordChangeFinish } from "../../models/passwords.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendJson } from "../../utils/http.js";
+import { ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { userPasswordChangeFinish } from "../../models/passwords.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 async function postUserPasswordChangeFinishHandler(
   context: Context,

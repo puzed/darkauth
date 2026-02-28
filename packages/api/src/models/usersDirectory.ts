@@ -1,6 +1,6 @@
 import { and, eq, ilike, or } from "drizzle-orm";
-import { organizationMembers, userEncryptionKeys, users } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { organizationMembers, userEncryptionKeys, users } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function getDirectoryEntry(context: Context, sub: string, organizationId?: string) {
   if (organizationId) {

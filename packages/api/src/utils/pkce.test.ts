@@ -1,8 +1,8 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
-import { ValidationError } from "../errors.js";
-import { sha256Base64Url } from "./crypto.js";
-import { verifyCodeChallenge } from "./pkce.js";
+import { ValidationError } from "../errors.ts";
+import { sha256Base64Url } from "./crypto.ts";
+import { verifyCodeChallenge } from "./pkce.ts";
 
 test("verifyCodeChallenge returns true for matching verifier and challenge", () => {
   const codeVerifier = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";

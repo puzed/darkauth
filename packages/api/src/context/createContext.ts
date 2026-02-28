@@ -2,14 +2,14 @@ import { lt } from "drizzle-orm";
 import { drizzle as drizzlePg } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import pino from "pino";
-import { createPglite } from "../db/pglite.js";
-import * as schema from "../db/schema.js";
-import { opaqueLoginSessions } from "../db/schema.js";
-import { ensureDefaultOrganizationAndSchema } from "../models/install.js";
-import { ensureKekService } from "../services/kek.js";
-import { createOpaqueService } from "../services/opaque.js";
-import { cleanupExpiredSessions } from "../services/sessions.js";
-import type { Config, Context, Database } from "../types.js";
+import { createPglite } from "../db/pglite.ts";
+import * as schema from "../db/schema.ts";
+import { opaqueLoginSessions } from "../db/schema.ts";
+import { ensureDefaultOrganizationAndSchema } from "../models/install.ts";
+import { ensureKekService } from "../services/kek.ts";
+import { createOpaqueService } from "../services/opaque.ts";
+import { cleanupExpiredSessions } from "../services/sessions.ts";
+import type { Config, Context, Database } from "../types.ts";
 
 async function waitForPostgres(pool: Pool, attempts = 20, delayMs = 500) {
   let lastError: unknown;

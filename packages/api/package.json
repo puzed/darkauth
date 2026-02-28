@@ -6,15 +6,15 @@
 	"type": "module",
 	"main": "src/main.ts",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "build": "tsc",
-    "start": "tsx src/main.ts",
-    "test": "tsx --test src/**/*.test.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --experimental-transform-types --watch src/main.ts",
+    "build": "tsc --noEmit",
+    "start": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/main.ts",
+    "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test src/**/*.test.ts",
     "db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate": "tsx src/db/migrate.ts",
-		"db:wipe": "tsx scripts/wipe.ts",
-		"install:script": "tsx scripts/install.ts",
+		"db:migrate": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/db/migrate.ts",
+		"db:wipe": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/wipe.ts",
+		"install:script": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/install.ts",
 		"typecheck": "tsc --noEmit",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
@@ -30,9 +30,8 @@
 		"jose": "^6.1.3",
 		"opaque-ts": "file:../opaque-ts",
     "pg": "^8.17.1",
-    "pino": "^10.2.0",
+		"pino": "^10.2.0",
     "@electric-sql/pglite": "^0.3.15",
-		"tsx": "^4.21.0",
 		"yaml": "^2.8.2",
 		"zod": "^4.3.5"
 	},
@@ -46,12 +45,6 @@
 	},
 	"overrides": {
 		"esbuild": "^0.25.9",
-		"@esbuild-kit/esm-loader": {
-			".": "npm:tsx@^4.20.4",
-			"@esbuild-kit/core-utils": {
-				"esbuild": "^0.25.9"
-			}
-		},
 		"drizzle-kit@0.31.5": {
 			"esbuild": "^0.25.9"
 		}

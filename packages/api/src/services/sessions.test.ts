@@ -4,16 +4,16 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
-import { createPglite } from "../db/pglite.js";
-import { sessions, users } from "../db/schema.js";
-import type { Context } from "../types.js";
-import { sha256Base64Url } from "../utils/crypto.js";
+import { createPglite } from "../db/pglite.ts";
+import { sessions, users } from "../db/schema.ts";
+import type { Context } from "../types.ts";
+import { sha256Base64Url } from "../utils/crypto.ts";
 import {
   createSession,
   getActorFromRefreshToken,
   getSession,
   refreshSessionWithToken,
-} from "./sessions.js";
+} from "./sessions.ts";
 
 function createLogger() {
   return {

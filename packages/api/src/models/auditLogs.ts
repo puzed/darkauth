@@ -1,12 +1,12 @@
 import { inArray } from "drizzle-orm";
-import { adminUsers, users } from "../db/schema.js";
+import { adminUsers, users } from "../db/schema.ts";
 import {
   countAuditLogs as countAuditLogsAggregate,
   exportAuditLogs,
   getAuditLogById,
   queryAuditLogs,
-} from "../services/audit.js";
-import type { Context } from "../types.js";
+} from "../services/audit.ts";
+import type { Context } from "../types.ts";
 
 export interface AuditLogFilters {
   startDate?: Date;

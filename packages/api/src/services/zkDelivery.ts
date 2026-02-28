@@ -1,7 +1,7 @@
 import { createPublicKey } from "node:crypto";
 import { EncryptJWT, generateKeyPair, importJWK, type JWK, jwtDecrypt } from "jose";
-import { ValidationError } from "../errors.js";
-import { fromBase64Url, sha256 } from "../utils/crypto.js";
+import { ValidationError } from "../errors.ts";
+import { fromBase64Url, sha256 } from "../utils/crypto.ts";
 
 // Interface for JWE header structure
 interface JweHeader {

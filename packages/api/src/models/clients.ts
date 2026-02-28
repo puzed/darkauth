@@ -1,7 +1,7 @@
 import { asc, count, desc, eq, ilike, or } from "drizzle-orm";
-import { clients } from "../db/schema.js";
-import { NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+import { clients } from "../db/schema.ts";
+import { NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function deleteClient(context: Context, clientId: string) {
   if (!clientId) throw new ValidationError("Client ID is required");

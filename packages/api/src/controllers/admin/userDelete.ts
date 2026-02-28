@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { deleteUser as deleteUserModel } from "../../models/users.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { deleteUser as deleteUserModel } from "../../models/users.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { sendJson } from "../../utils/http.ts";
 
 async function deleteUserHandler(
   context: Context,
@@ -15,7 +15,7 @@ async function deleteUserHandler(
 ): Promise<void> {
   const Params = z.object({ sub: z.string() });
   const { sub } = Params.parse({ sub: params[0] });
-  const sessionData = await (await import("../../services/sessions.js")).requireSession(
+  const sessionData = await (await import("../../services/sessions.ts")).requireSession(
     context,
     request,
     true

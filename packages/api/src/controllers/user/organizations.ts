@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { genericErrors } from "../../http/openapi-helpers.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
 import {
   assignMemberRoles,
   createOrganization,
@@ -9,11 +9,11 @@ import {
   listOrganizationsForUser,
   removeMemberRole,
   requireOrganizationMembership,
-} from "../../models/organizations.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+} from "../../models/organizations.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 const OrganizationSchema = z.object({
   organizationId: z.string().uuid(),

@@ -6,11 +6,11 @@ import {
   organizations,
   roles,
   users,
-} from "../db/schema.js";
-import { ForbiddenError, NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
-import { generateRandomString, sha256Base64Url } from "../utils/crypto.js";
-import { getUserOrgAccess } from "./rbac.js";
+} from "../db/schema.ts";
+import { ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
+import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { getUserOrgAccess } from "./rbac.ts";
 
 async function validateAssignableRoleIds(context: Context, roleIds: string[]) {
   const dedupedRoleIds = Array.from(new Set(roleIds));

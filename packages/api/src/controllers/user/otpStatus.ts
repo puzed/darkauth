@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { organizationMemberRoles, organizationMembers, roles } from "../../db/schema.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getOtpStatusModel } from "../../models/otp.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { sendJson } from "../../utils/http.js";
+import { organizationMemberRoles, organizationMembers, roles } from "../../db/schema.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getOtpStatusModel } from "../../models/otp.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "user" })(
   async function getOtpStatus(
@@ -19,7 +19,7 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
     const status = await getOtpStatusModel(context, "user", session.sub as string);
     let required = !!session.otpRequired;
     try {
-      const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
+      const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
       if (
         s &&
         typeof s === "object" &&

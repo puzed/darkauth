@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
-import { sha256Base64Url } from "../utils/crypto.js";
-import { createZkPubKid, parseZkPub } from "./zkDelivery.js";
+import { sha256Base64Url } from "../utils/crypto.ts";
+import { createZkPubKid, parseZkPub } from "./zkDelivery.ts";
 
 const validJwk = {
   kty: "EC" as const,

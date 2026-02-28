@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { finishUserPasswordSetForAdmin } from "../../models/passwords.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { finishUserPasswordSetForAdmin } from "../../models/passwords.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.ts";
 
 const UserPasswordSetFinishRequestSchema = z.object({
   record: z.string(),

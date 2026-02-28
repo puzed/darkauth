@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { groupPermissions, groups, permissions, userGroups, users } from "../db/schema.js";
-import { NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+import { groupPermissions, groups, permissions, userGroups, users } from "../db/schema.ts";
+import { NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function setGroupUsers(context: Context, groupKey: string, userSubs: string[]) {
   if (!groupKey || typeof groupKey !== "string") {
@@ -126,9 +126,9 @@ export async function createGroup(
     where: eq(groups.key, data.key),
   });
   if (existingGroup)
-    throw new (await import("../errors.js")).ConflictError("Group with this key already exists");
+    throw new (await import("../errors.ts")).ConflictError("Group with this key already exists");
   if (permissionKeys.length > 0) {
-    const { permissions } = await import("../db/schema.js");
+    const { permissions } = await import("../db/schema.ts");
     const existingPermissions = await context.db
       .select({ key: permissions.key })
       .from(permissions)
@@ -147,14 +147,14 @@ export async function createGroup(
       requireOtp: data.requireOtp ?? false,
     });
     if (permissionKeys.length > 0) {
-      const { groupPermissions } = await import("../db/schema.js");
+      const { groupPermissions } = await import("../db/schema.ts");
       await trx
         .insert(groupPermissions)
         .values(permissionKeys.map((permissionKey) => ({ groupKey: data.key, permissionKey })));
     }
   });
   const createdGroup = await context.db.query.groups.findFirst({ where: eq(groups.key, data.key) });
-  const { permissions, groupPermissions } = await import("../db/schema.js");
+  const { permissions, groupPermissions } = await import("../db/schema.ts");
   const assignedPermissions = await context.db
     .select({ key: permissions.key, description: permissions.description })
     .from(groupPermissions)
@@ -175,7 +175,7 @@ export async function createGroup(
 export async function setUserGroups(context: Context, userSub: string, groupKeys: string[]) {
   const { eq, inArray } = await import("drizzle-orm");
   const user = await context.db.query.users.findFirst({ where: eq(users.sub, userSub) });
-  if (!user) throw new (await import("../errors.js")).NotFoundError("User not found");
+  if (!user) throw new (await import("../errors.ts")).NotFoundError("User not found");
   const targetGroups = groupKeys.length > 0 ? groupKeys : ["default"];
   if (targetGroups.length > 0) {
     const existingGroups = await context.db

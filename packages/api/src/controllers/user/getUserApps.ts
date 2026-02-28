@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { UnauthorizedError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { listVisibleApps } from "../../models/clients.js";
-import { getSession as getSessionData, getSessionId } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendError, sendJson } from "../../utils/http.js";
+import { UnauthorizedError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { listVisibleApps } from "../../models/clients.ts";
+import { getSession as getSessionData, getSessionId } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendError, sendJson } from "../../utils/http.ts";
 
 export async function getUserApps(
   context: Context,

@@ -1,6 +1,6 @@
 import { asc, count, desc, ilike, or, sql } from "drizzle-orm";
-import { groupPermissions, groups, userGroups } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { groupPermissions, groups, userGroups } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function listGroupsWithCounts(
   context: Context,

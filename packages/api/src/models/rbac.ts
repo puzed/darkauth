@@ -5,9 +5,9 @@ import {
   organizations,
   rolePermissions,
   roles,
-} from "../db/schema.js";
-import { AppError, ForbiddenError, NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { AppError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function getUserOrganizations(context: Context, userSub: string) {
   if (!userSub || typeof userSub !== "string") {

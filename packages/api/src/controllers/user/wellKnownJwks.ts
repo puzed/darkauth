@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getPublicKeys } from "../../services/jwks.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getPublicKeys } from "../../services/jwks.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function getWellKnownJwks(
   context: Context,

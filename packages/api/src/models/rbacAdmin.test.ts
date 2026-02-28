@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+import { NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 import {
   addOrganizationMemberRolesAdmin,
   removeOrganizationMemberRoleAdmin,
   setRolePermissionsAdmin,
-} from "./rbacAdmin.js";
+} from "./rbacAdmin.ts";
 
 test("setRolePermissionsAdmin rejects system roles", async () => {
   const context = {

@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { UnauthorizedError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getEncPrivateWrapped } from "../../models/userEncryptionKeys.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { toBase64Url } from "../../utils/crypto.js";
-import { sendJson } from "../../utils/http.js";
+import { UnauthorizedError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getEncPrivateWrapped } from "../../models/userEncryptionKeys.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { toBase64Url } from "../../utils/crypto.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function getWrappedEncPrivateJwk(
   context: Context,

@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
-import { groupPermissions, userGroups, userPermissions } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { groupPermissions, userGroups, userPermissions } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function getUserAccess(context: Context, sub: string) {
   const userGroupsData = await context.db.query.userGroups.findMany({

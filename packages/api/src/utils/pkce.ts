@@ -1,5 +1,5 @@
-import { ValidationError } from "../errors.js";
-import { constantTimeCompare, sha256Base64Url } from "./crypto.js";
+import { ValidationError } from "../errors.ts";
+import { constantTimeCompare, sha256Base64Url } from "./crypto.ts";
 
 export function verifyCodeChallenge(
   codeVerifier: string,

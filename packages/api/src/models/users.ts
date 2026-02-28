@@ -9,9 +9,9 @@ import {
   userGroups,
   userPermissions,
   users,
-} from "../db/schema.js";
-import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 async function getAccessMapsForSubs(context: Context, subs: string[]) {
   let groupsByUser = new Map<string, string[]>();
@@ -209,7 +209,7 @@ export async function createUser(
   if (!emailRegex.test(email)) throw new ValidationError("Invalid email format");
   const existing = await context.db.query.users.findFirst({ where: eq(users.email, email) });
   if (existing) throw new ConflictError("Unable to create user");
-  const sub = subInput || (await (await import("../utils/crypto.js")).generateRandomString(16));
+  const sub = subInput || (await (await import("../utils/crypto.ts")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
     await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
@@ -339,8 +339,8 @@ export async function setUserPasswordResetRequired(
 
 export async function getUserOpaqueRecordByEmail(context: Context, email: string) {
   const { eq } = await import("drizzle-orm");
-  const { opaqueRecords, users } = await import("../db/schema.js");
-  const { NotFoundError } = await import("../errors.js");
+  const { opaqueRecords, users } = await import("../db/schema.ts");
+  const { NotFoundError } = await import("../errors.ts");
   const user = await context.db.query.users.findFirst({
     where: eq(users.email, email),
     with: { opaqueRecord: true },
@@ -364,8 +364,8 @@ export async function getUserOpaqueRecordByEmail(context: Context, email: string
 
 export async function getUserOpaqueRecordHistoryByEmail(context: Context, email: string) {
   const { eq } = await import("drizzle-orm");
-  const { userOpaqueRecordHistory, users } = await import("../db/schema.js");
-  const { NotFoundError } = await import("../errors.js");
+  const { userOpaqueRecordHistory, users } = await import("../db/schema.ts");
+  const { NotFoundError } = await import("../errors.ts");
   const user = await context.db.query.users.findFirst({
     where: eq(users.email, email),
   });

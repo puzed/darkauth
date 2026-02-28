@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parse } from "yaml";
 import { PGlite } from "@electric-sql/pglite";
-import type { Context, Logger } from "./types";
+import type { Context, Logger } from "./types.ts";
 
 function loadConfigFile(): { postgresUri?: string; api?: { issuer?: string } } {
   const candidates = [

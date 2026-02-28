@@ -10,9 +10,9 @@ import {
   rolePermissions,
   roles,
   settings,
-} from "../db/schema.js";
-import { ConflictError, NotFoundError } from "../errors.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { ConflictError, NotFoundError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function storeOpaqueAdmin(
   context: Context,
