@@ -156,7 +156,12 @@ export async function registerDemoUser(
   await userPage.fill('input[name="confirmPassword"]', user.password);
   await userPage.click('button[type="submit"]');
   await userPage.waitForURL(/\/dashboard/, { timeout: 20000 });
-  await expect(userPage.getByText('Successfully authenticated')).toBeVisible({ timeout: 20000 });
+  await expect(userPage.locator('section:has(h3:has-text("Your Applications"))')).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(userPage.locator('section:has(h3:has-text("Account Information"))')).toBeVisible({
+    timeout: 20000,
+  });
   const snapshot = await userPage.evaluate(() => {
     const sessionEntries: Array<[string, string | null]> = [];
     for (let index = 0; index < window.sessionStorage.length; index += 1) {
