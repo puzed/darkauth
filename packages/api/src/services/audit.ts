@@ -1,7 +1,7 @@
 import type { IncomingMessage } from "node:http";
 import { and, asc, count, desc, eq, gte, ilike, lte, or, type SQL } from "drizzle-orm";
-import { auditLogs } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { auditLogs } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export interface AuditEvent {
   eventType: string;

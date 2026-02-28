@@ -1,7 +1,7 @@
 import http from "node:http";
-import type { Context, Route } from "./types";
-import { initDemoSchema } from "./models/notes";
-import { getRoutes } from "./controllers/routes";
+import type { Context, Route } from "./types.ts";
+import { initDemoSchema } from "./models/notes.ts";
+import { getRoutes } from "./controllers/routes.ts";
 
 function sendCorsHeaders(request: http.IncomingMessage, response: http.ServerResponse) {
   const origin = request.headers.origin as string | undefined;

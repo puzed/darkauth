@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
 export const UpdateUserGroupsSchema = z.object({
   groups: z.array(z.string()),
 });
@@ -21,11 +21,11 @@ export const UpdateUserGroupsResponseSchema = z.object({
   ),
 });
 
-import { setUserGroups } from "../../models/groups.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
+import { setUserGroups } from "../../models/groups.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 async function updateUserGroupsHandler(
   context: Context,

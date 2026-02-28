@@ -1,12 +1,12 @@
 import type { Server } from "node:http";
 import type { Socket } from "node:net";
-import { hasConfigFile, loadRootConfig } from "./config/loadConfig.js";
-import { createContext } from "./context/createContext.js";
-import { createAdminServer, createUserServer } from "./http/createServer.js";
-import { getLatestSigningKey } from "./services/jwks.js";
-import { getSetting, isSystemInitialized } from "./services/settings.js";
-import type { Config, Context } from "./types.js";
-import { generateRandomString } from "./utils/crypto.js";
+import { hasConfigFile, loadRootConfig } from "./config/loadConfig.ts";
+import { createContext } from "./context/createContext.ts";
+import { createAdminServer, createUserServer } from "./http/createServer.ts";
+import { getLatestSigningKey } from "./services/jwks.ts";
+import { getSetting, isSystemInitialized } from "./services/settings.ts";
+import type { Config, Context } from "./types.ts";
+import { generateRandomString } from "./utils/crypto.ts";
 
 export type AppServer = {
   userServer: Server;
@@ -127,7 +127,7 @@ export async function createServer(initialContext: Context): Promise<AppServer> 
     context.restart = restart;
     try {
       const { count } = await import("drizzle-orm");
-      const { adminUsers } = await import("./db/schema.js");
+      const { adminUsers } = await import("./db/schema.ts");
       const c = await context.db.select({ c: count() }).from(adminUsers);
       context.logger.info(
         {

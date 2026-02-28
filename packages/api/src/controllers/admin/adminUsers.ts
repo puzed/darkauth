@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { listAdminUsers } from "../../models/adminUsers.js";
+import { ForbiddenError } from "../../errors.ts";
+import { listAdminUsers } from "../../models/adminUsers.ts";
 import {
   listPageOpenApiQuerySchema,
   listPageQuerySchema,
   listSearchQuerySchema,
-} from "./listQueryBounds.js";
+} from "./listQueryBounds.ts";
 
 const AdminRoleSchema = z.enum(["read", "write"]);
 const AdminUserSchema = z.object({
@@ -30,9 +30,9 @@ export const AdminUsersListResponseSchema = z.object({
   pagination: PaginationSchema,
 });
 
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJsonValidated } from "../../utils/http.js";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJsonValidated } from "../../utils/http.ts";
 
 export async function getAdminUsers(
   context: Context,

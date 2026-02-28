@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { userOpaqueRegisterFinish } from "../../models/registration.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { getSetting } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { userOpaqueRegisterFinish } from "../../models/registration.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { getSetting } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendError, sendJson } from "../../utils/http.ts";
 
 export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
   body && typeof body === "object" && "email" in body

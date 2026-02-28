@@ -1,16 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { withRateLimit } from "../../middleware/rateLimit.js";
-import { verifyOtpCode } from "../../models/otp.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
+import { verifyOtpCode } from "../../models/otp.ts";
 import {
   getSessionIdFromAuthHeader,
   requireSession,
   updateSession,
-} from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+} from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export const postOtpVerify = withAudit({ eventType: "OTP_VERIFY", resourceType: "user" })(
   withRateLimit("otp_verify")(async function postOtpVerify(

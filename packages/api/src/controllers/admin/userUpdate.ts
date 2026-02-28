@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { updateUserBasic } from "../../models/users.js";
-import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { updateUserBasic } from "../../models/users.ts";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 const Req = z
   .object({
@@ -28,7 +28,7 @@ async function updateUserHandler(
   response: ServerResponse,
   sub: string
 ): Promise<void> {
-  const sessionData = await (await import("../../services/sessions.js")).requireSession(
+  const sessionData = await (await import("../../services/sessions.ts")).requireSession(
     context,
     request,
     true

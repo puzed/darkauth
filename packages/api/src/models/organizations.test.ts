@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
-import { createPglite } from "../db/pglite.js";
+import { createPglite } from "../db/pglite.ts";
 import {
   organizationInvites,
   organizationMemberRoles,
@@ -14,10 +14,10 @@ import {
   rolePermissions,
   roles,
   users,
-} from "../db/schema.js";
-import { ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
-import { createOrganizationInvite } from "./organizations.js";
+} from "../db/schema.ts";
+import { ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
+import { createOrganizationInvite } from "./organizations.ts";
 
 function createLogger() {
   return {

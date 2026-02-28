@@ -1,10 +1,10 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import path from "node:path";
 import fs from "node:fs";
-import * as schema from "../src/db/schema.js";
+import * as schema from "../src/db/schema.ts";
 
 async function main() {
   const dir = path.resolve(process.cwd(), "data/pglite-test");
@@ -33,4 +33,3 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
-

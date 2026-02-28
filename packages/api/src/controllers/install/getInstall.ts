@@ -5,11 +5,11 @@ import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
   ForbiddenInstallTokenError,
-} from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { isSystemInitialized } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { parseQueryParams, sendJson } from "../../utils/http.js";
+} from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { isSystemInitialized } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { parseQueryParams, sendJson } from "../../utils/http.ts";
 
 const InstallResponseSchema = z.object({
   ok: z.boolean(),

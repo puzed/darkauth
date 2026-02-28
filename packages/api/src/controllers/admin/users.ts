@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import type { Context, ControllerSchema } from "../../types.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
 import {
   listPageOpenApiQuerySchema,
   listPageQuerySchema,
   listSearchQuerySchema,
-} from "./listQueryBounds.js";
+} from "./listQueryBounds.ts";
 
 const UserSchema = z.object({
   sub: z.string(),
@@ -38,9 +38,9 @@ export const UsersListResponseSchema = z.object({
   pagination: PaginationSchema,
 });
 
-import { listUsers } from "../../models/users.js";
-import { requireSession } from "../../services/sessions.js";
-import { sendJsonValidated } from "../../utils/http.js";
+import { listUsers } from "../../models/users.ts";
+import { requireSession } from "../../services/sessions.ts";
+import { sendJsonValidated } from "../../utils/http.ts";
 
 export async function getUsers(
   context: Context,

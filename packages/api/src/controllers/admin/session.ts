@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { UnauthorizedError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
+import { UnauthorizedError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
 export const AdminSessionResponseSchema = z.object({
   authenticated: z.boolean(),
   adminId: z.string().uuid(),
@@ -13,10 +13,10 @@ export const AdminSessionResponseSchema = z.object({
   otpVerified: z.boolean().optional(),
 });
 
-import { getAdminById } from "../../models/adminUsers.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJsonValidated } from "../../utils/http.js";
+import { getAdminById } from "../../models/adminUsers.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJsonValidated } from "../../utils/http.ts";
 
 export async function getAdminSession(
   context: Context,

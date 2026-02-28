@@ -1,11 +1,11 @@
 import pino from "pino";
-import { hasConfigFile, loadRootConfig } from "./config/loadConfig.js";
-import { createContext } from "./context/createContext.js";
-import { createServer } from "./createServer.js";
-import { getLatestSigningKey } from "./services/jwks.js";
-import { getSetting, isSystemInitialized } from "./services/settings.js";
-import type { Config } from "./types.js";
-import { generateRandomString } from "./utils/crypto.js";
+import { hasConfigFile, loadRootConfig } from "./config/loadConfig.ts";
+import { createContext } from "./context/createContext.ts";
+import { createServer } from "./createServer.ts";
+import { getLatestSigningKey } from "./services/jwks.ts";
+import { getSetting, isSystemInitialized } from "./services/settings.ts";
+import type { Config } from "./types.ts";
+import { generateRandomString } from "./utils/crypto.ts";
 
 const rootLogger = pino();
 

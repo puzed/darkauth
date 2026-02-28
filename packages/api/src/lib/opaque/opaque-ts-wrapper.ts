@@ -32,8 +32,8 @@ import {
   RegistrationRequest,
   RegistrationResponse,
 } from "opaque-ts";
-import type { Logger } from "../../types.js";
-import { createSecureLogger } from "../secureLogger.js";
+import type { Logger } from "../../types.ts";
+import { createSecureLogger } from "../secureLogger.ts";
 
 export function fromBase64Url(str: string): Uint8Array {
   str = str.replace(/-/g, "+").replace(/_/g, "/");

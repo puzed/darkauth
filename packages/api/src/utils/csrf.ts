@@ -1,5 +1,5 @@
 import type { IncomingMessage } from "node:http";
-import { ForbiddenError } from "../errors.js";
+import { ForbiddenError } from "../errors.ts";
 
 export function isSameOrigin(request: IncomingMessage): boolean {
   const method = request.method || "GET";

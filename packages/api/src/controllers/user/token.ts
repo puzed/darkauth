@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { signJWT } from "../../services/jwks.js";
+import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { signJWT } from "../../services/jwks.ts";
 import {
   createSession,
   getActorFromSessionId,
@@ -11,8 +11,8 @@ import {
   getSession,
   refreshSessionWithToken,
   updateSession,
-} from "../../services/sessions.js";
-import { getSetting } from "../../services/settings.js";
+} from "../../services/sessions.ts";
+import { getSetting } from "../../services/settings.ts";
 import type {
   Context,
   ControllerSchema,
@@ -20,16 +20,16 @@ import type {
   SessionData,
   TokenRequest,
   TokenResponse,
-} from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { constantTimeCompare } from "../../utils/crypto.js";
+} from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { constantTimeCompare } from "../../utils/crypto.ts";
 import {
   decodeBasicAuth,
   parseAuthorizationHeader,
   parseFormBody,
   sendJson,
-} from "../../utils/http.js";
-import { verifyCodeChallenge } from "../../utils/pkce.js";
+} from "../../utils/http.ts";
+import { verifyCodeChallenge } from "../../utils/pkce.ts";
 
 async function resolveIssuer(context: Context): Promise<string> {
   const issuerSetting = await getSetting(context, "issuer");
@@ -188,7 +188,7 @@ export const postToken = withRateLimit("token")(
           const credentials = decodeBasicAuth(basic.credentials);
           if (!credentials)
             throw new UnauthorizedClientError("Invalid Basic authentication format");
-          const client = await (await import("../../models/clients.js")).getClient(
+          const client = await (await import("../../models/clients.ts")).getClient(
             context,
             credentials.username
           );
@@ -203,7 +203,7 @@ export const postToken = withRateLimit("token")(
         } else {
           if (!tokenRequest.client_id)
             throw new InvalidRequestError("client_id is required for public clients");
-          const client = await (await import("../../models/clients.js")).getClient(
+          const client = await (await import("../../models/clients.ts")).getClient(
             context,
             tokenRequest.client_id
           );
@@ -228,20 +228,20 @@ export const postToken = withRateLimit("token")(
         const sessionActor = await getActorFromSessionId(context, rotated.sessionId);
         if (!sessionData || !sessionActor?.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
-        const { getUserBySub } = await import("../../models/users.js");
+        const { getUserBySub } = await import("../../models/users.ts");
         const user = await getUserBySub(context, sessionActor.userSub);
         if (!user) throw new InvalidGrantError("User not found");
         if (!providedClientId) throw new UnauthorizedClientError("Client authentication failed");
-        const client = await (await import("../../models/clients.js")).getClient(
+        const client = await (await import("../../models/clients.ts")).getClient(
           context,
           providedClientId
         );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
         const { getUserOrgAccess, resolveOrganizationContext } = await import(
-          "../../models/rbac.js"
+          "../../models/rbac.ts"
         );
-        const { getUserAccess } = await import("../../models/access.js");
+        const { getUserAccess } = await import("../../models/access.ts");
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
@@ -330,7 +330,7 @@ export const postToken = withRateLimit("token")(
           throw new UnauthorizedClientError("Invalid Basic authentication format");
         }
 
-        const client = await (await import("../../models/clients.js")).getClient(
+        const client = await (await import("../../models/clients.ts")).getClient(
           context,
           credentials.username
         );
@@ -410,7 +410,7 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up authorization code
-      const authCode = await (await import("../../models/authCodes.js")).getAuthCode(
+      const authCode = await (await import("../../models/authCodes.ts")).getAuthCode(
         context,
         tokenRequest.code
       );
@@ -422,7 +422,7 @@ export const postToken = withRateLimit("token")(
 
       // Check if code has expired
       if (new Date() > authCode.expiresAt) {
-        await (await import("../../models/authCodes.js")).deleteAuthCode(
+        await (await import("../../models/authCodes.ts")).deleteAuthCode(
           context,
           tokenRequest.code
         );
@@ -440,7 +440,7 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up client
-      const client = await (await import("../../models/clients.js")).getClient(
+      const client = await (await import("../../models/clients.ts")).getClient(
         context,
         authCode.clientId
       );
@@ -508,15 +508,15 @@ export const postToken = withRateLimit("token")(
       }
 
       // Look up user
-      const { getUserBySub } = await import("../../models/users.js");
+      const { getUserBySub } = await import("../../models/users.ts");
       const user = await getUserBySub(context, authCode.userSub);
 
       if (!user) {
         throw new InvalidGrantError("User not found");
       }
 
-      const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.js");
-      const { getUserAccess } = await import("../../models/access.js");
+      const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
+      const { getUserAccess } = await import("../../models/access.ts");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
         user.sub,
@@ -532,7 +532,7 @@ export const postToken = withRateLimit("token")(
         new Set([...organizationPermissions, ...userAccessPermissions])
       ).sort();
 
-      const codeConsumed = await (await import("../../models/authCodes.js")).consumeAuthCode(
+      const codeConsumed = await (await import("../../models/authCodes.ts")).consumeAuthCode(
         context,
         tokenRequest.code
       );

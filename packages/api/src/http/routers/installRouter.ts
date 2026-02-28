@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getInstall } from "../../controllers/install/getInstall.js";
-import { postInstallOpaqueRegisterFinish } from "../../controllers/install/opaqueRegisterFinish.js";
-import { postInstallOpaqueRegisterStart } from "../../controllers/install/opaqueRegisterStart.js";
-import { postInstallComplete } from "../../controllers/install/postInstallComplete.js";
-import { NotFoundError } from "../../errors.js";
-import type { Context } from "../../types.js";
-import { sendError } from "../../utils/http.js";
+import { getInstall } from "../../controllers/install/getInstall.ts";
+import { postInstallOpaqueRegisterFinish } from "../../controllers/install/opaqueRegisterFinish.ts";
+import { postInstallOpaqueRegisterStart } from "../../controllers/install/opaqueRegisterStart.ts";
+import { postInstallComplete } from "../../controllers/install/postInstallComplete.ts";
+import { NotFoundError } from "../../errors.ts";
+import type { Context } from "../../types.ts";
+import { sendError } from "../../utils/http.ts";
 
 export function createInstallRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {
