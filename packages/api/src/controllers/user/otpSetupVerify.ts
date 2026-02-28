@@ -4,8 +4,10 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { verifyOtpSetup } from "../../models/otp.ts";
 import {
+  getRefreshTokenTtlSeconds,
   getSessionId,
   getSessionTtlSeconds,
+  issueRefreshTokenCookie,
   issueSessionCookies,
   requireSession,
   rotateSession,
@@ -34,7 +36,9 @@ export const postOtpSetupVerify = withAudit({
       const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
       if (rotated) {
         const ttlSeconds = await getSessionTtlSeconds(context, "user");
+        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
         issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
+        issueRefreshTokenCookie(response, rotated.refreshToken, refreshTtlSeconds, false);
       }
     }
     sendJson(response, 200, { success: true, backup_codes: backupCodes });

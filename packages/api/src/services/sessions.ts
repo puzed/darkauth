@@ -10,6 +10,8 @@ export const USER_AUTH_COOKIE_NAME = "__Host-DarkAuth-User";
 export const ADMIN_AUTH_COOKIE_NAME = "__Host-DarkAuth-Admin";
 export const USER_CSRF_COOKIE_NAME = "__Host-DarkAuth-User-Csrf";
 export const ADMIN_CSRF_COOKIE_NAME = "__Host-DarkAuth-Admin-Csrf";
+export const USER_REFRESH_COOKIE_NAME = "__Host-DarkAuth-Refresh";
+export const ADMIN_REFRESH_COOKIE_NAME = "__Host-DarkAuth-Admin-Refresh";
 
 function getAuthCookieName(isAdmin: boolean): string {
   return isAdmin ? ADMIN_AUTH_COOKIE_NAME : USER_AUTH_COOKIE_NAME;
@@ -17,6 +19,10 @@ function getAuthCookieName(isAdmin: boolean): string {
 
 function getCsrfCookieName(isAdmin: boolean): string {
   return isAdmin ? ADMIN_CSRF_COOKIE_NAME : USER_CSRF_COOKIE_NAME;
+}
+
+function getRefreshCookieName(isAdmin: boolean): string {
+  return isAdmin ? ADMIN_REFRESH_COOKIE_NAME : USER_REFRESH_COOKIE_NAME;
 }
 
 function parseCookies(request: IncomingMessage): Record<string, string> {
@@ -132,6 +138,21 @@ export function issueSessionCookies(
   return csrf;
 }
 
+export function issueRefreshTokenCookie(
+  response: ServerResponse,
+  refreshToken: string,
+  ttlSeconds: number,
+  isAdmin = false
+): void {
+  appendSetCookie(
+    response,
+    buildCookie(getRefreshCookieName(isAdmin), refreshToken, {
+      httpOnly: true,
+      maxAge: ttlSeconds,
+    })
+  );
+}
+
 export function clearSessionCookies(response: ServerResponse, isAdmin = false): void {
   const authCookieName = getAuthCookieName(isAdmin);
   const csrfCookieName = getCsrfCookieName(isAdmin);
@@ -151,6 +172,16 @@ export function clearSessionCookies(response: ServerResponse, isAdmin = false): 
   );
 }
 
+export function clearRefreshTokenCookie(response: ServerResponse, isAdmin = false): void {
+  appendSetCookie(
+    response,
+    buildCookie(getRefreshCookieName(isAdmin), "", {
+      httpOnly: true,
+      maxAge: 0,
+    })
+  );
+}
+
 export function getSessionIdFromCookie(request: IncomingMessage, isAdmin = false): string | null {
   const cookies = parseCookies(request);
   const sessionId = cookies[getAuthCookieName(isAdmin)];
@@ -161,6 +192,23 @@ export function getCsrfCookieToken(request: IncomingMessage, isAdmin = false): s
   const cookies = parseCookies(request);
   const token = cookies[getCsrfCookieName(isAdmin)];
   return typeof token === "string" && token.length > 0 ? token : null;
+}
+
+export function getRefreshTokenFromCookie(
+  request: IncomingMessage,
+  isAdmin = false
+): string | null {
+  const cookies = parseCookies(request);
+  const token = cookies[getRefreshCookieName(isAdmin)];
+  return typeof token === "string" && token.length > 0 ? token : null;
+}
+
+export async function getRefreshTokenTtlSeconds(
+  context: Context,
+  cohort: "user" | "admin"
+): Promise<number> {
+  const { refreshMs } = await getDurations(context, cohort);
+  return Math.floor(refreshMs / 1000);
 }
 
 export async function createSession(

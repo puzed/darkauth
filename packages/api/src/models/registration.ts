@@ -34,6 +34,7 @@ export async function userOpaqueRegisterFinish(
     return {
       sub: genFakeId(16),
       sessionId: genFakeId(32),
+      refreshToken: genFakeId(64),
     };
   }
 
@@ -77,5 +78,5 @@ export async function userOpaqueRegisterFinish(
     name: data.name,
     clientId: "demo-public-client",
   });
-  return { sub, sessionId: sessionInfo.sessionId };
+  return { sub, sessionId: sessionInfo.sessionId, refreshToken: sessionInfo.refreshToken };
 }
