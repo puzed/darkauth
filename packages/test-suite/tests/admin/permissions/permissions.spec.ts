@@ -189,7 +189,8 @@ test.describe('Admin - Permissions Management', () => {
       method: 'DELETE',
       headers: {
         Cookie: adminSession.cookieHeader,
-        'Origin': servers.adminUrl
+        'Origin': servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       }
     });
 

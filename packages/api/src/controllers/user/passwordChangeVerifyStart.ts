@@ -5,10 +5,10 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getUserOpaqueRecordByEmail } from "../../models/users.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
+import { requirePasswordChangeIdentity } from "./passwordAuth.ts";
 
 async function postUserPasswordVerifyStartHandler(
   context: Context,
@@ -17,8 +17,8 @@ async function postUserPasswordVerifyStartHandler(
 ): Promise<void> {
   const opaque = await requireOpaqueService(context);
 
-  const session = await requireSession(context, request, false);
-  if (!session.email) throw new ValidationError("Email not available for session");
+  const identity = await requirePasswordChangeIdentity(context, request);
+  const email = identity.email;
 
   const body = await getCachedBody(request);
   const data = parseJsonSafely(body);
@@ -34,7 +34,7 @@ async function postUserPasswordVerifyStartHandler(
     throw new ValidationError("Invalid base64url encoding in request");
   }
 
-  const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(context, session.email);
+  const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(context, email);
   if (!user || !envelope || !serverPubkey) {
     throw new ValidationError("User has no authentication record");
   }
@@ -61,7 +61,7 @@ async function postUserPasswordVerifyStartHandler(
       path: "/password/change/verify/start",
       envelopeLen: envelopeBuf.length,
       serverPubkeyLen: serverPubkeyBuf.length,
-      email: session.email,
+      email,
     },
     "password verify start pre"
   );
@@ -74,13 +74,13 @@ async function postUserPasswordVerifyStartHandler(
         envelope: new Uint8Array(envelopeBuf),
         serverPublicKey: new Uint8Array(serverPubkeyBuf),
       },
-      session.email
+      email
     );
   } catch (err) {
     context.logger.error(
       {
         path: "/password/change/verify/start",
-        email: session.email,
+        email,
         error: (err as Error)?.message,
       },
       "password verify start failed"
