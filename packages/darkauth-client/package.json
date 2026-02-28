@@ -1,6 +1,6 @@
 {
   "name": "@darkauth/client",
-  "version": "0.2.1",
+  "version": "1.4.3",
   "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
