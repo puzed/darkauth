@@ -71,6 +71,20 @@
       "when": 1772009400000,
       "tag": "0010_org_scoped_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772265600000,
+      "tag": "0012_dashboard_position",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1772269200000,
+      "tag": "0013_client_dashboard_icons",
+      "breakpoints": true
     }
   ]
 }

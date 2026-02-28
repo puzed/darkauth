@@ -31,6 +31,18 @@ async function updateClientHandler(
     zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
     zkRequired: z.boolean().optional(),
     showOnUserDashboard: z.boolean().optional(),
+    dashboardPosition: z.number().int().min(0).optional(),
+    appUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+    dashboardIconMode: z.enum(["letter", "emoji", "upload"]).optional(),
+    dashboardIconEmoji: z.string().max(16).nullable().optional(),
+    dashboardIconLetter: z.string().max(2).nullable().optional(),
+    dashboardIconUpload: z
+      .object({
+        data: z.string(),
+        mimeType: z.string(),
+      })
+      .nullable()
+      .optional(),
     allowedJweAlgs: z.array(z.string()).optional(),
     allowedJweEncs: z.array(z.string()).optional(),
     redirectUris: z.array(z.string()).optional(),
@@ -42,8 +54,42 @@ async function updateClientHandler(
     idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
     refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
   });
-  const updates = Req.parse(parsed as unknown);
-  await updateClient(context, clientId, updates);
+  const parsedUpdates = Req.parse(parsed as unknown);
+  const updates: Record<string, unknown> = { ...parsedUpdates };
+  if (parsedUpdates.appUrl === "") {
+    updates.appUrl = null;
+  }
+  const iconMode = parsedUpdates.dashboardIconMode;
+  if (iconMode) {
+    if (iconMode === "emoji") {
+      if (Object.hasOwn(parsedUpdates, "dashboardIconEmoji")) {
+        updates.dashboardIconEmoji = parsedUpdates.dashboardIconEmoji?.trim() || null;
+      }
+      updates.dashboardIconLetter = null;
+    }
+    if (iconMode === "letter") {
+      if (Object.hasOwn(parsedUpdates, "dashboardIconLetter")) {
+        updates.dashboardIconLetter = parsedUpdates.dashboardIconLetter?.trim() || null;
+      }
+      updates.dashboardIconEmoji = null;
+    }
+    if (iconMode !== "upload") {
+      updates.dashboardIconData = null;
+      updates.dashboardIconMimeType = null;
+    }
+  }
+  const iconUpload = parsedUpdates.dashboardIconUpload as
+    | { data: string; mimeType: string }
+    | null
+    | undefined;
+  if (iconUpload) {
+    updates.dashboardIconData = Buffer.from(iconUpload.data, "base64");
+    updates.dashboardIconMimeType = iconUpload.mimeType;
+  } else if (iconUpload === null) {
+    updates.dashboardIconData = null;
+    updates.dashboardIconMimeType = null;
+  }
+  await updateClient(context, clientId, updates as Parameters<typeof updateClient>[2]);
 
   sendJson(response, 200, { success: true });
 }
@@ -70,6 +116,18 @@ const Req = z.object({
   zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
   zkRequired: z.boolean().optional(),
   showOnUserDashboard: z.boolean().optional(),
+  dashboardPosition: z.number().int().min(0).optional(),
+  appUrl: z.union([z.string().url(), z.literal(""), z.null()]).optional(),
+  dashboardIconMode: z.enum(["letter", "emoji", "upload"]).optional(),
+  dashboardIconEmoji: z.string().max(16).nullable().optional(),
+  dashboardIconLetter: z.string().max(2).nullable().optional(),
+  dashboardIconUpload: z
+    .object({
+      data: z.string(),
+      mimeType: z.string(),
+    })
+    .nullable()
+    .optional(),
   allowedJweAlgs: z.array(z.string()).optional(),
   allowedJweEncs: z.array(z.string()).optional(),
   redirectUris: z.array(z.string()).optional(),

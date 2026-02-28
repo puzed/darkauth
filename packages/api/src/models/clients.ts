@@ -55,6 +55,11 @@ export async function listClients(
           clientId: clients.clientId,
           name: clients.name,
           showOnUserDashboard: clients.showOnUserDashboard,
+          dashboardPosition: clients.dashboardPosition,
+          appUrl: clients.appUrl,
+          dashboardIconMode: clients.dashboardIconMode,
+          dashboardIconEmoji: clients.dashboardIconEmoji,
+          dashboardIconLetter: clients.dashboardIconLetter,
           type: clients.type,
           tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
           requirePkce: clients.requirePkce,
@@ -80,6 +85,11 @@ export async function listClients(
           clientId: clients.clientId,
           name: clients.name,
           showOnUserDashboard: clients.showOnUserDashboard,
+          dashboardPosition: clients.dashboardPosition,
+          appUrl: clients.appUrl,
+          dashboardIconMode: clients.dashboardIconMode,
+          dashboardIconEmoji: clients.dashboardIconEmoji,
+          dashboardIconLetter: clients.dashboardIconLetter,
           type: clients.type,
           tokenEndpointAuthMethod: clients.tokenEndpointAuthMethod,
           requirePkce: clients.requirePkce,
@@ -125,6 +135,14 @@ export async function createClient(
     name: string;
     type: "public" | "confidential";
     tokenEndpointAuthMethod?: "none" | "client_secret_basic";
+    showOnUserDashboard?: boolean;
+    dashboardPosition?: number;
+    appUrl?: string;
+    dashboardIconMode?: "letter" | "emoji" | "upload";
+    dashboardIconEmoji?: string | null;
+    dashboardIconLetter?: string | null;
+    dashboardIconMimeType?: string | null;
+    dashboardIconData?: Buffer | null;
     requirePkce?: boolean;
     zkDelivery?: "none" | "fragment-jwe";
     zkRequired?: boolean;
@@ -157,6 +175,14 @@ export async function createClient(
     name: data.name,
     type: data.type,
     tokenEndpointAuthMethod,
+    showOnUserDashboard: data.showOnUserDashboard ?? false,
+    dashboardPosition: data.dashboardPosition ?? 0,
+    appUrl: data.appUrl ?? null,
+    dashboardIconMode: data.dashboardIconMode ?? "letter",
+    dashboardIconEmoji: data.dashboardIconEmoji ?? null,
+    dashboardIconLetter: data.dashboardIconLetter ?? null,
+    dashboardIconMimeType: data.dashboardIconMimeType ?? null,
+    dashboardIconData: data.dashboardIconData ?? null,
     clientSecretEnc,
     requirePkce: data.requirePkce ?? true,
     zkDelivery: data.zkDelivery ?? "none",
@@ -252,14 +278,40 @@ export async function listVisibleApps(context: Context) {
       description: clients.description,
       url: clients.appUrl,
       logoUrl: clients.logoUrl,
+      dashboardPosition: clients.dashboardPosition,
+      dashboardIconMode: clients.dashboardIconMode,
+      dashboardIconEmoji: clients.dashboardIconEmoji,
+      dashboardIconLetter: clients.dashboardIconLetter,
+      dashboardIconMimeType: clients.dashboardIconMimeType,
     })
     .from(clients)
-    .where(eq(clients.showOnUserDashboard, true));
+    .where(eq(clients.showOnUserDashboard, true))
+    .orderBy(asc(clients.dashboardPosition), asc(clients.name), asc(clients.clientId));
   return rows.map((app) => ({
     id: app.id,
     name: app.name,
     description: app.description || undefined,
     url: app.url || undefined,
     logoUrl: app.logoUrl || undefined,
+    iconMode: app.dashboardIconMode,
+    iconEmoji: app.dashboardIconEmoji || undefined,
+    iconLetter: app.dashboardIconLetter || undefined,
+    iconUrl:
+      app.dashboardIconMode === "upload" && app.dashboardIconMimeType
+        ? `/api/client-icons/${encodeURIComponent(app.id)}`
+        : undefined,
   }));
+}
+
+export async function getClientDashboardIcon(context: Context, clientId: string) {
+  const row = await context.db.query.clients.findFirst({
+    where: eq(clients.clientId, clientId),
+    columns: {
+      dashboardIconMode: true,
+      dashboardIconData: true,
+      dashboardIconMimeType: true,
+    },
+  });
+  if (!row) return null;
+  return row;
 }
