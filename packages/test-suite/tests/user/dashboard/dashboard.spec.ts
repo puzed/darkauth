@@ -34,8 +34,9 @@ test.describe('User Dashboard', () => {
     await page.fill('input[name="password"], input[type="password"]', user.password)
     await page.click('button[type="submit"], button:has-text("Sign In")')
 
-    await expect(page.getByRole('heading', { name: /Successfully authenticated/i })).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole('heading', { name: new RegExp(`Welcome\\s+back,\\s*${user.name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}`, 'i') })).toBeVisible()
+    await page.waitForURL(/\/dashboard/i, { timeout: 15000 })
+    const appsSection = page.locator('section:has(h3:has-text("Your Applications"))')
+    await expect(appsSection).toBeVisible()
     const accountSection = page.locator('section:has(h3:has-text("Account Information"))')
     await expect(accountSection).toBeVisible()
     await expect(accountSection.getByText(user.name, { exact: false })).toBeVisible()
