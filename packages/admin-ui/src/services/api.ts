@@ -195,6 +195,11 @@ export interface Client {
   clientId: string;
   name: string;
   showOnUserDashboard?: boolean;
+  dashboardPosition?: number;
+  appUrl?: string | null;
+  dashboardIconMode?: "letter" | "emoji" | "upload";
+  dashboardIconEmoji?: string | null;
+  dashboardIconLetter?: string | null;
   type: "public" | "confidential";
   tokenEndpointAuthMethod: "none" | "client_secret_basic";
   requirePkce: boolean;
@@ -226,6 +231,12 @@ export interface CreateClientRequest {
   type: "public" | "confidential";
   tokenEndpointAuthMethod: "none" | "client_secret_basic";
   showOnUserDashboard?: boolean;
+  dashboardPosition?: number;
+  appUrl?: string;
+  dashboardIconMode?: "letter" | "emoji" | "upload";
+  dashboardIconEmoji?: string | null;
+  dashboardIconLetter?: string | null;
+  dashboardIconUpload?: { data: string; mimeType: string } | null;
   requirePkce?: boolean;
   zkDelivery?: "none" | "fragment-jwe";
   zkRequired?: boolean;

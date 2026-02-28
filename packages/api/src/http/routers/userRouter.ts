@@ -42,6 +42,7 @@ import { putWrappedDrk } from "../../controllers/user/wrappedDrkPut.js";
 import { getWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivGet.js";
 import { putWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivPut.js";
 import { NotFoundError } from "../../errors.js";
+import { getClientDashboardIcon } from "../../models/clients.js";
 import { sanitizeCSS } from "../../services/branding.js";
 import { getSetting } from "../../services/settings.js";
 import type { Context } from "../../types.js";
@@ -327,6 +328,27 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/apps") {
         return await getUserApps(context, request, response);
+      }
+
+      const clientIconMatch = pathname.match(/^\/client-icons\/([^/]+)$/);
+      if (method === "GET" && clientIconMatch) {
+        const icon = await getClientDashboardIcon(
+          context,
+          decodeURIComponent(clientIconMatch[1] as string)
+        );
+        if (
+          !icon ||
+          icon.dashboardIconMode !== "upload" ||
+          !icon.dashboardIconData ||
+          !icon.dashboardIconMimeType
+        ) {
+          throw new NotFoundError("Icon not found");
+        }
+        response.statusCode = 200;
+        response.setHeader("Content-Type", icon.dashboardIconMimeType);
+        response.setHeader("Cache-Control", "public, max-age=86400");
+        response.end(icon.dashboardIconData);
+        return;
       }
 
       if (method === "POST" && pathname === "/logout") {

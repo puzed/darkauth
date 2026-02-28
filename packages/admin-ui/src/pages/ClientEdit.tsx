@@ -6,6 +6,7 @@ import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileInput } from "@/components/ui/file-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,6 +28,8 @@ const parseList = (v: string) =>
     .split(/\r?\n|,\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
+const DEFAULT_DASHBOARD_EMOJI = "🚀";
+const DEFAULT_DASHBOARD_LETTER = "D";
 
 function FieldLabel({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -83,6 +86,12 @@ export default function ClientEdit() {
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
     showOnUserDashboard: false,
+    dashboardPosition: "0",
+    appUrl: "",
+    dashboardIconMode: "letter" as "letter" | "emoji" | "upload",
+    dashboardIconEmoji: "",
+    dashboardIconLetter: "",
+    dashboardIconUpload: null as { data: string; mimeType: string } | null,
     redirectUris: "",
     postLogoutRedirectUris: "",
     grantTypes: "",
@@ -117,6 +126,18 @@ export default function ClientEdit() {
         clientId: c.clientId,
         name: c.name,
         showOnUserDashboard: !!c.showOnUserDashboard,
+        dashboardPosition: String(c.dashboardPosition ?? 0),
+        appUrl: c.appUrl || "",
+        dashboardIconMode: c.dashboardIconMode || "letter",
+        dashboardIconEmoji:
+          c.dashboardIconMode === "emoji"
+            ? c.dashboardIconEmoji || DEFAULT_DASHBOARD_EMOJI
+            : c.dashboardIconEmoji || "",
+        dashboardIconLetter:
+          c.dashboardIconMode === "letter"
+            ? c.dashboardIconLetter || DEFAULT_DASHBOARD_LETTER
+            : c.dashboardIconLetter || "",
+        dashboardIconUpload: null,
         type: c.type,
         tokenEndpointAuthMethod: c.tokenEndpointAuthMethod,
         requirePkce: c.requirePkce,
@@ -160,6 +181,19 @@ export default function ClientEdit() {
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
         showOnUserDashboard: form.showOnUserDashboard,
+        dashboardPosition: Number(form.dashboardPosition || "0"),
+        appUrl: form.appUrl.trim(),
+        dashboardIconMode: form.dashboardIconMode,
+        dashboardIconEmoji:
+          form.dashboardIconMode === "emoji"
+            ? form.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
+            : null,
+        dashboardIconLetter:
+          form.dashboardIconMode === "letter"
+            ? form.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
+            : null,
+        dashboardIconUpload:
+          form.dashboardIconMode === "upload" ? form.dashboardIconUpload || undefined : null,
         redirectUris: parseList(form.redirectUris),
         postLogoutRedirectUris: parseList(form.postLogoutRedirectUris),
         grantTypes: parseList(form.grantTypes),
@@ -217,6 +251,9 @@ export default function ClientEdit() {
           <TabsList className={styles.tabsList}>
             <TabsTrigger value="identity" className={styles.tabsTrigger}>
               Identity
+            </TabsTrigger>
+            <TabsTrigger value="dashboard" className={styles.tabsTrigger}>
+              Dashboard
             </TabsTrigger>
             <TabsTrigger value="security" className={styles.tabsTrigger}>
               Security
@@ -383,6 +420,143 @@ export default function ClientEdit() {
                       Public clients with auth method <code>none</code> will not have a secret.
                     </FieldHint>
                   </FormField>
+                </FormGrid>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="dashboard" className={styles.tabsContent}>
+            <Card className={styles.tabCard}>
+              <CardHeader>
+                <CardTitle>Dashboard</CardTitle>
+                <CardDescription>
+                  Configure how this client appears in the end-user dashboard.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FormGrid columns={1}>
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Icon Type"
+                        tooltip="Choose whether this app uses a letter, an emoji, or an uploaded icon."
+                      />
+                    }
+                  >
+                    <Select
+                      value={form.dashboardIconMode}
+                      onValueChange={(v) =>
+                        setForm((f) => {
+                          const mode = v as "letter" | "emoji" | "upload";
+                          return {
+                            ...f,
+                            dashboardIconMode: mode,
+                            dashboardIconEmoji:
+                              mode === "emoji"
+                                ? f.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
+                                : f.dashboardIconEmoji,
+                            dashboardIconLetter:
+                              mode === "letter"
+                                ? f.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
+                                : f.dashboardIconLetter,
+                          };
+                        })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="emoji">Emoji</SelectItem>
+                        <SelectItem value="letter">Letter</SelectItem>
+                        <SelectItem value="upload">Upload icon</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormField>
+
+                  {form.dashboardIconMode === "emoji" && (
+                    <FormField
+                      label={
+                        <FieldLabel
+                          title="Emoji"
+                          tooltip="Displayed in the app icon slot on the user dashboard."
+                        />
+                      }
+                    >
+                      <Input
+                        value={form.dashboardIconEmoji}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, dashboardIconEmoji: e.target.value }))
+                        }
+                        placeholder={DEFAULT_DASHBOARD_EMOJI}
+                        maxLength={16}
+                      />
+                    </FormField>
+                  )}
+
+                  {form.dashboardIconMode === "letter" && (
+                    <FormField
+                      label={
+                        <FieldLabel
+                          title="Letter"
+                          tooltip="Single character shown for the app icon."
+                        />
+                      }
+                    >
+                      <Input
+                        value={form.dashboardIconLetter}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, dashboardIconLetter: e.target.value }))
+                        }
+                        placeholder={DEFAULT_DASHBOARD_LETTER}
+                        maxLength={2}
+                      />
+                    </FormField>
+                  )}
+
+                  {form.dashboardIconMode === "upload" && (
+                    <FormField
+                      label={
+                        <FieldLabel
+                          title="Upload Icon"
+                          tooltip="Uploads an image and stores it for this app icon."
+                        />
+                      }
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <FileInput
+                          accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/webp"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const buf = await file.arrayBuffer();
+                            const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                            setForm((f) => ({
+                              ...f,
+                              dashboardIconUpload: { data: b64, mimeType: file.type },
+                            }));
+                          }}
+                        />
+                        {form.dashboardIconUpload?.data ? (
+                          <img
+                            src={`data:${form.dashboardIconUpload.mimeType};base64,${form.dashboardIconUpload.data}`}
+                            alt="Icon preview"
+                            style={{ width: 28, height: 28, objectFit: "contain" }}
+                          />
+                        ) : (
+                          <img
+                            src={`/api/client-icons/${encodeURIComponent(form.clientId)}`}
+                            alt="Current icon"
+                            style={{ width: 28, height: 28, objectFit: "contain" }}
+                            onError={(ev) => {
+                              const target = ev.currentTarget as HTMLImageElement;
+                              target.style.display = "none";
+                            }}
+                          />
+                        )}
+                      </div>
+                    </FormField>
+                  )}
 
                   <FormField
                     label={
@@ -408,6 +582,47 @@ export default function ClientEdit() {
                     </Select>
                     <FieldHint>
                       Presentation toggle only; no effect on token validation behavior.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Dashboard Position"
+                        tooltip="Lower numbers appear first. Use this to control the display order of apps."
+                      />
+                    }
+                  >
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.dashboardPosition}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, dashboardPosition: e.target.value }))
+                      }
+                    />
+                    <FieldHint>
+                      Sort index used for user dashboard ordering. <code>0</code> appears before{" "}
+                      <code>10</code>.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="URL"
+                        tooltip="Destination URL opened when users click this app card in the dashboard."
+                      />
+                    }
+                  >
+                    <Input
+                      type="url"
+                      placeholder="https://app.example.com"
+                      value={form.appUrl}
+                      onChange={(e) => setForm((f) => ({ ...f, appUrl: e.target.value }))}
+                    />
+                    <FieldHint>
+                      Leave empty to show the app as non-clickable in the user dashboard.
                     </FieldHint>
                   </FormField>
                 </FormGrid>

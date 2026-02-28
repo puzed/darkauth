@@ -75,6 +75,7 @@ import { updateUserPermissions } from "../../controllers/admin/userPermissionsUp
 import { getUsers } from "../../controllers/admin/users.js";
 import { updateUser } from "../../controllers/admin/userUpdate.js";
 import { NotFoundError, UnauthorizedError } from "../../errors.js";
+import { getClientDashboardIcon } from "../../models/clients.js";
 import { getSessionId } from "../../services/sessions.js";
 import type { Context } from "../../types.js";
 import { assertSameOrigin } from "../../utils/csrf.js";
@@ -95,7 +96,9 @@ export function createAdminRouter(context: Context) {
       ];
 
       // Check authentication for all endpoints except whitelisted ones
-      const isPublicEndpoint = publicEndpoints.includes(pathname);
+      const isPublicClientIconEndpoint =
+        method === "GET" && /^\/client-icons\/[^/]+$/.test(pathname);
+      const isPublicEndpoint = publicEndpoints.includes(pathname) || isPublicClientIconEndpoint;
       const isSessionCheck = pathname === "/admin/session";
 
       if (!isPublicEndpoint && !isSessionCheck) {
@@ -424,6 +427,27 @@ export function createAdminRouter(context: Context) {
           return await updateClientController(context, request, response, clientId as string);
         if (method === "DELETE")
           return await deleteClientController(context, request, response, clientId as string);
+      }
+
+      const clientIconMatch = pathname.match(/^\/client-icons\/([^/]+)$/);
+      if (method === "GET" && clientIconMatch) {
+        const icon = await getClientDashboardIcon(
+          context,
+          decodeURIComponent(clientIconMatch[1] as string)
+        );
+        if (
+          !icon ||
+          icon.dashboardIconMode !== "upload" ||
+          !icon.dashboardIconData ||
+          !icon.dashboardIconMimeType
+        ) {
+          throw new NotFoundError("Icon not found");
+        }
+        response.statusCode = 200;
+        response.setHeader("Content-Type", icon.dashboardIconMimeType);
+        response.setHeader("Cache-Control", "public, max-age=86400");
+        response.end(icon.dashboardIconData);
+        return;
       }
 
       if (pathname === "/admin/settings") {
