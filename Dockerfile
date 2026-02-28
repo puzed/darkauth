@@ -15,7 +15,6 @@ RUN npm prune --omit=dev
 FROM node:20-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-ENV NODE_OPTIONS="--disable-warning=ExperimentalWarning --experimental-transform-types"
 RUN apk add --no-cache libstdc++ && npm install -g pm2@5
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
@@ -29,4 +28,4 @@ COPY --from=builder /app/packages/admin-ui/package.json ./packages/admin-ui/pack
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
 COPY --from=builder /app/packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
-CMD ["pm2-runtime","packages/api/src/main.ts","--name","darkauth"]
+CMD ["pm2-runtime","--node-args=--disable-warning=ExperimentalWarning --experimental-transform-types","packages/api/src/main.ts","--name","darkauth"]
