@@ -1,20 +1,20 @@
 {
 	"name": "@DarkAuth/api",
-	"version": "1.0.0",
+	"version": "0.0.0",
 	"license": "AGPL-3.0",
 	"description": "DarkAuth API server with OPAQUE authentication and OIDC compatibility",
 	"type": "module",
 	"main": "src/main.ts",
   "scripts": {
-    "dev": "node --disable-warning=ExperimentalWarning --experimental-transform-types --watch src/main.ts",
+    "dev": "node --watch src/main.ts",
     "build": "tsc --noEmit",
-    "start": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/main.ts",
-    "test": "node --disable-warning=ExperimentalWarning --experimental-transform-types --test src/**/*.test.ts",
+    "start": "node src/main.ts",
+    "test": "node --test src/**/*.test.ts",
     "db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate": "node --disable-warning=ExperimentalWarning --experimental-transform-types src/db/migrate.ts",
-		"db:wipe": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/wipe.ts",
-		"install:script": "node --disable-warning=ExperimentalWarning --experimental-transform-types scripts/install.ts",
+		"db:migrate": "node src/db/migrate.ts",
+		"db:wipe": "node scripts/wipe.ts",
+		"install:script": "node scripts/install.ts",
 		"typecheck": "tsc --noEmit",
 		"format": "biome format --write .",
 		"lint": "biome lint .",
@@ -50,6 +50,6 @@
 		}
 	},
 	"engines": {
-		"node": ">=20.0.0"
+		"node": ">=24.0.0"
 	}
 }

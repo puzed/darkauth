@@ -40,7 +40,7 @@
     "clean": "rm -rf packages/api/data packages/demo-app/data ./config.yaml ../config.yaml ../../config.yaml ../../../config.yaml packages/api/config.yaml && echo \"Clean complete: install state removed.\""
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0"
   },
   "overrides": {
     "esbuild": "^0.25.10"
