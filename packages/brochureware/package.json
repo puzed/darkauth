@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run build && vite",
-    "prebuild": "npm run build -w @DarkAuth/md-to-pdf && node scripts/generate-whitepaper.mjs",
+    "prebuild": "node scripts/generate-whitepaper.mjs",
     "build": "npm run prebuild && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -69,7 +69,6 @@
     "zod": "^4.3.5"
   },
   "devDependencies": {
-    "@DarkAuth/md-to-pdf": "file:../md-to-pdf",
     "@eslint/js": "^9.39.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@tailwindcss/typography": "^0.5.19",
@@ -83,6 +82,7 @@
     "eslint-plugin-react-refresh": "^0.4.26",
     "globals": "^17.0.0",
     "jsdom": "^27.4.0",
+    "md-to-pdf": "^5.2.5",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",

@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { JSDOM } from 'jsdom';
 import mermaid from 'mermaid';
 import { Resvg } from '@resvg/resvg-js';
-import { markdownFileToPdf } from '@DarkAuth/md-to-pdf';
+import { mdToPdf } from 'md-to-pdf';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -104,14 +104,21 @@ async function main() {
     'code{background:#f6f8fa;padding:2px 4px;border-radius:4px}',
     'img{max-width:100%;display:block;margin:8px auto}'
   ].join('');
-  await markdownFileToPdf(tempMdPath, outPath, {
-    css,
-    format: 'A4',
-    margin: { top: '20mm', right: '16mm', bottom: '20mm', left: '16mm' },
-    displayHeaderFooter: true,
-    headerTemplate: '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm}</style><section></section>',
-    footerTemplate: '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm;display:flex;justify-content:flex-end}</style><section><span class="pageNumber"></span> / <span class="totalPages"></span></section>'
-  });
+  await mdToPdf(
+    { path: tempMdPath },
+    {
+      dest: outPath,
+      css,
+      pdf_options: {
+        format: 'A4',
+        margin: { top: '20mm', right: '16mm', bottom: '20mm', left: '16mm' },
+        displayHeaderFooter: true,
+        headerTemplate: '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm}</style><section></section>',
+        footerTemplate:
+          '<style>section{font-size:8px;color:#666;width:100%;padding:0 16mm;display:flex;justify-content:flex-end}</style><section><span class="pageNumber"></span> / <span class="totalPages"></span></section>'
+      }
+    }
+  );
   console.log(`Whitepaper PDF generated at ${outPath}`);
 }
 
