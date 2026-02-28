@@ -5,6 +5,7 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { userOpaqueRegisterFinish } from "../../models/registration.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
+import { getSessionTtlSeconds, issueSessionCookies } from "../../services/sessions.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -75,6 +76,8 @@ export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
           email,
           name,
         });
+        const ttlSeconds = await getSessionTtlSeconds(context, "user");
+        issueSessionCookies(response, result.accessToken, ttlSeconds);
         sendJson(response, 201, { ...result, message: "User registered successfully" });
       } catch (error) {
         sendError(response, error as Error);

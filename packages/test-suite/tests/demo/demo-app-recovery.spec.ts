@@ -2,7 +2,11 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js';
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN, createTestUser } from '../../fixtures/testData.js';
-import { createUserViaAdmin, setUserPasswordViaAdmin } from '../../setup/helpers/auth.js';
+import {
+  createUserViaAdmin,
+  establishUserSession,
+  setUserPasswordViaAdmin,
+} from '../../setup/helpers/auth.js';
 import { configureDemoClient } from '../../setup/helpers/admin.js';
 import { startDemoApiServer, startDemoUiServer, type DemoApiServer, type DemoUiServer } from '../../setup/helpers/demo.js';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
@@ -74,6 +78,10 @@ test.describe('Demo App Recovery', () => {
       password: newPassword,
     });
     const recoveryContext = await browser.newContext();
+    await establishUserSession(recoveryContext, servers, {
+      email: user.email,
+      password: newPassword,
+    });
     const recoveryPage = await recoveryContext.newPage();
     await recoveryPage.addInitScript((payload) => {
       (window as any).__APP_CONFIG__ = payload.config;
@@ -96,12 +104,13 @@ test.describe('Demo App Recovery', () => {
     if (await loginGateButton.isVisible().catch(() => false)) {
       await loginGateButton.click();
     }
-    await recoveryPage.waitForURL((url) => {
-      const href = url.toString();
-      return href.includes('/authorize') || href.startsWith(demoUi.url);
-    }, {
-      timeout: 20000,
-    });
+    await expect.poll(
+      () => {
+        const href = recoveryPage.url();
+        return href.includes('/authorize') || href.startsWith(demoUi.url);
+      },
+      { timeout: 20000 }
+    ).toBe(true);
     const authorizeButton = recoveryPage.locator('button:has-text("Authorize")');
     if (recoveryPage.url().includes('/authorize')) {
       const shouldAuthorize = await Promise.race([
@@ -121,7 +130,10 @@ test.describe('Demo App Recovery', () => {
     await recoveryPage.getByLabel('Current Password').fill(newPassword);
     await recoveryPage.getByLabel('Old Password').fill(user.password);
     await recoveryPage.click('button:has-text("Recover with old password")');
-    await recoveryPage.waitForURL((url) => url.toString().startsWith(`${demoUi.url}/`), { timeout: 30000 });
+    await expect.poll(
+      () => recoveryPage.url().startsWith(`${demoUi.url}/`),
+      { timeout: 30000 }
+    ).toBe(true);
     await recoveryContext.close();
 
     const {
@@ -130,6 +142,10 @@ test.describe('Demo App Recovery', () => {
       sub: freshSub,
     } = await loginUserViaApi(servers, { email: user.email, password: newPassword });
     const freshContext = await browser.newContext();
+    await establishUserSession(freshContext, servers, {
+      email: user.email,
+      password: newPassword,
+    });
     const freshPage = await freshContext.newPage();
     await freshPage.addInitScript((payload) => {
       (window as any).__APP_CONFIG__ = payload.config;
@@ -171,9 +187,10 @@ test.describe('Demo App Recovery', () => {
     if (await freshAuthorizeButton.isVisible()) {
       await expect(freshPage.getByText('Key Recovery')).toHaveCount(0);
       await freshAuthorizeButton.click();
-      await freshPage.waitForURL((url) => url.toString().startsWith(demoUi.url), {
-        timeout: 30000,
-      });
+      await expect.poll(
+        () => freshPage.url().startsWith(demoUi.url),
+        { timeout: 30000 }
+      ).toBe(true);
       await freshPage.waitForLoadState('domcontentloaded');
     }
     await Promise.race([
