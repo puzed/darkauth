@@ -1,4 +1,4 @@
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 ARG APP_VERSION=""
 ARG COMMIT_HASH=""
@@ -10,12 +10,12 @@ COPY packages ./packages
 COPY scripts ./scripts
 RUN npm ci
 RUN npm run build
-RUN npm prune --omit=dev
+RUN npm prune --omit=dev --ignore-scripts
 
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache libstdc++ && npm install -g pm2@5
+RUN apk add --no-cache libstdc++
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/package-lock.json ./package-lock.json
 COPY --from=builder /app/node_modules ./node_modules
@@ -28,4 +28,4 @@ COPY --from=builder /app/packages/admin-ui/package.json ./packages/admin-ui/pack
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
 COPY --from=builder /app/packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
-CMD ["pm2-runtime","--node-args=--disable-warning=ExperimentalWarning --experimental-transform-types","packages/api/src/main.ts","--name","darkauth"]
+CMD ["node","packages/api/src/main.ts"]

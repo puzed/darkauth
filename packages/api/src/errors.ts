@@ -1,20 +1,21 @@
 export class AppError extends Error {
-  constructor(
-    message: string,
-    public code?: string,
-    public statusCode = 500
-  ) {
+  code?: string;
+  statusCode: number;
+
+  constructor(message: string, code?: string, statusCode = 500) {
     super(message);
     this.name = "AppError";
+    this.code = code;
+    this.statusCode = statusCode;
   }
 }
 
 export class ValidationError extends AppError {
-  constructor(
-    message: string,
-    public details?: unknown
-  ) {
+  details?: unknown;
+
+  constructor(message: string, details?: unknown) {
     super(message, "VALIDATION_ERROR", 400);
+    this.details = details;
   }
 }
 
@@ -43,12 +44,13 @@ export class ForbiddenError extends AppError {
 }
 
 export class OAuthError extends AppError {
-  constructor(
-    public error: string,
-    public error_description?: string,
-    statusCode = 400
-  ) {
+  error: string;
+  error_description?: string;
+
+  constructor(error: string, error_description?: string, statusCode = 400) {
     super(error_description || error, error, statusCode);
+    this.error = error;
+    this.error_description = error_description;
   }
 }
 
