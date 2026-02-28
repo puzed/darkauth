@@ -129,7 +129,7 @@ Notational Conventions
 - Sessions/tokens:
   - Standard OIDC protections apply.
   - First-party web profile uses an HttpOnly cookie session at the AS (`__Host-DarkAuth`, `Secure`, `HttpOnly`, `SameSite=Lax`) with CSRF protection.
-  - First-party refresh credential is also an HttpOnly cookie (`__Host-DarkAuth-Refresh`) and MUST NOT be exposed to JavaScript.
+  - First-party refresh credential is also an HttpOnly cookie (`__Host-DarkAuth-User-Refresh`) and MUST NOT be exposed to JavaScript.
   - Silent renewal is performed with standard OAuth refresh grant for a public client (`authorization_code` + PKCE S256).
   - Refresh tokens are rotated single-use, client-bound, and replay-rejected; successful refresh reissues the first-party session cookie.
   - First-party API transport remains cookie-based; bearer access/session tokens are not persisted for first-party API auth.

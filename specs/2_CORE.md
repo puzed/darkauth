@@ -594,7 +594,7 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 * **Session transport (default)**: first-party web apps use cookie session authentication with OAuth refresh-assisted renewal.
   - Cookie name: `__Host-DarkAuth`.
   - Cookie flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
-  - Refresh cookie name: `__Host-DarkAuth-Refresh`, flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
+  - Refresh cookie name: `__Host-DarkAuth-User-Refresh`, flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
   - Session cookie is short-lived and uses explicit `Max-Age`.
   - Session identifier is rotated on login and OTP/privilege state transitions.
   - Silent renewal uses Authorization Code + PKCE issued refresh tokens with OAuth 2.0 refresh grant semantics.

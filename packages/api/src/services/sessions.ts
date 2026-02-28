@@ -10,7 +10,7 @@ export const USER_AUTH_COOKIE_NAME = "__Host-DarkAuth-User";
 export const ADMIN_AUTH_COOKIE_NAME = "__Host-DarkAuth-Admin";
 export const USER_CSRF_COOKIE_NAME = "__Host-DarkAuth-User-Csrf";
 export const ADMIN_CSRF_COOKIE_NAME = "__Host-DarkAuth-Admin-Csrf";
-export const USER_REFRESH_COOKIE_NAME = "__Host-DarkAuth-Refresh";
+export const USER_REFRESH_COOKIE_NAME = "__Host-DarkAuth-User-Refresh";
 export const ADMIN_REFRESH_COOKIE_NAME = "__Host-DarkAuth-Admin-Refresh";
 
 function getAuthCookieName(isAdmin: boolean): string {
