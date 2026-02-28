@@ -6,6 +6,7 @@ import {
 } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { clients } from "../db/schema.ts";
 import { getBrandingConfig, sanitizeCSS } from "../services/branding.ts";
 import { getSetting, isSystemInitialized } from "../services/settings.ts";
 import type { Context } from "../types.ts";
@@ -20,8 +21,79 @@ import { createUserRouter } from "./routers/userRouter.ts";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+type UserCorsPolicy = {
+  cachedAt: number;
+  firstPartyOrigins: Set<string>;
+  publicSpaOrigins: Set<string>;
+};
+
+function normalizeOrigin(value: string): string | null {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+    return parsed.origin;
+  } catch {
+    return null;
+  }
+}
+
+async function buildUserCorsPolicy(context: Context): Promise<UserCorsPolicy> {
+  const firstPartyOrigins = new Set<string>();
+  const publicSpaOrigins = new Set<string>();
+  const configuredPublicOrigin = normalizeOrigin(context.config.publicOrigin);
+  if (configuredPublicOrigin) firstPartyOrigins.add(configuredPublicOrigin);
+  firstPartyOrigins.add(`http://localhost:${context.config.userPort}`);
+  firstPartyOrigins.add(`http://127.0.0.1:${context.config.userPort}`);
+
+  const rows = await context.db
+    .select({
+      type: clients.type,
+      requirePkce: clients.requirePkce,
+      grantTypes: clients.grantTypes,
+      redirectUris: clients.redirectUris,
+      allowedZkOrigins: clients.allowedZkOrigins,
+    })
+    .from(clients);
+
+  for (const row of rows) {
+    const isPublicSpa =
+      row.type === "public" &&
+      row.requirePkce === true &&
+      Array.isArray(row.grantTypes) &&
+      row.grantTypes.includes("authorization_code");
+    if (!isPublicSpa) continue;
+    for (const redirectUri of row.redirectUris || []) {
+      const normalized = normalizeOrigin(redirectUri);
+      if (normalized) publicSpaOrigins.add(normalized);
+    }
+    for (const allowedOrigin of row.allowedZkOrigins || []) {
+      const normalized = normalizeOrigin(allowedOrigin);
+      if (normalized) publicSpaOrigins.add(normalized);
+    }
+  }
+
+  return {
+    cachedAt: Date.now(),
+    firstPartyOrigins,
+    publicSpaOrigins,
+  };
+}
+
+function isUserCorsOriginAllowed(
+  pathname: string,
+  origin: string,
+  policy: UserCorsPolicy
+): boolean {
+  if (policy.firstPartyOrigins.has(origin)) return true;
+  if (pathname === "/token" || pathname === "/api/token") {
+    return policy.publicSpaOrigins.has(origin);
+  }
+  return false;
+}
+
 export async function createUserServer(context: Context) {
   const router = createUserRouter(context);
+  let corsPolicy: UserCorsPolicy | null = null;
   const server = createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
       const url = new URL(request.url || "", `http://${request.headers.host}`);
@@ -113,21 +185,32 @@ export async function createUserServer(context: Context) {
         return;
       }
 
-      const origin = request.headers.origin as string | undefined;
-      if (origin) {
-        response.setHeader("Access-Control-Allow-Origin", origin);
-        response.setHeader("Vary", "Origin");
-        response.setHeader("Access-Control-Allow-Credentials", "true");
-        response.setHeader(
-          "Access-Control-Allow-Headers",
-          request.headers["access-control-request-headers"] || "content-type,authorization"
-        );
-        response.setHeader(
-          "Access-Control-Allow-Methods",
-          request.headers["access-control-request-method"] || "GET,POST,PUT,DELETE,OPTIONS"
-        );
-        if (request.method === "OPTIONS") {
-          response.statusCode = 204;
+      const originHeader = request.headers.origin as string | undefined;
+      if (originHeader) {
+        const origin = normalizeOrigin(originHeader);
+        if (!corsPolicy || Date.now() - corsPolicy.cachedAt > 60_000) {
+          corsPolicy = await buildUserCorsPolicy(context);
+        }
+        if (origin && isUserCorsOriginAllowed(pathname, origin, corsPolicy)) {
+          response.setHeader("Access-Control-Allow-Origin", origin);
+          response.setHeader("Vary", "Origin");
+          response.setHeader("Access-Control-Allow-Credentials", "true");
+          response.setHeader(
+            "Access-Control-Allow-Headers",
+            request.headers["access-control-request-headers"] ||
+              "content-type,authorization,x-csrf-token"
+          );
+          response.setHeader(
+            "Access-Control-Allow-Methods",
+            request.headers["access-control-request-method"] || "GET,POST,PUT,DELETE,OPTIONS"
+          );
+          if (request.method === "OPTIONS") {
+            response.statusCode = 204;
+            response.end();
+            return;
+          }
+        } else if (request.method === "OPTIONS") {
+          response.statusCode = 403;
           response.end();
           return;
         }

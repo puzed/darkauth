@@ -3,7 +3,7 @@ import { apiService } from "../services/api";
 import { opaqueService } from "../services/opaque";
 
 interface RegisterProps {
-  onRegisterSuccess: (accessToken: string, sub: string) => void;
+  onRegisterSuccess: (sub: string) => void;
   onSwitchToLogin: () => void;
 }
 
@@ -106,7 +106,7 @@ export default function Register({ onRegisterSuccess, onSwitchToLogin }: Registe
         serverPublicKey: startResponse.serverPublicKey,
       });
 
-      onRegisterSuccess(finishResponse.accessToken, finishResponse.sub);
+      onRegisterSuccess(finishResponse.sub);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {

@@ -14,7 +14,11 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getUserBySubOrEmail } from "../../models/users.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { createSession } from "../../services/sessions.ts";
+import {
+  createSession,
+  getSessionTtlSeconds,
+  issueSessionCookies,
+} from "../../services/sessions.ts";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
@@ -181,14 +185,15 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         otpRequired: otpRequired,
         otpVerified: false,
       });
+      const ttlSeconds = await getSessionTtlSeconds(context, "user");
+      issueSessionCookies(response, createdSessionId, ttlSeconds);
 
-      // Return session token as Bearer token
       const responseData = {
         success: true,
         sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
         sub: user.sub,
         user: { sub: user.sub, email: user.email, name: user.name },
-        accessToken: createdSessionId, // Use sessionId as bearer token
+        accessToken: createdSessionId,
         refreshToken,
         otpRequired,
       };

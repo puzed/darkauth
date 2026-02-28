@@ -4,9 +4,11 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { verifyOtpCode } from "../../models/otp.ts";
 import {
-  getSessionIdFromAuthHeader,
+  getSessionId,
+  getSessionTtlSeconds,
+  issueSessionCookies,
   requireSession,
-  updateSession,
+  rotateSession,
 } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -23,13 +25,19 @@ export const postOtpVerify = withAudit({ eventType: "OTP_VERIFY", resourceType: 
     const raw = parseJsonSafely(body);
     const Req = z.object({ code: z.string().min(1) });
     const { code } = Req.parse(raw);
-    const sessionId = getSessionIdFromAuthHeader(request);
+    const sessionId = getSessionId(request);
     if (!sessionId) {
-      sendJson(response, 401, { error: "No session token" });
+      sendJson(response, 401, { error: "No session cookie" });
       return;
     }
     await verifyOtpCode(context, "user", session.sub as string, code);
-    await updateSession(context, sessionId, { ...session, otpVerified: true });
+    const rotated = await rotateSession(context, sessionId, { ...session, otpVerified: true });
+    if (!rotated) {
+      sendJson(response, 401, { error: "Invalid or expired session" });
+      return;
+    }
+    const ttlSeconds = await getSessionTtlSeconds(context, "user");
+    issueSessionCookies(response, rotated.sessionId, ttlSeconds);
     sendJson(response, 200, { success: true });
   })
 );
