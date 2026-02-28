@@ -416,7 +416,17 @@ class ApiService {
   }
 
   async getUserApps(): Promise<{
-    apps: Array<{ id: string; name: string; description?: string; url?: string; logoUrl?: string }>;
+    apps: Array<{
+      id: string;
+      name: string;
+      description?: string;
+      url?: string;
+      logoUrl?: string;
+      iconMode?: "letter" | "emoji" | "upload";
+      iconEmoji?: string;
+      iconLetter?: string;
+      iconUrl?: string;
+    }>;
   }> {
     try {
       return await this.request("/apps", {
