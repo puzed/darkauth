@@ -6,6 +6,7 @@ import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FileInput } from "@/components/ui/file-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,6 +24,8 @@ const parseList = (v: string) =>
     .split(/\r?\n|,\s*/)
     .map((s) => s.trim())
     .filter(Boolean);
+const DEFAULT_DASHBOARD_EMOJI = "🚀";
+const DEFAULT_DASHBOARD_LETTER = "D";
 
 export default function ClientCreate() {
   const navigate = useNavigate();
@@ -36,6 +39,13 @@ export default function ClientCreate() {
     name: "",
     type: "public" as Client["type"],
     tokenEndpointAuthMethod: "none" as Client["tokenEndpointAuthMethod"],
+    showOnUserDashboard: false,
+    dashboardPosition: "0",
+    appUrl: "",
+    dashboardIconMode: "letter" as "letter" | "emoji" | "upload",
+    dashboardIconEmoji: "",
+    dashboardIconLetter: "",
+    dashboardIconUpload: null as { data: string; mimeType: string } | null,
     requirePkce: true,
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
@@ -60,6 +70,19 @@ export default function ClientCreate() {
         name: form.name,
         type: form.type,
         tokenEndpointAuthMethod: form.tokenEndpointAuthMethod,
+        showOnUserDashboard: form.showOnUserDashboard,
+        dashboardPosition: Number(form.dashboardPosition || "0"),
+        appUrl: form.appUrl.trim() || undefined,
+        dashboardIconMode: form.dashboardIconMode,
+        dashboardIconEmoji:
+          form.dashboardIconMode === "emoji"
+            ? form.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
+            : null,
+        dashboardIconLetter:
+          form.dashboardIconMode === "letter"
+            ? form.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
+            : null,
+        dashboardIconUpload: form.dashboardIconMode === "upload" ? form.dashboardIconUpload : null,
         requirePkce: form.requirePkce,
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
@@ -159,6 +182,123 @@ export default function ClientCreate() {
                 </SelectContent>
               </Select>
             </FormField>
+            <FormField label={<Label>Show On User Dashboard</Label>}>
+              <Select
+                value={form.showOnUserDashboard ? "true" : "false"}
+                onValueChange={(v) =>
+                  setForm((f) => ({
+                    ...f,
+                    showOnUserDashboard: v === "true",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="true">Yes</SelectItem>
+                  <SelectItem value="false">No</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>Dashboard Position</Label>}>
+              <Input
+                type="number"
+                min={0}
+                value={form.dashboardPosition}
+                onChange={(e) => setForm((f) => ({ ...f, dashboardPosition: e.target.value }))}
+                disabled={submitting}
+                placeholder="0"
+              />
+            </FormField>
+            <FormField label={<Label>Dashboard URL</Label>}>
+              <Input
+                type="url"
+                value={form.appUrl}
+                onChange={(e) => setForm((f) => ({ ...f, appUrl: e.target.value }))}
+                disabled={submitting}
+                placeholder="https://app.example.com"
+              />
+            </FormField>
+            <FormField label={<Label>Icon Type</Label>}>
+              <Select
+                value={form.dashboardIconMode}
+                onValueChange={(v) =>
+                  setForm((f) => {
+                    const mode = v as "letter" | "emoji" | "upload";
+                    return {
+                      ...f,
+                      dashboardIconMode: mode,
+                      dashboardIconEmoji:
+                        mode === "emoji"
+                          ? f.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
+                          : f.dashboardIconEmoji,
+                      dashboardIconLetter:
+                        mode === "letter"
+                          ? f.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
+                          : f.dashboardIconLetter,
+                    };
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="emoji">Emoji</SelectItem>
+                  <SelectItem value="letter">Letter</SelectItem>
+                  <SelectItem value="upload">Upload icon</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            {form.dashboardIconMode === "emoji" && (
+              <FormField label={<Label>Emoji</Label>}>
+                <Input
+                  value={form.dashboardIconEmoji}
+                  onChange={(e) => setForm((f) => ({ ...f, dashboardIconEmoji: e.target.value }))}
+                  disabled={submitting}
+                  placeholder={DEFAULT_DASHBOARD_EMOJI}
+                  maxLength={16}
+                />
+              </FormField>
+            )}
+            {form.dashboardIconMode === "letter" && (
+              <FormField label={<Label>Letter</Label>}>
+                <Input
+                  value={form.dashboardIconLetter}
+                  onChange={(e) => setForm((f) => ({ ...f, dashboardIconLetter: e.target.value }))}
+                  disabled={submitting}
+                  placeholder={DEFAULT_DASHBOARD_LETTER}
+                  maxLength={2}
+                />
+              </FormField>
+            )}
+            {form.dashboardIconMode === "upload" && (
+              <FormField label={<Label>Upload Icon</Label>}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <FileInput
+                    accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/webp"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const buf = await file.arrayBuffer();
+                      const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                      setForm((f) => ({
+                        ...f,
+                        dashboardIconUpload: { data: b64, mimeType: file.type },
+                      }));
+                    }}
+                  />
+                  {form.dashboardIconUpload?.data && (
+                    <img
+                      src={`data:${form.dashboardIconUpload.mimeType};base64,${form.dashboardIconUpload.data}`}
+                      alt="Icon preview"
+                      style={{ width: 28, height: 28, objectFit: "contain" }}
+                    />
+                  )}
+                </div>
+              </FormField>
+            )}
             <FormField label={<Label>Require PKCE</Label>}>
               <Select
                 value={form.requirePkce ? "true" : "false"}
