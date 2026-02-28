@@ -1,10 +1,61 @@
-import type { IncomingMessage } from "node:http";
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
 import { sessions } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
 import { getSetting } from "./settings.ts";
+
+export const AUTH_COOKIE_NAME = "__Host-DarkAuth";
+export const CSRF_COOKIE_NAME = "__Host-DarkAuth-Csrf";
+
+function parseCookies(request: IncomingMessage): Record<string, string> {
+  const raw = request.headers.cookie;
+  if (!raw) return {};
+  return raw.split(";").reduce<Record<string, string>>((acc, part) => {
+    const idx = part.indexOf("=");
+    if (idx <= 0) return acc;
+    const key = part.slice(0, idx).trim();
+    const value = part.slice(idx + 1).trim();
+    if (!key) return acc;
+    try {
+      acc[key] = decodeURIComponent(value);
+    } catch {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+}
+
+function appendSetCookie(response: ServerResponse, cookie: string): void {
+  const existing = response.getHeader("Set-Cookie");
+  if (!existing) {
+    response.setHeader("Set-Cookie", [cookie]);
+    return;
+  }
+  if (Array.isArray(existing)) {
+    response.setHeader("Set-Cookie", [...existing.map(String), cookie]);
+    return;
+  }
+  response.setHeader("Set-Cookie", [String(existing), cookie]);
+}
+
+function buildCookie(
+  name: string,
+  value: string,
+  options: { maxAge?: number; httpOnly: boolean }
+): string {
+  const encoded = encodeURIComponent(value);
+  const parts = [
+    `${name}=${encoded}`,
+    "Path=/",
+    "SameSite=Lax",
+    "Secure",
+    options.httpOnly ? "HttpOnly" : "",
+    typeof options.maxAge === "number" ? `Max-Age=${Math.max(0, options.maxAge)}` : "",
+  ].filter(Boolean);
+  return parts.join("; ");
+}
 
 async function getDurations(context: Context, cohort: "user" | "admin") {
   if (cohort === "admin") {
@@ -42,6 +93,59 @@ export async function getSessionTtlSeconds(
 ): Promise<number> {
   const { sessionMs } = await getDurations(context, cohort);
   return Math.floor(sessionMs / 1000);
+}
+
+export function issueSessionCookies(
+  response: ServerResponse,
+  sessionId: string,
+  ttlSeconds: number,
+  csrfToken?: string
+): string {
+  const csrf = csrfToken || generateRandomString(32);
+  appendSetCookie(
+    response,
+    buildCookie(AUTH_COOKIE_NAME, sessionId, {
+      httpOnly: true,
+      maxAge: ttlSeconds,
+    })
+  );
+  appendSetCookie(
+    response,
+    buildCookie(CSRF_COOKIE_NAME, csrf, {
+      httpOnly: false,
+      maxAge: ttlSeconds,
+    })
+  );
+  return csrf;
+}
+
+export function clearSessionCookies(response: ServerResponse): void {
+  appendSetCookie(
+    response,
+    buildCookie(AUTH_COOKIE_NAME, "", {
+      httpOnly: true,
+      maxAge: 0,
+    })
+  );
+  appendSetCookie(
+    response,
+    buildCookie(CSRF_COOKIE_NAME, "", {
+      httpOnly: false,
+      maxAge: 0,
+    })
+  );
+}
+
+export function getSessionIdFromCookie(request: IncomingMessage): string | null {
+  const cookies = parseCookies(request);
+  const sessionId = cookies[AUTH_COOKIE_NAME];
+  return typeof sessionId === "string" && sessionId.length > 0 ? sessionId : null;
+}
+
+export function getCsrfCookieToken(request: IncomingMessage): string | null {
+  const cookies = parseCookies(request);
+  const token = cookies[CSRF_COOKIE_NAME];
+  return typeof token === "string" && token.length > 0 ? token : null;
 }
 
 export async function createSession(
@@ -85,6 +189,21 @@ export async function createSession(
   return { sessionId, refreshToken };
 }
 
+export async function rotateSession(
+  context: Context,
+  currentSessionId: string,
+  data: SessionData
+): Promise<{ sessionId: string; refreshToken: string } | null> {
+  const current = await context.db.query.sessions.findFirst({
+    where: eq(sessions.id, currentSessionId),
+  });
+  if (!current) return null;
+
+  const rotated = await createSession(context, current.cohort as "user" | "admin", data);
+  await deleteSession(context, currentSessionId);
+  return rotated;
+}
+
 export async function getSession(context: Context, sessionId: string): Promise<SessionData | null> {
   const session = await context.db.query.sessions.findFirst({
     where: eq(sessions.id, sessionId),
@@ -115,7 +234,6 @@ export async function deleteSession(context: Context, sessionId: string): Promis
       return;
     }
 
-    // Use execute instead of the query builder to avoid prepared statement issues
     await context.db.delete(sessions).where(eq(sessions.id, sessionId));
   } catch (error) {
     context.logger.error(error);
@@ -144,8 +262,7 @@ export function getSessionIdFromAuthHeader(request: IncomingMessage): string | n
 }
 
 export function getSessionId(request: IncomingMessage, _isAdmin = false): string | null {
-  // Only use Authorization header
-  return getSessionIdFromAuthHeader(request);
+  return getSessionIdFromCookie(request) || getSessionIdFromAuthHeader(request);
 }
 
 export async function requireSession(
@@ -156,7 +273,7 @@ export async function requireSession(
   const sessionId = getSessionId(request, isAdmin);
 
   if (!sessionId) {
-    throw new UnauthorizedError("No session token");
+    throw new UnauthorizedError("No session cookie");
   }
 
   const sessionData = await getSession(context, sessionId);
@@ -191,8 +308,6 @@ export async function requireSession(
       throw new UnauthorizedError("OTP verification required");
     }
   }
-
-  await refreshSession(context, sessionId);
 
   return sessionData;
 }
@@ -250,7 +365,6 @@ export async function refreshSessionWithToken(
 }
 
 export async function cleanupExpiredSessions(context: Context): Promise<void> {
-  // Clean up sessions where both access token and refresh token have expired
   await context.db.delete(sessions).where(lt(sessions.refreshTokenExpiresAt, new Date()));
 }
 

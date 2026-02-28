@@ -24,9 +24,7 @@ export interface OpaqueLoginFinishRequest {
 }
 
 export interface OpaqueLoginFinishResponse {
-  accessToken: string;
   sub: string;
-  refreshToken?: string;
   sessionKey?: string;
   otpRequired?: boolean;
   user?: {
@@ -64,8 +62,6 @@ export interface OpaqueRegisterFinishRequest {
 
 export interface OpaqueRegisterFinishResponse {
   sub: string;
-  accessToken: string;
-  refreshToken: string;
 }
 
 export interface AuthorizeRequest {
@@ -95,54 +91,22 @@ export interface WrappedDrkResponse {
 
 class ApiService {
   private baseUrl: string;
-  private accessToken: string | null = null;
-  private refreshToken: string | null = null;
   private onSessionExpired?: () => void;
 
   constructor() {
     this.baseUrl = "/api/user";
-    // Load tokens from localStorage if available
-    this.accessToken = localStorage.getItem("userAccessToken");
-    this.refreshToken = localStorage.getItem("userRefreshToken");
   }
 
   setSessionExpiredCallback(callback: () => void): void {
     this.onSessionExpired = callback;
   }
 
-  setTokens(accessToken: string | null, refreshToken: string | null): void {
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
-
-    if (accessToken) {
-      localStorage.setItem("userAccessToken", accessToken);
-    } else {
-      localStorage.removeItem("userAccessToken");
-    }
-
-    if (refreshToken) {
-      localStorage.setItem("userRefreshToken", refreshToken);
-    } else {
-      localStorage.removeItem("userRefreshToken");
-    }
-  }
-
-  clearTokens(): void {
-    this.accessToken = null;
-    this.refreshToken = null;
+  clearLegacyTokens(): void {
     localStorage.removeItem("userAccessToken");
     localStorage.removeItem("userRefreshToken");
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!this.accessToken) {
-      const storedAt = localStorage.getItem("userAccessToken");
-      if (storedAt) this.accessToken = storedAt;
-    }
-    if (!this.refreshToken) {
-      const storedRt = localStorage.getItem("userRefreshToken");
-      if (storedRt) this.refreshToken = storedRt;
-    }
     const url = `${this.baseUrl}${endpoint}`;
 
     const headers = new Headers({ "Content-Type": "application/json" });
@@ -153,14 +117,22 @@ class ApiService {
       });
     }
 
-    // Add Bearer token if available
-    if (this.accessToken) {
-      headers.set("Authorization", `Bearer ${this.accessToken}`);
+    const method = (options.method || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const csrf = document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("__Host-DarkAuth-Csrf="))
+        ?.slice("__Host-DarkAuth-Csrf=".length);
+      if (csrf) {
+        headers.set("x-csrf-token", decodeURIComponent(csrf));
+      }
     }
 
     const config: RequestInit = {
       ...options,
       headers,
+      credentials: "include",
     };
 
     try {
@@ -169,7 +141,7 @@ class ApiService {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          this.clearTokens();
+          this.clearLegacyTokens();
           if (this.onSessionExpired) {
             this.onSessionExpired();
           }
@@ -196,17 +168,10 @@ class ApiService {
   }
 
   async opaqueLoginFinish(request: OpaqueLoginFinishRequest): Promise<OpaqueLoginFinishResponse> {
-    const response = await this.request<OpaqueLoginFinishResponse>("/opaque/login/finish", {
+    return this.request<OpaqueLoginFinishResponse>("/opaque/login/finish", {
       method: "POST",
       body: JSON.stringify(request),
     });
-
-    // Store tokens if provided
-    if (response.accessToken && response.refreshToken) {
-      this.setTokens(response.accessToken, response.refreshToken);
-    }
-
-    return response;
   }
 
   async opaqueRegisterStart(
@@ -243,17 +208,10 @@ class ApiService {
   async opaqueRegisterFinish(
     request: OpaqueRegisterFinishRequest
   ): Promise<OpaqueRegisterFinishResponse> {
-    const response = await this.request<OpaqueRegisterFinishResponse>("/opaque/register/finish", {
+    return this.request<OpaqueRegisterFinishResponse>("/opaque/register/finish", {
       method: "POST",
       body: JSON.stringify(request),
     });
-
-    // Store tokens if provided
-    if (response.accessToken && response.refreshToken) {
-      this.setTokens(response.accessToken, response.refreshToken);
-    }
-
-    return response;
   }
 
   // Session Management
@@ -265,8 +223,7 @@ class ApiService {
     await this.request("/logout", {
       method: "POST",
     });
-    // Clear all tokens on logout
-    this.clearTokens();
+    this.clearLegacyTokens();
   }
 
   async getOtpStatus(): Promise<OtpStatusResponse> {
