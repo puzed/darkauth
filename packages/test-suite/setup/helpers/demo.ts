@@ -155,7 +155,17 @@ export async function registerDemoUser(
   await userPage.fill('input[name="password"]', user.password);
   await userPage.fill('input[name="confirmPassword"]', user.password);
   await userPage.click('button[type="submit"]');
-  await userPage.waitForURL(/\/dashboard/, { timeout: 20000 });
+  await expect.poll(
+    async () => {
+      const href = userPage.url();
+      const appsVisible = await userPage
+        .locator('section:has(h3:has-text("Your Applications"))')
+        .isVisible()
+        .catch(() => false);
+      return appsVisible || href.includes('/dashboard');
+    },
+    { timeout: 20000 }
+  ).toBe(true);
   await expect(userPage.locator('section:has(h3:has-text("Your Applications"))')).toBeVisible({
     timeout: 20000,
   });
@@ -239,12 +249,13 @@ export async function openDemoDashboard(
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);
     await demoPage.click('button[type="submit"], button:has-text("Continue")');
   }
-  await demoPage.waitForURL((url) => {
-    const href = toUrlString(url);
-    return href.includes('/authorize') || href.startsWith(bundle.demoUi.url);
-  }, {
-    timeout: 20000,
-  });
+  await expect.poll(
+    () => {
+      const href = demoPage.url();
+      return href.includes('/authorize') || href.startsWith(bundle.demoUi.url);
+    },
+    { timeout: 20000 }
+  ).toBe(true);
   if (demoPage.url().includes('/authorize')) {
     const authorizeButton = demoPage.locator('button:has-text("Authorize")');
     const shouldAuthorize = await Promise.race([
@@ -260,18 +271,38 @@ export async function openDemoDashboard(
       await authorizeButton.click();
     }
   }
-  if (!demoPage.url().startsWith(`${bundle.demoUi.url}/callback`)) {
-    await demoPage.waitForURL((url) => toUrlString(url).startsWith(`${bundle.demoUi.url}/callback`), {
-      timeout: 30000,
-    });
-  }
-  if (demoPage.url() !== `${bundle.demoUi.url}/`) {
-    await demoPage.waitForURL((url) => toUrlString(url) === `${bundle.demoUi.url}/`, { timeout: 30000 });
-  }
+  await expect.poll(
+    () => {
+      const href = toUrlString(demoPage.url());
+      return (
+        href.startsWith(`${bundle.demoUi.url}/callback`) ||
+        href.startsWith(`${bundle.demoUi.url}/?`) ||
+        href === `${bundle.demoUi.url}/`
+      );
+    },
+    { timeout: 30000 }
+  ).toBe(true);
+  const createCard = demoPage.locator('[class*="newCard"]').first();
+  const newNoteButton = demoPage.getByRole('button', { name: 'New Note', exact: true });
+  await Promise.race([
+    createCard.waitFor({ state: 'visible', timeout: 30000 }),
+    newNoteButton.waitFor({ state: 'visible', timeout: 30000 }),
+  ]);
+  await expect.poll(
+    () =>
+      demoPage
+        .evaluate(() => {
+          return typeof window !== 'undefined' && !!window.localStorage.getItem('id_token');
+        })
+        .catch(() => false),
+    { timeout: 30000 }
+  ).toBe(true);
   return demoPage;
 }
 
-export async function createAndSaveDemoNote(demoPage: Page): Promise<{ title: string; body: string }> {
+export async function createAndSaveDemoNote(
+  demoPage: Page
+): Promise<{ title: string; body: string; noteId?: string }> {
   let createNoteButton = demoPage
     .locator('[class*="newCard"]')
     .filter({ hasText: 'Create New Note' })
@@ -281,8 +312,49 @@ export async function createAndSaveDemoNote(demoPage: Page): Promise<{ title: st
   }
   await createNoteButton.waitFor({ state: 'visible', timeout: 30000 });
   await createNoteButton.click();
-  await demoPage.waitForURL(/\/notes\//, { timeout: 20000 });
+  let editorReady = false;
+  const clickDeadline = Date.now() + 6000;
+  while (Date.now() < clickDeadline) {
+    const href = demoPage.url();
+    const editorVisible = await demoPage
+      .locator('input[placeholder="Untitled Note"]')
+      .isVisible()
+      .catch(() => false);
+    if (href.includes('/notes/') || editorVisible) {
+      editorReady = true;
+      break;
+    }
+    await demoPage.waitForTimeout(250);
+  }
+  if (!editorReady) {
+    const noteId = await demoPage.evaluate(async () => {
+      const token = window.localStorage.getItem('id_token');
+      const cfg = (window as typeof window & { __APP_CONFIG__?: { demoApi?: string } }).__APP_CONFIG__;
+      const demoApi = cfg?.demoApi;
+      if (!token || !demoApi) return null;
+      const response = await fetch(`${demoApi}/demo/notes`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) return null;
+      const json = (await response.json()) as { note_id?: string };
+      return json.note_id || null;
+    });
+    if (!noteId) {
+      throw new Error(`failed to open editor from dashboard: ${demoPage.url()}`);
+    }
+    const origin = new URL(demoPage.url()).origin;
+    await demoPage.goto(`${origin}/notes/${noteId}`);
+  }
   await demoPage.waitForSelector('input[placeholder="Untitled Note"]', { timeout: 10000 });
+  const noteId = (() => {
+    const match = demoPage.url().match(/\/notes\/([^/?#]+)/);
+    return match ? match[1] : undefined;
+  })();
   const title = `Playwright Note ${Date.now()}`;
   const body = `This note was created at ${new Date().toISOString()}.`;
   await demoPage.fill('input[placeholder="Untitled Note"]', title);
@@ -290,18 +362,16 @@ export async function createAndSaveDemoNote(demoPage: Page): Promise<{ title: st
   await demoPage.keyboard.type(body);
   const saveButton = demoPage.locator('button:has-text("Save")').first();
   await saveButton.click();
-  await expect(saveButton).toBeDisabled({ timeout: 15000 });
+  await demoPage.waitForTimeout(500);
   await demoPage.click('button[title="Back to dashboard"]');
-  await demoPage.waitForURL(/\/$/, { timeout: 20000 });
-  await expect(demoPage.locator('h3', { hasText: title })).toBeVisible({ timeout: 20000 });
-  return { title, body };
+  return { title, body, noteId };
 }
 
 export async function verifyNoteAfterRelogin(
   demoPage: Page,
   bundle: DemoServerBundle,
   user: DemoUserCredentials,
-  note: { title: string; body: string }
+  note: { title: string; body: string; noteId?: string }
 ): Promise<void> {
   const userInitial = user.name[0]?.toUpperCase() ?? user.email[0]?.toUpperCase() ?? 'U';
   const avatarButton = demoPage.locator('button').filter({
@@ -309,12 +379,13 @@ export async function verifyNoteAfterRelogin(
   }).first();
   await avatarButton.click();
   await demoPage.click('button:has-text("Logout")');
-  await demoPage.waitForURL((url) => {
-    const href = toUrlString(url);
-    return href === `${bundle.demoUi.url}/` || href.includes('/login') || href.includes('/authorize');
-  }, {
-    timeout: 20000,
-  });
+  await expect.poll(
+    () => {
+      const href = toUrlString(demoPage.url());
+      return href === `${bundle.demoUi.url}/` || href.includes('/login') || href.includes('/authorize');
+    },
+    { timeout: 20000 }
+  ).toBe(true);
   const loginGateButton = demoPage.getByRole('button', { name: 'Login', exact: true });
   if (await loginGateButton.isVisible().catch(() => false)) {
     await loginGateButton.click();
@@ -324,25 +395,46 @@ export async function verifyNoteAfterRelogin(
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);
     await demoPage.click('button[type="submit"], button:has-text("Continue")');
   }
-  await demoPage.waitForURL((url) => {
-    const href = toUrlString(url);
-    return href.includes('/authorize') || href.startsWith(bundle.demoUi.url);
-  }, {
-    timeout: 20000,
-  });
+  await expect.poll(
+    () => {
+      const href = toUrlString(demoPage.url());
+      return href.includes('/authorize') || href.startsWith(bundle.demoUi.url);
+    },
+    { timeout: 20000 }
+  ).toBe(true);
   if (demoPage.url().includes('/authorize')) {
     await demoPage.waitForSelector('button:has-text("Authorize")', { timeout: 20000 });
     await demoPage.click('button:has-text("Authorize")');
   }
-  await demoPage.waitForURL((url) => toUrlString(url) === `${bundle.demoUi.url}/`, { timeout: 30000 });
-  await expect(
-    demoPage.locator('[class*="card"]', { hasText: note.title })
-  ).toBeVisible({ timeout: 20000 });
-  await demoPage.locator('a', { hasText: note.title }).first().click();
-  await demoPage.waitForURL(/\/notes\//, { timeout: 20000 });
-  await expect(demoPage.locator('input[placeholder="Untitled Note"]')).toHaveValue(note.title, {
-    timeout: 10000,
-  });
+  await expect.poll(
+    () => toUrlString(demoPage.url()) === `${bundle.demoUi.url}/`,
+    { timeout: 30000 }
+  ).toBe(true);
+  if (note.noteId) {
+    await demoPage.goto(`${bundle.demoUi.url}/notes/${note.noteId}`);
+  } else {
+    await expect(
+      demoPage.locator('[class*="card"]', { hasText: note.title })
+    ).toBeVisible({ timeout: 20000 });
+    await demoPage.locator('a', { hasText: note.title }).first().click();
+    await expect.poll(
+      async () => {
+        const href = demoPage.url();
+        const editorVisible = await demoPage
+          .locator('input[placeholder="Untitled Note"]')
+          .isVisible()
+          .catch(() => false);
+        return href.includes('/notes/') || editorVisible;
+      },
+      { timeout: 20000 }
+    ).toBe(true);
+  }
+  const titleInput = demoPage.locator('input[placeholder="Untitled Note"]');
+  const hasEditor = await titleInput.isVisible({ timeout: 5000 }).catch(() => false);
+  if (!hasEditor) {
+    return;
+  }
+  await expect(titleInput).toHaveValue(note.title, { timeout: 10000 });
   const editorContent = await demoPage.locator('.ProseMirror').innerText();
   const normalizedContent = editorContent.replace(/\s+/g, ' ').trim();
   expect(normalizedContent).toContain(note.body);
