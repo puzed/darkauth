@@ -12,10 +12,47 @@ export interface BasicUser {
 
 interface AdminTokenCacheEntry {
   token: string;
+  csrfToken?: string;
+  cookies?: Array<{ name: string; value: string }>;
 }
 
 const adminTokenCache = new Map<string, AdminTokenCacheEntry>();
 const adminOtpSecrets = new Map<string, string>();
+
+function getSetCookieHeaders(response: Response): string[] {
+  const headersWithSetCookie = response.headers as Headers & {
+    getSetCookie?: () => string[];
+  };
+  if (typeof headersWithSetCookie.getSetCookie === 'function') {
+    return headersWithSetCookie.getSetCookie();
+  }
+  const combined = response.headers.get('set-cookie');
+  if (!combined) return [];
+  return combined.split(/,(?=\s*__Host-)/g);
+}
+
+function parseCookieArtifacts(response: Response): {
+  token: string | null;
+  csrfToken?: string;
+  cookies: Array<{ name: string; value: string }>;
+} {
+  const setCookies = getSetCookieHeaders(response);
+  const cookies: Array<{ name: string; value: string }> = [];
+  let token: string | null = null;
+  let csrfToken: string | undefined;
+  for (const setCookie of setCookies) {
+    const first = setCookie.split(';')[0]?.trim();
+    if (!first) continue;
+    const idx = first.indexOf('=');
+    if (idx < 1) continue;
+    const name = first.slice(0, idx).trim();
+    const value = first.slice(idx + 1).trim();
+    cookies.push({ name, value });
+    if (name === '__Host-DarkAuth') token = decodeURIComponent(value);
+    if (name === '__Host-DarkAuth-Csrf') csrfToken = decodeURIComponent(value);
+  }
+  return { token, csrfToken, cookies };
+}
 
 async function initAdminOtpSecret(
   servers: TestServers,
@@ -93,9 +130,13 @@ export async function getAdminBearerToken(
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
   });
   if (!finishRes.ok) throw new Error(`admin login finish failed: ${finishRes.status}`);
-  const finishJson = await finishRes.json();
-  const token = finishJson.accessToken as string;
-  const entry: AdminTokenCacheEntry = { token };
+  const artifacts = parseCookieArtifacts(finishRes);
+  if (!artifacts.token) throw new Error('admin login finish missing __Host-DarkAuth cookie');
+  const entry: AdminTokenCacheEntry = {
+    token: artifacts.token,
+    csrfToken: artifacts.csrfToken,
+    cookies: artifacts.cookies,
+  };
   await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
   adminTokenCache.set(cacheKey, entry);
   return entry.token;
@@ -114,8 +155,9 @@ export async function completeAdminOtpForPage(
   servers: TestServers,
   admin: { email: string; password: string }
 ): Promise<void> {
-  const accessToken = await page.evaluate(() => window.localStorage.getItem('adminAccessToken'));
-  if (!accessToken) throw new Error('admin access token missing in browser session');
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  const cached = adminTokenCache.get(cacheKey);
+  const accessToken = cached?.token || await getAdminBearerToken(servers, admin);
   let secret = getCachedAdminOtpSecret(servers, { email: admin.email });
   if (!secret) {
     if (accessToken) {
@@ -189,6 +231,12 @@ async function ensureAdminOtpVerified(
     if (!verifyRes.ok) {
       throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
     }
+    const verifyArtifacts = parseCookieArtifacts(verifyRes);
+    if (verifyArtifacts.token) {
+      entry.token = verifyArtifacts.token;
+      entry.csrfToken = verifyArtifacts.csrfToken;
+      entry.cookies = verifyArtifacts.cookies;
+    }
   } else {
     const secretBuf = base32.decode(secret);
     const now = Math.floor(Date.now() / 1000);
@@ -206,6 +254,12 @@ async function ensureAdminOtpVerified(
       adminOtpSecrets.delete(cacheKey);
       await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
       return;
+    }
+    const verifyArtifacts = parseCookieArtifacts(verifyRes);
+    if (verifyArtifacts.token) {
+      entry.token = verifyArtifacts.token;
+      entry.csrfToken = verifyArtifacts.csrfToken;
+      entry.cookies = verifyArtifacts.cookies;
     }
   }
   const confirmRes = await fetch(`${servers.adminUrl}/admin/session`, {
@@ -257,12 +311,11 @@ export async function establishUserSession(
   const client = new OpaqueClient();
   await client.initialize();
   const loginStart = await client.startLogin(user.password, user.email);
-  const startRes = await fetch(`${servers.userUrl}/api/user/opaque/login/start`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': servers.userUrl },
-    body: JSON.stringify({ email: user.email, request: toBase64Url(Buffer.from(loginStart.request)) })
+  const startRes = await context.request.post(`${servers.userUrl}/api/user/opaque/login/start`, {
+    headers: { 'Content-Type': 'application/json', Origin: servers.userUrl },
+    data: JSON.stringify({ email: user.email, request: toBase64Url(Buffer.from(loginStart.request)) })
   });
-  if (!startRes.ok) throw new Error(`login start failed: ${startRes.status}`);
+  if (!startRes.ok()) throw new Error(`login start failed: ${startRes.status()}`);
   const startJson = await startRes.json();
   const loginFinish = await client.finishLogin(
     fromBase64Url(startJson.message),
@@ -271,23 +324,11 @@ export async function establishUserSession(
     'DarkAuth',
     user.email
   );
-  const finishRes = await fetch(`${servers.userUrl}/api/user/opaque/login/finish`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Origin': servers.userUrl },
-    body: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
+  const finishRes = await context.request.post(`${servers.userUrl}/api/user/opaque/login/finish`, {
+    headers: { 'Content-Type': 'application/json', Origin: servers.userUrl },
+    data: JSON.stringify({ finish: toBase64Url(Buffer.from(loginFinish.finish)), sessionId: startJson.sessionId })
   });
-  if (!finishRes.ok) throw new Error(`login finish failed: ${finishRes.status}`);
-  const finishJson = await finishRes.json();
-
-  const page = await context.newPage();
-  await page.goto(servers.userUrl);
-  await page.evaluate(([accessToken, refreshToken]) => {
-    try {
-      localStorage.setItem('userAccessToken', accessToken);
-      if (refreshToken) localStorage.setItem('userRefreshToken', refreshToken);
-    } catch {}
-  }, [finishJson.accessToken, finishJson.refreshToken]);
-  await page.close();
+  if (!finishRes.ok()) throw new Error(`login finish failed: ${finishRes.status()}`);
 }
 
 export async function createUserViaAdmin(
@@ -547,13 +588,108 @@ export async function establishAdminSession(
   servers: TestServers,
   admin: { email: string; password: string }
 ): Promise<void> {
-  const token = await getAdminBearerToken(servers, admin);
+  const cacheKey = `${servers.adminUrl}|${admin.email}`;
+  await getAdminBearerToken(servers, admin);
+  const cached = adminTokenCache.get(cacheKey);
+  if (cached?.cookies?.length) {
+    const url = new URL(servers.adminUrl);
+    await context.addCookies(
+      cached.cookies.map((cookie) => ({
+        name: cookie.name,
+        value: cookie.value,
+        domain: url.hostname,
+        path: '/',
+        secure: true,
+        httpOnly: cookie.name === '__Host-DarkAuth',
+        sameSite: 'Lax',
+      }))
+    );
+  }
+
   const page = await context.newPage();
-  await page.goto(servers.adminUrl);
-  await page.evaluate(([accessToken]) => {
-    try {
-      localStorage.setItem('adminAccessToken', accessToken);
-    } catch {}
-  }, [token]);
+  await page.goto(`${servers.adminUrl}/`);
+  const emailField = page.locator('input[name="email"], input[type="email"]').first();
+  const dashboardHeading = page.getByRole('heading', { name: 'Admin Dashboard', exact: true });
+  const dashboardVisible = await dashboardHeading.isVisible({ timeout: 3000 }).catch(() => false);
+  if (dashboardVisible || /\/dashboard/.test(page.url())) {
+    await page.close();
+    return;
+  }
+
+  let isLoginPage = await emailField.isVisible({ timeout: 10000 }).catch(() => false);
+  let isOtpPage = /\/otp(?:\/setup|\/verify)?/.test(page.url());
+
+  if (!isLoginPage && !isOtpPage) {
+    await page.goto(`${servers.adminUrl}/login`);
+    isLoginPage = await emailField.isVisible({ timeout: 10000 }).catch(() => false);
+    isOtpPage = /\/otp(?:\/setup|\/verify)?/.test(page.url());
+  }
+
+  if (isLoginPage) {
+    await emailField.fill(admin.email);
+    await page.fill('input[name="password"], input[type="password"]', admin.password);
+    await page.click('button[type="submit"]');
+    await page.waitForURL(/\/(otp(?:\/setup|\/verify)?|dashboard|login)/, { timeout: 8000 }).catch(() => {});
+  }
+
+  const getCsrf = async () => {
+    const cookies = await context.cookies(servers.adminUrl);
+    return cookies.find((cookie) => cookie.name === '__Host-DarkAuth-Csrf')?.value;
+  };
+
+  if (/\/otp(?:\/setup|\/verify)?/.test(page.url())) {
+    let secret = adminOtpSecrets.get(cacheKey);
+    const csrfToken = await getCsrf();
+    if (!csrfToken) throw new Error('admin csrf cookie missing');
+    let verified = false;
+    if (secret) {
+      const code = totp(base32.decode(secret), Math.floor(Date.now() / 1000), 30, 6, 'sha1').code;
+      const verifyRes = await page.request.post(`${servers.adminUrl}/admin/otp/verify`, {
+        headers: {
+          Origin: servers.adminUrl,
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+        data: JSON.stringify({ code }),
+      });
+      if (verifyRes.ok()) {
+        verified = true;
+      } else {
+        adminOtpSecrets.delete(cacheKey);
+        secret = undefined;
+      }
+    }
+    if (!verified && !secret) {
+      const initRes = await page.request.post(`${servers.adminUrl}/admin/otp/setup/init`, {
+        headers: {
+          Origin: servers.adminUrl,
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken,
+        },
+      });
+      if (!initRes.ok()) throw new Error(`admin otp setup init failed: ${initRes.status()}`);
+      const initJson = await initRes.json() as { secret: string };
+      secret = initJson.secret;
+      adminOtpSecrets.set(cacheKey, secret);
+      const code = totp(base32.decode(secret), Math.floor(Date.now() / 1000), 30, 6, 'sha1').code;
+      const csrfAfterInit = await getCsrf();
+      const verifyRes = await page.request.post(`${servers.adminUrl}/admin/otp/setup/verify`, {
+        headers: {
+          Origin: servers.adminUrl,
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfAfterInit || csrfToken,
+        },
+        data: JSON.stringify({ code }),
+      });
+      if (!verifyRes.ok()) throw new Error(`admin otp setup verify failed: ${verifyRes.status()}`);
+    }
+  }
+
+  await page.goto(`${servers.adminUrl}/`);
+  await page.waitForURL(/\/dashboard/, { timeout: 8000 }).catch(() => {});
+  const finalDashboardVisible = await dashboardHeading.isVisible({ timeout: 5000 }).catch(() => false);
+  if (!finalDashboardVisible && !/\/dashboard/.test(page.url())) {
+    throw new Error(`admin dashboard not reachable after session establish: ${page.url()}`);
+  }
   await page.close();
 }

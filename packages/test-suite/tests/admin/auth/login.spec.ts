@@ -63,10 +63,10 @@ test.describe('Authentication - Login', () => {
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/otp(?:\/(?:setup|verify))?(?:\?.*)?$/, { timeout: 15000 });
     await expect(page.getByText('Two-Factor Authentication')).toBeVisible({ timeout: 10000 });
-
-    await page.waitForFunction(() => window.localStorage.getItem('adminAccessToken'), undefined, { timeout: 10000 });
-    const accessToken = await page.evaluate(() => window.localStorage.getItem('adminAccessToken'));
-    if (!accessToken) throw new Error('admin access token missing after login');
+    const accessToken = await getAdminBearerToken(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password
+    });
     const initRes = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
       method: 'POST',
       headers: {
@@ -90,6 +90,10 @@ test.describe('Authentication - Login', () => {
       body: JSON.stringify({ code }),
     });
     if (!verifyRes.ok) throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
+    await establishAdminSession(page.context(), servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     await page.goto(`${servers.adminUrl}/`);
     await expect(
       page.getByRole('heading', { name: 'Admin Dashboard', exact: true })
