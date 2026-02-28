@@ -285,8 +285,8 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
   **Behavior**: validate request, record a pending-auth row bound to IdP session, serve login page with `request_id`. If `zk_pub` present, compute/store `zk_pub_kid = SHA256(zk_pub)` for that pending request (only if client `zk_delivery='fragment-jwe'`).
 
 * **POST `/authorize/finalize`** (Auth UI only; requires IdP session; Rate-limited: 10 req/15min per IP)
-  **Body**: `{ request_id, drk_hash? }` (drk_hash only for ZK clients)
-  **Server**: look up pending auth, create authorization code with: `has_zk` (based on whether `zk_pub_kid` recorded), `zk_pub_kid`, and `drk_hash` if provided.
+  **Body**: `{ request_id, drk_hash? }` (`drk_hash` is required when pending auth includes `zk_pub_kid`)
+  **Server**: look up pending auth. If `zk_pub_kid` is present and `drk_hash` is missing, return `invalid_request`. Otherwise create authorization code with: `has_zk` (based on whether `zk_pub_kid` recorded), `zk_pub_kid`, and bound `drk_hash`.
   **Response**: `{ redirect_uri, code, state? }`.
 
 * **POST `/token`**
@@ -341,7 +341,7 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
 
 * **GET `/session`** → minimal info for Auth UI.
 * **POST `/logout`** → revokes current session.
-* **POST `/refresh-token`** → `{ refreshToken }` → issues a new access token and refresh token. Refresh tokens are validated by hash, rotated atomically, and invalidated after first use.
+* **POST `/token`** with `grant_type=refresh_token` rotates refresh tokens atomically, enforces `client_id` binding, and rejects replay after first successful use.
 
 ### 7.6 User Directory
 
@@ -668,7 +668,7 @@ GET /authorize?
 
 * `drk_jwe = ECDH-ES+A256GCM(DRK, zk_pub)`
 * `drk_hash = base64url(sha256(drk_jwe))`
-* `POST /authorize/finalize { request_id }` → `{ code, state }` (server stores `drk_hash`)
+* `POST /authorize/finalize { request_id, drk_hash }` → `{ code, state }` (server stores `drk_hash`)
 * `location.assign(redirect_uri + '?code=...&state=...' + '#drk_jwe=' + encodeURIComponent(drk_jwe))`
 
 **App → /token**

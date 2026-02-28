@@ -44,17 +44,23 @@ export async function getPendingAuth(context: Context, requestId: string) {
   });
 }
 
-export async function setPendingAuthUserSub(context: Context, requestId: string, sub: string) {
-  const { pendingAuth } = await import("../db/schema.js");
-  const { eq } = await import("drizzle-orm");
-  await context.db
-    .update(pendingAuth)
-    .set({ userSub: sub })
-    .where(eq(pendingAuth.requestId, requestId));
-}
-
 export async function deletePendingAuth(context: Context, requestId: string) {
   const { pendingAuth } = await import("../db/schema.js");
   const { eq } = await import("drizzle-orm");
   await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
+}
+
+export async function consumePendingAuth(context: Context, requestId: string, userSub: string) {
+  const { pendingAuth } = await import("../db/schema.js");
+  const { and, eq, isNull, or } = await import("drizzle-orm");
+  const [row] = await context.db
+    .delete(pendingAuth)
+    .where(
+      and(
+        eq(pendingAuth.requestId, requestId),
+        or(isNull(pendingAuth.userSub), eq(pendingAuth.userSub, userSub))
+      )
+    )
+    .returning();
+  return row ?? null;
 }

@@ -97,8 +97,6 @@ class ApiService {
   private baseUrl: string;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
-  private isRefreshing = false;
-  private refreshPromise: Promise<void> | null = null;
   private onSessionExpired?: () => void;
 
   constructor() {
@@ -136,48 +134,7 @@ class ApiService {
     localStorage.removeItem("userRefreshToken");
   }
 
-  private async refreshSession(): Promise<void> {
-    if (!this.refreshToken) {
-      throw new Error("No refresh token available");
-    }
-
-    if (this.isRefreshing && this.refreshPromise) {
-      return this.refreshPromise;
-    }
-
-    this.isRefreshing = true;
-    this.refreshPromise = (async () => {
-      try {
-        const response = await fetch("/api/user/refresh-token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ refreshToken: this.refreshToken }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to refresh token");
-        }
-
-        const data = await response.json();
-        if (data.accessToken && data.refreshToken) {
-          this.setTokens(data.accessToken, data.refreshToken);
-        }
-      } finally {
-        this.isRefreshing = false;
-        this.refreshPromise = null;
-      }
-    })();
-
-    return this.refreshPromise;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {},
-    retryCount = 0
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     if (!this.accessToken) {
       const storedAt = localStorage.getItem("userAccessToken");
       if (storedAt) this.accessToken = storedAt;
@@ -185,11 +142,6 @@ class ApiService {
     if (!this.refreshToken) {
       const storedRt = localStorage.getItem("userRefreshToken");
       if (storedRt) this.refreshToken = storedRt;
-    }
-    if (!this.accessToken && this.refreshToken && retryCount === 0) {
-      try {
-        await this.refreshSession();
-      } catch {}
     }
     const url = `${this.baseUrl}${endpoint}`;
 
@@ -216,30 +168,9 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        // Handle session expiration with refresh token
-        if (
-          (response.status === 401 || response.status === 403) &&
-          retryCount === 0 &&
-          this.refreshToken
-        ) {
-          try {
-            // Try to refresh the session
-            await this.refreshSession();
-            // Retry the original request
-            return this.request<T>(endpoint, options, retryCount + 1);
-          } catch (_refreshError) {
-            // Refresh failed, clear everything and notify
-            this.clearTokens();
-            if (this.onSessionExpired) {
-              this.onSessionExpired();
-            }
-            throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
-          }
-        }
-
-        // Handle other auth errors without refresh token
-        if ((response.status === 401 || response.status === 403) && !this.refreshToken) {
-          if (this.accessToken && this.onSessionExpired) {
+        if (response.status === 401 || response.status === 403) {
+          this.clearTokens();
+          if (this.onSessionExpired) {
             this.onSessionExpired();
           }
         }

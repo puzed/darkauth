@@ -64,7 +64,8 @@ Notational Conventions
   - drk_hash: string (base64url) (REQUIRED when zk_pub was provided)
 - Server actions:
   - Validate the pending request and session; issue an authorization code (TTL ≤ 60 s).
-  - If zk_pub_kid was present, set has_zk = true and store drk_hash when provided.
+  - If zk_pub_kid was present, drk_hash MUST be present; otherwise return invalid_request.
+  - If zk_pub_kid was present, set has_zk = true and store drk_hash.
   - Do not redirect; return JSON { redirect_uri, code, state } so the Auth UI can attach the fragment.
 - Client (Auth UI) action for ZK flow:
   - Construct drk_jwe = JWE_ECDH‑ES_A256GCM(DRK, zk_pub) with AAD = { sub, client_id }.

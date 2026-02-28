@@ -103,6 +103,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const codeVerifier = Buffer.from(crypto.getRandomValues(new Uint8Array(48))).toString('base64url')
     const codeChallenge = sha256Base64Url(codeVerifier)
     const zkPub = await createZkPub()
+    const drkHash = sha256Base64Url(`drk-jwe-${nonce}`)
 
     const authorizeRes = await fetch(`${servers.userUrl}/api/user/authorize?${new URLSearchParams({
       client_id: 'demo-public-client',
@@ -138,7 +139,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         Origin: servers.userUrl
       },
-      body: new URLSearchParams({ request_id: requestId })
+      body: new URLSearchParams({ request_id: requestId, drk_hash: drkHash })
     })
 
     expect(finalizeRes.ok).toBeTruthy()
@@ -292,6 +293,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const codeVerifier = Buffer.from(crypto.getRandomValues(new Uint8Array(48))).toString('base64url')
     const codeChallenge = sha256Base64Url(codeVerifier)
     const zkPub = await createZkPub()
+    const drkHash = sha256Base64Url(`drk-jwe-${nonce}`)
 
     const authorizeRes = await fetch(`${servers.userUrl}/api/user/authorize?${new URLSearchParams({
       client_id: 'demo-public-client',
@@ -327,7 +329,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         Origin: servers.userUrl
       },
-      body: new URLSearchParams({ request_id: requestId })
+      body: new URLSearchParams({ request_id: requestId, drk_hash: drkHash })
     })
 
     expect(finalizeRes.ok).toBeTruthy()
