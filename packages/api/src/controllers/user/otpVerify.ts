@@ -37,7 +37,7 @@ export const postOtpVerify = withAudit({ eventType: "OTP_VERIFY", resourceType: 
       return;
     }
     const ttlSeconds = await getSessionTtlSeconds(context, "user");
-    issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+    issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
     sendJson(response, 200, { success: true });
   })
 );

@@ -403,8 +403,8 @@ class AdminApiService {
       const csrf = document.cookie
         .split(";")
         .map((part) => part.trim())
-        .find((part) => part.startsWith("__Host-DarkAuth-Csrf="))
-        ?.slice("__Host-DarkAuth-Csrf=".length);
+        .find((part) => part.startsWith("__Host-DarkAuth-Admin-Csrf="))
+        ?.slice("__Host-DarkAuth-Admin-Csrf=".length);
       if (csrf) {
         headers.set("x-csrf-token", decodeURIComponent(csrf));
       }
@@ -1170,8 +1170,8 @@ class AdminApiService {
     const csrf = document.cookie
       .split(";")
       .map((part) => part.trim())
-      .find((part) => part.startsWith("__Host-DarkAuth-Csrf="))
-      ?.slice("__Host-DarkAuth-Csrf=".length);
+      .find((part) => part.startsWith("__Host-DarkAuth-Admin-Csrf="))
+      ?.slice("__Host-DarkAuth-Admin-Csrf=".length);
     if (csrf) {
       headers["x-csrf-token"] = decodeURIComponent(csrf);
     }

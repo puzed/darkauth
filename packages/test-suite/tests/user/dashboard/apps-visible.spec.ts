@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js'
 import { installDarkAuth } from '../../../setup/install.js'
 import { FIXED_TEST_ADMIN, createTestUser } from '../../../fixtures/testData.js'
-import { createUserViaAdmin, getAdminBearerToken } from '../../../setup/helpers/auth.js'
+import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js'
 
 test.describe('User Dashboard - Apps Visibility', () => {
   let servers: TestServers
@@ -18,13 +18,17 @@ test.describe('User Dashboard - Apps Visibility', () => {
       installToken: 'test-install-token'
     })
 
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    })
     const res = await fetch(`${servers.adminUrl}/admin/clients/demo-public-client`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'Origin': servers.adminUrl
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({ showOnUserDashboard: true })
     })

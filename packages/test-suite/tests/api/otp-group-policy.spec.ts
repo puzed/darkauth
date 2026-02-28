@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js';
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
-import { getAdminBearerToken } from '../../setup/helpers/auth.js';
+import { getAdminSession } from '../../setup/helpers/auth.js';
 
 test.describe('API - OTP Group Policy', () => {
   let servers: TestServers;
-  let adminToken: string;
+  let adminSession: { cookieHeader: string; csrfToken: string };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'api-otp-group-policy' });
@@ -17,7 +17,10 @@ test.describe('API - OTP Group Policy', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
-    adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
   });
 
   test.afterAll(async () => {
@@ -26,7 +29,7 @@ test.describe('API - OTP Group Policy', () => {
 
   test('Default group has requireOtp field and can be toggled', async () => {
     const listRes = await fetch(`${servers.adminUrl}/admin/groups`, {
-      headers: { Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(listRes.ok).toBeTruthy();
     const listJson = await listRes.json() as { groups: Array<{ key: string; requireOtp?: boolean }> };
@@ -36,13 +39,18 @@ test.describe('API - OTP Group Policy', () => {
     const current = Boolean(def?.requireOtp);
     const updRes = await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: !current })
     });
     expect(updRes.ok).toBeTruthy();
 
     const listRes2 = await fetch(`${servers.adminUrl}/admin/groups`, {
-      headers: { Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(listRes2.ok).toBeTruthy();
     const listJson2 = await listRes2.json() as { groups: Array<{ key: string; requireOtp?: boolean }> };
@@ -54,7 +62,12 @@ test.describe('API - OTP Group Policy', () => {
     const key = `grp-${Date.now().toString(36)}`;
     const createRes = await fetch(`${servers.adminUrl}/admin/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ key, name: 'OTP Optional', enableLogin: true, requireOtp: false })
     });
     expect(createRes.status).toBe(201);
@@ -67,20 +80,30 @@ test.describe('API - OTP Group Policy', () => {
     const key = `grp2-${Date.now().toString(36)}`;
     const createRes = await fetch(`${servers.adminUrl}/admin/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ key, name: 'OTP Required', enableLogin: true, requireOtp: false })
     });
     expect(createRes.status).toBe(201);
 
     const updRes = await fetch(`${servers.adminUrl}/admin/groups/${key}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: true })
     });
     expect(updRes.ok).toBeTruthy();
 
     const listRes = await fetch(`${servers.adminUrl}/admin/groups`, {
-      headers: { Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(listRes.ok).toBeTruthy();
     const listJson = await listRes.json() as { groups: Array<{ key: string; requireOtp?: boolean }> };
@@ -88,4 +111,3 @@ test.describe('API - OTP Group Policy', () => {
     expect(row?.requireOtp).toBe(true);
   });
 });
-

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { getAdminBearerToken, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
+import { getAdminSession, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 
 test.describe('Admin - Organizations Default', () => {
@@ -47,9 +47,9 @@ test.describe('Admin - Organizations Default', () => {
   });
 
   test('Default organization exists via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
     const res = await fetch(`${servers.adminUrl}/admin/organizations`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(res.ok).toBeTruthy();
     const json = await res.json() as { organizations: Array<{ slug: string }> };

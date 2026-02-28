@@ -33,8 +33,7 @@ export async function userOpaqueRegisterFinish(
     const { generateRandomString: genFakeId } = await import("../utils/crypto.ts");
     return {
       sub: genFakeId(16),
-      accessToken: genFakeId(32),
-      refreshToken: genFakeId(32),
+      sessionId: genFakeId(32),
     };
   }
 
@@ -78,5 +77,5 @@ export async function userOpaqueRegisterFinish(
     name: data.name,
     clientId: "demo-public-client",
   });
-  return { sub, accessToken: sessionInfo.sessionId, refreshToken: sessionInfo.refreshToken };
+  return { sub, sessionId: sessionInfo.sessionId };
 }

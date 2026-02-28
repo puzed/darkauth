@@ -53,7 +53,7 @@ test("assertCsrf allows state-changing same-origin request with valid double-sub
   const request = createRequest({
     host: "auth.local",
     origin: "http://auth.local",
-    cookie: "__Host-DarkAuth=session-1; __Host-DarkAuth-Csrf=csrf-1",
+    cookie: "__Host-DarkAuth-User=session-1; __Host-DarkAuth-User-Csrf=csrf-1",
     "x-csrf-token": "csrf-1",
   });
   assert.doesNotThrow(() => assertCsrf(request));
@@ -63,7 +63,7 @@ test("assertCsrf throws when session cookie exists but csrf header is missing", 
   const request = createRequest({
     host: "auth.local",
     origin: "http://auth.local",
-    cookie: "__Host-DarkAuth=session-1; __Host-DarkAuth-Csrf=csrf-1",
+    cookie: "__Host-DarkAuth-User=session-1; __Host-DarkAuth-User-Csrf=csrf-1",
   });
   assert.throws(() => assertCsrf(request));
 });
@@ -72,7 +72,7 @@ test("assertCsrf throws when csrf header does not match cookie token", () => {
   const request = createRequest({
     host: "auth.local",
     origin: "http://auth.local",
-    cookie: "__Host-DarkAuth=session-1; __Host-DarkAuth-Csrf=csrf-1",
+    cookie: "__Host-DarkAuth-User=session-1; __Host-DarkAuth-User-Csrf=csrf-1",
     "x-csrf-token": "csrf-2",
   });
   assert.throws(() => assertCsrf(request));

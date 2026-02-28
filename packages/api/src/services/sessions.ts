@@ -6,8 +6,18 @@ import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
 import { getSetting } from "./settings.ts";
 
-export const AUTH_COOKIE_NAME = "__Host-DarkAuth";
-export const CSRF_COOKIE_NAME = "__Host-DarkAuth-Csrf";
+export const USER_AUTH_COOKIE_NAME = "__Host-DarkAuth-User";
+export const ADMIN_AUTH_COOKIE_NAME = "__Host-DarkAuth-Admin";
+export const USER_CSRF_COOKIE_NAME = "__Host-DarkAuth-User-Csrf";
+export const ADMIN_CSRF_COOKIE_NAME = "__Host-DarkAuth-Admin-Csrf";
+
+function getAuthCookieName(isAdmin: boolean): string {
+  return isAdmin ? ADMIN_AUTH_COOKIE_NAME : USER_AUTH_COOKIE_NAME;
+}
+
+function getCsrfCookieName(isAdmin: boolean): string {
+  return isAdmin ? ADMIN_CSRF_COOKIE_NAME : USER_CSRF_COOKIE_NAME;
+}
 
 function parseCookies(request: IncomingMessage): Record<string, string> {
   const raw = request.headers.cookie;
@@ -99,19 +109,22 @@ export function issueSessionCookies(
   response: ServerResponse,
   sessionId: string,
   ttlSeconds: number,
+  isAdmin = false,
   csrfToken?: string
 ): string {
   const csrf = csrfToken || generateRandomString(32);
+  const authCookieName = getAuthCookieName(isAdmin);
+  const csrfCookieName = getCsrfCookieName(isAdmin);
   appendSetCookie(
     response,
-    buildCookie(AUTH_COOKIE_NAME, sessionId, {
+    buildCookie(authCookieName, sessionId, {
       httpOnly: true,
       maxAge: ttlSeconds,
     })
   );
   appendSetCookie(
     response,
-    buildCookie(CSRF_COOKIE_NAME, csrf, {
+    buildCookie(csrfCookieName, csrf, {
       httpOnly: false,
       maxAge: ttlSeconds,
     })
@@ -119,32 +132,34 @@ export function issueSessionCookies(
   return csrf;
 }
 
-export function clearSessionCookies(response: ServerResponse): void {
+export function clearSessionCookies(response: ServerResponse, isAdmin = false): void {
+  const authCookieName = getAuthCookieName(isAdmin);
+  const csrfCookieName = getCsrfCookieName(isAdmin);
   appendSetCookie(
     response,
-    buildCookie(AUTH_COOKIE_NAME, "", {
+    buildCookie(authCookieName, "", {
       httpOnly: true,
       maxAge: 0,
     })
   );
   appendSetCookie(
     response,
-    buildCookie(CSRF_COOKIE_NAME, "", {
+    buildCookie(csrfCookieName, "", {
       httpOnly: false,
       maxAge: 0,
     })
   );
 }
 
-export function getSessionIdFromCookie(request: IncomingMessage): string | null {
+export function getSessionIdFromCookie(request: IncomingMessage, isAdmin = false): string | null {
   const cookies = parseCookies(request);
-  const sessionId = cookies[AUTH_COOKIE_NAME];
+  const sessionId = cookies[getAuthCookieName(isAdmin)];
   return typeof sessionId === "string" && sessionId.length > 0 ? sessionId : null;
 }
 
-export function getCsrfCookieToken(request: IncomingMessage): string | null {
+export function getCsrfCookieToken(request: IncomingMessage, isAdmin = false): string | null {
   const cookies = parseCookies(request);
-  const token = cookies[CSRF_COOKIE_NAME];
+  const token = cookies[getCsrfCookieName(isAdmin)];
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
@@ -249,20 +264,8 @@ export async function refreshSession(context: Context, sessionId: string): Promi
   await context.db.update(sessions).set({ expiresAt }).where(eq(sessions.id, sessionId));
 }
 
-export function getSessionIdFromAuthHeader(request: IncomingMessage): string | null {
-  const authHeader = request.headers.authorization;
-  if (!authHeader) return null;
-
-  const parts = authHeader.split(" ");
-  if (parts.length !== 2 || parts[0]?.toLowerCase() !== "bearer") {
-    return null;
-  }
-
-  return parts[1] || null;
-}
-
 export function getSessionId(request: IncomingMessage, _isAdmin = false): string | null {
-  return getSessionIdFromCookie(request) || getSessionIdFromAuthHeader(request);
+  return getSessionIdFromCookie(request, _isAdmin);
 }
 
 export async function requireSession(

@@ -72,7 +72,7 @@ export const postAdminOtpSetupVerify = withAudit({
       const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
       if (rotated) {
         const ttlSeconds = await getSessionTtlSeconds(context, "admin");
-        issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
       }
     }
     sendJson(response, 200, { success: true, backup_codes: backupCodes });
@@ -101,7 +101,7 @@ export const postAdminOtpVerify = withAudit({
     const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
     if (!rotated) return sendJson(response, 401, { error: "Invalid or expired session" });
     const ttlSeconds = await getSessionTtlSeconds(context, "admin");
-    issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+    issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
     sendJson(response, 200, { success: true });
   })
 );
@@ -133,7 +133,7 @@ export const postAdminOtpDisable = withAudit({
       });
       if (rotated) {
         const ttlSeconds = await getSessionTtlSeconds(context, "admin");
-        issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
       }
     }
     sendJson(response, 200, { success: true });
@@ -167,7 +167,7 @@ export const postAdminOtpReset = withAudit({
       });
       if (rotated) {
         const ttlSeconds = await getSessionTtlSeconds(context, "admin");
-        issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
       }
     }
     sendJson(response, 200, { secret, provisioning_uri: provisioningUri });

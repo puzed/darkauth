@@ -1,7 +1,7 @@
 import { createTestServers, destroyTestServers } from './packages/test-suite/setup/server.js';
 import { installDarkAuth } from './packages/test-suite/setup/install.js';
 import { FIXED_TEST_ADMIN } from './packages/test-suite/fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken } from './packages/test-suite/setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession } from './packages/test-suite/setup/helpers/auth.js';
 import { OpaqueClient } from './packages/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { toBase64Url, fromBase64Url } from './packages/api/src/utils/crypto.ts';
 
@@ -22,10 +22,22 @@ const b64urlDecode = (s: string) => Buffer.from(s.replace(/-/g,'+').replace(/_/g
   const servers = await createTestServers({ testName: 'tmp-check-jwt' });
   try {
     await installDarkAuth({ adminUrl: servers.adminUrl, adminEmail: FIXED_TEST_ADMIN.email, adminName: FIXED_TEST_ADMIN.name, adminPassword: FIXED_TEST_ADMIN.password, installToken: 'test-install-token' });
-    const adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     const reader = { email: `reader-${Date.now()}@example.com`, name: 'Directory Reader', password: 'Passw0rd!123' };
     const { sub: readerSub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, reader);
-    const upd = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(readerSub)}/permissions`, { method:'PUT', headers:{'Content-Type':'application/json', Authorization:`Bearer ${adminToken}`, Origin:servers.adminUrl}, body: JSON.stringify({ permissionKeys: ['darkauth.users:read'] })});
+    const upd = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(readerSub)}/permissions`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
+      body: JSON.stringify({ permissionKeys: ['darkauth.users:read'] }),
+    });
     console.log('update perms status', upd.status);
     const refreshToken = await opaqueLoginFinish(servers.userUrl, reader.email, reader.password);
     const tokenRes = await fetch(`${servers.userUrl}/api/user/token`, { method:'POST', headers:{ 'Content-Type':'application/x-www-form-urlencoded', Origin: servers.userUrl }, body: new URLSearchParams({ grant_type:'refresh_token', client_id:'demo-public-client', refresh_token: refreshToken }) });

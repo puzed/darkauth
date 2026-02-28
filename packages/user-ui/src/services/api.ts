@@ -122,8 +122,8 @@ class ApiService {
       const csrf = document.cookie
         .split(";")
         .map((part) => part.trim())
-        .find((part) => part.startsWith("__Host-DarkAuth-Csrf="))
-        ?.slice("__Host-DarkAuth-Csrf=".length);
+        .find((part) => part.startsWith("__Host-DarkAuth-User-Csrf="))
+        ?.slice("__Host-DarkAuth-User-Csrf=".length);
       if (csrf) {
         headers.set("x-csrf-token", decodeURIComponent(csrf));
       }

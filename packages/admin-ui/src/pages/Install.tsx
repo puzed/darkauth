@@ -14,7 +14,7 @@ interface InstallData {
   adminEmail: string;
   adminName: string;
   adminPassword: string;
-  kekPassphrase?: string;
+  selfRegistrationEnabled: boolean;
 }
 
 export default function Install() {
@@ -27,8 +27,8 @@ export default function Install() {
     adminEmail: "",
     adminName: "",
     adminPassword: "",
+    selfRegistrationEnabled: false,
   });
-  const [hasKek, setHasKek] = useState<boolean>(true);
   const [opaqueState, setOpaqueState] = useState<AdminOpaqueRegistrationState | null>(null);
   const [dbMode, setDbMode] = useState<"remote" | "pglite">("remote");
   const [postgresUri, setPostgresUri] = useState<string>("");
@@ -50,8 +50,7 @@ export default function Install() {
         return;
       }
       if (r.ok) {
-        const data = (await r.json()) as { ok: boolean; hasKek?: boolean };
-        setHasKek(Boolean(data?.hasKek));
+        await r.json();
         setStage("form");
       } else setStage("error");
     } catch {
@@ -126,8 +125,8 @@ export default function Install() {
         body: JSON.stringify({
           adminEmail: formData.adminEmail,
           adminName: formData.adminName,
+          selfRegistrationEnabled: formData.selfRegistrationEnabled,
           token,
-          ...(hasKek ? {} : { kekPassphrase: formData.kekPassphrase }),
         }),
       });
       const data = await r.json();
@@ -273,6 +272,31 @@ export default function Install() {
 
           <Card>
             <CardHeader>
+              <CardTitle>User Settings</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormGrid columns={1}>
+                <GridField
+                  label={<Label htmlFor={`${uid}-self-registration`}>User Self Registration</Label>}
+                >
+                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      id={`${uid}-self-registration`}
+                      name="selfRegistrationEnabled"
+                      type="checkbox"
+                      checked={formData.selfRegistrationEnabled}
+                      onChange={onChange}
+                      disabled={loading}
+                    />
+                    Enable user registration on the login page
+                  </label>
+                </GridField>
+              </FormGrid>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
               <CardTitle>Database</CardTitle>
             </CardHeader>
             <CardContent>
@@ -324,31 +348,6 @@ export default function Install() {
               </FormGrid>
             </CardContent>
           </Card>
-
-          {!hasKek && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Key Encryption</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <FormGrid columns={1}>
-                  <GridField label={<Label htmlFor={`${uid}-kek`}>KEK Passphrase</Label>}>
-                    <Input
-                      id={`${uid}-kek`}
-                      name="kekPassphrase"
-                      type="password"
-                      value={formData.kekPassphrase || ""}
-                      onChange={onChange}
-                      placeholder="Enter a strong passphrase"
-                      minLength={8}
-                      disabled={loading}
-                      required
-                    />
-                  </GridField>
-                </FormGrid>
-              </CardContent>
-            </Card>
-          )}
 
           <Button size="lg" disabled={loading} style={{ width: "100%" }}>
             {loading ? "Installing…" : "Complete Installation"}

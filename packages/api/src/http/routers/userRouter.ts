@@ -57,7 +57,7 @@ export function createUserRouter(context: Context) {
 
     try {
       const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token";
-      if (needsCsrf) assertCsrf(request);
+      if (needsCsrf) assertCsrf(request, false);
       if (method === "GET" && pathname === "/branding/logo") {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
         const useDark = url.searchParams.get("dark") === "1";

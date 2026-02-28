@@ -77,8 +77,8 @@ export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
           name,
         });
         const ttlSeconds = await getSessionTtlSeconds(context, "user");
-        issueSessionCookies(response, result.accessToken, ttlSeconds);
-        sendJson(response, 201, { ...result, message: "User registered successfully" });
+        issueSessionCookies(response, result.sessionId, ttlSeconds, false);
+        sendJson(response, 201, { sub: result.sub, message: "User registered successfully" });
       } catch (error) {
         sendError(response, error as Error);
       }

@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
-import { establishAdminSession, getAdminBearerToken } from './auth.js';
+import { establishAdminSession, getAdminSession } from './auth.js';
 import type { TestServers } from '../server.js';
 import { attachConsoleLogging } from './browser.js';
 
@@ -60,8 +60,8 @@ export async function configureDemoClient(
   admin: AdminCredentials,
   demoUiUrl: string
 ): Promise<void> {
-  const adminToken = await getAdminBearerToken(servers, admin);
-  const demoPublicClient = await fetchDemoPublicClient(servers, adminToken);
+  const adminSession = await getAdminSession(servers, admin);
+  const demoPublicClient = await fetchDemoPublicClient(servers, adminSession);
   const normalizeUrl = (value: string) => value.replace(/\/$/, '');
   const updatedRedirectUris = Array.from(
     new Set([...demoPublicClient.redirectUris, `${demoUiUrl}/callback`, `${demoUiUrl}/`])
@@ -75,9 +75,10 @@ export async function configureDemoClient(
   const updateResponse = await fetch(`${servers.adminUrl}/admin/clients/demo-public-client`, {
     method: 'PUT',
     headers: {
-      Authorization: `Bearer ${adminToken}`,
+      Cookie: adminSession.cookieHeader,
       Origin: servers.adminUrl,
       'Content-Type': 'application/json',
+      'x-csrf-token': adminSession.csrfToken,
     },
     body: JSON.stringify({
       redirectUris: updatedRedirectUris,
@@ -91,10 +92,13 @@ export async function configureDemoClient(
   }
 }
 
-async function fetchDemoPublicClient(servers: TestServers, adminToken: string): Promise<AdminClient> {
+async function fetchDemoPublicClient(
+  servers: TestServers,
+  adminSession: { cookieHeader: string }
+): Promise<AdminClient> {
   const clientListResponse = await fetch(`${servers.adminUrl}/admin/clients`, {
     headers: {
-      Authorization: `Bearer ${adminToken}`,
+      Cookie: adminSession.cookieHeader,
       Origin: servers.adminUrl,
     },
   });

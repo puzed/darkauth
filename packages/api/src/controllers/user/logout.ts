@@ -53,7 +53,7 @@ export const postLogout = withAudit({
     if (sessionId) {
       await deleteSession(context, sessionId);
     }
-    clearSessionCookies(response);
+    clearSessionCookies(response, false);
 
     // Validate post_logout_redirect_uri if provided
     if (post_logout_redirect_uri) {

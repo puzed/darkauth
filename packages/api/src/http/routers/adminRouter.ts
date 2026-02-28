@@ -111,7 +111,7 @@ export function createAdminRouter(context: Context) {
       }
 
       const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
-      if (needsCsrf) assertCsrf(request);
+      if (needsCsrf) assertCsrf(request, true);
       if (method === "GET" && pathname === "/admin/session") {
         return await getAdminSession(context, request, response);
       }

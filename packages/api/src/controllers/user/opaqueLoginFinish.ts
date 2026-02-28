@@ -176,7 +176,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
           : {};
 
       // Create user session
-      const { sessionId: createdSessionId, refreshToken } = await createSession(context, "user", {
+      const { sessionId: createdSessionId } = await createSession(context, "user", {
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
@@ -186,15 +186,13 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         otpVerified: false,
       });
       const ttlSeconds = await getSessionTtlSeconds(context, "user");
-      issueSessionCookies(response, createdSessionId, ttlSeconds);
+      issueSessionCookies(response, createdSessionId, ttlSeconds, false);
 
       const responseData = {
         success: true,
         sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
         sub: user.sub,
         user: { sub: user.sub, email: user.email, name: user.name },
-        accessToken: createdSessionId,
-        refreshToken,
         otpRequired,
       };
 

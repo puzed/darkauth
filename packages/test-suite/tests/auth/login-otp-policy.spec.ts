@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js';
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken } from '../../setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 
@@ -29,7 +29,7 @@ async function opaqueLoginFinish(userUrl: string, email: string, password: strin
 
 test.describe('Auth - Login OTP Policy', () => {
   let servers: TestServers;
-  let adminToken: string;
+  let adminSession: { cookieHeader: string; csrfToken: string };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'auth-login-otp-policy' });
@@ -40,7 +40,10 @@ test.describe('Auth - Login OTP Policy', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
-    adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
   });
 
   test.afterAll(async () => {
@@ -50,7 +53,12 @@ test.describe('Auth - Login OTP Policy', () => {
   test('User in default group with requireOtp=true gets otpRequired', async () => {
     await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: true })
     });
 
@@ -64,7 +72,12 @@ test.describe('Auth - Login OTP Policy', () => {
     const key = `nog-${Date.now().toString(36)}`;
     await fetch(`${servers.adminUrl}/admin/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ key, name: 'No OTP', enableLogin: true, requireOtp: false })
     });
 
@@ -72,7 +85,12 @@ test.describe('Auth - Login OTP Policy', () => {
     const { sub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/groups`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ groups: [key] })
     });
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
@@ -84,19 +102,34 @@ test.describe('Auth - Login OTP Policy', () => {
     const loginOnKey = `login-${Date.now().toString(36)}`;
     await fetch(`${servers.adminUrl}/admin/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ key: otpOffKey, name: 'OTP Off Login', enableLogin: false, requireOtp: true })
     });
     await fetch(`${servers.adminUrl}/admin/groups`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ key: loginOnKey, name: 'Login Enabled No OTP', enableLogin: true, requireOtp: false })
     });
     const user = { email: `c-${Date.now()}@example.com`, name: 'User C', password: 'Passw0rd!123' };
     const { sub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/groups`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ groups: [otpOffKey, loginOnKey] })
     });
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);

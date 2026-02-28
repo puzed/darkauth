@@ -18,7 +18,7 @@ async function postAdminLogoutHandler(
   if (sessionId) {
     await deleteSession(context, sessionId);
   }
-  clearSessionCookies(response);
+  clearSessionCookies(response, true);
 
   sendJson(response, 200, {
     success: true,
