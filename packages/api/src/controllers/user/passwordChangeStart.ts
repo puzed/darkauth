@@ -4,10 +4,10 @@ import { ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
+import { requirePasswordChangeIdentity } from "./passwordAuth.ts";
 
 async function postUserPasswordChangeStartHandler(
   context: Context,
@@ -16,11 +16,8 @@ async function postUserPasswordChangeStartHandler(
 ) {
   const opaque = await requireOpaqueService(context);
 
-  const session = await requireSession(context, request, false);
-  const email = session.email;
-  if (!email) {
-    throw new ValidationError("Email not available for session");
-  }
+  const identity = await requirePasswordChangeIdentity(context, request);
+  const email = identity.email;
 
   const body = await getCachedBody(request);
   const raw = parseJsonSafely(body);
