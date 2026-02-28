@@ -47,6 +47,10 @@ export function createInstallRouter(context: Context) {
 
       throw new NotFoundError("Endpoint not found");
     } catch (error) {
+      context.logger.error(
+        { err: error, method, pathname, url: request.url },
+        "install router request failed"
+      );
       sendError(response, error as Error);
     }
   };

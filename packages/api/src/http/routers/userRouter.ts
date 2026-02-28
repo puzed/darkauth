@@ -427,6 +427,10 @@ export function createUserRouter(context: Context) {
 
       throw new NotFoundError("Endpoint not found");
     } catch (error) {
+      context.logger.error(
+        { err: error, method, pathname, url: request.url },
+        "user router request failed"
+      );
       sendError(response, error as Error);
     }
   };
