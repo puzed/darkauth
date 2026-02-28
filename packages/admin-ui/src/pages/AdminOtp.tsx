@@ -123,13 +123,14 @@ export default function AdminOtp() {
     }
   }, [loading, status, view, setupData, startSetup, manageRequested]);
 
-  const doSetupVerify = async () => {
-    if (setupCode.length !== 6) return;
+  const doSetupVerify = async (input?: string) => {
+    const nextCode = (input ?? setupCode).replace(/[^0-9]/g, "").slice(0, 6);
+    if (nextCode.length !== 6) return;
     if (setupSubmittingRef.current) return;
     setupSubmittingRef.current = true;
     try {
       setError(null);
-      const res = await adminApiService.ownOtpSetupVerify(setupCode);
+      const res = await adminApiService.ownOtpSetupVerify(nextCode);
       setBackupCodes(res.backup_codes || []);
       setStatus((prev) =>
         prev
@@ -146,14 +147,15 @@ export default function AdminOtp() {
     }
   };
 
-  const doVerify = async () => {
-    const raw = verifyCode.replace(/[^0-9A-Z-]/g, "");
+  const doVerify = async (input?: string) => {
+    const nextCode = (input ?? verifyCode).replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
+    const raw = nextCode.replace(/[^0-9A-Z-]/g, "");
     if (raw.replace(/-/g, "").length < 6) return;
     if (verifySubmittingRef.current) return;
     verifySubmittingRef.current = true;
     try {
       setError(null);
-      await adminApiService.ownOtpVerify(verifyCode);
+      await adminApiService.ownOtpVerify(nextCode);
       window.location.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
@@ -317,13 +319,11 @@ export default function AdminOtp() {
             value={setupCode}
             onChange={(event) => {
               const raw = event.target.value.replace(/[^0-9]/g, "");
-              setSetupCode(raw.slice(0, 6));
-            }}
-            onKeyUp={(event) => {
-              if (event.key === "Enter") return;
-              if (setupSubmittingRef.current) return;
-              const value = event.currentTarget.value.replace(/[^0-9]/g, "");
-              if (value.length === 6) event.currentTarget.form?.requestSubmit();
+              const nextValue = raw.slice(0, 6);
+              setSetupCode(nextValue);
+              if (!setupSubmittingRef.current && nextValue.length === 6) {
+                void doSetupVerify(nextValue);
+              }
             }}
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -357,13 +357,11 @@ export default function AdminOtp() {
           value={verifyCode}
           onChange={(event) => {
             const cleaned = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
-            setVerifyCode(cleaned.slice(0, 14));
-          }}
-          onKeyUp={(event) => {
-            if (event.key === "Enter") return;
-            if (verifySubmittingRef.current) return;
-            const cleaned = event.currentTarget.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
-            if (cleaned.replace(/-/g, "").length >= 6) event.currentTarget.form?.requestSubmit();
+            const nextValue = cleaned.slice(0, 14);
+            setVerifyCode(nextValue);
+            if (!verifySubmittingRef.current && /^[0-9]{6}$/.test(nextValue)) {
+              void doVerify(nextValue);
+            }
           }}
           inputMode="text"
           autoComplete="one-time-code"
