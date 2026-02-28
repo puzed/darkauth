@@ -173,7 +173,7 @@ Server never stores
 - Derived keys MK/KW/KDerive.
 
 Sessions and claims
-- SPA model: `/session` for minimal info; `/refresh-token` rotates session tokens.
+- SPA model: `/session` for minimal info; refresh rotation is performed with `POST /token` using `grant_type=refresh_token`.
 - OIDC refresh grant enforces client binding: cross-client refresh token reuse is rejected.
 - Refresh token replay is rejected: once consumed by a successful rotation, the token cannot be reused.
 - ID tokens may include `permissions` and `groups` claims when configured.
@@ -184,7 +184,7 @@ User/OIDC (port 9080)
 - `GET /api/.well-known/openid-configuration`
 - `GET /api/.well-known/jwks.json`
 - `GET /api/authorize` (supports `zk_pub` when client is ZK‑enabled)
-- `POST /api/authorize/finalize` (form): `{ request_id, drk_hash? }`
+- `POST /api/authorize/finalize` (form): `{ request_id, drk_hash? }` where `drk_hash` is required when ZK was requested (`zk_pub` present in `/authorize`)
 - `POST /api/token` (form): authorization_code; returns `zk_drk_hash` when applicable
 - `POST /opaque/login/start`, `POST /opaque/login/finish`
 - `POST /opaque/register/start`, `POST /opaque/register/finish`
@@ -194,7 +194,7 @@ User/OIDC (port 9080)
 - `PUT /crypto/enc-pub` (publish user encryption public JWK)
 - `GET /crypto/wrapped-enc-priv`, `PUT /crypto/wrapped-enc-priv` (DRK‑wrapped private key)
 - `GET /users/search`, `GET /users/:sub`
-- `GET /session`, `POST /refresh-token`, `POST /logout`
+- `GET /session`, `POST /logout`
 
 Admin (port 9081) — highlights
 - `POST /admin/opaque/login/start`, `POST /admin/opaque/login/finish`

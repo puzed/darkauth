@@ -594,7 +594,10 @@ export const postToken = withRateLimit("token")(
 
       // Handle ZK delivery (include zk_drk_hash if applicable)
       if (authCode.hasZk) {
-        if (authCode.drkHash) tokenResponse.zk_drk_hash = authCode.drkHash;
+        if (!authCode.drkHash) {
+          throw new InvalidGrantError("Missing ZK DRK hash binding");
+        }
+        tokenResponse.zk_drk_hash = authCode.drkHash;
         context.logger.info("token zk delivery: drk_hash included");
       }
 

@@ -1,3 +1,4 @@
+import { createPublicKey } from "node:crypto";
 import { EncryptJWT, generateKeyPair, importJWK, type JWK, jwtDecrypt } from "jose";
 import { ValidationError } from "../errors.js";
 import { fromBase64Url, sha256 } from "../utils/crypto.js";
@@ -300,6 +301,8 @@ export function parseZkPub(zkPubParam: string): ECJWKPublic {
     if (!isECPublicKey(jwk)) {
       throw new ValidationError("Invalid zk_pub JWK format - must be P-256 public key");
     }
+
+    createPublicKey({ key: jwk, format: "jwk" });
 
     return jwk;
   } catch (error) {
