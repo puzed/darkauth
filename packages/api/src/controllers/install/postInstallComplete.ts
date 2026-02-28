@@ -6,19 +6,19 @@ import {
   ExpiredInstallTokenError,
   ForbiddenInstallTokenError,
   ValidationError,
-} from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { generateEdDSAKeyPair, storeKeyPair } from "../../services/jwks.js";
-import { ensureKekService, generateKdfParams } from "../../services/kek.js";
+} from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { generateEdDSAKeyPair, storeKeyPair } from "../../services/jwks.ts";
+import { ensureKekService, generateKdfParams } from "../../services/kek.ts";
 import {
   isSystemInitialized,
   markSystemInitialized,
   seedDefaultSettings,
-} from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { generateRandomString } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+} from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { generateRandomString } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 const InstallCompleteRequestSchema = z.object({
   token: z.string(),
@@ -114,7 +114,7 @@ async function _postInstallComplete(
       context.config.rpId
     );
     const installCtx = { ...context, db } as Context;
-    await (await import("../../models/install.js")).writeKdfSetting(installCtx, kdfParams);
+    await (await import("../../models/install.ts")).writeKdfSetting(installCtx, kdfParams);
 
     context.logger.debug("[install:post] generating signing keys");
     const { publicJwk, privateJwk, kid } = await generateEdDSAKeyPair();
@@ -136,17 +136,17 @@ async function _postInstallComplete(
     const demoConfidentialSecretEnc = await kekService.encrypt(
       Buffer.from(demoConfidentialClientSecret)
     );
-    await (await import("../../models/install.js")).seedDefaultClients(
+    await (await import("../../models/install.ts")).seedDefaultClients(
       installCtx,
       demoConfidentialSecretEnc
     );
-    await (await import("../../models/install.js")).ensureDefaultOrganizationAndSchema(installCtx);
-    await (await import("../../models/install.js")).seedDefaultOrganizationRbac(installCtx);
+    await (await import("../../models/install.ts")).ensureDefaultOrganizationAndSchema(installCtx);
+    await (await import("../../models/install.ts")).seedDefaultOrganizationRbac(installCtx);
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"
     );
-    const adminId = await (await import("../../models/install.js")).verifyAdminAndOpaque(
+    const adminId = await (await import("../../models/install.ts")).verifyAdminAndOpaque(
       installCtx,
       data.adminEmail
     );
@@ -186,7 +186,7 @@ async function _postInstallComplete(
     });
 
     try {
-      const { upsertConfig } = await import("../../config/saveConfig.js");
+      const { upsertConfig } = await import("../../config/saveConfig.ts");
       upsertConfig(
         {
           kekPassphrase: context.config.kekPassphrase,

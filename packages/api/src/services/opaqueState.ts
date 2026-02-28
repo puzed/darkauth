@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { AKEExportKeyPair } from "opaque-ts";
-import { settings } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { settings } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 const STATE_KEY_PLAINTEXT = "opaque_server_state";
 const STATE_KEY_ENCRYPTED = "opaque_server_state_enc";

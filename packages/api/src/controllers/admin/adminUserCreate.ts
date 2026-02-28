@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { createAdminUser } from "../../models/adminUsers.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { createAdminUser } from "../../models/adminUsers.ts";
 export const AdminRoleSchema = z.enum(["read", "write"]);
 export const AdminUserSchema = z.object({
   id: z.string().uuid(),
@@ -19,9 +19,9 @@ export const CreateAdminUserSchema = z.object({
   role: AdminRoleSchema,
 });
 
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export async function createAdminUserController(
   context: Context,

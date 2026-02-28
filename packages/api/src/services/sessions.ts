@@ -1,10 +1,10 @@
 import type { IncomingMessage } from "node:http";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
-import { sessions } from "../db/schema.js";
-import { UnauthorizedError } from "../errors.js";
-import type { Context, SessionData } from "../types.js";
-import { generateRandomString, sha256Base64Url } from "../utils/crypto.js";
-import { getSetting } from "./settings.js";
+import { sessions } from "../db/schema.ts";
+import { UnauthorizedError } from "../errors.ts";
+import type { Context, SessionData } from "../types.ts";
+import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { getSetting } from "./settings.ts";
 
 async function getDurations(context: Context, cohort: "user" | "admin") {
   if (cohort === "admin") {

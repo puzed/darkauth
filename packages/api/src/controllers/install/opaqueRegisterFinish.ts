@@ -4,13 +4,13 @@ import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
   ValidationError,
-} from "../../errors.js";
-import { storeOpaqueAdmin } from "../../models/install.js";
-import { ensureOpaqueService } from "../../services/opaque.js";
-import { isSystemInitialized } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.js";
+} from "../../errors.ts";
+import { storeOpaqueAdmin } from "../../models/install.ts";
+import { ensureOpaqueService } from "../../services/opaque.ts";
+import { isSystemInitialized } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, readBody, sendError, sendJson } from "../../utils/http.ts";
 
 const Req = z.object({
   token: z.string().optional(),

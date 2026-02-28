@@ -1,14 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod/v4";
-import { ForbiddenError, UnauthorizedError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getClient } from "../../models/clients.js";
-import { getUserBySubWithGroups, getUsersBySubsWithGroups, listUsers } from "../../models/users.js";
-import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { ForbiddenError, UnauthorizedError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getClient } from "../../models/clients.ts";
+import { getUserBySubWithGroups, getUsersBySubsWithGroups, listUsers } from "../../models/users.ts";
+import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 const usersReadPermissionKey = "darkauth.users:read";
 
@@ -105,7 +105,7 @@ async function requireUsersReadPermission(
   if (!sessionData.sub) {
     throw new UnauthorizedError("User session required");
   }
-  const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.js");
+  const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
   const { organizationId } = await resolveOrganizationContext(
     context,
     sessionData.sub,

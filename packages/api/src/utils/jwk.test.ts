@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { test } from "node:test";
-import { ValidationError } from "../errors.js";
-import { parseAndValidateZkPub, validateP256PublicKeyJWK } from "./jwk.js";
+import { ValidationError } from "../errors.ts";
+import { parseAndValidateZkPub, validateP256PublicKeyJWK } from "./jwk.ts";
 
 // Type that allows testing missing required fields by making all properties optional
 type PartialJWK = {

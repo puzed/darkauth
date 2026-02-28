@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Context } from "../types.js";
+import type { Context } from "../types.ts";
 
 /**
  * Security headers configuration as per CORE.md spec
@@ -101,7 +101,7 @@ export async function getRateLimitConfig(
   if (!rateLimitSettingsCache || now - rateLimitSettingsCache.timestamp > CACHE_TTL) {
     try {
       // Import dynamically to avoid circular dependency
-      const { getSetting } = await import("../services/settings.js");
+      const { getSetting } = await import("../services/settings.ts");
       const obj = (await getSetting(context, "rate_limits")) as DbRateLimitSettings | null;
       const flat: DbRateLimitSettings = {};
       const types: RateLimitType[] = [
@@ -327,7 +327,7 @@ async function getClientIp(context: Context, request: IncomingMessage): Promise<
   // Check if we should trust proxy headers
   let trustProxy = false;
   try {
-    const { getSetting } = await import("../services/settings.js");
+    const { getSetting } = await import("../services/settings.ts");
     const securitySettings = (await getSetting(context, "security")) as Record<
       string,
       unknown

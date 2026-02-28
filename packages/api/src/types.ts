@@ -3,7 +3,7 @@ import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import type { JWTPayload as JoseJWTPayload } from "jose";
 import type { ZodObject, ZodRawShape, ZodTypeAny } from "zod";
-import type * as schema from "./db/schema.js";
+import type * as schema from "./db/schema.ts";
 
 export type Database = NodePgDatabase<typeof schema> | PgliteDatabase<typeof schema>;
 

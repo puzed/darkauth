@@ -1,14 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getAuthorize } from "../../controllers/user/authorize.js";
-import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.js";
-import { getEncPublicJwk } from "../../controllers/user/encPublicGet.js";
-import { putEncPublicJwk } from "../../controllers/user/encPublicPut.js";
-import { getUserApps } from "../../controllers/user/getUserApps.js";
-import { postLogout } from "../../controllers/user/logout.js";
-import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.js";
-import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.js";
-import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.js";
-import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.js";
+import { getAuthorize } from "../../controllers/user/authorize.ts";
+import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.ts";
+import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
+import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
+import { getUserApps } from "../../controllers/user/getUserApps.ts";
+import { postLogout } from "../../controllers/user/logout.ts";
+import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.ts";
+import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.ts";
+import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.ts";
+import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.ts";
 import {
   deleteOrganizationMemberRole,
   getOrganization,
@@ -17,37 +17,37 @@ import {
   postOrganizationInvites,
   postOrganizationMemberRoles,
   postOrganizations,
-} from "../../controllers/user/organizations.js";
-import { postOtpReauth } from "../../controllers/user/otpReauth.js";
-import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.js";
-import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.js";
-import { getOtpStatus } from "../../controllers/user/otpStatus.js";
-import { postOtpVerify } from "../../controllers/user/otpVerify.js";
-import { postUserPasswordChangeFinish } from "../../controllers/user/passwordChangeFinish.js";
-import { postUserPasswordChangeStart } from "../../controllers/user/passwordChangeStart.js";
-import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordChangeVerifyFinish.js";
-import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.js";
-import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.js";
-import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.js";
-import { getSession } from "../../controllers/user/session.js";
-import { postToken } from "../../controllers/user/token.js";
+} from "../../controllers/user/organizations.ts";
+import { postOtpReauth } from "../../controllers/user/otpReauth.ts";
+import { postOtpSetupInit } from "../../controllers/user/otpSetupInit.ts";
+import { postOtpSetupVerify } from "../../controllers/user/otpSetupVerify.ts";
+import { getOtpStatus } from "../../controllers/user/otpStatus.ts";
+import { postOtpVerify } from "../../controllers/user/otpVerify.ts";
+import { postUserPasswordChangeFinish } from "../../controllers/user/passwordChangeFinish.ts";
+import { postUserPasswordChangeStart } from "../../controllers/user/passwordChangeStart.ts";
+import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordChangeVerifyFinish.ts";
+import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.ts";
+import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.ts";
+import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.ts";
+import { getSession } from "../../controllers/user/session.ts";
+import { postToken } from "../../controllers/user/token.ts";
 import {
   getUserDirectoryEntry,
   searchUserDirectory,
-} from "../../controllers/user/usersDirectory.js";
-import { getWellKnownJwks } from "../../controllers/user/wellKnownJwks.js";
-import { getWellKnownOpenidConfiguration } from "../../controllers/user/wellKnownOpenid.js";
-import { getWrappedDrk } from "../../controllers/user/wrappedDrk.js";
-import { putWrappedDrk } from "../../controllers/user/wrappedDrkPut.js";
-import { getWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivGet.js";
-import { putWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivPut.js";
-import { NotFoundError } from "../../errors.js";
-import { getClientDashboardIcon } from "../../models/clients.js";
-import { sanitizeCSS } from "../../services/branding.js";
-import { getSetting } from "../../services/settings.js";
-import type { Context } from "../../types.js";
-import { assertSameOrigin } from "../../utils/csrf.js";
-import { sendError } from "../../utils/http.js";
+} from "../../controllers/user/usersDirectory.ts";
+import { getWellKnownJwks } from "../../controllers/user/wellKnownJwks.ts";
+import { getWellKnownOpenidConfiguration } from "../../controllers/user/wellKnownOpenid.ts";
+import { getWrappedDrk } from "../../controllers/user/wrappedDrk.ts";
+import { putWrappedDrk } from "../../controllers/user/wrappedDrkPut.ts";
+import { getWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivGet.ts";
+import { putWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivPut.ts";
+import { NotFoundError } from "../../errors.ts";
+import { getClientDashboardIcon } from "../../models/clients.ts";
+import { sanitizeCSS } from "../../services/branding.ts";
+import { getSetting } from "../../services/settings.ts";
+import type { Context } from "../../types.ts";
+import { assertSameOrigin } from "../../utils/csrf.ts";
+import { sendError } from "../../utils/http.ts";
 
 export function createUserRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {

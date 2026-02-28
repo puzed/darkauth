@@ -3,7 +3,7 @@ import path from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate as migratePglite } from "drizzle-orm/pglite/migrator";
-import * as schema from "../db/schema.js";
+import * as schema from "../db/schema.ts";
 
 export async function createPglite(dir: string) {
   const abs = path.resolve(process.cwd(), dir);

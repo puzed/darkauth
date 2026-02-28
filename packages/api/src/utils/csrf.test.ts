@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage } from "node:http";
 import { test } from "node:test";
-import { assertSameOrigin, isSameOrigin } from "./csrf.js";
+import { assertSameOrigin, isSameOrigin } from "./csrf.ts";
 
 function createRequest(
   headers: Record<string, string | undefined>,

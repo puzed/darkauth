@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Context } from "../types.js";
-import { createAuthCode } from "./authCodes.js";
-import { createPendingAuth } from "./authorize.js";
+import type { Context } from "../types.ts";
+import { createAuthCode } from "./authCodes.ts";
+import { createPendingAuth } from "./authorize.ts";
 
 test("createPendingAuth stores nonce in pending auth record", async () => {
   let insertedValues: Record<string, unknown> | undefined;

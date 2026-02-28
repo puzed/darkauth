@@ -7,10 +7,10 @@ import {
   roles,
   userGroups,
   users,
-} from "../db/schema.js";
-import { ValidationError } from "../errors.js";
-import { createSession } from "../services/sessions.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { ValidationError } from "../errors.ts";
+import { createSession } from "../services/sessions.ts";
+import type { Context } from "../types.ts";
 
 export async function userOpaqueRegisterFinish(
   context: Context,
@@ -20,7 +20,7 @@ export async function userOpaqueRegisterFinish(
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(data.email)) throw new ValidationError("Invalid email format");
   const opaqueRecord = await context.services.opaque.finishRegistration(data.record, data.email);
-  const { generateRandomString } = await import("../utils/crypto.js");
+  const { generateRandomString } = await import("../utils/crypto.ts");
   const sub = generateRandomString(16);
   // Check if user already exists before transaction
   // Return a generic success response to prevent user enumeration attacks
@@ -30,7 +30,7 @@ export async function userOpaqueRegisterFinish(
   if (existingUser) {
     // Return a fake success response without modifying existing user data
     // This prevents attackers from discovering which emails are registered
-    const { generateRandomString: genFakeId } = await import("../utils/crypto.js");
+    const { generateRandomString: genFakeId } = await import("../utils/crypto.ts");
     return {
       sub: genFakeId(16),
       accessToken: genFakeId(32),

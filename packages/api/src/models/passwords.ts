@@ -4,10 +4,10 @@ import {
   userOpaqueRecordHistory,
   userPasswordHistory,
   users,
-} from "../db/schema.js";
-import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
-import { verifyJWT } from "../services/jwks.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
+import { verifyJWT } from "../services/jwks.ts";
+import type { Context } from "../types.ts";
 
 export async function userPasswordChangeFinish(
   context: Context,

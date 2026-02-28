@@ -2,8 +2,8 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 import pino from "pino";
-import { loadRootConfig } from "../config/loadConfig.js";
-import * as schema from "./schema.js";
+import { loadRootConfig } from "../config/loadConfig.ts";
+import * as schema from "./schema.ts";
 
 const logger = pino();
 

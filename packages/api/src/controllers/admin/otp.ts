@@ -1,22 +1,22 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { withRateLimit } from "../../middleware/rateLimit.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
 import {
   disableOtp,
   getOtpStatusModel,
   initOtp,
   verifyOtpCode,
   verifyOtpSetup,
-} from "../../models/otp.js";
+} from "../../models/otp.ts";
 import {
   getSessionIdFromAuthHeader,
   requireSession,
   updateSession,
-} from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+} from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export const getAdminOtpStatus = withAudit({
   eventType: "ADMIN_OTP_STATUS",

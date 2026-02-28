@@ -1,14 +1,14 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { signJWT } from "../../services/jwks.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, JWTPayload } from "../../types.js";
-import { fromBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendJson } from "../../utils/http.js";
+import { ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { signJWT } from "../../services/jwks.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, JWTPayload } from "../../types.ts";
+import { fromBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 // Zod schema for request body
 const PasswordChangeVerifyFinishBody = z.object({

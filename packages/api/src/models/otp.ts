@@ -1,11 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { verify as argonVerify, hash } from "argon2";
 import { and, eq } from "drizzle-orm";
-import { otpBackupCodes, otpConfigs, users } from "../db/schema.js";
-import { ValidationError } from "../errors.js";
-import { getSetting } from "../services/settings.js";
-import type { Context } from "../types.js";
-import { generateTotpSecretBase32, provisioningUri, verifyTotp } from "../utils/totp.js";
+import { otpBackupCodes, otpConfigs, users } from "../db/schema.ts";
+import { ValidationError } from "../errors.ts";
+import { getSetting } from "../services/settings.ts";
+import type { Context } from "../types.ts";
+import { generateTotpSecretBase32, provisioningUri, verifyTotp } from "../utils/totp.ts";
 
 type OtpSettings = {
   enabled: boolean;

@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { getAdminByEmail } from "../../models/adminUsers.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.js";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendError, sendJson } from "../../utils/http.js";
+import { ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { getAdminByEmail } from "../../models/adminUsers.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.ts";
+import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendError, sendJson } from "../../utils/http.ts";
 
 const OpaqueLoginStartRequestSchema = z
   .object({
@@ -56,7 +56,7 @@ async function postAdminOpaqueLoginStartHandler(
     if (!adminUser) {
       loginResponse = await opaqueService.startLoginWithDummy(requestBuffer, parsed.email);
     } else {
-      const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.js");
+      const { getAdminOpaqueRecordByAdminId } = await import("../../models/adminPasswords.ts");
       const opaqueRecordRow = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
       const envelopeBuffer =
         typeof opaqueRecordRow?.envelope === "string"

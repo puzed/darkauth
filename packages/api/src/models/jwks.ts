@@ -1,6 +1,6 @@
 import { asc, count, desc, ilike, or } from "drizzle-orm";
-import { jwks } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { jwks } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function listJwks(
   context: Context,
@@ -85,7 +85,7 @@ export async function listJwks(
 }
 
 export async function rotateJwks(context: Context) {
-  const { rotateKeys } = await import("../services/jwks.js");
+  const { rotateKeys } = await import("../services/jwks.ts");
   const { kid } = await rotateKeys(context);
   return { kid } as const;
 }

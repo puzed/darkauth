@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import type { Context } from "../types.js";
-import { consumeAuthCode } from "./authCodes.js";
+import type { Context } from "../types.ts";
+import { consumeAuthCode } from "./authCodes.ts";
 
 test("consumeAuthCode returns true when an unconsumed code is atomically updated", async () => {
   let updateCalled = false;

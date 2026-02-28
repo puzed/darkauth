@@ -7,9 +7,9 @@ import {
   rolePermissions,
   roles,
   users,
-} from "../db/schema.js";
-import { NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+} from "../db/schema.ts";
+import { NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function listOrganizationsAdmin(
   context: Context,

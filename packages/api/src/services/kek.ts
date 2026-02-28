@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { hash } from "argon2";
 import { eq } from "drizzle-orm";
-import { settings } from "../db/schema.js";
-import type { Context, KdfParams } from "../types.js";
-import { decryptAesGcm, encryptAesGcm } from "../utils/crypto.js";
+import { settings } from "../db/schema.ts";
+import type { Context, KdfParams } from "../types.ts";
+import { decryptAesGcm, encryptAesGcm } from "../utils/crypto.ts";
 
 export async function createKekService(passphrase: string, params: KdfParams) {
   const kek = await deriveKek(passphrase, params);

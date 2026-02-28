@@ -1,5 +1,5 @@
-import { pendingAuth } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { pendingAuth } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function createPendingAuth(
   context: Context,
@@ -37,7 +37,7 @@ export async function createPendingAuth(
 }
 
 export async function getPendingAuth(context: Context, requestId: string) {
-  const { pendingAuth } = await import("../db/schema.js");
+  const { pendingAuth } = await import("../db/schema.ts");
   const { eq } = await import("drizzle-orm");
   return await context.db.query.pendingAuth.findFirst({
     where: eq(pendingAuth.requestId, requestId),
@@ -45,13 +45,13 @@ export async function getPendingAuth(context: Context, requestId: string) {
 }
 
 export async function deletePendingAuth(context: Context, requestId: string) {
-  const { pendingAuth } = await import("../db/schema.js");
+  const { pendingAuth } = await import("../db/schema.ts");
   const { eq } = await import("drizzle-orm");
   await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
 }
 
 export async function consumePendingAuth(context: Context, requestId: string, userSub: string) {
-  const { pendingAuth } = await import("../db/schema.js");
+  const { pendingAuth } = await import("../db/schema.ts");
   const { and, eq, isNull, or } = await import("drizzle-orm");
   const [row] = await context.db
     .delete(pendingAuth)

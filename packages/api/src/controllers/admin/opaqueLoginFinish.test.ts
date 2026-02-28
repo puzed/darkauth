@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, mock, test } from "node:test";
-import { adminUsers } from "../../db/schema.js";
-import type { Context } from "../../types.js";
-import { postAdminOpaqueLoginFinish } from "./opaqueLoginFinish.js";
+import { adminUsers } from "../../db/schema.ts";
+import type { Context } from "../../types.ts";
+import { postAdminOpaqueLoginFinish } from "./opaqueLoginFinish.ts";
 
 function createMockResponse() {
   let payload = "";

@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { URL } from "node:url";
 import { ZodError } from "zod";
-import { AppError, OAuthError, ValidationError } from "../errors.js";
+import { AppError, OAuthError, ValidationError } from "../errors.ts";
 
 export function readBody(request: IncomingMessage): Promise<string> {
   const reqWithRaw = request as IncomingMessage & { rawBody?: unknown };
