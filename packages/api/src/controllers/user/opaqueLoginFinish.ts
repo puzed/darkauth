@@ -13,8 +13,14 @@ import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getUserBySubOrEmail } from "../../models/users.ts";
+import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { createSession } from "../../services/sessions.ts";
+import {
+  createSession,
+  getSessionTtlSeconds,
+  issueSessionCookies,
+} from "../../services/sessions.ts";
+import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
@@ -181,15 +187,46 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         otpRequired: otpRequired,
         otpVerified: false,
       });
+      const ttlSeconds = await getSessionTtlSeconds(context, "user");
+      issueSessionCookies(response, createdSessionId, ttlSeconds, false);
+      let accessTokenTtl = 600;
+      const accessTokenSettings = (await getSetting(context, "access_token")) as
+        | { lifetime_seconds?: number }
+        | undefined
+        | null;
+      if (accessTokenSettings?.lifetime_seconds && accessTokenSettings.lifetime_seconds > 0) {
+        accessTokenTtl = accessTokenSettings.lifetime_seconds;
+      } else {
+        const flat = (await getSetting(context, "access_token.lifetime_seconds")) as
+          | number
+          | undefined
+          | null;
+        if (typeof flat === "number" && flat > 0) accessTokenTtl = flat;
+      }
+      const now = Math.floor(Date.now() / 1000);
+      const accessToken = await signJWT(
+        context,
+        {
+          iss: context.config.issuer,
+          sub: user.sub,
+          aud: "demo-public-client",
+          iat: now,
+          exp: now + accessTokenTtl,
+          email: user.email || undefined,
+          name: user.name || undefined,
+          token_use: "access",
+          grant_type: "opaque_login",
+        },
+        `${accessTokenTtl}s`
+      );
 
-      // Return session token as Bearer token
       const responseData = {
         success: true,
+        accessToken,
+        refreshToken,
         sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
         sub: user.sub,
         user: { sub: user.sub, email: user.email, name: user.name },
-        accessToken: createdSessionId, // Use sessionId as bearer token
-        refreshToken,
         otpRequired,
       };
 

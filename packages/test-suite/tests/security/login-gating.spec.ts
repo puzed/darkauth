@@ -57,13 +57,21 @@ test.describe('Security - Login gating by group enableLogin', () => {
     const tokenRes = await fetch(`${servers.adminUrl}/admin/opaque/login/start`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Origin': servers.adminUrl }, body: JSON.stringify({ email: FIXED_TEST_ADMIN.email, request: toBase64Url(Buffer.from((await (new OpaqueClient().initialize(), new OpaqueClient().startLogin(FIXED_TEST_ADMIN.password, FIXED_TEST_ADMIN.email))).request)) }) });
     expect(tokenRes.ok).toBeTruthy();
     // For API calls, use helper instead of duplicating OPAQUE again
-    const { getAdminBearerToken } = await import('../../setup/helpers/auth.js');
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const { getAdminSession } = await import('../../setup/helpers/auth.js');
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
 
     // Disable default group
     const putOff = await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ enableLogin: false })
     });
     expect(putOff.ok).toBeTruthy();
@@ -73,7 +81,12 @@ test.describe('Security - Login gating by group enableLogin', () => {
     // Re-enable
     const putOn = await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ enableLogin: true })
     });
     expect(putOn.ok).toBeTruthy();
@@ -81,4 +94,3 @@ test.describe('Security - Login gating by group enableLogin', () => {
     await loginFinishExpect(servers, user.email, user.password, true);
   });
 });
-

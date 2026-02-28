@@ -10,9 +10,11 @@ import {
   verifyOtpSetup,
 } from "../../models/otp.ts";
 import {
-  getSessionIdFromAuthHeader,
+  getSessionId,
+  getSessionTtlSeconds,
+  issueSessionCookies,
   requireSession,
-  updateSession,
+  rotateSession,
 } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -65,8 +67,14 @@ export const postAdminOtpSetupVerify = withAudit({
     if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
     const code = parsed.data.code.trim();
     const { backupCodes } = await verifyOtpSetup(context, "admin", session.adminId as string, code);
-    const sid = getSessionIdFromAuthHeader(request);
-    if (sid) await updateSession(context, sid, { ...session, otpVerified: true });
+    const sid = getSessionId(request, true);
+    if (sid) {
+      const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
+      if (rotated) {
+        const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
+      }
+    }
     sendJson(response, 200, { success: true, backup_codes: backupCodes });
   })
 );
@@ -87,10 +95,13 @@ export const postAdminOtpVerify = withAudit({
     const parsed = Req.safeParse(data);
     if (!parsed.success) return sendJson(response, 400, { error: "Invalid OTP code" });
     const code = parsed.data.code.trim();
-    const sid = getSessionIdFromAuthHeader(request);
-    if (!sid) return sendJson(response, 401, { error: "No session token" });
+    const sid = getSessionId(request, true);
+    if (!sid) return sendJson(response, 401, { error: "No session cookie" });
     await verifyOtpCode(context, "admin", session.adminId as string, code);
-    await updateSession(context, sid, { ...session, otpVerified: true });
+    const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
+    if (!rotated) return sendJson(response, 401, { error: "Invalid or expired session" });
+    const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+    issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
     sendJson(response, 200, { success: true });
   })
 );
@@ -113,9 +124,18 @@ export const postAdminOtpDisable = withAudit({
     const code = parsed.data.code.trim();
     await verifyOtpCode(context, "admin", session.adminId as string, code);
     await disableOtp(context, "admin", session.adminId as string);
-    const sid = getSessionIdFromAuthHeader(request);
-    if (sid)
-      await updateSession(context, sid, { ...session, otpRequired: false, otpVerified: false });
+    const sid = getSessionId(request, true);
+    if (sid) {
+      const rotated = await rotateSession(context, sid, {
+        ...session,
+        otpRequired: false,
+        otpVerified: false,
+      });
+      if (rotated) {
+        const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
+      }
+    }
     sendJson(response, 200, { success: true });
   })
 );
@@ -138,9 +158,18 @@ export const postAdminOtpReset = withAudit({
     const code = parsed.data.code.trim();
     await verifyOtpCode(context, "admin", session.adminId as string, code);
     const { secret, provisioningUri } = await initOtp(context, "admin", session.adminId as string);
-    const sid = getSessionIdFromAuthHeader(request);
-    if (sid)
-      await updateSession(context, sid, { ...session, otpRequired: true, otpVerified: false });
+    const sid = getSessionId(request, true);
+    if (sid) {
+      const rotated = await rotateSession(context, sid, {
+        ...session,
+        otpRequired: true,
+        otpVerified: false,
+      });
+      if (rotated) {
+        const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, true);
+      }
+    }
     sendJson(response, 200, { secret, provisioning_uri: provisioningUri });
   })
 );

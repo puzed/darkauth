@@ -4,9 +4,11 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { verifyOtpSetup } from "../../models/otp.ts";
 import {
-  getSessionIdFromAuthHeader,
+  getSessionId,
+  getSessionTtlSeconds,
+  issueSessionCookies,
   requireSession,
-  updateSession,
+  rotateSession,
 } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -27,8 +29,14 @@ export const postOtpSetupVerify = withAudit({
     const Req = z.object({ code: z.string().min(1) });
     const { code } = Req.parse(raw);
     const { backupCodes } = await verifyOtpSetup(context, "user", session.sub as string, code);
-    const sid = getSessionIdFromAuthHeader(request);
-    if (sid) await updateSession(context, sid, { ...session, otpVerified: true });
+    const sid = getSessionId(request);
+    if (sid) {
+      const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
+      if (rotated) {
+        const ttlSeconds = await getSessionTtlSeconds(context, "user");
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
+      }
+    }
     sendJson(response, 200, { success: true, backup_codes: backupCodes });
   })
 );

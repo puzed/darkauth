@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken } from '../../../setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
 
 test.describe('Admin - Default group assignment', () => {
   let servers: TestServers;
@@ -26,9 +26,12 @@ test.describe('Admin - Default group assignment', () => {
     const user = { email: `auto-default-${Date.now()}@example.com`, password: 'Passw0rd!auto', name: 'Auto Default' };
     const { sub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
 
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     const res = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/groups`, {
-      headers: { 'Authorization': `Bearer ${token}`, 'Origin': servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(res.ok).toBeTruthy();
     const json = await res.json() as { userGroups: Array<{ key: string }> };
@@ -36,4 +39,3 @@ test.describe('Admin - Default group assignment', () => {
     expect(keys).toContain('default');
   });
 });
-

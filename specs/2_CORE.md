@@ -246,7 +246,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 1. **OPAQUE login** (via `/opaque/login/start` + `/opaque/login/finish`):
 
-   * On success, an IdP session (bearer token) is issued for the bound identity; **client gets `export_key`** in JS.
+   * On success, an IdP session is issued via `__Host-DarkAuth` HttpOnly cookie for the bound identity; **client gets `export_key`** in JS.
 2. **Get/store DRK**:
 
    * `GET /crypto/wrapped-drk` → if missing (first login), generate 32‑byte DRK, `WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)`, `PUT /crypto/wrapped-drk`.
@@ -583,19 +583,28 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 * `/authorize` only accepts `zk_pub` if `client.zk_delivery='fragment-jwe'`.
 * `/token` only returns `zk_drk_hash` if the code has `has_zk=true`.
 * **Bind everything**: pending-auth ↔ IdP session, code ↔ client\_id, drk\_hash ↔ code, `zk_pub_kid` ↔ code.
-* **Short TTLs**: code ≤ 60 s; session cookie TTL short (e.g., 15 min).
+* **Short TTLs**: code ≤ 60 s; access/session token TTL short (e.g., 15 min).
 * **Reauth for sensitive ops**: password change requires OPAQUE verification and a short‑lived JWT (`purpose="password_change"`, 10m) bound to the same subject.
 * **Password reuse prevention**: server tracks `export_key_hash` per user and rejects reuse during `/password/change/finish`.
 * **CSP** on all UIs: no inline scripts; self only.
 * **CSP details**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'` (trusted-types disabled in dev for tooling compatibility). Admin and Install UIs use the same policy.
 * **Security Headers**: X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-XSS-Protection: 1; mode=block
 * **HSTS**: Strict-Transport-Security header set in production (max-age=31536000; includeSubDomains; preload)
-* **Cookies**: `__Host-DarkAuth` (Secure, HttpOnly, SameSite=Lax).
+* **Session transport (default)**: first-party web apps use cookie sessions only.
+  - Cookie name: `__Host-DarkAuth`.
+  - Cookie flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
+  - Session cookie is short-lived and uses explicit `Max-Age`.
+  - Session identifier is rotated on login and OTP/privilege state transitions.
+  - Refresh token rotation for OAuth remains single-use, client-bound, and atomic.
 * **Client-side key storage**: 
   - DRK is XOR-obfuscated and stored in localStorage for session persistence (required for OAuth flow)
   - Ephemeral keys are cleared immediately after OAuth callback
   - No plaintext secrets in storage
   - Consider WebCrypto non-extractable keys for future enhancement
+* **Client-side browser storage (first-party web profile)**:
+  - First-party session credentials are never stored in `localStorage` or `sessionStorage`.
+  - `pkce_verifier` and ephemeral ZK private key are kept in `sessionStorage` only for callback continuity and cleared immediately after callback/logout.
+  - OAuth tokens are for OAuth clients, not first-party UI session transport.
 * Admin authorization is coarse: `read` → deny all mutating operations; `write` → allow.
 * User authorization is data-driven: effective permissions are the union of direct user permissions and those implied by groups.
 
@@ -797,7 +806,7 @@ This spec is tight enough to build the whole thing without guesswork.
 # Implementation Decisions (v1)
 
 - OPAQUE library: uses Cloudflare's `opaque-ts` implementation of RFC 9380. The library is properly vendored and provides TypeScript bindings for both browser (Auth/Admin UIs) and Node (server endpoints). We do not implement cryptography in JavaScript.
-- Sessions and pending auth: store both in Postgres. The browser holds only an HttpOnly `__Host-DarkAuth` session cookie (Secure, SameSite=Lax). Session state, pending-auth records, and authorization codes are bound in DB for revocation and horizontal scaling.
+- Sessions and pending auth: store both in Postgres. Browser/API auth for first-party UI uses the `__Host-DarkAuth` HttpOnly cookie and CSRF token protection. Session state, pending-auth records, refresh token rotation state, and authorization codes are bound in DB for revocation and horizontal scaling.
 - KEK passphrase (mandatory): Must be provided in `config.yaml`. System refuses to start without valid KEK.
 - Defaults: seed `issuer` and `public_origin` to `http://localhost:9080` for development and require HTTPS origins in production. Seed `rp_id` accordingly.
 - UI technology: build the Auth UI and Admin UI with React + TypeScript + CSS Modules. The Node HTTP server serves the built static assets; no server-side rendering.

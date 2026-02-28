@@ -2,11 +2,11 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken } from '../../../setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
 
 test.describe('User - OTP - Forced setup UI', () => {
   let servers: TestServers;
-  let adminToken: string;
+  let adminSession: { cookieHeader: string; csrfToken: string };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'user-otp-ui-forced-setup' });
@@ -17,10 +17,18 @@ test.describe('User - OTP - Forced setup UI', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
-    adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: true })
     });
   });
@@ -44,4 +52,3 @@ test.describe('User - OTP - Forced setup UI', () => {
     expect(url.searchParams.get('forced')).toBe('1');
   });
 });
-

@@ -14,6 +14,7 @@ import {
   isSystemInitialized,
   markSystemInitialized,
   seedDefaultSettings,
+  setSetting,
 } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -24,7 +25,7 @@ const InstallCompleteRequestSchema = z.object({
   token: z.string(),
   adminEmail: z.string().email(),
   adminName: z.string(),
-  kekPassphrase: z.string().optional(),
+  selfRegistrationEnabled: z.boolean().optional(),
 });
 
 const InstallCompleteResponseSchema = z.object({
@@ -76,10 +77,7 @@ async function _postInstallComplete(
   }
 
   if (!context.config.kekPassphrase) {
-    if (!data.kekPassphrase || data.kekPassphrase.length === 0) {
-      throw new ValidationError("KEK passphrase must be provided");
-    }
-    context.config.kekPassphrase = data.kekPassphrase;
+    context.config.kekPassphrase = generateRandomString(48);
   }
 
   try {
@@ -114,6 +112,11 @@ async function _postInstallComplete(
       context.config.rpId
     );
     const installCtx = { ...context, db } as Context;
+    await setSetting(
+      installCtx,
+      "users.self_registration_enabled",
+      data.selfRegistrationEnabled === true
+    );
     await (await import("../../models/install.ts")).writeKdfSetting(installCtx, kdfParams);
 
     context.logger.debug("[install:post] generating signing keys");

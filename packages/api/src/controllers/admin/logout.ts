@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 
-import { deleteSession, getSessionId } from "../../services/sessions.ts";
+import { clearSessionCookies, deleteSession, getSessionId } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { sendJson } from "../../utils/http.ts";
@@ -13,13 +13,12 @@ async function postAdminLogoutHandler(
   response: ServerResponse,
   ..._params: unknown[]
 ): Promise<void> {
-  // Get admin session ID from Authorization header
   const sessionId = getSessionId(request, true);
 
   if (sessionId) {
-    // Delete session from database
     await deleteSession(context, sessionId);
   }
+  clearSessionCookies(response, true);
 
   sendJson(response, 200, {
     success: true,

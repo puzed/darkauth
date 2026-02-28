@@ -2,9 +2,33 @@ import { test, expect } from '@playwright/test'
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js'
 import { installDarkAuth } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
-import { createUserViaAdmin, getAdminBearerToken } from '../../setup/helpers/auth.js'
+import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
 import { toBase64Url, fromBase64Url, sha256Base64Url } from '@DarkAuth/api/src/utils/crypto.ts'
+
+function readSetCookieValues(response: Response): string[] {
+  const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] }
+  if (typeof headersWithSetCookie.getSetCookie === 'function') return headersWithSetCookie.getSetCookie()
+  const raw = response.headers.get('set-cookie')
+  if (!raw) return []
+  return raw.split(/,(?=\s*__Host-)/g)
+}
+
+function readSessionFromLoginResponse(
+  response: Response
+): { cookieHeader: string; csrfToken: string } {
+  const cookies = readSetCookieValues(response)
+    .map((line) => line.split(';')[0]?.trim())
+    .filter((line): line is string => !!line)
+  const authCookie = cookies.find((cookie) => cookie.startsWith('__Host-DarkAuth-User='))
+  const csrfCookie = cookies.find((cookie) => cookie.startsWith('__Host-DarkAuth-User-Csrf='))
+  if (!authCookie || !csrfCookie) throw new Error('missing session cookies')
+  const csrfToken = decodeURIComponent(csrfCookie.slice('__Host-DarkAuth-User-Csrf='.length))
+  return {
+    cookieHeader: [authCookie, csrfCookie].join('; '),
+    csrfToken,
+  }
+}
 
 async function opaqueLoginFinish(userUrl: string, email: string, password: string) {
   const client = new OpaqueClient()
@@ -30,7 +54,7 @@ async function opaqueLoginFinish(userUrl: string, email: string, password: strin
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(finish.finish)), sessionId: startJson.sessionId })
   })
   expect(resFinish.ok).toBeTruthy()
-  return await resFinish.json() as { accessToken: string; refreshToken: string }
+  return readSessionFromLoginResponse(resFinish)
 }
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
@@ -78,13 +102,13 @@ test.describe('API - OIDC nonce auth code flow', () => {
 
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
-    const adminToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
     const clientsRes = await fetch(`${servers.adminUrl}/admin/clients`, {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl
       }
     })
@@ -135,9 +159,10 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const finalizeRes = await fetch(`${servers.userUrl}/api/user/authorize/finalize`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${loginResult.accessToken}`,
+        Cookie: loginResult.cookieHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Origin: servers.userUrl
+        Origin: servers.userUrl,
+        'x-csrf-token': loginResult.csrfToken,
       },
       body: new URLSearchParams({ request_id: requestId, drk_hash: drkHash })
     })
@@ -183,13 +208,13 @@ test.describe('API - OIDC nonce auth code flow', () => {
 
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
-    const adminToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
     const clientsRes = await fetch(`${servers.adminUrl}/admin/clients`, {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl
       }
     })
@@ -237,9 +262,10 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const finalizeRes = await fetch(`${servers.userUrl}/api/user/authorize/finalize`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${loginResult.accessToken}`,
+        Cookie: loginResult.cookieHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Origin: servers.userUrl
+        Origin: servers.userUrl,
+        'x-csrf-token': loginResult.csrfToken,
       },
       body: new URLSearchParams({ request_id: requestId, approve: 'false' })
     })
@@ -268,13 +294,13 @@ test.describe('API - OIDC nonce auth code flow', () => {
 
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
-    const adminToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
     const clientsRes = await fetch(`${servers.adminUrl}/admin/clients`, {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl
       }
     })
@@ -325,9 +351,10 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const finalizeRes = await fetch(`${servers.userUrl}/api/user/authorize/finalize`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${loginResult.accessToken}`,
+        Cookie: loginResult.cookieHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Origin: servers.userUrl
+        Origin: servers.userUrl,
+        'x-csrf-token': loginResult.csrfToken,
       },
       body: new URLSearchParams({ request_id: requestId, drk_hash: drkHash })
     })
@@ -382,13 +409,13 @@ test.describe('API - OIDC nonce auth code flow', () => {
 
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
-    const adminToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
     const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret`, {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl
       }
     })
@@ -398,7 +425,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
 
     const clientsRes = await fetch(`${servers.adminUrl}/admin/clients`, {
       headers: {
-        Authorization: `Bearer ${adminToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl
       }
     })
@@ -441,9 +468,10 @@ test.describe('API - OIDC nonce auth code flow', () => {
     const finalizeRes = await fetch(`${servers.userUrl}/api/user/authorize/finalize`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${loginResult.accessToken}`,
+        Cookie: loginResult.cookieHeader,
         'Content-Type': 'application/x-www-form-urlencoded',
-        Origin: servers.userUrl
+        Origin: servers.userUrl,
+        'x-csrf-token': loginResult.csrfToken,
       },
       body: new URLSearchParams({ request_id: requestId })
     })

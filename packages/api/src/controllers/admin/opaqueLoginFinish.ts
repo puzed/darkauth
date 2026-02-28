@@ -8,7 +8,11 @@ import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getAdminByEmail } from "../../models/adminUsers.ts";
 import { getOtpStatusModel } from "../../models/otp.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { createSession } from "../../services/sessions.ts";
+import {
+  createSession,
+  getSessionTtlSeconds,
+  issueSessionCookies,
+} from "../../services/sessions.ts";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
@@ -28,8 +32,6 @@ const AdminOpaqueLoginFinishRequestSchema = z.object({
 const AdminOpaqueLoginFinishResponseSchema = z.object({
   success: z.literal(true),
   sessionKey: z.string(),
-  accessToken: z.string(),
-  refreshToken: z.string(),
   admin: z.object({
     id: z.string(),
     email: z.string().email(),
@@ -154,7 +156,7 @@ async function postAdminOpaqueLoginFinishHandler(
   const configured = otpInventory.enabled || otpInventory.pending;
   otpRequired = forced || configured;
 
-  const { sessionId, refreshToken } = await createSession(context, "admin", {
+  const { sessionId } = await createSession(context, "admin", {
     adminId: adminUser.id,
     email: adminUser.email,
     name: adminUser.name,
@@ -162,13 +164,12 @@ async function postAdminOpaqueLoginFinishHandler(
     otpRequired,
     otpVerified: false,
   });
+  const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+  issueSessionCookies(response, sessionId, ttlSeconds, true);
 
-  // Return session token as Bearer token
   const responseData = {
     success: true,
     sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
-    accessToken: sessionId, // Use sessionId as bearer token
-    refreshToken,
     admin: {
       id: adminUser.id,
       email: adminUser.email,
