@@ -8,7 +8,12 @@
   "scripts": {
     "pretest": "npm --workspace @darkauth/client run build && npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build && npm --workspace @DarkAuth/demo-app run build",
     "test": "npm run pretest && PW_REPORTER=dot PW_ARTIFACTS=off npx playwright test --reporter=dot",
-    "test:screenshots": "rm -rf test-results-light test-results-dark && npm run pretest && (COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light) && (COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark) && node ../brochureware/scripts/collect-screenshots.js",
+    "test:e2e:run": "COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=retain-on-failure npx playwright test tests/api tests/auth tests/security --reporter=dot",
+    "test:e2e": "npm run pretest && npm run test:e2e:run",
+    "test:visual:run:light": "COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/admin tests/user tests/demo --reporter=dot --workers=1 --output=test-results-light",
+    "test:visual:run:dark": "COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/admin tests/user tests/demo --reporter=dot --workers=1 --output=test-results-dark",
+    "test:screenshots": "npm run pretest && rm -rf test-results-light test-results-dark && npm run test:visual:run:light && npm run test:visual:run:dark && node ../brochureware/scripts/collect-screenshots.js",
+    "test:ci": "npm run pretest && npm run test:e2e:run && rm -rf test-results-light test-results-dark && npm run test:visual:run:light && npm run test:visual:run:dark && node ../brochureware/scripts/collect-screenshots.js",
     "test:report": "npm run pretest && PW_REPORTER=html PW_ARTIFACTS=on npx playwright test --reporter=html && npx playwright show-report",
     "install:playwright": "npx playwright install"
   },
