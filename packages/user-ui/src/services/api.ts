@@ -92,9 +92,11 @@ export interface WrappedDrkResponse {
 class ApiService {
   private baseUrl: string;
   private onSessionExpired?: () => void;
+  private refreshInFlight: Promise<boolean> | null = null;
 
   constructor() {
     this.baseUrl = "/api/user";
+    this.clearLegacyTokens();
   }
 
   setSessionExpiredCallback(callback: () => void): void {
@@ -104,6 +106,38 @@ class ApiService {
   clearLegacyTokens(): void {
     localStorage.removeItem("userAccessToken");
     localStorage.removeItem("userRefreshToken");
+  }
+
+  private getClientId(): string {
+    const appConfig = window as Window & {
+      __APP_CONFIG__?: { auth?: { clientId?: string } };
+    };
+    return appConfig.__APP_CONFIG__?.auth?.clientId || "demo-public-client";
+  }
+
+  private async refreshSessionWithToken(): Promise<boolean> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = (async () => {
+        const response = await fetch(`${this.baseUrl}/token`, {
+          method: "POST",
+          headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "refresh_token",
+            client_id: this.getClientId(),
+          }),
+          credentials: "include",
+        });
+        if (!response.ok) {
+          return false;
+        }
+        return true;
+      })()
+        .catch(() => false)
+        .finally(() => {
+          this.refreshInFlight = null;
+        });
+    }
+    return this.refreshInFlight;
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -136,8 +170,19 @@ class ApiService {
     };
 
     try {
-      const response = await fetch(url, config);
-      const data = await response.json();
+      let response = await fetch(url, config);
+      if (
+        !response.ok &&
+        (response.status === 401 || response.status === 403) &&
+        endpoint !== "/token"
+      ) {
+        const refreshed = await this.refreshSessionWithToken();
+        if (refreshed) {
+          response = await fetch(url, config);
+        }
+      }
+
+      const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
@@ -235,11 +280,17 @@ class ApiService {
   }
 
   async otpSetupVerify(code: string): Promise<{ success: boolean; backup_codes: string[] }> {
-    return this.request("/otp/setup/verify", { method: "POST", body: JSON.stringify({ code }) });
+    return this.request<{ success: boolean; backup_codes: string[] }>("/otp/setup/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
   }
 
   async otpVerify(code: string): Promise<{ success: boolean }> {
-    return this.request("/otp/verify", { method: "POST", body: JSON.stringify({ code }) });
+    return this.request<{ success: boolean }>("/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ code }),
+    });
   }
 
   // Password change (self)

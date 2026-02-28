@@ -5,10 +5,16 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { signJWT } from "../../services/jwks.ts";
 import {
+  clearRefreshTokenCookie,
   createSession,
   getActorFromSessionId,
+  getRefreshTokenFromCookie,
   getRefreshTokenSessionData,
+  getRefreshTokenTtlSeconds,
   getSession,
+  getSessionTtlSeconds,
+  issueRefreshTokenCookie,
+  issueSessionCookies,
   refreshSessionWithToken,
   updateSession,
 } from "../../services/sessions.ts";
@@ -134,7 +140,7 @@ export const TokenRequestSchema = z.union([
   }),
   z.object({
     grant_type: z.literal("refresh_token"),
-    refresh_token: z.string().min(1),
+    refresh_token: z.string().min(1).optional(),
     client_id: z.string().optional(),
     client_secret: z.string().optional(),
     code: z.string().optional(),
@@ -180,7 +186,9 @@ export const postToken = withRateLimit("token")(
       const tokenRequest = parsedRequest.data as TokenRequest;
 
       if (tokenRequest.grant_type === "refresh_token") {
-        if (!tokenRequest.refresh_token) throw new InvalidRequestError("refresh_token is required");
+        const refreshToken =
+          tokenRequest.refresh_token || getRefreshTokenFromCookie(request, false);
+        if (!refreshToken) throw new InvalidRequestError("refresh_token is required");
         let providedClientId: string | undefined;
         let clientAuthOk = false;
         const basic = parseAuthorizationHeader(request);
@@ -216,14 +224,16 @@ export const postToken = withRateLimit("token")(
           clientAuthOk = true;
         }
         if (!clientAuthOk) throw new UnauthorizedClientError("Client authentication failed");
-        const existingSessionData = await getRefreshTokenSessionData(
-          context,
-          tokenRequest.refresh_token
-        );
+        const existingSessionData = await getRefreshTokenSessionData(context, refreshToken);
         const issuedClientId = resolveSessionClientId(existingSessionData);
         assertRefreshTokenClientBinding(issuedClientId, providedClientId);
-        const rotated = await refreshSessionWithToken(context, tokenRequest.refresh_token);
-        if (!rotated) throw new InvalidGrantError("Invalid or expired refresh token");
+        const rotated = await refreshSessionWithToken(context, refreshToken);
+        if (!rotated) {
+          if (!tokenRequest.refresh_token) {
+            clearRefreshTokenCookie(response, false);
+          }
+          throw new InvalidGrantError("Invalid or expired refresh token");
+        }
         const sessionData = await getSession(context, rotated.sessionId);
         const sessionActor = await getActorFromSessionId(context, rotated.sessionId);
         if (!sessionData || !sessionActor?.userSub)
@@ -313,8 +323,14 @@ export const postToken = withRateLimit("token")(
           id_token: idToken,
           token_type: "Bearer",
           expires_in: idTokenTtl,
-          refresh_token: rotated.refreshToken,
         };
+        if (tokenRequest.refresh_token) {
+          tokenResponse.refresh_token = rotated.refreshToken;
+        }
+        const ttlSeconds = await getSessionTtlSeconds(context, "user");
+        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
+        issueRefreshTokenCookie(response, rotated.refreshToken, refreshTtlSeconds, false);
         sendJson(response, 200, tokenResponse);
         return;
       }

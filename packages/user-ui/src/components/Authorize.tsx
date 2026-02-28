@@ -436,6 +436,42 @@ export default function Authorize({
     }
   };
 
+  const unlockWithCurrentPassword = async () => {
+    if (!sessionData.email) {
+      setError("Email is required to unlock keys");
+      return;
+    }
+    if (!currentPassword) {
+      setError("Enter your current password");
+      return;
+    }
+    setRecoveryLoading(true);
+    setError(null);
+    try {
+      const currentStart = await opaqueService.startLogin(sessionData.email, currentPassword);
+      const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
+      const currentFinish = await opaqueService.finishLogin(
+        currentStartResp.message,
+        currentStart.state
+      );
+      opaqueService.clearState(currentStart.state);
+      await saveExportKey(sessionData.sub, currentFinish.exportKey);
+      cryptoService.clearSensitiveData(currentFinish.sessionKey, currentFinish.exportKey);
+      setCurrentPassword("");
+      setRecoveryVisible(false);
+      queueMicrotask(() => {
+        handleAuthorize(true);
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Unlock failed";
+      setError(
+        msg.includes("auth") || msg.includes("OPAQUE") ? "Current password is incorrect" : msg
+      );
+    } finally {
+      setRecoveryLoading(false);
+    }
+  };
+
   return (
     <div className="authorize-container da-authorize-container">
       <div className="authorize-card da-container">
@@ -502,8 +538,8 @@ export default function Authorize({
           <div className="authorize-recovery">
             <h3>Key Recovery</h3>
             <p>
-              We couldn’t access your encryption keys. If you recently changed your password, you
-              can either try to migrate using your previous password or generate new keys.
+              We couldn’t access your encryption keys. Unlock with your current password, or if you
+              recently changed your password, recover with your previous password.
             </p>
             <div className="form-group">
               <label htmlFor={currentPasswordId}>Current Password</label>
@@ -528,6 +564,14 @@ export default function Authorize({
               />
             </div>
             <div className="actions da-authorize-actions">
+              <Button
+                type="button"
+                variant="primary"
+                onClick={unlockWithCurrentPassword}
+                disabled={recoveryLoading}
+              >
+                Unlock with current password
+              </Button>
               <Button
                 type="button"
                 variant="secondary"

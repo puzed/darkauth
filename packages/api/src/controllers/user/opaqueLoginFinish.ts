@@ -17,7 +17,9 @@ import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
 import {
   createSession,
+  getRefreshTokenTtlSeconds,
   getSessionTtlSeconds,
+  issueRefreshTokenCookie,
   issueSessionCookies,
 } from "../../services/sessions.ts";
 import { getSetting } from "../../services/settings.ts";
@@ -188,7 +190,9 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         otpVerified: false,
       });
       const ttlSeconds = await getSessionTtlSeconds(context, "user");
+      const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
       issueSessionCookies(response, createdSessionId, ttlSeconds, false);
+      issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
       let accessTokenTtl = 600;
       const accessTokenSettings = (await getSetting(context, "access_token")) as
         | { lifetime_seconds?: number }
@@ -223,7 +227,6 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       const responseData = {
         success: true,
         accessToken,
-        refreshToken,
         sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
         sub: user.sub,
         user: { sub: user.sub, email: user.email, name: user.name },

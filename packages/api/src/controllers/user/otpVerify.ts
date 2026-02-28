@@ -4,8 +4,10 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { verifyOtpCode } from "../../models/otp.ts";
 import {
+  getRefreshTokenTtlSeconds,
   getSessionId,
   getSessionTtlSeconds,
+  issueRefreshTokenCookie,
   issueSessionCookies,
   requireSession,
   rotateSession,
@@ -37,13 +39,17 @@ export const postOtpVerify = withAudit({ eventType: "OTP_VERIFY", resourceType: 
       return;
     }
     const ttlSeconds = await getSessionTtlSeconds(context, "user");
+    const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
     issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
+    issueRefreshTokenCookie(response, rotated.refreshToken, refreshTtlSeconds, false);
     sendJson(response, 200, { success: true });
   })
 );
 
 const UserOtpVerifyRequestSchema = z.object({ code: z.string().min(1) });
-const UserOtpVerifyResponseSchema = z.object({ success: z.boolean() });
+const UserOtpVerifyResponseSchema = z.object({
+  success: z.boolean(),
+});
 
 export const schema = {
   method: "POST",
