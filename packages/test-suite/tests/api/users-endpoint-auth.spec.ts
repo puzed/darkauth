@@ -6,7 +6,32 @@ import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
-async function opaqueLoginFinish(userUrl: string, email: string, password: string) {
+function readSetCookieValues(response: Response): string[] {
+  const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] }
+  if (typeof headersWithSetCookie.getSetCookie === 'function') return headersWithSetCookie.getSetCookie()
+  const raw = response.headers.get('set-cookie')
+  if (!raw) return []
+  return raw.split(/,(?=\s*__Host-)/g)
+}
+
+function readSessionCookieHeader(response: Response): string {
+  const cookiePairs = readSetCookieValues(response)
+    .map((line) => line.split(';')[0]?.trim())
+    .filter((line): line is string => !!line)
+  const authCookie = cookiePairs.find((cookie) => cookie.startsWith('__Host-DarkAuth-User='))
+  const csrfCookie = cookiePairs.find((cookie) => cookie.startsWith('__Host-DarkAuth-User-Csrf='))
+  const refreshCookie = cookiePairs.find((cookie) =>
+    cookie.startsWith('__Host-DarkAuth-User-Refresh=')
+  )
+  if (!authCookie || !csrfCookie || !refreshCookie) throw new Error('missing user session cookies')
+  return [authCookie, csrfCookie, refreshCookie].join('; ')
+}
+
+async function opaqueLoginFinish(
+  userUrl: string,
+  email: string,
+  password: string
+): Promise<{ cookieHeader: string }> {
   const client = new OpaqueClient()
   await client.initialize()
   const start = await client.startLogin(password, email)
@@ -30,20 +55,20 @@ async function opaqueLoginFinish(userUrl: string, email: string, password: strin
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(finish.finish)), sessionId: startJson.sessionId })
   })
   expect(resFinish.ok).toBeTruthy()
-  return await resFinish.json() as { accessToken: string; refreshToken: string }
+  return { cookieHeader: readSessionCookieHeader(resFinish) }
 }
 
-async function getUserJwt(userUrl: string, refreshToken: string) {
+async function getUserJwt(userUrl: string, cookieHeader: string) {
   const tokenRes = await fetch(`${userUrl}/api/user/token`, {
     method: 'POST',
     headers: {
+      Cookie: cookieHeader,
       'Content-Type': 'application/x-www-form-urlencoded',
       Origin: userUrl
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: 'demo-public-client',
-      refresh_token: refreshToken
+      client_id: 'demo-public-client'
     })
   })
   expect(tokenRes.ok).toBeTruthy()
@@ -192,9 +217,9 @@ test.describe('API - Users endpoint auth methods', () => {
     expect(updatePermissionsRes.ok).toBeTruthy()
 
     const loginResult = await opaqueLoginFinish(servers.userUrl, reader.email, reader.password)
-    userJwt = await getUserJwt(servers.userUrl, loginResult.refreshToken)
+    userJwt = await getUserJwt(servers.userUrl, loginResult.cookieHeader)
     const plainLoginResult = await opaqueLoginFinish(servers.userUrl, plain.email, plain.password)
-    plainUserJwt = await getUserJwt(servers.userUrl, plainLoginResult.refreshToken)
+    plainUserJwt = await getUserJwt(servers.userUrl, plainLoginResult.cookieHeader)
   })
 
   test.afterAll(async () => {

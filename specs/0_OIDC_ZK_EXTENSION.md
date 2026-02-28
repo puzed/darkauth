@@ -128,7 +128,12 @@ Notational Conventions
   - JWE alg MUST be ECDH‑ES on P‑256; enc MUST be A256GCM. Clients SHOULD validate header alg and enc before decryption.
 - Sessions/tokens:
   - Standard OIDC protections apply.
-  - First-party web profile is required: cookie session at the AS using `__Host-DarkAuth` (`Secure`, `HttpOnly`, `SameSite=Lax`) with CSRF protection and no browser-stored bearer session token.
+  - First-party web profile uses an HttpOnly cookie session at the AS (`__Host-DarkAuth`, `Secure`, `HttpOnly`, `SameSite=Lax`) with CSRF protection.
+  - First-party refresh credential is also an HttpOnly cookie (`__Host-DarkAuth-User-Refresh`) and MUST NOT be exposed to JavaScript.
+  - Silent renewal is performed with standard OAuth refresh grant for a public client (`authorization_code` + PKCE S256).
+  - Refresh tokens are rotated single-use, client-bound, and replay-rejected; successful refresh reissues the first-party session cookie.
+  - First-party API transport remains cookie-based; bearer access/session tokens are not persisted for first-party API auth.
+  - The OPAQUE `export_key` used to unwrap DRK is not a transport token; it MAY be cached only in session-scoped browser storage and on loss (for example browser restart) MUST be restored via step-up OPAQUE password verification before ZK authorization continues.
 
 11. Privacy Considerations
 

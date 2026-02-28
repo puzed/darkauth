@@ -52,3 +52,17 @@ test("refreshSession clears refresh token on 401", async () => {
   assert.equal(result, null);
   assert.equal(globalThis.localStorage.getItem("refresh_token"), null);
 });
+
+test("refreshSession keeps a newer refresh token on 401", async () => {
+  setupEnvironment();
+  globalThis.localStorage.setItem("refresh_token", "rt-3");
+  globalThis.fetch = async () => {
+    globalThis.localStorage.setItem("refresh_token", "rt-4");
+    return { ok: false, status: 401 };
+  };
+
+  const result = await refreshSession();
+
+  assert.equal(result, null);
+  assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-4");
+});
