@@ -15,6 +15,7 @@ export default function OtpVerifyView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -78,7 +79,7 @@ export default function OtpVerifyView() {
 
         <div className={btnStyles.authContainer}>
           <h2 className={btnStyles.formTitle}>Two-Factor Verification</h2>
-          <form className={btnStyles.form} onSubmit={handleSubmit}>
+          <form ref={formRef} className={btnStyles.form} onSubmit={handleSubmit}>
             <div className={btnStyles.formGroup}>
               <label className={btnStyles.formLabel} htmlFor={`${uid}-otp`}>
                 {useBackup ? "Enter backup code" : "Enter the code from your authentication app"}
@@ -105,6 +106,9 @@ export default function OtpVerifyView() {
                   } else {
                     const digits = value.replace(/[^0-9]/g, "").slice(0, 6);
                     setCode(digits);
+                    if (!loading && digits.length === 6) {
+                      formRef.current?.requestSubmit();
+                    }
                   }
                 }}
                 placeholder={useBackup ? "1234-5678-9ABC" : "123456"}
