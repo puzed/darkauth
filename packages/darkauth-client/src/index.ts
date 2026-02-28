@@ -274,7 +274,10 @@ export async function refreshSession(): Promise<AuthSession | null> {
   });
   if (!response.ok) {
     if (response.status === 401) {
-      localStorage.removeItem("refresh_token");
+      const latestRefreshToken = localStorage.getItem("refresh_token");
+      if (latestRefreshToken === refreshToken) {
+        localStorage.removeItem("refresh_token");
+      }
     }
     return null;
   }

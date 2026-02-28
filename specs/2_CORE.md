@@ -251,6 +251,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
    * `GET /crypto/wrapped-drk` → if missing (first login), generate 32‑byte DRK, `WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)`, `PUT /crypto/wrapped-drk`.
    * Derive `KW` from `export_key`; unwrap `WRAPPED_DRK` → DRK in memory.
+   * If `export_key` is unavailable (for example after browser restart), the Auth UI MUST perform step-up reauthentication with the current password using OPAQUE verify endpoints to rederive `export_key` before continuing authorization.
 3. **If ZK**:
 
    * read `zk_pub` from `location.search`.
@@ -590,21 +591,28 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 * **CSP details**: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'none'; form-action 'self'; object-src 'none'; require-trusted-types-for 'script'` (trusted-types disabled in dev for tooling compatibility). Admin and Install UIs use the same policy.
 * **Security Headers**: X-Frame-Options: SAMEORIGIN, X-Content-Type-Options: nosniff, Referrer-Policy: strict-origin-when-cross-origin, X-XSS-Protection: 1; mode=block
 * **HSTS**: Strict-Transport-Security header set in production (max-age=31536000; includeSubDomains; preload)
-* **Session transport (default)**: first-party web apps use cookie sessions only.
+* **Session transport (default)**: first-party web apps use cookie session authentication with OAuth refresh-assisted renewal.
   - Cookie name: `__Host-DarkAuth`.
   - Cookie flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
+  - Refresh cookie name: `__Host-DarkAuth-Refresh`, flags: `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`, no `Domain`.
   - Session cookie is short-lived and uses explicit `Max-Age`.
   - Session identifier is rotated on login and OTP/privilege state transitions.
-  - Refresh token rotation for OAuth remains single-use, client-bound, and atomic.
+  - Silent renewal uses Authorization Code + PKCE issued refresh tokens with OAuth 2.0 refresh grant semantics.
+  - Refresh token rotation remains single-use, client-bound, and atomic.
+  - On successful refresh, the AS reissues the first-party session cookie so `/session` and UI state remain aligned.
 * **Client-side key storage**: 
   - DRK is XOR-obfuscated and stored in localStorage for session persistence (required for OAuth flow)
   - Ephemeral keys are cleared immediately after OAuth callback
   - No plaintext secrets in storage
   - Consider WebCrypto non-extractable keys for future enhancement
 * **Client-side browser storage (first-party web profile)**:
-  - First-party session credentials are never stored in `localStorage` or `sessionStorage`.
+  - First-party cookie session ID is never readable by JS (`HttpOnly`) and is never stored in `localStorage` or `sessionStorage`.
+  - First-party refresh credentials are also `HttpOnly` cookies and are never readable by JS.
+  - Access/session bearer tokens are not persisted for first-party API transport.
+  - `export_key` MAY be cached only in browser session scope (`sessionStorage`) for active-tab continuity and MUST be cleared on browser close.
+  - When `export_key` is missing, the UI MUST require step-up password verification to rederive it; silent fallback to weaker key material is prohibited.
   - `pkce_verifier` and ephemeral ZK private key are kept in `sessionStorage` only for callback continuity and cleared immediately after callback/logout.
-  - OAuth tokens are for OAuth clients, not first-party UI session transport.
+  - Public-client protections are mandatory: PKCE S256, strict `client_id` binding on refresh, single-use rotation, replay rejection, short lifetimes, CSP, and rate limiting.
 * Admin authorization is coarse: `read` → deny all mutating operations; `write` → allow.
 * User authorization is data-driven: effective permissions are the union of direct user permissions and those implied by groups.
 
