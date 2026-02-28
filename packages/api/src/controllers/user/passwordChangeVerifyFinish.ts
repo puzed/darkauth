@@ -5,10 +5,10 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema, JWTPayload } from "../../types.ts";
 import { fromBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
+import { requirePasswordChangeIdentity } from "./passwordAuth.ts";
 
 // Zod schema for request body
 const PasswordChangeVerifyFinishBody = z.object({
@@ -23,8 +23,7 @@ async function postUserPasswordVerifyFinishHandler(
 ): Promise<void> {
   const opaque = await requireOpaqueService(context);
 
-  const session = await requireSession(context, request, false);
-  if (!session.email || !session.sub) throw new ValidationError("Invalid user session");
+  const identity = await requirePasswordChangeIdentity(context, request);
 
   const body = await getCachedBody(request);
   const raw = parseJsonSafely(body);
@@ -41,7 +40,7 @@ async function postUserPasswordVerifyFinishHandler(
 
   const token = await signJWT(
     context,
-    { sub: session.sub, purpose: "password_change" } as JWTPayload,
+    { sub: identity.sub, purpose: "password_change" } as JWTPayload,
     "10m"
   );
 

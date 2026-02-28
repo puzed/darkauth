@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { getAdminBearerToken, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
+import { getAdminSession, createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 
 // Run tests serially within this file to maintain state
@@ -36,14 +36,15 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Can create a permission via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     const createRes = await fetch(`${servers.adminUrl}/admin/permissions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({
         key: 'api:test:read',
@@ -58,11 +59,11 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Can list permissions via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     const res = await fetch(`${servers.adminUrl}/admin/permissions`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl
       }
     });
@@ -75,14 +76,15 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Cannot create duplicate permission', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     const createRes = await fetch(`${servers.adminUrl}/admin/permissions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({
         key: 'api:test:read',
@@ -94,15 +96,16 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Can assign permissions to a role via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     // Create another permission
     const createRes = await fetch(`${servers.adminUrl}/admin/permissions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({
         key: 'api:test:write',
@@ -114,9 +117,10 @@ test.describe('Admin - Permissions Management', () => {
     const roleRes = await fetch(`${servers.adminUrl}/admin/roles`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({
         key: 'api-test-role',
@@ -138,11 +142,11 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Can get role with permissions via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     const res = await fetch(`${servers.adminUrl}/admin/roles/${testRoleId}`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl
       }
     });
@@ -163,15 +167,16 @@ test.describe('Admin - Permissions Management', () => {
   });
 
   test('Can delete a permission via API', async () => {
-    const token = await getAdminBearerToken(servers, adminCred);
+    const adminSession = await getAdminSession(servers, adminCred);
 
     // Create a permission to delete
     await fetch(`${servers.adminUrl}/admin/permissions`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({
         key: 'api:test:delete',
@@ -183,8 +188,9 @@ test.describe('Admin - Permissions Management', () => {
     const deleteRes = await fetch(`${servers.adminUrl}/admin/permissions/api:test:delete`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Origin': servers.adminUrl
+        Cookie: adminSession.cookieHeader,
+        'Origin': servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       }
     });
 
@@ -193,7 +199,7 @@ test.describe('Admin - Permissions Management', () => {
     // Verify it's gone
     const listRes = await fetch(`${servers.adminUrl}/admin/permissions`, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Cookie: adminSession.cookieHeader,
         'Origin': servers.adminUrl
       }
     });

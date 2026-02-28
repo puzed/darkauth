@@ -70,14 +70,14 @@ test("handleCallback succeeds without DRK JWE when callback is non-zk", async ()
   assert.ok(session);
   assert.equal(session.idToken, idToken);
   assert.equal(session.drk.length, 0);
-  assert.equal(globalThis.sessionStorage.getItem("id_token"), idToken);
+  assert.equal(globalThis.localStorage.getItem("id_token"), idToken);
   assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-1");
 });
 
 test("getStoredSession returns an id-token-only session when no DRK is stored", () => {
   setupEnvironment();
   const idToken = createIdToken();
-  globalThis.sessionStorage.setItem("id_token", idToken);
+  globalThis.localStorage.setItem("id_token", idToken);
 
   const session = getStoredSession();
 

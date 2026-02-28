@@ -2,9 +2,17 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken } from '../../../setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
+
+function readSetCookieValues(response: Response): string[] {
+  const headersWithSetCookie = response.headers as Headers & { getSetCookie?: () => string[] }
+  if (typeof headersWithSetCookie.getSetCookie === 'function') return headersWithSetCookie.getSetCookie()
+  const raw = response.headers.get('set-cookie')
+  if (!raw) return []
+  return raw.split(/,(?=\s*__Host-)/g)
+}
 
 async function opaqueLogin(userUrl: string, email: string, password: string) {
   const client = new OpaqueClient();
@@ -22,13 +30,21 @@ async function opaqueLogin(userUrl: string, email: string, password: string) {
     headers: { 'Content-Type': 'application/json', Origin: userUrl },
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(finish.finish)), sessionId: startJson.sessionId })
   });
-  const json = await resFinish.json() as { accessToken: string };
-  return json.accessToken;
+  const cookies = readSetCookieValues(resFinish)
+    .map((line) => line.split(';')[0]?.trim())
+    .filter((line): line is string => !!line);
+  const authCookie = cookies.find((cookie) => cookie.startsWith('__Host-DarkAuth-User='));
+  const csrfCookie = cookies.find((cookie) => cookie.startsWith('__Host-DarkAuth-User-Csrf='));
+  if (!authCookie || !csrfCookie) throw new Error('missing session cookies');
+  return {
+    cookieHeader: [authCookie, csrfCookie].join('; '),
+    csrfToken: decodeURIComponent(csrfCookie.slice('__Host-DarkAuth-User-Csrf='.length)),
+  };
 }
 
 test.describe('User - OTP - Forced verify UI', () => {
   let servers: TestServers;
-  let adminToken: string;
+  let adminSession: { cookieHeader: string; csrfToken: string };
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'user-otp-ui-forced-verify' });
@@ -39,10 +55,18 @@ test.describe('User - OTP - Forced verify UI', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
-    adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: true })
     });
   });
@@ -55,10 +79,14 @@ test.describe('User - OTP - Forced verify UI', () => {
     const user = { email: `otp-ui-${Date.now()}@example.com`, name: 'OTP UI', password: 'Passw0rd!123' };
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
 
-    const token = await opaqueLogin(servers.userUrl, user.email, user.password);
+    const session = await opaqueLogin(servers.userUrl, user.email, user.password);
     const initRes = await fetch(`${servers.userUrl}/otp/setup/init`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, Origin: servers.userUrl }
+      headers: {
+        Cookie: session.cookieHeader,
+        Origin: servers.userUrl,
+        'x-csrf-token': session.csrfToken,
+      }
     });
     expect(initRes.ok).toBeTruthy();
 

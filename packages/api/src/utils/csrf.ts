@@ -1,5 +1,6 @@
 import type { IncomingMessage } from "node:http";
 import { ForbiddenError } from "../errors.ts";
+import { getCsrfCookieToken, getSessionIdFromCookie } from "../services/sessions.ts";
 
 export function isSameOrigin(request: IncomingMessage): boolean {
   const method = request.method || "GET";
@@ -32,4 +33,26 @@ export function isSameOrigin(request: IncomingMessage): boolean {
 
 export function assertSameOrigin(request: IncomingMessage): void {
   if (!isSameOrigin(request)) throw new ForbiddenError("Cross-site request blocked");
+}
+
+export function assertCsrf(request: IncomingMessage, isAdmin = false): void {
+  const method = request.method || "GET";
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) return;
+  assertSameOrigin(request);
+
+  const hasSession = !!getSessionIdFromCookie(request, isAdmin);
+  if (!hasSession) return;
+
+  const cookieToken = getCsrfCookieToken(request, isAdmin);
+  const headerValue = request.headers["x-csrf-token"];
+  const headerToken =
+    typeof headerValue === "string"
+      ? headerValue
+      : Array.isArray(headerValue)
+        ? headerValue[0]
+        : undefined;
+
+  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+    throw new ForbiddenError("Missing or invalid CSRF token");
+  }
 }

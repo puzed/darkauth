@@ -2,7 +2,7 @@
 
 A technical analysis of zero‑knowledge key delivery for OIDC
 
-_2026-02-27_
+_2026-02-28_
 
 # DarkAuth v1 Security Whitepaper
 
@@ -159,7 +159,7 @@ Server never stores
 - Derived keys MK/KW/KDerive.
 
 Sessions and claims
-- SPA model: `/session` for minimal info; refresh rotation is performed with `POST /token` using `grant_type=refresh_token`.
+- First-party web model: `/session` uses HttpOnly cookie session transport; no browser-stored bearer session token.
 - OIDC refresh grant enforces client binding: cross-client refresh token reuse is rejected.
 - Refresh token replay is rejected: once consumed by a successful rotation, the token cannot be reused.
 - ID tokens may include `permissions` and `groups` claims when configured.

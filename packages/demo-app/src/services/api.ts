@@ -33,7 +33,7 @@ export interface UserProfile {
 
 class ApiClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const idToken = sessionStorage.getItem("id_token");
+    const idToken = localStorage.getItem("id_token");
     if (!idToken) throw new Error("No authentication token");
 
     const headers = {
@@ -111,7 +111,7 @@ class ApiClient {
   }
 
   async searchUsers(query: string): Promise<UserProfile[]> {
-    const idToken = sessionStorage.getItem("id_token");
+    const idToken = localStorage.getItem("id_token");
     const url = `${darkauthApiBaseUrl}/users?q=${encodeURIComponent(query)}`;
     const response = await fetch(url, {
       headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,

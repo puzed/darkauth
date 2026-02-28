@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js';
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
-import { createUserViaAdmin, getAdminBearerToken, establishUserSession } from '../../setup/helpers/auth.js';
+import { createUserViaAdmin, getAdminSession, establishUserSession } from '../../setup/helpers/auth.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Auth - User OTP backup codes (UI)', () => {
@@ -45,10 +45,18 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     const backupCode = await page.locator('ul li').first().textContent();
     expect(backupCode && backupCode.includes('-')).toBeTruthy();
 
-    const adminToken = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password });
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
     await fetch(`${servers.adminUrl}/admin/groups/default`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl },
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       body: JSON.stringify({ requireOtp: true })
     });
 

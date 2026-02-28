@@ -3,7 +3,7 @@ import { createTestServers, destroyTestServers, TestServers } from '../../setup/
 import { installDarkAuth } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
-import { getAdminBearerToken } from '../../setup/helpers/auth.js'
+import { getAdminSession } from '../../setup/helpers/auth.js'
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
 test.describe('Security - Admin OPAQUE Rate Limits', () => {
@@ -25,9 +25,16 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
   })
 
   test('start endpoint enforces opaque limits', async ({ request }) => {
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    })
     await request.put(`${servers.adminUrl}/admin/settings`, {
-      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
+      headers: {
+        Origin: servers.adminUrl,
+        Cookie: adminSession.cookieHeader,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       data: { key: 'security.trust_proxy_headers', value: true }
     })
 
@@ -88,9 +95,16 @@ test.describe('Security - Admin OPAQUE Rate Limits', () => {
   })
 
   test('limits configurable via settings', async ({ request }) => {
-    const token = await getAdminBearerToken(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password })
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    })
     const res = await request.put(`${servers.adminUrl}/admin/settings`, {
-      headers: { 'Origin': servers.adminUrl, 'Authorization': `Bearer ${token}` },
+      headers: {
+        Origin: servers.adminUrl,
+        Cookie: adminSession.cookieHeader,
+        'x-csrf-token': adminSession.csrfToken,
+      },
       data: { key: 'rate_limits.opaque.enabled', value: false }
     })
     expect(res.ok()).toBeTruthy()

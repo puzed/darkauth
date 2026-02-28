@@ -9,6 +9,29 @@ import { generateRandomString } from "./utils/crypto.ts";
 
 const rootLogger = pino();
 
+function printStartupPanel(urls: { installUrl?: string; adminUrl: string; userUrl: string }): void {
+  const rows: Array<[string, string]> = [
+    ["Install Link", urls.installUrl || "Already initialized"],
+    ["Admin URL", urls.adminUrl],
+    ["User URL", urls.userUrl],
+  ];
+  const title = "DarkAuth Links";
+  const keyWidth = Math.max(...rows.map(([key]) => key.length));
+  const valueWidth = Math.max(...rows.map(([, value]) => value.length));
+  const contentWidth = keyWidth + valueWidth + 5;
+  const top = `+${"-".repeat(contentWidth)}+`;
+  const titleLine = `| ${title.padEnd(contentWidth - 2)} |`;
+
+  process.stdout.write(`\n${top}\n`);
+  process.stdout.write(`${titleLine}\n`);
+  process.stdout.write(`${top}\n`);
+  for (const [key, value] of rows) {
+    const line = `| ${key.padEnd(keyWidth)} : ${value.padEnd(valueWidth)} |`;
+    process.stdout.write(`${line}\n`);
+  }
+  process.stdout.write(`${top}\n\n`);
+}
+
 async function main() {
   const root = loadRootConfig();
   const inInstallMode = !hasConfigFile();
@@ -33,10 +56,12 @@ async function main() {
 
   try {
     const initialized = await isSystemInitialized(context);
+    let startupInstallUrl: string | undefined;
 
     if (!initialized) {
       const installToken = context.config.installToken || generateRandomString(32);
       const installUrl = `http://localhost:${config.adminPort}/install?token=${installToken}`;
+      startupInstallUrl = installUrl;
       logger.warn({ installUrl }, "System not initialized; setup required");
       context.services.install = { token: installToken, createdAt: Date.now() };
     } else {
@@ -67,6 +92,11 @@ async function main() {
 
     const app = await createServer(context);
     await app.start();
+    printStartupPanel({
+      installUrl: startupInstallUrl,
+      adminUrl: `http://localhost:${context.config.adminPort}`,
+      userUrl: `http://localhost:${context.config.userPort}`,
+    });
 
     logger.info(
       {

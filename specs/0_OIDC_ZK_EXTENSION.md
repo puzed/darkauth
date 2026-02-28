@@ -127,8 +127,8 @@ Notational Conventions
 - Key algorithms:
   - JWE alg MUST be ECDH‑ES on P‑256; enc MUST be A256GCM. Clients SHOULD validate header alg and enc before decryption.
 - Sessions/tokens:
-  - Standard OIDC protections apply. This extension does not mandate cookie vs bearer token transport.
-  - If cookies are used, they MUST be Secure + HttpOnly with SameSite=Lax or stricter.
+  - Standard OIDC protections apply.
+  - First-party web profile is required: cookie session at the AS using `__Host-DarkAuth` (`Secure`, `HttpOnly`, `SameSite=Lax`) with CSRF protection and no browser-stored bearer session token.
 
 11. Privacy Considerations
 

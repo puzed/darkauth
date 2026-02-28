@@ -17,7 +17,7 @@ export async function getUserApps(
     const sessionId = getSessionId(request);
 
     if (!sessionId) {
-      throw new UnauthorizedError("No session token found");
+      throw new UnauthorizedError("No session cookie found");
     }
 
     const sessionData = await getSessionData(context, sessionId);

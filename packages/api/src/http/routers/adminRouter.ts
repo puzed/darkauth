@@ -78,7 +78,7 @@ import { NotFoundError, UnauthorizedError } from "../../errors.ts";
 import { getClientDashboardIcon } from "../../models/clients.ts";
 import { getSessionId } from "../../services/sessions.ts";
 import type { Context } from "../../types.ts";
-import { assertSameOrigin } from "../../utils/csrf.ts";
+import { assertCsrf } from "../../utils/csrf.ts";
 import { sendError } from "../../utils/http.ts";
 
 export function createAdminRouter(context: Context) {
@@ -111,7 +111,7 @@ export function createAdminRouter(context: Context) {
       }
 
       const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method);
-      if (needsCsrf) assertSameOrigin(request);
+      if (needsCsrf) assertCsrf(request, true);
       if (method === "GET" && pathname === "/admin/session") {
         return await getAdminSession(context, request, response);
       }

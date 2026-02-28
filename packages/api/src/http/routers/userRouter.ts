@@ -46,7 +46,7 @@ import { getClientDashboardIcon } from "../../models/clients.ts";
 import { sanitizeCSS } from "../../services/branding.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context } from "../../types.ts";
-import { assertSameOrigin } from "../../utils/csrf.ts";
+import { assertCsrf } from "../../utils/csrf.ts";
 import { sendError } from "../../utils/http.ts";
 
 export function createUserRouter(context: Context) {
@@ -57,7 +57,7 @@ export function createUserRouter(context: Context) {
 
     try {
       const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token";
-      if (needsCsrf) assertSameOrigin(request);
+      if (needsCsrf) assertCsrf(request, false);
       if (method === "GET" && pathname === "/branding/logo") {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
         const useDark = url.searchParams.get("dark") === "1";

@@ -63,9 +63,22 @@ let cfg: Config = {
 
 const OBFUSCATION_KEY = "DarkAuth-Storage-Protection-2025";
 const EMPTY_DRK = new Uint8Array(0);
+const ID_TOKEN_KEY = "id_token";
 
 export function setConfig(next: Partial<Config>) {
   cfg = { ...cfg, ...next } as Config;
+}
+
+function setStoredIdToken(token: string): void {
+  localStorage.setItem(ID_TOKEN_KEY, token);
+}
+
+function getStoredIdToken(): string | null {
+  return localStorage.getItem(ID_TOKEN_KEY);
+}
+
+function clearStoredIdToken(): void {
+  localStorage.removeItem(ID_TOKEN_KEY);
 }
 
 function bytesToBase64Url(bytes: Uint8Array): string {
@@ -198,7 +211,7 @@ export async function handleCallback(): Promise<AuthSession | null> {
     try {
       history.replaceState(null, "", location.origin + location.pathname);
     } catch {}
-    sessionStorage.setItem("id_token", idToken);
+    setStoredIdToken(idToken);
     localStorage.removeItem("drk_protected");
     if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
     return { idToken, drk: EMPTY_DRK, refreshToken };
@@ -223,7 +236,7 @@ export async function handleCallback(): Promise<AuthSession | null> {
   try {
     history.replaceState(null, "", location.origin + location.pathname);
   } catch {}
-  sessionStorage.setItem("id_token", idToken);
+  setStoredIdToken(idToken);
   const obfuscatedDrk = obfuscateKey(drk);
   localStorage.setItem("drk_protected", bytesToBase64Url(obfuscatedDrk));
   if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
@@ -231,7 +244,7 @@ export async function handleCallback(): Promise<AuthSession | null> {
 }
 
 export function getStoredSession(): AuthSession | null {
-  const idToken = sessionStorage.getItem("id_token");
+  const idToken = getStoredIdToken();
   const obfuscatedDrkBase64 = localStorage.getItem("drk_protected");
   if (!idToken) return null;
   if (!isTokenValid(idToken)) return null;
@@ -268,7 +281,7 @@ export async function refreshSession(): Promise<AuthSession | null> {
   const tokenResponse = await response.json();
   const idToken = tokenResponse.id_token as string;
   const newRefreshToken = tokenResponse.refresh_token as string | undefined;
-  sessionStorage.setItem("id_token", idToken);
+  setStoredIdToken(idToken);
   if (newRefreshToken) localStorage.setItem("refresh_token", newRefreshToken);
   const obfuscatedDrkBase64 = localStorage.getItem("drk_protected");
   if (!obfuscatedDrkBase64)
@@ -279,7 +292,7 @@ export async function refreshSession(): Promise<AuthSession | null> {
 }
 
 export function logout(): void {
-  sessionStorage.removeItem("id_token");
+  clearStoredIdToken();
   localStorage.removeItem("drk_protected");
   sessionStorage.removeItem("zk_eph_priv_jwk");
   sessionStorage.removeItem("pkce_verifier");
@@ -287,7 +300,7 @@ export function logout(): void {
 }
 
 export function getCurrentUser(): JwtClaims | null {
-  const idToken = sessionStorage.getItem("id_token");
+  const idToken = getStoredIdToken();
   if (!idToken) return null;
   return parseJwt(idToken);
 }

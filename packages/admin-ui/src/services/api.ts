@@ -47,8 +47,6 @@ export interface AdminOpaqueLoginFinishRequest {
 export interface AdminOpaqueLoginFinishResponse {
   success: boolean;
   sessionKey: string;
-  accessToken: string;
-  refreshToken?: string;
   otpRequired?: boolean;
   otpVerified?: boolean;
   admin: {
@@ -336,38 +334,14 @@ export interface AdminSetting {
 
 class AdminApiService {
   private baseUrl: string;
-  private accessToken: string | null = null;
   private onSessionExpired?: () => void;
   private onServerError?: () => void;
-  private refreshToken: string | null = null;
 
   constructor() {
     this.baseUrl = "/api/admin";
-    // Load tokens from localStorage if available
-    this.accessToken = localStorage.getItem("adminAccessToken");
-    this.refreshToken = localStorage.getItem("adminRefreshToken");
   }
 
-  setTokens(accessToken: string | null, refreshToken: string | null): void {
-    this.accessToken = accessToken;
-    this.refreshToken = refreshToken;
-
-    if (accessToken) {
-      localStorage.setItem("adminAccessToken", accessToken);
-    } else {
-      localStorage.removeItem("adminAccessToken");
-    }
-
-    if (refreshToken) {
-      localStorage.setItem("adminRefreshToken", refreshToken);
-    } else {
-      localStorage.removeItem("adminRefreshToken");
-    }
-  }
-
-  clearTokens(): void {
-    this.accessToken = null;
-    this.refreshToken = null;
+  clearLegacyTokens(): void {
     localStorage.removeItem("adminAccessToken");
     localStorage.removeItem("adminRefreshToken");
   }
@@ -424,14 +398,22 @@ class AdminApiService {
       });
     }
 
-    // Add Bearer token if available
-    if (this.accessToken) {
-      headers.set("Authorization", `Bearer ${this.accessToken}`);
+    const method = (options.method || "GET").toUpperCase();
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      const csrf = document.cookie
+        .split(";")
+        .map((part) => part.trim())
+        .find((part) => part.startsWith("__Host-DarkAuth-Admin-Csrf="))
+        ?.slice("__Host-DarkAuth-Admin-Csrf=".length);
+      if (csrf) {
+        headers.set("x-csrf-token", decodeURIComponent(csrf));
+      }
     }
 
     const config: RequestInit = {
       headers,
       ...options,
+      credentials: "include",
     };
 
     try {
@@ -440,7 +422,7 @@ class AdminApiService {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
-          this.clearTokens();
+          this.clearLegacyTokens();
           // Clear stored session
           authService.clearSession();
 
@@ -481,17 +463,10 @@ class AdminApiService {
   async adminOpaqueLoginFinish(
     request: AdminOpaqueLoginFinishRequest
   ): Promise<AdminOpaqueLoginFinishResponse> {
-    const response = await this.request<AdminOpaqueLoginFinishResponse>("/opaque/login/finish", {
+    return this.request<AdminOpaqueLoginFinishResponse>("/opaque/login/finish", {
       method: "POST",
       body: JSON.stringify(request),
     });
-
-    // Store tokens if provided
-    if (response.accessToken && response.refreshToken) {
-      this.setTokens(response.accessToken, response.refreshToken);
-    }
-
-    return response;
   }
 
   async adminOpaqueRegisterStart(
@@ -544,8 +519,7 @@ class AdminApiService {
     await this.request("/logout", {
       method: "POST",
     });
-    // Clear all tokens on logout
-    this.clearTokens();
+    this.clearLegacyTokens();
   }
 
   // Password change (self)
@@ -1193,10 +1167,15 @@ class AdminApiService {
 
     const url = `${this.baseUrl}${endpoint}`;
     const headers: Record<string, string> = { Accept: "text/csv" };
-    if (this.accessToken) {
-      headers.Authorization = `Bearer ${this.accessToken}`;
+    const csrf = document.cookie
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith("__Host-DarkAuth-Admin-Csrf="))
+      ?.slice("__Host-DarkAuth-Admin-Csrf=".length);
+    if (csrf) {
+      headers["x-csrf-token"] = decodeURIComponent(csrf);
     }
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, credentials: "include" });
 
     if (!response.ok) {
       if (response.status >= 500) {

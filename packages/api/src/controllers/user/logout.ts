@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { InvalidRequestError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getClient } from "../../models/clients.ts";
-import { deleteSession, getSessionId } from "../../services/sessions.ts";
+import { clearSessionCookies, deleteSession, getSessionId } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { parseFormBody, readBody, redirect, sendJson } from "../../utils/http.ts";
@@ -53,6 +53,7 @@ export const postLogout = withAudit({
     if (sessionId) {
       await deleteSession(context, sessionId);
     }
+    clearSessionCookies(response, false);
 
     // Validate post_logout_redirect_uri if provided
     if (post_logout_redirect_uri) {
