@@ -30,7 +30,7 @@ Then visit `http://localhost:9081` to complete installation.
 
 ### Prerequisites
 
-- Node.js 20+
+- Node.js 24+
 - PostgreSQL 15+ (or use embedded PGLite)
 - Docker & Docker Compose (optional, for PostgreSQL or non-Docker setups)
 
