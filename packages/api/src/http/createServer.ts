@@ -6,16 +6,16 @@ import {
 } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { getBrandingConfig, sanitizeCSS } from "../services/branding.js";
-import { getSetting, isSystemInitialized } from "../services/settings.js";
-import type { Context } from "../types.js";
-import { sendError } from "../utils/http.js";
-import { setSecurityHeaders } from "../utils/security.js";
-import { generateOpenApiDocument } from "./openapi.js";
-import { proxyToVite, proxyWebSocketToVite } from "./proxy.js";
-import { createAdminRouter } from "./routers/adminRouter.js";
-import { createInstallRouter } from "./routers/installRouter.js";
-import { createUserRouter } from "./routers/userRouter.js";
+import { getBrandingConfig, sanitizeCSS } from "../services/branding.ts";
+import { getSetting, isSystemInitialized } from "../services/settings.ts";
+import type { Context } from "../types.ts";
+import { sendError } from "../utils/http.ts";
+import { setSecurityHeaders } from "../utils/security.ts";
+import { generateOpenApiDocument } from "./openapi.ts";
+import { proxyToVite, proxyWebSocketToVite } from "./proxy.ts";
+import { createAdminRouter } from "./routers/adminRouter.ts";
+import { createInstallRouter } from "./routers/installRouter.ts";
+import { createUserRouter } from "./routers/userRouter.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

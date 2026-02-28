@@ -4,7 +4,7 @@ import {
   hasRequiredPermission,
   hasRequiredScope,
   resolveUsersReadModeFromPayload,
-} from "./user/usersDirectory.js";
+} from "./user/usersDirectory.ts";
 
 test("hasRequiredPermission returns true when permission is present", () => {
   assert.equal(hasRequiredPermission(["darkauth.users:read"]), true);

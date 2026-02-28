@@ -1,13 +1,13 @@
 import { randomBytes } from "node:crypto";
 import { eq, lt } from "drizzle-orm";
-import { opaqueLoginSessions } from "../db/schema.js";
-import { ValidationError } from "../errors.js";
+import { opaqueLoginSessions } from "../db/schema.ts";
+import { ValidationError } from "../errors.ts";
 import {
   createOpaqueClientService,
   createOpaqueServerService,
   type OpaqueServerService,
   toBase64Url,
-} from "../lib/opaque/opaque-ts-wrapper.js";
+} from "../lib/opaque/opaque-ts-wrapper.ts";
 import type {
   Context,
   OpaqueLoginResponse,
@@ -15,9 +15,9 @@ import type {
   OpaqueRecord,
   OpaqueRegistrationResponse,
   OpaqueServerSetup,
-} from "../types.js";
-import { ensureKekService } from "./kek.js";
-import { loadOpaqueServerState, saveOpaqueServerState } from "./opaqueState.js";
+} from "../types.ts";
+import { ensureKekService } from "./kek.ts";
+import { loadOpaqueServerState, saveOpaqueServerState } from "./opaqueState.ts";
 
 export async function createOpaqueService(context?: Context) {
   try {

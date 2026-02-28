@@ -1,18 +1,18 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { createUser as createUserModel } from "../../models/users.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { createUser as createUserModel } from "../../models/users.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 async function createUserHandler(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
 ): Promise<void> {
-  const sessionData = await (await import("../../services/sessions.js")).requireSession(
+  const sessionData = await (await import("../../services/sessions.ts")).requireSession(
     context,
     request,
     true

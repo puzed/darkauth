@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
-import { ForbiddenError } from "../../errors.js";
-import { setUserPermissions } from "../../models/userPermissions.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, HttpHandler } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { setUserPermissions } from "../../models/userPermissions.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, HttpHandler } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 async function updateUserPermissionsHandler(
   context: Context,

@@ -1,8 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { updateAdminUser } from "../../models/adminUsers.js";
-import type { Context, ControllerSchema } from "../../types.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { updateAdminUser } from "../../models/adminUsers.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
 export const AdminRoleSchema = z.enum(["read", "write"]);
 export const UpdateAdminUserSchema = z
   .object({
@@ -20,8 +20,8 @@ export const AdminUserSchema = z.object({
   createdAt: z.date().or(z.string()),
 });
 
-import { requireSession } from "../../services/sessions.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { requireSession } from "../../services/sessions.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export async function updateAdminUserController(
   context: Context,

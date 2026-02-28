@@ -7,7 +7,7 @@
  * - Logs only high-level operational info in production
  */
 
-import type { Logger } from "../types.js";
+import type { Logger } from "../types.ts";
 
 export interface SecureLoggerOptions {
   isDevelopment?: boolean;

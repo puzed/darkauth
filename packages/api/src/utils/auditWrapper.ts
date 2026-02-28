@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getClientIp, logAuditEvent, sanitizeRequestBody } from "../services/audit.js";
+import { getClientIp, logAuditEvent, sanitizeRequestBody } from "../services/audit.ts";
 import {
   getActorFromRefreshToken,
   getActorFromSessionId,
   getSession,
   getSessionId,
-} from "../services/sessions.js";
-import type { Context, ControllerFunction } from "../types.js";
+} from "../services/sessions.ts";
+import type { Context, ControllerFunction } from "../types.ts";
 
 interface AuditConfig {
   eventType: string;
@@ -141,7 +141,7 @@ export function withAudit(config: AuditConfig | string) {
           ["POST", "PUT", "DELETE", "PATCH"].includes(request.method || "") &&
           !auditConfig.skipBodyCapture
         ) {
-          const { getCachedBody } = await import("../middleware/rateLimit.js");
+          const { getCachedBody } = await import("../middleware/rateLimit.ts");
           const body = await getCachedBody(request);
           const reqWithRaw = request as IncomingMessage & { rawBody?: string };
           reqWithRaw.rawBody = body;

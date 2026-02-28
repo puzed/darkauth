@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import { adminOpaqueRecords, adminPasswordHistory, adminUsers } from "../db/schema.js";
-import { ConflictError, NotFoundError, ValidationError } from "../errors.js";
-import type { Context } from "../types.js";
+import { adminOpaqueRecords, adminPasswordHistory, adminUsers } from "../db/schema.ts";
+import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function getAdminOpaqueRecordByAdminId(context: Context, adminId: string) {
   const row = await context.db.query.adminOpaqueRecords.findFirst({

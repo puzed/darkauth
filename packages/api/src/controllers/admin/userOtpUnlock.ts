@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { otpConfigs } from "../../db/schema.js";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { sendJson } from "../../utils/http.js";
+import { otpConfigs } from "../../db/schema.ts";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export const postUserOtpUnlock = withAudit({
   eventType: "ADMIN_USER_OTP_UNLOCK",

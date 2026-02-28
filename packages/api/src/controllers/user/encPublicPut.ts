@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { UnauthorizedError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { setEncPublicJwk } from "../../models/userEncryptionKeys.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { UnauthorizedError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { setEncPublicJwk } from "../../models/userEncryptionKeys.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 // Request schema
 const EncPublicJwkReq = z.object({

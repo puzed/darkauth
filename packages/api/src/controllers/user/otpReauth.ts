@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { withRateLimit } from "../../middleware/rateLimit.js";
-import { verifyOtpCode } from "../../models/otp.js";
-import { signJWT } from "../../services/jwks.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, JWTPayload } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
+import { verifyOtpCode } from "../../models/otp.ts";
+import { signJWT } from "../../services/jwks.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, JWTPayload } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
 export const postOtpReauth = withAudit({ eventType: "OTP_REAUTH", resourceType: "user" })(
   withRateLimit("otp_verify")(async function postOtpReauth(

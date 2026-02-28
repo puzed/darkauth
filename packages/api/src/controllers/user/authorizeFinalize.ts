@@ -1,15 +1,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { InvalidRequestError, NotFoundError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { withRateLimit } from "../../middleware/rateLimit.js";
-import { createAuthCode } from "../../models/authCodes.js";
-import { consumePendingAuth } from "../../models/authorize.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { generateRandomString } from "../../utils/crypto.js";
-import { parseFormBody, readBody, sendJson } from "../../utils/http.js";
+import { InvalidRequestError, NotFoundError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
+import { createAuthCode } from "../../models/authCodes.ts";
+import { consumePendingAuth } from "../../models/authorize.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { generateRandomString } from "../../utils/crypto.ts";
+import { parseFormBody, readBody, sendJson } from "../../utils/http.ts";
 
 export const postAuthorizeFinalize = withRateLimit("opaque")(
   withAudit({

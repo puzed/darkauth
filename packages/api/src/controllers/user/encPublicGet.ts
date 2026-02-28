@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { UnauthorizedError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getEncPublicJwkBySub } from "../../models/userEncryptionKeys.js";
-import { requireSession } from "../../services/sessions.js";
-import { getSetting } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { UnauthorizedError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getEncPublicJwkBySub } from "../../models/userEncryptionKeys.ts";
+import { requireSession } from "../../services/sessions.ts";
+import { getSetting } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function getEncPublicJwk(
   context: Context,

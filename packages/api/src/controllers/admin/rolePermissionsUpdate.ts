@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { setRolePermissionsAdmin } from "../../models/rbacAdmin.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { setRolePermissionsAdmin } from "../../models/rbacAdmin.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 const RequestSchema = z.object({ permissionKeys: z.array(z.string()) });
 const ResponseSchema = z.object({ roleId: z.string().uuid(), permissionKeys: z.array(z.string()) });

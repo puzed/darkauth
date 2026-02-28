@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { InvalidRequestError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getClient } from "../../models/clients.js";
-import { deleteSession, getSessionId } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseFormBody, readBody, redirect, sendJson } from "../../utils/http.js";
+import { InvalidRequestError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getClient } from "../../models/clients.ts";
+import { deleteSession, getSessionId } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseFormBody, readBody, redirect, sendJson } from "../../utils/http.ts";
 
 // Response schema used in OpenAPI definition
 const Resp = z.object({ success: z.boolean().optional() });

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import { settings } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { settings } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 function resolveSettingsDb(context: Context) {
   return context.services.install?.tempDb || context.db;

@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 /**
  * Test script to validate JWT implementation addresses audit findings:
  * 1. JWT audience (aud) claim validation
@@ -6,8 +6,8 @@
  * 3. Issuer claim validation
  */
 
-import { createContext } from "../src/context/createContext.js";
-import { signJWT, verifyJWT, generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
+import { createContext } from "../src/context/createContext.ts";
+import { signJWT, verifyJWT, generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.ts";
 import type { JWTPayload } from "jose";
 import fs from "node:fs";
 import path from "node:path";

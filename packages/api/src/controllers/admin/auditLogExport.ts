@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { exportAuditLogsCsv } from "../../models/auditLogs.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { exportAuditLogsCsv } from "../../models/auditLogs.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
 
 export async function getAuditLogExport(
   context: Context,

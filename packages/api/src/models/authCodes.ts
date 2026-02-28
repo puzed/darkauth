@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
-import { authCodes } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { authCodes } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 export async function getAuthCode(context: Context, code: string) {
   return await context.db.query.authCodes.findFirst({ where: eq(authCodes.code, code) });

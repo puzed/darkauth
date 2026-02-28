@@ -8,9 +8,9 @@ import {
   type KeyObject,
   SignJWT,
 } from "jose";
-import { jwks } from "../db/schema.js";
-import type { Context, JWK, JWTPayload } from "../types.js";
-import { generateRandomString } from "../utils/crypto.js";
+import { jwks } from "../db/schema.ts";
+import type { Context, JWK, JWTPayload } from "../types.ts";
+import { generateRandomString } from "../utils/crypto.ts";
 
 export async function generateEdDSAKeyPair(): Promise<{
   publicJwk: JWK;

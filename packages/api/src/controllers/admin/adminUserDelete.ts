@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { deleteAdminUser } from "../../models/adminUsers.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { deleteAdminUser } from "../../models/adminUsers.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function deleteAdminUserController(
   context: Context,

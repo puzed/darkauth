@@ -1,12 +1,12 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { createGroup as createGroupModel } from "../../models/groups.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { createGroup as createGroupModel } from "../../models/groups.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 export const CreateGroupSchema = z.object({
   key: z

@@ -1,16 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { InvalidRequestError, UnauthorizedClientError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { withRateLimit } from "../../middleware/rateLimit.js";
-import { createPendingAuth } from "../../models/authorize.js";
-import { getClient } from "../../models/clients.js";
-import { getSession, getSessionId } from "../../services/sessions.js";
-import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.js";
-import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.js";
-import { generateRandomString } from "../../utils/crypto.js";
-import { parseQueryParams } from "../../utils/http.js";
-import { validateCodeChallenge } from "../../utils/pkce.js";
+import { InvalidRequestError, UnauthorizedClientError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
+import { createPendingAuth } from "../../models/authorize.ts";
+import { getClient } from "../../models/clients.ts";
+import { getSession, getSessionId } from "../../services/sessions.ts";
+import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.ts";
+import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.ts";
+import { generateRandomString } from "../../utils/crypto.ts";
+import { parseQueryParams } from "../../utils/http.ts";
+import { validateCodeChallenge } from "../../utils/pkce.ts";
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1, { message: "client_id is required" }),

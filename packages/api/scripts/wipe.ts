@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 import pg from "pg";
 import fs from "node:fs";
 import path from "node:path";

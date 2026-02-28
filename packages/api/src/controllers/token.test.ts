@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../errors.js";
+import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../errors.ts";
 import {
   assertClientSecretMatches,
   assertRefreshTokenClientBinding,
@@ -8,7 +8,7 @@ import {
   resolveGrantedScopes,
   resolveSessionClientId,
   TokenRequestSchema,
-} from "./user/token.js";
+} from "./user/token.ts";
 
 test("resolveGrantedScopes returns allowed scopes when no scope is requested", () => {
   const allowed = ["darkauth.users:read", "darkauth.groups:read"];

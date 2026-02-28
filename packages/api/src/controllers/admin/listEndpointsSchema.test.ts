@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { AuditLogsListResponseSchema, schema as auditLogsSchema } from "./auditLogs.js";
-import { ClientsListResponseSchema, schema as clientsSchema } from "./clients.js";
-import { schema as groupUsersSchema } from "./groupUsers.js";
-import { LIST_PAGE_MAX, LIST_SEARCH_MAX_LENGTH } from "./listQueryBounds.js";
-import { PermissionsListResponseSchema, schema as permissionsSchema } from "./permissions.js";
-import { schema as rolesSchema } from "./roles.js";
-import { UsersListResponseSchema, schema as usersSchema } from "./users.js";
+import { AuditLogsListResponseSchema, schema as auditLogsSchema } from "./auditLogs.ts";
+import { ClientsListResponseSchema, schema as clientsSchema } from "./clients.ts";
+import { schema as groupUsersSchema } from "./groupUsers.ts";
+import { LIST_PAGE_MAX, LIST_SEARCH_MAX_LENGTH } from "./listQueryBounds.ts";
+import { PermissionsListResponseSchema, schema as permissionsSchema } from "./permissions.ts";
+import { schema as rolesSchema } from "./roles.ts";
+import { UsersListResponseSchema, schema as usersSchema } from "./users.ts";
 
 test("users schema supports standard pagination, search and sorting query fields", () => {
   const parsed = usersSchema.query.parse({

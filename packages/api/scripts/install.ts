@@ -1,14 +1,14 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 
-import { createContext } from "../src/context/createContext.js";
-import { adminUsers, settings } from "../src/db/schema.js";
-import { seedDefaultOrganizationRbac } from "../src/models/install.js";
-import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.js";
-import { createKekService, generateKdfParams } from "../src/services/kek.js";
-import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.js";
-import { seedDefaultClients } from "../src/models/install.js";
-import type { Config, KdfParams } from "../src/types.js";
-import { generateRandomString } from "../src/utils/crypto.js";
+import { createContext } from "../src/context/createContext.ts";
+import { adminUsers, settings } from "../src/db/schema.ts";
+import { seedDefaultOrganizationRbac } from "../src/models/install.ts";
+import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.ts";
+import { createKekService, generateKdfParams } from "../src/services/kek.ts";
+import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.ts";
+import { seedDefaultClients } from "../src/models/install.ts";
+import type { Config, KdfParams } from "../src/types.ts";
+import { generateRandomString } from "../src/utils/crypto.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { parse, stringify } from "yaml";

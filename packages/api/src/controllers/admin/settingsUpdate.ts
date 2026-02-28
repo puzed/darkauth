@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { requireSession } from "../../services/sessions.js";
-import { getSetting, setSetting } from "../../services/settings.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJson } from "../../utils/http.js";
-import { clearRateLimitCache } from "../../utils/security.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { requireSession } from "../../services/sessions.ts";
+import { getSetting, setSetting } from "../../services/settings.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
+import { clearRateLimitCache } from "../../utils/security.ts";
 
 interface SettingsUpdateRequest {
   key: string;

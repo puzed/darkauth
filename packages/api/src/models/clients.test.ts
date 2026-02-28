@@ -3,9 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
-import { createPglite } from "../db/pglite.js";
-import type { Context } from "../types.js";
-import { createClient, getClientDashboardIcon, listVisibleApps } from "./clients.js";
+import { createPglite } from "../db/pglite.ts";
+import type { Context } from "../types.ts";
+import { createClient, getClientDashboardIcon, listVisibleApps } from "./clients.ts";
 
 function createLogger() {
   return {

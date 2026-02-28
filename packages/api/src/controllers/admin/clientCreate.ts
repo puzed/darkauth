@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
-import { ForbiddenError, ValidationError } from "../../errors.js";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
 export const CreateClientSchema = z.object({
   clientId: z.string().min(1),
   name: z.string().min(1).max(255),
@@ -63,13 +63,13 @@ export const ClientResponseSchema = z.object({
   clientSecret: z.string().optional(),
 });
 
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { createClient as createClientModel } from "../../models/clients.js";
-import { requireSession } from "../../services/sessions.js";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { createClient as createClientModel } from "../../models/clients.ts";
+import { requireSession } from "../../services/sessions.ts";
 
-import type { Context, ControllerSchema } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.js";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 async function createClientHandler(
   context: Context,

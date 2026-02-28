@@ -1,13 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { count, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { groups, userGroups } from "../../db/schema.js";
-import { ForbiddenError, NotFoundError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getGroupPermissions } from "../../models/groups.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { groups, userGroups } from "../../db/schema.ts";
+import { ForbiddenError, NotFoundError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getGroupPermissions } from "../../models/groups.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function getGroup(
   context: Context,

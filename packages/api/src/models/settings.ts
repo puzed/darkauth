@@ -1,5 +1,5 @@
-import { settings } from "../db/schema.js";
-import type { Context } from "../types.js";
+import { settings } from "../db/schema.ts";
+import type { Context } from "../types.ts";
 
 function toTitle(s: string): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());

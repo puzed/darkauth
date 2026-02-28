@@ -1,16 +1,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getGroupUsers as getGroupUsersModel } from "../../models/groups.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJsonValidated } from "../../utils/http.js";
+import { ForbiddenError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getGroupUsers as getGroupUsersModel } from "../../models/groups.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJsonValidated } from "../../utils/http.ts";
 import {
   listPageOpenApiQuerySchema,
   listPageQuerySchema,
   listSearchQuerySchema,
-} from "./listQueryBounds.js";
+} from "./listQueryBounds.ts";
 
 export async function getGroupUsers(
   context: Context,

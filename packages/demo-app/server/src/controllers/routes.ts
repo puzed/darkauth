@@ -1,8 +1,8 @@
-import type { Route, Context } from "../types";
+import type { Route, Context } from "../types.ts";
 import type http from "node:http";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { z } from "zod";
-import { initDemoSchema, listNotesForUser, createNote, deleteNoteCascade, getChangesSince, canWriteToNote, appendChange, shareNote, revokeShare, getDekForRecipient } from "../models/notes";
+import { initDemoSchema, listNotesForUser, createNote, deleteNoteCascade, getChangesSince, canWriteToNote, appendChange, shareNote, revokeShare, getDekForRecipient } from "../models/notes.ts";
 
 function sendJson(response: http.ServerResponse, statusCode: number, body: unknown) {
   const serializedBody = JSON.stringify(body);

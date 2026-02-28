@@ -8,17 +8,17 @@ import {
   organizationMembers,
   roles,
   userGroups,
-} from "../../db/schema.js";
-import { AppError, UnauthorizedError, ValidationError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.js";
-import { getUserBySubOrEmail } from "../../models/users.js";
-import { requireOpaqueService } from "../../services/opaque.js";
-import { createSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.js";
-import { withAudit } from "../../utils/auditWrapper.js";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.js";
-import { parseJsonSafely, sendJson } from "../../utils/http.js";
+} from "../../db/schema.ts";
+import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { getUserBySubOrEmail } from "../../models/users.ts";
+import { requireOpaqueService } from "../../services/opaque.ts";
+import { createSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
+import { withAudit } from "../../utils/auditWrapper.ts";
+import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
   // Rate limit by sessionId to prevent abuse
@@ -106,7 +106,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         throw new UnauthorizedError("Authentication failed");
       }
 
-      const { getUserOrganizations } = await import("../../models/rbac.js");
+      const { getUserOrganizations } = await import("../../models/rbac.ts");
       const organizations = await getUserOrganizations(context, user.sub);
       const activeMemberships = organizations.filter(
         (membership) => membership.status === "active"
@@ -124,7 +124,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       }
 
       let otpRequired = false;
-      const s = await (await import("../../services/settings.js")).getSetting(context, "otp");
+      const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
       if (
         s &&
         typeof s === "object" &&

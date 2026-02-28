@@ -1,7 +1,7 @@
 import { asc, count, desc, eq, ilike, or } from "drizzle-orm";
-import { adminUsers } from "../db/schema.js";
-import { ConflictError, NotFoundError } from "../errors.js";
-import type { Context } from "../types.js";
+import { adminUsers } from "../db/schema.ts";
+import { ConflictError, NotFoundError } from "../errors.ts";
+import type { Context } from "../types.ts";
 
 export async function listAdminUsers(
   context: Context,

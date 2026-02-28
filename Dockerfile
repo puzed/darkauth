@@ -22,12 +22,10 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/api/package.json ./packages/api/package.json
 COPY --from=builder /app/packages/api/src ./packages/api/src
 COPY --from=builder /app/packages/api/drizzle ./packages/api/drizzle
-COPY --from=builder /app/packages/api/dist ./packages/api/dist
-COPY --from=builder /app/packages/api/drizzle ./packages/api/dist/drizzle
 COPY --from=builder /app/packages/user-ui/package.json ./packages/user-ui/package.json
 COPY --from=builder /app/packages/user-ui/dist ./packages/user-ui/dist
 COPY --from=builder /app/packages/admin-ui/package.json ./packages/admin-ui/package.json
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
 COPY --from=builder /app/packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
-CMD ["pm2-runtime","packages/api/dist/src/main.js","--name","darkauth"]
+CMD ["pm2-runtime","--node-args=--disable-warning=ExperimentalWarning --experimental-transform-types","packages/api/src/main.ts","--name","darkauth"]

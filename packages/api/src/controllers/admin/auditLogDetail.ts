@@ -1,11 +1,11 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError, NotFoundError } from "../../errors.js";
-import { genericErrors } from "../../http/openapi-helpers.js";
-import { getAuditLogWithActor } from "../../models/auditLogs.js";
-import { requireSession } from "../../services/sessions.js";
-import type { Context, ControllerSchema } from "../../types.js";
-import { sendJson } from "../../utils/http.js";
+import { ForbiddenError, NotFoundError } from "../../errors.ts";
+import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getAuditLogWithActor } from "../../models/auditLogs.ts";
+import { requireSession } from "../../services/sessions.ts";
+import type { Context, ControllerSchema } from "../../types.ts";
+import { sendJson } from "../../utils/http.ts";
 
 export async function getAuditLogDetail(
   context: Context,
