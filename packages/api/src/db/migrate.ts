@@ -19,7 +19,13 @@ async function runMigrations() {
     await migrate(db, { migrationsFolder: "./drizzle" });
     logger.info("Migrations completed successfully");
   } catch (error) {
-    logger.error({ error }, "Migration failed");
+    logger.error(
+      {
+        err: error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      },
+      "Migration failed"
+    );
     process.exit(1);
   } finally {
     await pool.end();
@@ -27,6 +33,12 @@ async function runMigrations() {
 }
 
 runMigrations().catch((error) => {
-  logger.error({ error }, "Migration process failed");
+  logger.error(
+    {
+      err: error,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    },
+    "Migration process failed"
+  );
   process.exit(1);
 });
