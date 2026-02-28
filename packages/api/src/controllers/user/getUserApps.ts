@@ -41,6 +41,10 @@ const UserDashboardAppSchema = z.object({
   description: z.string().optional(),
   url: z.string().optional(),
   logoUrl: z.string().optional(),
+  iconMode: z.enum(["letter", "emoji", "upload"]).optional(),
+  iconEmoji: z.string().optional(),
+  iconLetter: z.string().optional(),
+  iconUrl: z.string().optional(),
 });
 
 export const schema = {

@@ -38,6 +38,7 @@ export const tokenEndpointAuthMethodEnum = pgEnum("token_endpoint_auth_method", 
   "client_secret_basic",
 ]);
 export const zkDeliveryEnum = pgEnum("zk_delivery", ["none", "fragment-jwe"]);
+export const dashboardIconModeEnum = pgEnum("dashboard_icon_mode", ["letter", "emoji", "upload"]);
 export const sessionCohortEnum = pgEnum("session_cohort", ["user", "admin"]);
 export const adminRoleEnum = pgEnum("admin_role", ["read", "write"]);
 export const organizationStatusEnum = pgEnum("organization_status", [
@@ -73,6 +74,12 @@ export const clients = pgTable("clients", {
   name: text("name").notNull(),
   description: text("description"),
   appUrl: text("app_url"),
+  dashboardPosition: integer("dashboard_position").default(0).notNull(),
+  dashboardIconMode: dashboardIconModeEnum("dashboard_icon_mode").default("letter").notNull(),
+  dashboardIconEmoji: text("dashboard_icon_emoji"),
+  dashboardIconLetter: text("dashboard_icon_letter"),
+  dashboardIconMimeType: text("dashboard_icon_mime_type"),
+  dashboardIconData: bytea("dashboard_icon_data"),
   logoUrl: text("logo_url"),
   showOnUserDashboard: boolean("show_on_user_dashboard").default(false).notNull(),
   type: clientTypeEnum("type").notNull(),
