@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import { logger } from "../services/logger";
 import styles from "./Dashboard.module.css";
@@ -18,6 +17,10 @@ interface App {
   description?: string;
   url?: string;
   logoUrl?: string;
+  iconMode?: "letter" | "emoji" | "upload";
+  iconEmoji?: string;
+  iconLetter?: string;
+  iconUrl?: string;
 }
 
 interface DashboardProps {
@@ -27,7 +30,6 @@ interface DashboardProps {
 
 export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
   const navigate = useNavigate();
-  const branding = useBranding();
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -57,14 +59,6 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
     >
       <div className={styles.container}>
         <div className={styles.mainGrid}>
-          <section className={styles.welcomeSection}>
-            <h2 className={styles.successHeading}>
-              {branding.getText("successAuth", "Successfully authenticated")}
-            </h2>
-            <h2>Welcome back, {sessionData.name || "User"}</h2>
-            <p className={styles.subtitle}>Access your applications and manage your account</p>
-          </section>
-
           <section className={styles.appsSection}>
             <h3>Your Applications</h3>
             {loading ? (
@@ -74,40 +68,85 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
               </div>
             ) : apps.length > 0 ? (
               <div className={styles.appsGrid}>
-                {apps.map((app) => (
-                  <a
-                    key={app.id}
-                    href={app.url || "#"}
-                    className={styles.appCard}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <div className={styles.appIcon}>
-                      {app.logoUrl ? (
-                        <img src={app.logoUrl} alt={app.name} />
-                      ) : (
-                        <div className={styles.appInitial}>{app.name[0].toUpperCase()}</div>
-                      )}
+                {apps.map((app) =>
+                  app.url ? (
+                    <a
+                      key={app.id}
+                      href={app.url}
+                      className={styles.appCard}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <div className={styles.appIcon}>
+                        {app.iconMode === "upload" && app.iconUrl ? (
+                          <img src={app.iconUrl} alt={app.name} />
+                        ) : app.logoUrl ? (
+                          <img src={app.logoUrl} alt={app.name} />
+                        ) : app.iconMode === "emoji" && app.iconEmoji ? (
+                          <div className={styles.appInitial}>{app.iconEmoji}</div>
+                        ) : app.iconMode === "letter" && app.iconLetter ? (
+                          <div className={styles.appInitial}>
+                            {app.iconLetter.slice(0, 1).toUpperCase()}
+                          </div>
+                        ) : (
+                          <div className={styles.appInitial}>{app.name[0].toUpperCase()}</div>
+                        )}
+                      </div>
+                      <div className={styles.appInfo}>
+                        <h4>{app.name}</h4>
+                        {app.description && <p>{app.description}</p>}
+                      </div>
+                      <div className={styles.appArrow}>
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <title>Open application</title>
+                          <path d="M7 17L17 7M17 7H7M17 7V17" />
+                        </svg>
+                      </div>
+                    </a>
+                  ) : (
+                    <div key={app.id} className={styles.appCard}>
+                      <div className={styles.appIcon}>
+                        {app.iconMode === "upload" && app.iconUrl ? (
+                          <img src={app.iconUrl} alt={app.name} />
+                        ) : app.logoUrl ? (
+                          <img src={app.logoUrl} alt={app.name} />
+                        ) : app.iconMode === "emoji" && app.iconEmoji ? (
+                          <div className={styles.appInitial}>{app.iconEmoji}</div>
+                        ) : app.iconMode === "letter" && app.iconLetter ? (
+                          <div className={styles.appInitial}>
+                            {app.iconLetter.slice(0, 1).toUpperCase()}
+                          </div>
+                        ) : (
+                          <div className={styles.appInitial}>{app.name[0].toUpperCase()}</div>
+                        )}
+                      </div>
+                      <div className={styles.appInfo}>
+                        <h4>{app.name}</h4>
+                        {app.description && <p>{app.description}</p>}
+                      </div>
+                      <div className={styles.appArrow}>
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <title>Open application</title>
+                          <path d="M7 17L17 7M17 7H7M17 7V17" />
+                        </svg>
+                      </div>
                     </div>
-                    <div className={styles.appInfo}>
-                      <h4>{app.name}</h4>
-                      {app.description && <p>{app.description}</p>}
-                    </div>
-                    <div className={styles.appArrow}>
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
-                        <title>Open application</title>
-                        <path d="M7 17L17 7M17 7H7M17 7V17" />
-                      </svg>
-                    </div>
-                  </a>
-                ))}
+                  )
+                )}
               </div>
             ) : (
               <div className={styles.emptyState}>
@@ -129,6 +168,22 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
                 <span>Applications you have access to will appear here</span>
               </div>
             )}
+            <div className={styles.appsActions}>
+              <button
+                type="button"
+                className={styles.appsActionButton}
+                onClick={() => navigate("/change-password")}
+              >
+                Change Password
+              </button>
+              <button
+                type="button"
+                className={styles.appsActionButton}
+                onClick={() => navigate("/settings")}
+              >
+                Reset OTP
+              </button>
+            </div>
           </section>
 
           <section className={styles.accountSection}>

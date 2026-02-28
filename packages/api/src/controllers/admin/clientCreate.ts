@@ -7,6 +7,18 @@ export const CreateClientSchema = z.object({
   name: z.string().min(1).max(255),
   type: z.enum(["public", "confidential"]),
   tokenEndpointAuthMethod: z.enum(["none", "client_secret_basic"]).optional().default("none"),
+  showOnUserDashboard: z.boolean().optional().default(false),
+  dashboardPosition: z.number().int().min(0).optional().default(0),
+  appUrl: z.string().url().optional(),
+  dashboardIconMode: z.enum(["letter", "emoji", "upload"]).optional().default("letter"),
+  dashboardIconEmoji: z.string().max(16).optional(),
+  dashboardIconLetter: z.string().max(2).optional(),
+  dashboardIconUpload: z
+    .object({
+      data: z.string(),
+      mimeType: z.string(),
+    })
+    .optional(),
   requirePkce: z.boolean().optional().default(true),
   zkDelivery: z.enum(["none", "fragment-jwe"]).optional().default("none"),
   zkRequired: z.boolean().optional().default(false),
@@ -25,6 +37,12 @@ export const CreateClientSchema = z.object({
 export const ClientResponseSchema = z.object({
   clientId: z.string(),
   name: z.string(),
+  showOnUserDashboard: z.boolean().optional(),
+  dashboardPosition: z.number().int(),
+  appUrl: z.string().nullable().optional(),
+  dashboardIconMode: z.enum(["letter", "emoji", "upload"]),
+  dashboardIconEmoji: z.string().nullable().optional(),
+  dashboardIconLetter: z.string().nullable().optional(),
   type: z.string(),
   tokenEndpointAuthMethod: z.string(),
   requirePkce: z.boolean(),
@@ -71,7 +89,24 @@ async function createClientHandler(
     throw new ValidationError("Validation error", parsed.error.issues);
   }
 
-  const data = parsed.data;
+  const mode = parsed.data.dashboardIconMode;
+  const emoji =
+    mode === "emoji" && parsed.data.dashboardIconEmoji?.trim()
+      ? parsed.data.dashboardIconEmoji.trim()
+      : null;
+  const letter =
+    mode === "letter" && parsed.data.dashboardIconLetter?.trim()
+      ? parsed.data.dashboardIconLetter.trim()
+      : null;
+  const upload = mode === "upload" ? parsed.data.dashboardIconUpload : undefined;
+
+  const data = {
+    ...parsed.data,
+    dashboardIconEmoji: emoji,
+    dashboardIconLetter: letter,
+    dashboardIconMimeType: upload?.mimeType ?? null,
+    dashboardIconData: upload ? Buffer.from(upload.data, "base64") : null,
+  };
 
   const created = await createClientModel(context, data);
   const responseData = { ...created };

@@ -92,7 +92,6 @@
 .logoutBtn:hover {
   background: linear-gradient(135deg, var(--primary-700) 0%, var(--primary-800) 100%);
   box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.1);
-  transform: translateY(-1px);
 }
 
 .main {
@@ -109,7 +108,6 @@
   gap: 2rem;
   grid-template-columns: 1fr;
   grid-template-areas:
-    "welcome"
     "apps"
     "account";
 }
@@ -117,43 +115,8 @@
 @media (min-width: 1280px) {
   .mainGrid {
     grid-template-columns: 2fr 1fr;
-    grid-template-areas:
-      "welcome welcome"
-      "apps account";
+    grid-template-areas: "apps account";
   }
-}
-
-.welcomeSection {
-  grid-area: welcome;
-  background: white;
-  padding: 3rem;
-  border-radius: 1rem;
-  box-shadow:
-    0 1px 3px 0 rgb(0 0 0 / 0.05),
-    0 1px 2px -1px rgb(0 0 0 / 0.05);
-  border: 1px solid rgba(229, 231, 235, 0.5);
-}
-
-.successHeading {
-  margin: 0 0 0.5rem 0;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #16a34a;
-}
-
-.welcomeSection h2 {
-  font-size: 2.25rem;
-  font-weight: 700;
-  color: #0f172a;
-  margin: 0 0 0.75rem 0;
-  letter-spacing: -0.025em;
-}
-
-.subtitle {
-  color: #64748b;
-  font-size: 1.125rem;
-  margin: 0;
-  font-weight: 400;
 }
 
 .appsSection {
@@ -173,6 +136,32 @@
   color: #0f172a;
   margin: 0 0 2rem 0;
   letter-spacing: -0.015em;
+}
+
+.appsActions {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.appsActionButton {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.appsActionButton:hover {
+  border-color: var(--primary-400);
+  color: var(--primary-700);
+  background: white;
 }
 
 .appsGrid {
@@ -200,7 +189,6 @@
   box-shadow:
     0 10px 25px -5px rgb(0 0 0 / 0.08),
     0 4px 6px -2px rgb(0 0 0 / 0.05);
-  transform: translateY(-3px);
 }
 
 .appIcon {
@@ -254,7 +242,6 @@
 
 .appCard:hover .appArrow {
   color: var(--primary-600);
-  transform: translate(2px, -2px);
 }
 
 .loadingState,
@@ -401,7 +388,6 @@
   background: var(--primary-600);
 }
 
-[data-da-theme="dark"] .welcomeSection,
 [data-da-theme="dark"] .appsSection,
 [data-da-theme="dark"] .accountSection {
   background: rgba(30, 41, 59, 0.8);
@@ -412,14 +398,9 @@
   border: 1px solid rgba(51, 65, 85, 0.5);
 }
 
-[data-da-theme="dark"] .welcomeSection h2,
 [data-da-theme="dark"] .appsSection h3,
 [data-da-theme="dark"] .accountSection h3 {
   color: #f1f5f9;
-}
-
-[data-da-theme="dark"] .subtitle {
-  color: #94a3b8;
 }
 
 [data-da-theme="dark"] .appCard {
@@ -464,6 +445,22 @@
 
 [data-da-theme="dark"] .emptyState svg {
   color: #475569;
+}
+
+[data-da-theme="dark"] .appsActions {
+  border-top-color: #334155;
+}
+
+[data-da-theme="dark"] .appsActionButton {
+  border-color: #475569;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .appsActionButton:hover {
+  border-color: var(--primary-500);
+  color: #f8fafc;
+  background: #1e293b;
 }
 
 [data-da-theme="dark"] .spinner {
