@@ -65,13 +65,13 @@ async function generateServerKeypair(): Promise<AKEExportKeyPair> {
  * OPAQUE server implementation (class-based, wrapped by functional interface)
  */
 export class OpaqueServer {
-  private server: CloudflareOpaqueServer | null = null;
-  private config: Config;
-  private oprfSeed: number[];
-  private serverKeypair: AKEExportKeyPair | null = null;
-  private serverIdentity: string;
-  private activeSessions: Map<string, CloudflareOpaqueServer>;
-  private secureLogger: ReturnType<typeof createSecureLogger>;
+  server: CloudflareOpaqueServer | null = null;
+  config: Config;
+  oprfSeed: number[];
+  serverKeypair: AKEExportKeyPair | null = null;
+  serverIdentity: string;
+  activeSessions: Map<string, CloudflareOpaqueServer>;
+  secureLogger: ReturnType<typeof createSecureLogger>;
 
   constructor() {
     this.config = new OpaqueConfig(OpaqueID.OPAQUE_P256);
@@ -406,8 +406,8 @@ export class OpaqueServer {
  * OPAQUE client implementation (class-based, wrapped by functional interface)
  */
 export class OpaqueClient {
-  private client: CloudflareOpaqueClient | null = null;
-  private config: Config;
+  client: CloudflareOpaqueClient | null = null;
+  config: Config;
 
   constructor() {
     this.config = new OpaqueConfig(OpaqueID.OPAQUE_P256);
