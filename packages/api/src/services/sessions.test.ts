@@ -9,8 +9,8 @@ import { sessions, users } from "../db/schema.ts";
 import type { Context } from "../types.ts";
 import { sha256Base64Url } from "../utils/crypto.ts";
 import {
-  AUTH_COOKIE_NAME,
-  CSRF_COOKIE_NAME,
+  ADMIN_AUTH_COOKIE_NAME,
+  ADMIN_CSRF_COOKIE_NAME,
   clearSessionCookies,
   createSession,
   getActorFromRefreshToken,
@@ -19,6 +19,8 @@ import {
   getSessionIdFromCookie,
   issueSessionCookies,
   refreshSessionWithToken,
+  USER_AUTH_COOKIE_NAME,
+  USER_CSRF_COOKIE_NAME,
 } from "./sessions.ts";
 
 function createLogger() {
@@ -107,14 +109,33 @@ test("issueSessionCookies sets host-prefixed auth and csrf cookies", () => {
     },
   } as unknown as import("node:http").ServerResponse;
 
-  issueSessionCookies(response, "session-1", 900, "csrf-1");
+  issueSessionCookies(response, "session-1", 900, false, "csrf-1");
 
   assert.equal(setCookie.length, 2);
-  assert.ok(setCookie.some((value) => value.startsWith(`${AUTH_COOKIE_NAME}=session-1`)));
-  assert.ok(setCookie.some((value) => value.startsWith(`${CSRF_COOKIE_NAME}=csrf-1`)));
+  assert.ok(setCookie.some((value) => value.startsWith(`${USER_AUTH_COOKIE_NAME}=session-1`)));
+  assert.ok(setCookie.some((value) => value.startsWith(`${USER_CSRF_COOKIE_NAME}=csrf-1`)));
   assert.ok(setCookie.every((value) => value.includes("Path=/")));
   assert.ok(setCookie.every((value) => value.includes("SameSite=Lax")));
   assert.ok(setCookie.every((value) => value.includes("Secure")));
+});
+
+test("issueSessionCookies sets admin auth and csrf cookies when admin cohort is passed", () => {
+  let setCookie: string[] = [];
+  const response = {
+    getHeader(name: string) {
+      if (name === "Set-Cookie") return setCookie;
+      return undefined;
+    },
+    setHeader(name: string, value: string[]) {
+      if (name === "Set-Cookie") setCookie = value;
+    },
+  } as unknown as import("node:http").ServerResponse;
+
+  issueSessionCookies(response, "admin-session", 900, true, "admin-csrf");
+
+  assert.equal(setCookie.length, 2);
+  assert.ok(setCookie.some((value) => value.startsWith(`${ADMIN_AUTH_COOKIE_NAME}=admin-session`)));
+  assert.ok(setCookie.some((value) => value.startsWith(`${ADMIN_CSRF_COOKIE_NAME}=admin-csrf`)));
 });
 
 test("clearSessionCookies expires auth and csrf cookies", () => {
@@ -132,35 +153,35 @@ test("clearSessionCookies expires auth and csrf cookies", () => {
   clearSessionCookies(response);
 
   assert.equal(setCookie.length, 2);
-  assert.ok(setCookie.some((value) => value.startsWith(`${AUTH_COOKIE_NAME}=`)));
-  assert.ok(setCookie.some((value) => value.startsWith(`${CSRF_COOKIE_NAME}=`)));
+  assert.ok(setCookie.some((value) => value.startsWith(`${USER_AUTH_COOKIE_NAME}=`)));
+  assert.ok(setCookie.some((value) => value.startsWith(`${USER_CSRF_COOKIE_NAME}=`)));
   assert.ok(setCookie.every((value) => value.includes("Max-Age=0")));
 });
 
 test("getSessionIdFromCookie tolerates malformed cookie encoding", () => {
   const request = {
     headers: {
-      cookie: `${AUTH_COOKIE_NAME}=abc%ZZ`,
+      cookie: `${USER_AUTH_COOKIE_NAME}=abc%ZZ`,
     },
   } as unknown as import("node:http").IncomingMessage;
 
   assert.equal(getSessionIdFromCookie(request), "abc%ZZ");
 });
 
-test("getSession falls back to bearer header when cookie is missing", () => {
+test("getSession ignores bearer header when cookie is missing", () => {
   const request = {
     headers: {
       authorization: "Bearer session-from-header",
     },
   } as unknown as import("node:http").IncomingMessage;
 
-  assert.equal(getSessionId(request), "session-from-header");
+  assert.equal(getSessionId(request), null);
 });
 
 test("getSession prefers cookie over bearer header", () => {
   const request = {
     headers: {
-      cookie: `${AUTH_COOKIE_NAME}=cookie-session`,
+      cookie: `${USER_AUTH_COOKIE_NAME}=cookie-session`,
       authorization: "Bearer header-session",
     },
   } as unknown as import("node:http").IncomingMessage;

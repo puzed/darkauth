@@ -10,13 +10,13 @@ export interface BasicUser {
   name: string;
 }
 
-interface AdminTokenCacheEntry {
-  token: string;
+interface AdminSessionCacheEntry {
+  sessionId: string;
   csrfToken?: string;
   cookies?: Array<{ name: string; value: string }>;
 }
 
-const adminTokenCache = new Map<string, AdminTokenCacheEntry>();
+const adminSessionCache = new Map<string, AdminSessionCacheEntry>();
 const adminOtpSecrets = new Map<string, string>();
 
 function getSetCookieHeaders(response: Response): string[] {
@@ -32,13 +32,13 @@ function getSetCookieHeaders(response: Response): string[] {
 }
 
 function parseCookieArtifacts(response: Response): {
-  token: string | null;
+  sessionId: string | null;
   csrfToken?: string;
   cookies: Array<{ name: string; value: string }>;
 } {
   const setCookies = getSetCookieHeaders(response);
   const cookies: Array<{ name: string; value: string }> = [];
-  let token: string | null = null;
+  let sessionId: string | null = null;
   let csrfToken: string | undefined;
   for (const setCookie of setCookies) {
     const first = setCookie.split(';')[0]?.trim();
@@ -48,27 +48,69 @@ function parseCookieArtifacts(response: Response): {
     const name = first.slice(0, idx).trim();
     const value = first.slice(idx + 1).trim();
     cookies.push({ name, value });
-    if (name === '__Host-DarkAuth') token = decodeURIComponent(value);
-    if (name === '__Host-DarkAuth-Csrf') csrfToken = decodeURIComponent(value);
+    if (name === '__Host-DarkAuth-Admin') sessionId = decodeURIComponent(value);
+    if (name === '__Host-DarkAuth-Admin-Csrf') csrfToken = decodeURIComponent(value);
   }
-  return { token, csrfToken, cookies };
+  return { sessionId, csrfToken, cookies };
+}
+
+function toCookieHeader(cookies: Array<{ name: string; value: string }>): string {
+  return cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+}
+
+function mergeCookies(
+  current: Array<{ name: string; value: string }> = [],
+  next: Array<{ name: string; value: string }> = []
+): Array<{ name: string; value: string }> {
+  const map = new Map<string, string>();
+  for (const cookie of current) map.set(cookie.name, cookie.value);
+  for (const cookie of next) map.set(cookie.name, cookie.value);
+  return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
+}
+
+function updateSessionFromResponse(entry: AdminSessionCacheEntry, response: Response): void {
+  const artifacts = parseCookieArtifacts(response);
+  if (artifacts.sessionId) entry.sessionId = artifacts.sessionId;
+  if (artifacts.csrfToken) entry.csrfToken = artifacts.csrfToken;
+  if (artifacts.cookies.length > 0) {
+    entry.cookies = mergeCookies(entry.cookies, artifacts.cookies);
+  }
+}
+
+function requireAdminSessionHeaders(
+  entry: AdminSessionCacheEntry,
+  options?: { includeCsrf?: boolean; contentType?: string; origin?: string }
+): Record<string, string> {
+  const cookies = entry.cookies || [];
+  const cookieHeader = toCookieHeader(cookies);
+  if (!cookieHeader) throw new Error('admin session cookies missing');
+  const headers: Record<string, string> = {
+    Cookie: cookieHeader,
+    Origin: options?.origin || '',
+  };
+  if (options?.contentType) headers['Content-Type'] = options.contentType;
+  if (options?.includeCsrf) {
+    if (!entry.csrfToken) throw new Error('admin csrf token missing');
+    headers['x-csrf-token'] = entry.csrfToken;
+  }
+  return headers;
 }
 
 async function initAdminOtpSecret(
   servers: TestServers,
   admin: { email: string; password: string },
-  authHeader: string
+  entry: AdminSessionCacheEntry
 ): Promise<string> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
   let initRes: Response | null = null;
   for (let attempt = 0; attempt < 10; attempt++) {
     const res = await fetch(`${servers.adminUrl}/admin/otp/setup/init`, {
       method: 'POST',
-      headers: {
-        Authorization: authHeader,
-        Origin: servers.adminUrl,
-        'Content-Type': 'application/json'
-      }
+      headers: requireAdminSessionHeaders(entry, {
+        origin: servers.adminUrl,
+        includeCsrf: true,
+        contentType: 'application/json',
+      }),
     });
     if (res.status !== 429) {
       initRes = res;
@@ -86,18 +128,25 @@ async function initAdminOtpSecret(
   if (!initRes || !initRes.ok) {
     throw new Error(`admin otp setup init failed: ${initRes ? initRes.status : 'no-response'}`);
   }
+  updateSessionFromResponse(entry, initRes);
   const initJson = await initRes.json() as { secret: string };
   adminOtpSecrets.set(cacheKey, initJson.secret);
   return initJson.secret;
 }
 
-export async function getAdminBearerToken(
+export async function getAdminSession(
   servers: TestServers,
   admin: { email: string; password: string }
-): Promise<string> {
+): Promise<{ sessionId: string; csrfToken: string; cookieHeader: string }> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  const cached = adminTokenCache.get(cacheKey);
-  if (cached) return cached.token;
+  const cached = adminSessionCache.get(cacheKey);
+  if (cached?.csrfToken && cached.cookies?.length) {
+    return {
+      sessionId: cached.sessionId,
+      csrfToken: cached.csrfToken,
+      cookieHeader: toCookieHeader(cached.cookies),
+    };
+  }
 
   const client = new OpaqueClient();
   await client.initialize();
@@ -131,15 +180,20 @@ export async function getAdminBearerToken(
   });
   if (!finishRes.ok) throw new Error(`admin login finish failed: ${finishRes.status}`);
   const artifacts = parseCookieArtifacts(finishRes);
-  if (!artifacts.token) throw new Error('admin login finish missing __Host-DarkAuth cookie');
-  const entry: AdminTokenCacheEntry = {
-    token: artifacts.token,
+  if (!artifacts.sessionId) throw new Error('admin login finish missing __Host-DarkAuth-Admin cookie');
+  const entry: AdminSessionCacheEntry = {
+    sessionId: artifacts.sessionId,
     csrfToken: artifacts.csrfToken,
     cookies: artifacts.cookies,
   };
   await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
-  adminTokenCache.set(cacheKey, entry);
-  return entry.token;
+  adminSessionCache.set(cacheKey, entry);
+  if (!entry.csrfToken || !entry.cookies?.length) throw new Error('admin session artifacts missing');
+  return {
+    sessionId: entry.sessionId,
+    csrfToken: entry.csrfToken,
+    cookieHeader: toCookieHeader(entry.cookies),
+  };
 }
 
 export function getCachedAdminOtpSecret(
@@ -156,20 +210,22 @@ export async function completeAdminOtpForPage(
   admin: { email: string; password: string }
 ): Promise<void> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  const cached = adminTokenCache.get(cacheKey);
-  const accessToken = cached?.token || await getAdminBearerToken(servers, admin);
+  const cached = adminSessionCache.get(cacheKey);
+  if (!cached) await getAdminSession(servers, admin);
+  const entry = adminSessionCache.get(cacheKey);
+  if (!entry) throw new Error('admin session cache entry missing');
   let secret = getCachedAdminOtpSecret(servers, { email: admin.email });
   if (!secret) {
-    if (accessToken) {
-      try {
-        secret = await initAdminOtpSecret(servers, admin, `Bearer ${accessToken}`);
-      } catch {
-        secret = undefined;
-      }
+    try {
+      secret = await initAdminOtpSecret(servers, admin, entry);
+    } catch {
+      secret = undefined;
     }
     if (!secret) {
-      const token = await getAdminBearerToken(servers, admin);
-      secret = await initAdminOtpSecret(servers, admin, `Bearer ${token}`);
+      await getAdminSession(servers, admin);
+      const refreshed = adminSessionCache.get(cacheKey);
+      if (!refreshed) throw new Error('admin session cache entry missing');
+      secret = await initAdminOtpSecret(servers, admin, refreshed);
     }
   }
   const secretBuf = base32.decode(secret);
@@ -177,16 +233,17 @@ export async function completeAdminOtpForPage(
   const { code } = totp(secretBuf, now, 30, 6, 'sha1');
   const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/verify`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${accessToken}`,
-      Origin: servers.adminUrl,
-    },
+    headers: requireAdminSessionHeaders(entry, {
+      origin: servers.adminUrl,
+      includeCsrf: true,
+      contentType: 'application/json',
+    }),
     body: JSON.stringify({ code }),
   });
+  updateSessionFromResponse(entry, verifyRes);
   if (!verifyRes.ok) {
     adminOtpSecrets.delete(`${servers.adminUrl}|${admin.email}`);
-    await getAdminBearerToken(servers, admin);
+    await getAdminSession(servers, admin);
     await completeAdminOtpForPage(page, servers, admin);
     return;
   }
@@ -195,14 +252,13 @@ export async function completeAdminOtpForPage(
 async function ensureAdminOtpVerified(
   servers: TestServers,
   admin: { email: string; password: string },
-  entry: AdminTokenCacheEntry,
+  entry: AdminSessionCacheEntry,
   cacheKey: string
 ): Promise<void> {
   const sessionRes = await fetch(`${servers.adminUrl}/admin/session`, {
-    headers: {
-      Authorization: `Bearer ${entry.token}`,
-      Origin: servers.adminUrl,
-    },
+    headers: requireAdminSessionHeaders(entry, {
+      origin: servers.adminUrl,
+    }),
   });
   if (!sessionRes.ok) {
     throw new Error(`admin session read failed: ${sessionRes.status}`);
@@ -215,39 +271,34 @@ async function ensureAdminOtpVerified(
 
   let secret = adminOtpSecrets.get(cacheKey);
   if (!secret) {
-    secret = await initAdminOtpSecret(servers, admin, `Bearer ${entry.token}`);
+    secret = await initAdminOtpSecret(servers, admin, entry);
     const secretBuf = base32.decode(secret);
     const now = Math.floor(Date.now() / 1000);
     const { code } = totp(secretBuf, now, 30, 6, 'sha1');
     const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/setup/verify`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${entry.token}`,
-        Origin: servers.adminUrl,
-        'Content-Type': 'application/json',
-      },
+      headers: requireAdminSessionHeaders(entry, {
+        origin: servers.adminUrl,
+        includeCsrf: true,
+        contentType: 'application/json',
+      }),
       body: JSON.stringify({ code }),
     });
     if (!verifyRes.ok) {
       throw new Error(`admin otp setup verify failed: ${verifyRes.status}`);
     }
-    const verifyArtifacts = parseCookieArtifacts(verifyRes);
-    if (verifyArtifacts.token) {
-      entry.token = verifyArtifacts.token;
-      entry.csrfToken = verifyArtifacts.csrfToken;
-      entry.cookies = verifyArtifacts.cookies;
-    }
+    updateSessionFromResponse(entry, verifyRes);
   } else {
     const secretBuf = base32.decode(secret);
     const now = Math.floor(Date.now() / 1000);
     const { code } = totp(secretBuf, now, 30, 6, 'sha1');
     const verifyRes = await fetch(`${servers.adminUrl}/admin/otp/verify`, {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${entry.token}`,
-        Origin: servers.adminUrl,
-        'Content-Type': 'application/json',
-      },
+      headers: requireAdminSessionHeaders(entry, {
+        origin: servers.adminUrl,
+        includeCsrf: true,
+        contentType: 'application/json',
+      }),
       body: JSON.stringify({ code }),
     });
     if (!verifyRes.ok) {
@@ -255,18 +306,12 @@ async function ensureAdminOtpVerified(
       await ensureAdminOtpVerified(servers, admin, entry, cacheKey);
       return;
     }
-    const verifyArtifacts = parseCookieArtifacts(verifyRes);
-    if (verifyArtifacts.token) {
-      entry.token = verifyArtifacts.token;
-      entry.csrfToken = verifyArtifacts.csrfToken;
-      entry.cookies = verifyArtifacts.cookies;
-    }
+    updateSessionFromResponse(entry, verifyRes);
   }
   const confirmRes = await fetch(`${servers.adminUrl}/admin/session`, {
-    headers: {
-      Authorization: `Bearer ${entry.token}`,
-      Origin: servers.adminUrl,
-    },
+    headers: requireAdminSessionHeaders(entry, {
+      origin: servers.adminUrl,
+    }),
   });
   if (!confirmRes.ok) {
     throw new Error(`admin session confirm failed: ${confirmRes.status}`);
@@ -337,26 +382,28 @@ export async function createUserViaAdmin(
   user: BasicUser
 ): Promise<{ sub: string }> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  let token = await getAdminBearerToken(servers, admin);
+  let session = await getAdminSession(servers, admin);
 
   let createRes = await fetch(`${servers.adminUrl}/admin/users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'Origin': servers.adminUrl
+      Cookie: session.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({ email: user.email, name: user.name })
   });
   if (createRes.status === 401) {
-    adminTokenCache.delete(cacheKey);
-    token = await getAdminBearerToken(servers, admin);
+    adminSessionCache.delete(cacheKey);
+    session = await getAdminSession(servers, admin);
     createRes = await fetch(`${servers.adminUrl}/admin/users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'Origin': servers.adminUrl
+        Cookie: session.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': session.csrfToken,
       },
       body: JSON.stringify({ email: user.email, name: user.name })
     });
@@ -372,8 +419,9 @@ export async function createUserViaAdmin(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'Origin': servers.adminUrl
+      Cookie: session.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) })
   });
@@ -391,8 +439,9 @@ export async function createUserViaAdmin(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'Origin': servers.adminUrl
+      Cookie: session.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({
       record: toBase64Url(Buffer.from(regFinish.upload)),
@@ -409,7 +458,7 @@ export async function setUserPasswordViaAdmin(
   user: { sub: string; email: string; password: string }
 ): Promise<void> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  let token = await getAdminBearerToken(servers, admin);
+  let session = await getAdminSession(servers, admin);
 
   const regClient = new OpaqueClient();
   await regClient.initialize();
@@ -418,20 +467,22 @@ export async function setUserPasswordViaAdmin(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'Origin': servers.adminUrl
+      Cookie: session.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) })
   });
   if (setStartRes.status === 401) {
-    adminTokenCache.delete(cacheKey);
-    token = await getAdminBearerToken(servers, admin);
+    adminSessionCache.delete(cacheKey);
+    session = await getAdminSession(servers, admin);
     setStartRes = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(user.sub)}/password/set/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        'Origin': servers.adminUrl
+        Cookie: session.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': session.csrfToken,
       },
       body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) })
     });
@@ -450,8 +501,9 @@ export async function setUserPasswordViaAdmin(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      'Origin': servers.adminUrl
+      Cookie: session.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({
       record: toBase64Url(Buffer.from(regFinish.upload)),
@@ -467,26 +519,28 @@ export async function createAdminUserViaAdmin(
   newAdmin: { email: string; password: string; name: string; role: 'read' | 'write' }
 ): Promise<{ id: string }> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  let token = await getAdminBearerToken(servers, admin);
+  let session = await getAdminSession(servers, admin);
 
   let createRes = await fetch(`${servers.adminUrl}/admin/admin-users`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
+      Cookie: session.cookieHeader,
       Origin: servers.adminUrl,
+      'x-csrf-token': session.csrfToken,
     },
     body: JSON.stringify({ email: newAdmin.email, name: newAdmin.name, role: newAdmin.role }),
   });
   if (createRes.status === 401) {
-    adminTokenCache.delete(cacheKey);
-    token = await getAdminBearerToken(servers, admin);
+    adminSessionCache.delete(cacheKey);
+    session = await getAdminSession(servers, admin);
     createRes = await fetch(`${servers.adminUrl}/admin/admin-users`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Cookie: session.cookieHeader,
         Origin: servers.adminUrl,
+        'x-csrf-token': session.csrfToken,
       },
       body: JSON.stringify({ email: newAdmin.email, name: newAdmin.name, role: newAdmin.role }),
     });
@@ -507,23 +561,25 @@ export async function createAdminUserViaAdmin(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Cookie: session.cookieHeader,
         Origin: servers.adminUrl,
+        'x-csrf-token': session.csrfToken,
       },
       body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) }),
     }
   );
   if (setStartRes.status === 401) {
-    adminTokenCache.delete(cacheKey);
-    token = await getAdminBearerToken(servers, admin);
+    adminSessionCache.delete(cacheKey);
+    session = await getAdminSession(servers, admin);
     setStartRes = await fetch(
       `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/start`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Cookie: session.cookieHeader,
           Origin: servers.adminUrl,
+          'x-csrf-token': session.csrfToken,
         },
         body: JSON.stringify({ request: toBase64Url(Buffer.from(regStart.request)) }),
       }
@@ -548,8 +604,9 @@ export async function createAdminUserViaAdmin(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        Cookie: session.cookieHeader,
         Origin: servers.adminUrl,
+        'x-csrf-token': session.csrfToken,
       },
       body: JSON.stringify({
         record: toBase64Url(Buffer.from(regFinish.upload)),
@@ -558,16 +615,17 @@ export async function createAdminUserViaAdmin(
     }
   );
   if (setFinishRes.status === 401) {
-    adminTokenCache.delete(cacheKey);
-    token = await getAdminBearerToken(servers, admin);
+    adminSessionCache.delete(cacheKey);
+    session = await getAdminSession(servers, admin);
     setFinishRes = await fetch(
       `${servers.adminUrl}/admin/admin-users/${encodeURIComponent(adminId)}/password/set/finish`,
       {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          Cookie: session.cookieHeader,
           Origin: servers.adminUrl,
+          'x-csrf-token': session.csrfToken,
         },
         body: JSON.stringify({
           record: toBase64Url(Buffer.from(regFinish.upload)),
@@ -589,8 +647,8 @@ export async function establishAdminSession(
   admin: { email: string; password: string }
 ): Promise<void> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
-  await getAdminBearerToken(servers, admin);
-  const cached = adminTokenCache.get(cacheKey);
+  await getAdminSession(servers, admin);
+  const cached = adminSessionCache.get(cacheKey);
   if (cached?.cookies?.length) {
     const url = new URL(servers.adminUrl);
     await context.addCookies(
@@ -600,7 +658,7 @@ export async function establishAdminSession(
         domain: url.hostname,
         path: '/',
         secure: true,
-        httpOnly: cookie.name === '__Host-DarkAuth',
+        httpOnly: cookie.name === '__Host-DarkAuth-Admin',
         sameSite: 'Lax',
       }))
     );
@@ -634,7 +692,7 @@ export async function establishAdminSession(
 
   const getCsrf = async () => {
     const cookies = await context.cookies(servers.adminUrl);
-    return cookies.find((cookie) => cookie.name === '__Host-DarkAuth-Csrf')?.value;
+    return cookies.find((cookie) => cookie.name === '__Host-DarkAuth-Admin-Csrf')?.value;
   };
 
   if (/\/otp(?:\/setup|\/verify)?/.test(page.url())) {

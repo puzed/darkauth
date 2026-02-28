@@ -32,8 +32,6 @@ const AdminOpaqueLoginFinishRequestSchema = z.object({
 const AdminOpaqueLoginFinishResponseSchema = z.object({
   success: z.literal(true),
   sessionKey: z.string(),
-  accessToken: z.string(),
-  refreshToken: z.string(),
   admin: z.object({
     id: z.string(),
     email: z.string().email(),
@@ -158,7 +156,7 @@ async function postAdminOpaqueLoginFinishHandler(
   const configured = otpInventory.enabled || otpInventory.pending;
   otpRequired = forced || configured;
 
-  const { sessionId, refreshToken } = await createSession(context, "admin", {
+  const { sessionId } = await createSession(context, "admin", {
     adminId: adminUser.id,
     email: adminUser.email,
     name: adminUser.name,
@@ -167,13 +165,11 @@ async function postAdminOpaqueLoginFinishHandler(
     otpVerified: false,
   });
   const ttlSeconds = await getSessionTtlSeconds(context, "admin");
-  issueSessionCookies(response, sessionId, ttlSeconds);
+  issueSessionCookies(response, sessionId, ttlSeconds, true);
 
   const responseData = {
     success: true,
     sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
-    accessToken: sessionId,
-    refreshToken,
     admin: {
       id: adminUser.id,
       email: adminUser.email,

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { createTestServers, destroyTestServers, TestServers } from '../../../setup/server.js';
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
-import { establishAdminSession, getAdminBearerToken } from '../../../setup/helpers/auth.js';
+import { establishAdminSession, getAdminSession } from '../../../setup/helpers/auth.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Authentication - Login', () => {
@@ -30,7 +30,7 @@ test.describe('Authentication - Login', () => {
       adminPassword: FIXED_TEST_ADMIN.password,
       installToken: 'test-install-token'
     });
-    await getAdminBearerToken(servers, {
+    await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     });
@@ -63,7 +63,7 @@ test.describe('Authentication - Login', () => {
     await page.click('button[type="submit"]');
     await page.waitForURL(/\/otp(?:\/(?:setup|verify))?(?:\?.*)?$/, { timeout: 15000 });
     await expect(page.getByText('Two-Factor Authentication')).toBeVisible({ timeout: 10000 });
-    const accessToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     });
@@ -71,8 +71,9 @@ test.describe('Authentication - Login', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       },
     });
     if (!initRes.ok) throw new Error(`admin otp setup init failed: ${initRes.status}`);
@@ -84,8 +85,9 @@ test.describe('Authentication - Login', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`,
+        Cookie: adminSession.cookieHeader,
         Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       },
       body: JSON.stringify({ code }),
     });

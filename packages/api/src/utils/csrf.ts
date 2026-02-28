@@ -35,15 +35,15 @@ export function assertSameOrigin(request: IncomingMessage): void {
   if (!isSameOrigin(request)) throw new ForbiddenError("Cross-site request blocked");
 }
 
-export function assertCsrf(request: IncomingMessage): void {
+export function assertCsrf(request: IncomingMessage, isAdmin = false): void {
   const method = request.method || "GET";
   if (["GET", "HEAD", "OPTIONS"].includes(method)) return;
   assertSameOrigin(request);
 
-  const hasSession = !!getSessionIdFromCookie(request);
+  const hasSession = !!getSessionIdFromCookie(request, isAdmin);
   if (!hasSession) return;
 
-  const cookieToken = getCsrfCookieToken(request);
+  const cookieToken = getCsrfCookieToken(request, isAdmin);
   const headerValue = request.headers["x-csrf-token"];
   const headerToken =
     typeof headerValue === "string"

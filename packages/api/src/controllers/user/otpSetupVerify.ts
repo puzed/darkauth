@@ -34,7 +34,7 @@ export const postOtpSetupVerify = withAudit({
       const rotated = await rotateSession(context, sid, { ...session, otpVerified: true });
       if (rotated) {
         const ttlSeconds = await getSessionTtlSeconds(context, "user");
-        issueSessionCookies(response, rotated.sessionId, ttlSeconds);
+        issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
       }
     }
     sendJson(response, 200, { success: true, backup_codes: backupCodes });

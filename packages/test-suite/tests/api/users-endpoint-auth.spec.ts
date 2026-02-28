@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js'
 import { installDarkAuth } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
-import { createUserViaAdmin, getAdminBearerToken } from '../../setup/helpers/auth.js'
+import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
@@ -98,13 +98,13 @@ test.describe('API - Users endpoint auth methods', () => {
       installToken: 'test-install-token'
     })
 
-    const adminToken = await getAdminBearerToken(servers, {
+    const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
 
     const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret`, {
-      headers: { Authorization: `Bearer ${adminToken}`, Origin: servers.adminUrl }
+      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     })
     expect(secretRes.ok).toBeTruthy()
     const secretJson = await secretRes.json() as { clientSecret: string | null }
@@ -115,8 +115,9 @@ test.describe('API - Users endpoint auth methods', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${adminToken}`,
-        Origin: servers.adminUrl
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken
       },
       body: JSON.stringify({
         key: 'darkauth.users:read',
@@ -129,8 +130,9 @@ test.describe('API - Users endpoint auth methods', () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${adminToken}`,
-        Origin: servers.adminUrl
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken
       },
       body: JSON.stringify({
         grantTypes: ['authorization_code', 'client_credentials'],
@@ -180,8 +182,9 @@ test.describe('API - Users endpoint auth methods', () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${adminToken}`,
-          Origin: servers.adminUrl
+          Cookie: adminSession.cookieHeader,
+          Origin: servers.adminUrl,
+          'x-csrf-token': adminSession.csrfToken
         },
         body: JSON.stringify({ permissionKeys: ['darkauth.users:read'] })
       }
