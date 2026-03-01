@@ -6,7 +6,20 @@ function resolveSettingsDb(context: Context) {
   return context.services.install?.tempDb || context.db;
 }
 
-const DEPRECATED_SETTING_KEYS = ["admin_session.refresh_lifetime_seconds"] as const;
+const DEPRECATED_SETTING_KEYS = [
+  "admin_session.refresh_lifetime_seconds",
+  "code",
+  "code.single_use",
+  "code.lifetime_seconds",
+  "pkce",
+  "pkce.required_for_public_clients",
+  "pkce.methods",
+  "id_token",
+  "id_token.lifetime_seconds",
+  "access_token",
+  "access_token.enabled",
+  "access_token.lifetime_seconds",
+] as const;
 
 export async function getSetting(context: Context, key: string): Promise<unknown> {
   const db = resolveSettingsDb(context);
@@ -169,79 +182,6 @@ export async function seedDefaultSettings(
       tags: ["core", "webauthn"],
       defaultValue: rpId,
       value: rpId,
-    },
-
-    {
-      key: "code.single_use",
-      name: "Single Use",
-      type: "boolean",
-      category: "Auth / Code",
-      description: "Whether authorization codes can be used only once",
-      tags: ["auth"],
-      defaultValue: true,
-      value: true,
-    },
-    {
-      key: "code.lifetime_seconds",
-      name: "Lifetime (s)",
-      type: "number",
-      category: "Auth / Code",
-      description: "Authorization code lifetime in seconds",
-      tags: ["auth"],
-      defaultValue: 60,
-      value: 60,
-    },
-
-    {
-      key: "pkce.required_for_public_clients",
-      name: "Required For Public Clients",
-      type: "boolean",
-      category: "Auth / PKCE",
-      description: "Enforce PKCE for public clients",
-      tags: ["auth"],
-      defaultValue: true,
-      value: true,
-    },
-    {
-      key: "pkce.methods",
-      name: "Methods",
-      type: "string",
-      category: "Auth / PKCE",
-      description: "Allowed PKCE methods",
-      tags: ["auth"],
-      defaultValue: "S256",
-      value: "S256",
-    },
-
-    {
-      key: "id_token.lifetime_seconds",
-      name: "ID Token TTL (s)",
-      type: "number",
-      category: "Tokens / ID Token",
-      description: "ID token lifetime in seconds",
-      tags: ["oidc"],
-      defaultValue: 300,
-      value: 300,
-    },
-    {
-      key: "access_token.enabled",
-      name: "Access Token Enabled",
-      type: "boolean",
-      category: "Tokens / Access Token",
-      description: "Issue OAuth2/OIDC access tokens",
-      tags: ["oidc"],
-      defaultValue: false,
-      value: false,
-    },
-    {
-      key: "access_token.lifetime_seconds",
-      name: "Access Token TTL (s)",
-      type: "number",
-      category: "Tokens / Access Token",
-      description: "Access token lifetime in seconds",
-      tags: ["oidc"],
-      defaultValue: 600,
-      value: 600,
     },
 
     {
@@ -930,34 +870,16 @@ export async function loadRuntimeConfig(context: Context): Promise<{
   issuer: string;
   publicOrigin: string;
   rpId: string;
-  codeLifetime: number;
-  idTokenLifetime: number;
-  accessTokenEnabled: boolean;
-  accessTokenLifetime: number;
 }> {
-  const [issuer, publicOrigin, rpId, codeSettings, idTokenSettings, accessTokenSettings] =
-    await Promise.all([
-      getSetting(context, "issuer"),
-      getSetting(context, "public_origin"),
-      getSetting(context, "rp_id"),
-      getSetting(context, "code"),
-      getSetting(context, "id_token"),
-      getSetting(context, "access_token"),
-    ]);
+  const [issuer, publicOrigin, rpId] = await Promise.all([
+    getSetting(context, "issuer"),
+    getSetting(context, "public_origin"),
+    getSetting(context, "rp_id"),
+  ]);
 
   return {
     issuer: (issuer as string) || "http://localhost:9080",
     publicOrigin: (publicOrigin as string) || "http://localhost:9080",
     rpId: (rpId as string) || "localhost",
-    codeLifetime:
-      (codeSettings as { lifetime_seconds?: number } | undefined | null)?.lifetime_seconds || 60,
-    idTokenLifetime:
-      (idTokenSettings as { lifetime_seconds?: number } | undefined | null)?.lifetime_seconds ||
-      300,
-    accessTokenEnabled:
-      (accessTokenSettings as { enabled?: boolean } | undefined | null)?.enabled || false,
-    accessTokenLifetime:
-      (accessTokenSettings as { lifetime_seconds?: number } | undefined | null)?.lifetime_seconds ||
-      600,
   };
 }
