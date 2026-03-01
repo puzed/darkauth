@@ -150,7 +150,6 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
 
       // Send login finish request to server
       const loginFinishResponse = await apiService.opaqueLoginFinish({
-        sub: loginStartResponse.sub,
         finish: loginFinish.request,
         sessionId: loginStartResponse.sessionId,
       });
