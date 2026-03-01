@@ -110,9 +110,9 @@ class ApiService {
 
   private getClientId(): string {
     const appConfig = window as Window & {
-      __APP_CONFIG__?: { auth?: { clientId?: string } };
+      __APP_CONFIG__?: { clientId?: string; auth?: { clientId?: string } };
     };
-    return appConfig.__APP_CONFIG__?.auth?.clientId || "demo-public-client";
+    return appConfig.__APP_CONFIG__?.clientId || appConfig.__APP_CONFIG__?.auth?.clientId || "user";
   }
 
   private async refreshSessionWithToken(): Promise<boolean> {

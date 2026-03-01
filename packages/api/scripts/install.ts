@@ -151,12 +151,12 @@ async function install() {
 			tags: ["ui"],
 			defaultValue: {
 				issuer: config.issuer,
-				clientId: "demo-public-client",
+				clientId: "user",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			value: {
 				issuer: config.issuer,
-				clientId: "demo-public-client",
+				clientId: "user",
 				redirectUri: `${config.publicOrigin}/callback`,
 			},
 			secure: false,
@@ -170,12 +170,12 @@ async function install() {
 				tags: ["ui"],
 				defaultValue: {
 					issuer: config.issuer,
-					clientId: "demo-public-client",
+					clientId: "user",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				value: {
 					issuer: config.issuer,
-					clientId: "demo-public-client",
+					clientId: "user",
 					redirectUri: `${config.publicOrigin}/callback`,
 				},
 				secure: false,
@@ -290,7 +290,7 @@ async function install() {
 				);
 			}
 
-			await seedDefaultClients(context, demoConfidentialSecretEnc);
+			await seedDefaultClients(context, demoConfidentialSecretEnc, config.publicOrigin);
 
 		console.log("6. Seeding default group...");
 		await seedDefaultOrganizationRbac(context);
@@ -325,6 +325,9 @@ async function install() {
 		);
 		console.log(
 			"║ Default Clients:                                                 ║",
+		);
+		console.log(
+			"║   - user (public, first-party user portal)                                  ║",
 		);
 		console.log(
 			"║   - demo-public-client (public, ZK-enabled)                                 ║",

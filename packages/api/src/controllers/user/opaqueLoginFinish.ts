@@ -179,13 +179,22 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
             }
           : {};
 
+      const uiUserSettings = (await getSetting(context, "ui_user")) as
+        | { clientId?: string }
+        | undefined
+        | null;
+      const userClientId =
+        typeof uiUserSettings?.clientId === "string" && uiUserSettings.clientId.length > 0
+          ? uiUserSettings.clientId
+          : "user";
+
       // Create user session
       const { sessionId: createdSessionId, refreshToken } = await createSession(context, "user", {
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
         ...sessionOrganization,
-        clientId: "demo-public-client",
+        clientId: userClientId,
         otpRequired: otpRequired,
         otpVerified: false,
       });
@@ -213,7 +222,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         {
           iss: context.config.issuer,
           sub: user.sub,
-          aud: "demo-public-client",
+          aud: userClientId,
           iat: now,
           exp: now + accessTokenTtl,
           email: user.email || undefined,
