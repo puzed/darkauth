@@ -320,6 +320,11 @@ export default function Branding() {
     }
   };
 
+  const reloadPreview = () => {
+    previewCacheBustRef.current = `${Date.now()}`;
+    setPreviewUrl(buildPreviewUrl(issuer, previewCacheBustRef.current));
+  };
+
   const lightColorValues = colorsLight;
   const darkColorValues = colorsDark;
   const lightLogo = logoLight;
@@ -440,6 +445,9 @@ export default function Branding() {
         subtitle="Customize logos, colors, text, and CSS"
         actions={
           <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="outline" onClick={() => void load()}>
+              Reload
+            </Button>
             <Button onClick={saveAll} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
@@ -554,6 +562,9 @@ export default function Branding() {
               >
                 <CardTitle>Sign-in preview</CardTitle>
                 <div style={{ display: "flex", gap: 8 }}>
+                  <Button variant="outline" onClick={reloadPreview} size="sm">
+                    Reload Preview
+                  </Button>
                   <Button
                     variant={previewWidth === 420 ? "default" : "outline"}
                     onClick={() => setPreviewWidth(420)}

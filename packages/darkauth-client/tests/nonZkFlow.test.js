@@ -74,6 +74,42 @@ test("handleCallback succeeds without DRK JWE when callback is non-zk", async ()
   assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-1");
 });
 
+test("handleCallback deduplicates concurrent exchanges for the same code", async () => {
+  setupEnvironment();
+  const idToken = createIdToken();
+  globalThis.sessionStorage.setItem("pkce_verifier", "pkce-verifier");
+
+  let fetchCalls = 0;
+  let release;
+  const waitForRelease = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    await waitForRelease;
+    return {
+      ok: true,
+      json: async () => ({
+        id_token: idToken,
+        refresh_token: "rt-1",
+      }),
+    };
+  };
+
+  const first = handleCallback();
+  const second = handleCallback();
+
+  release();
+  const [firstSession, secondSession] = await Promise.all([first, second]);
+
+  assert.equal(fetchCalls, 1);
+  assert.ok(firstSession);
+  assert.ok(secondSession);
+  assert.equal(firstSession.idToken, idToken);
+  assert.equal(secondSession.idToken, idToken);
+});
+
 test("getStoredSession returns an id-token-only session when no DRK is stored", () => {
   setupEnvironment();
   const idToken = createIdToken();

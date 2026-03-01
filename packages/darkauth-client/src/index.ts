@@ -40,6 +40,8 @@ function viteEnvGet(key: string): string | undefined {
 
 type AppConfig = { issuer?: string; clientId?: string; redirectUri?: string };
 type AppConfigWindow = Window & { __APP_CONFIG__?: AppConfig };
+let callbackInFlight: Promise<AuthSession | null> | null = null;
+let callbackInFlightCode: string | null = null;
 
 let cfg: Config = {
   issuer:
@@ -182,65 +184,80 @@ export async function handleCallback(): Promise<AuthSession | null> {
   const params = new URLSearchParams(location.search);
   const code = params.get("code");
   if (!code) return null;
-  const tokenUrl = new URL("/token", cfg.issuer);
-  const verifier = sessionStorage.getItem("pkce_verifier") || "";
-  const response = await fetch(tokenUrl.toString(), {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      code,
-      client_id: cfg.clientId,
-      redirect_uri: cfg.redirectUri,
-      code_verifier: verifier,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error("Token exchange failed");
+  if (callbackInFlight && callbackInFlightCode === code) {
+    return callbackInFlight;
   }
-  const tokenResponse = await response.json();
-  const fragmentParams = parseFragmentParams(location.hash || "");
-  const drkJwe: string | undefined = fragmentParams.drk_jwe;
-  const zkDrkHash =
-    typeof tokenResponse.zk_drk_hash === "string" ? (tokenResponse.zk_drk_hash as string) : null;
-  const idToken = tokenResponse.id_token as string;
-  const refreshToken = tokenResponse.refresh_token as string | undefined;
-  const hasZkArtifacts = !!drkJwe || !!zkDrkHash;
-  if (!hasZkArtifacts) {
+  const exchangePromise = (async () => {
+    const tokenUrl = new URL("/token", cfg.issuer);
+    const verifier = sessionStorage.getItem("pkce_verifier") || "";
+    const response = await fetch(tokenUrl.toString(), {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code,
+        client_id: cfg.clientId,
+        redirect_uri: cfg.redirectUri,
+        code_verifier: verifier,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error("Token exchange failed");
+    }
+    const tokenResponse = await response.json();
+    const fragmentParams = parseFragmentParams(location.hash || "");
+    const drkJwe: string | undefined = fragmentParams.drk_jwe;
+    const zkDrkHash =
+      typeof tokenResponse.zk_drk_hash === "string" ? (tokenResponse.zk_drk_hash as string) : null;
+    const idToken = tokenResponse.id_token as string;
+    const refreshToken = tokenResponse.refresh_token as string | undefined;
+    const hasZkArtifacts = !!drkJwe || !!zkDrkHash;
+    if (!hasZkArtifacts) {
+      sessionStorage.removeItem("zk_eph_priv_jwk");
+      try {
+        history.replaceState(null, "", location.origin + location.pathname);
+      } catch {}
+      setStoredIdToken(idToken);
+      localStorage.removeItem("drk_protected");
+      if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
+      return { idToken, drk: EMPTY_DRK, refreshToken };
+    }
+    if (!drkJwe || typeof drkJwe !== "string") throw new Error("Missing DRK JWE from URL fragment");
+    if (zkDrkHash) {
+      const hash = bytesToBase64Url(await sha256(new TextEncoder().encode(drkJwe)));
+      if (zkDrkHash !== hash) throw new Error("DRK hash mismatch");
+    }
+    const privateJwkString = sessionStorage.getItem("zk_eph_priv_jwk");
+    if (!privateJwkString) throw new Error("Missing ZK private key for callback");
     sessionStorage.removeItem("zk_eph_priv_jwk");
+    const privateKey = await crypto.subtle.importKey(
+      "jwk",
+      JSON.parse(privateJwkString),
+      { name: "ECDH", namedCurve: "P-256" },
+      true,
+      ["deriveBits", "deriveKey"]
+    );
+    const { plaintext } = await compactDecrypt(drkJwe, privateKey);
+    const drk = new Uint8Array(plaintext);
     try {
       history.replaceState(null, "", location.origin + location.pathname);
     } catch {}
     setStoredIdToken(idToken);
-    localStorage.removeItem("drk_protected");
+    const obfuscatedDrk = obfuscateKey(drk);
+    localStorage.setItem("drk_protected", bytesToBase64Url(obfuscatedDrk));
     if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
-    return { idToken, drk: EMPTY_DRK, refreshToken };
-  }
-  if (!drkJwe || typeof drkJwe !== "string") throw new Error("Missing DRK JWE from URL fragment");
-  if (zkDrkHash) {
-    const hash = bytesToBase64Url(await sha256(new TextEncoder().encode(drkJwe)));
-    if (zkDrkHash !== hash) throw new Error("DRK hash mismatch");
-  }
-  const privateJwkString = sessionStorage.getItem("zk_eph_priv_jwk");
-  if (!privateJwkString) throw new Error("Missing ZK private key for callback");
-  sessionStorage.removeItem("zk_eph_priv_jwk");
-  const privateKey = await crypto.subtle.importKey(
-    "jwk",
-    JSON.parse(privateJwkString),
-    { name: "ECDH", namedCurve: "P-256" },
-    true,
-    ["deriveBits", "deriveKey"]
-  );
-  const { plaintext } = await compactDecrypt(drkJwe, privateKey);
-  const drk = new Uint8Array(plaintext);
+    return { idToken, drk, refreshToken };
+  })();
+  callbackInFlight = exchangePromise;
+  callbackInFlightCode = code;
   try {
-    history.replaceState(null, "", location.origin + location.pathname);
-  } catch {}
-  setStoredIdToken(idToken);
-  const obfuscatedDrk = obfuscateKey(drk);
-  localStorage.setItem("drk_protected", bytesToBase64Url(obfuscatedDrk));
-  if (refreshToken) localStorage.setItem("refresh_token", refreshToken);
-  return { idToken, drk, refreshToken };
+    return await exchangePromise;
+  } finally {
+    if (callbackInFlight === exchangePromise) {
+      callbackInFlight = null;
+      callbackInFlightCode = null;
+    }
+  }
 }
 
 export function getStoredSession(): AuthSession | null {
