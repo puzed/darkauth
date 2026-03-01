@@ -8,6 +8,8 @@ import ThemeToggle from "./ThemeToggle";
 
 export default function OtpVerifyView() {
   const branding = useBranding();
+  const logoUrl = branding.getLogoUrl();
+  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
   const navigate = useNavigate();
   const uid = useId();
   const [code, setCode] = useState("");
@@ -65,9 +67,9 @@ export default function OtpVerifyView() {
             <Link to="/" className={styles.brand}>
               <span className={styles.brandIcon}>
                 <img
-                  src={branding.getLogoUrl()}
+                  src={logoUrl}
                   alt={branding.getTitle()}
-                  className={branding.getLogoUrl() === "/favicon.svg" ? styles.defaultLogo : ""}
+                  className={isDefaultLogo ? styles.defaultLogo : ""}
                 />
               </span>
               <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>

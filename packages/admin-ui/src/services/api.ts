@@ -269,7 +269,8 @@ export interface JwksInfo {
     createdAt: string;
     rotatedAt?: string;
   }>;
-  activeKid: string;
+  activeKid?: string;
+  pagination?: PaginationMeta;
 }
 
 // Audit Logs
@@ -1096,11 +1097,50 @@ class AdminApiService {
   // JWKS Management
   async getJwks(params?: ListQueryParams): Promise<JwksInfo> {
     const endpoint = params ? this.getPagedEndpoint("/jwks", params) : "/jwks";
-    return this.request(endpoint);
+    const data = await this.request<{
+      keys: Array<{
+        kid: string;
+        alg?: string;
+        publicJwk?: {
+          alg?: string;
+          use?: string;
+          kty?: string;
+          crv?: string;
+          x?: string;
+          y?: string;
+        };
+        createdAt: string;
+        rotatedAt?: string | null;
+      }>;
+      pagination?: PaginationMeta;
+    }>(endpoint);
+
+    const keys = (data.keys || []).map((key) => ({
+      kid: key.kid,
+      alg: key.alg || key.publicJwk?.alg || "EdDSA",
+      use: key.publicJwk?.use || "sig",
+      kty: key.publicJwk?.kty || "OKP",
+      crv: key.publicJwk?.crv,
+      x: key.publicJwk?.x,
+      y: key.publicJwk?.y,
+      createdAt: key.createdAt,
+      rotatedAt: key.rotatedAt || undefined,
+    }));
+
+    const sortedByCreatedDesc = [...keys].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const active = sortedByCreatedDesc.find((key) => !key.rotatedAt) || sortedByCreatedDesc[0];
+
+    return {
+      keys,
+      activeKid: active?.kid,
+      pagination: data.pagination,
+    };
   }
 
   async rotateJwks(): Promise<{ kid: string; message: string }> {
-    return this.request("/jwks/rotate", {
+    return this.request("/jwks", {
       method: "POST",
     });
   }

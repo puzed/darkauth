@@ -15,6 +15,8 @@ export default function OtpSetupView({
   onLogout: () => void;
 }) {
   const branding = useBranding();
+  const logoUrl = branding.getLogoUrl();
+  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
   const navigate = useNavigate();
   const location = useLocation();
   const forced = new URLSearchParams(location.search).get("forced") === "1";
@@ -28,11 +30,9 @@ export default function OtpSetupView({
               <Link to="/" className={authStyles.brand}>
                 <span className={authStyles.brandIcon}>
                   <img
-                    src={branding.getLogoUrl()}
+                    src={logoUrl}
                     alt={branding.getTitle()}
-                    className={
-                      branding.getLogoUrl() === "/favicon.svg" ? authStyles.defaultLogo : ""
-                    }
+                    className={isDefaultLogo ? authStyles.defaultLogo : ""}
                   />
                 </span>
                 <h1 className={authStyles.brandTitle}>{branding.getTitle()}</h1>

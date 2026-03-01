@@ -1,4 +1,4 @@
-import { ArrowLeft, Copy, KeyRound } from "lucide-react";
+import { Copy, KeyRound } from "lucide-react";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -69,16 +69,7 @@ export default function UserCreate() {
 
   return (
     <div>
-      <PageHeader
-        title="Create User"
-        subtitle="Add a new user to the system"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/users")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Create User" subtitle="Add a new user to the system" />
       {error && <div>{error}</div>}
       <Card>
         <CardHeader>
@@ -119,9 +110,6 @@ export default function UserCreate() {
             </FormField>
           </FormGrid>
           <FormActions>
-            <Button variant="outline" onClick={() => navigate("/users")}>
-              Back
-            </Button>
             <Button onClick={create} disabled={submitting || !email.trim()}>
               Create
             </Button>

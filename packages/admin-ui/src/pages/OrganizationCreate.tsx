@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -36,16 +35,7 @@ export default function OrganizationCreate() {
 
   return (
     <div>
-      <PageHeader
-        title="Create Organization"
-        subtitle="Create a new organization"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/organizations")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Create Organization" subtitle="Create a new organization" />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 type BrandingFont = { family?: string; size?: string; weight?: Record<string, string> };
 type BrandingConfig = {
@@ -21,9 +21,6 @@ declare global {
       branding?: BrandingConfig;
       features?: { selfRegistrationEnabled?: boolean };
     };
-    __BRANDING_WORDING__?: Record<string, string>;
-    __BRANDING_LOGO_LIGHT__?: string | null;
-    __BRANDING_LOGO_DARK__?: string | null;
   }
 }
 
@@ -69,17 +66,11 @@ function applyBrandingStylesheet(url: string | null | undefined) {
 }
 
 const colorMap: Record<string, string[]> = {
-  primary: ["--primary-500", "--primary-600"],
-  primaryHover: ["--primary-700"],
-  primaryLight: ["--primary-100", "--primary-50"],
-  text: ["--gray-900"],
-  textSecondary: ["--gray-700", "--gray-600"],
-  textMuted: ["--gray-600"],
-  border: ["--gray-300"],
-  cardBackground: ["--da-card-bg"],
-  inputBackground: ["--da-input-bg"],
-  inputBorder: ["--gray-300"],
-  inputFocus: ["--primary-500"],
+  brandColor: ["--da-primary", "--primary-500"],
+  primaryBackgroundColor: ["--primary-600", "--primary-700"],
+  primaryForegroundColor: ["--primary-button-text"],
+  backgroundColor: ["--da-page-bg"],
+  textColor: ["--gray-900", "--gray-700", "--gray-600"],
 };
 
 function clearInlineBranding() {
@@ -88,6 +79,7 @@ function clearInlineBranding() {
   for (const v of vars) root.style.removeProperty(v);
   root.style.removeProperty("--da-input-bg");
   root.style.removeProperty("--da-card-bg");
+  root.style.removeProperty("--da-page-bg");
   document.body.style.removeProperty("background");
 }
 
@@ -98,43 +90,50 @@ function applyColorVariables(
   const root = document.documentElement;
   const theme = root.getAttribute("data-da-theme");
   const isDark = theme === "dark";
-
-  // Merge colors correctly - dark mode should override light colors
-  const baseColors = colors || {};
+  const lightColors = colors || {};
   const darkColors = colorsDark || {};
-  const activeColors = isDark ? { ...baseColors, ...darkColors } : baseColors;
+  const activeColors = isDark ? darkColors : lightColors;
 
-  // If no colors to apply, return
   if (!Object.keys(activeColors).length) return;
-
-  // Map branding keys to CSS variables
-  // Reset theme-scoped variables so defaults take effect unless overridden
   if (isDark) {
     root.style.removeProperty("--da-input-bg");
     root.style.removeProperty("--da-card-bg");
   }
-
-  // Apply mapped CSS variables
   Object.entries(colorMap).forEach(([brandingKey, cssVars]) => {
     if (!activeColors[brandingKey]) return;
-    if (isDark && (brandingKey === "inputBackground" || brandingKey === "cardBackground")) {
-      if (!darkColors[brandingKey]) return;
-    }
     cssVars.forEach((cssVar) => {
       root.style.setProperty(cssVar, activeColors[brandingKey]);
     });
   });
 
-  // Apply background using gradient when available
-  const bgStart = activeColors.backgroundGradientStart;
-  const bgEnd = activeColors.backgroundGradientEnd || bgStart;
-  const bgAngle = activeColors.backgroundAngle || "135deg";
-  if (bgStart) {
-    if (bgEnd && bgEnd !== bgStart) {
-      document.body.style.background = `linear-gradient(${bgAngle}, ${bgStart} 0%, ${bgEnd} 100%)`;
-    } else {
-      document.body.style.background = bgStart;
-    }
+  const brandColor = activeColors.brandColor;
+  if (brandColor) {
+    root.style.setProperty("--da-primary", brandColor);
+    root.style.setProperty("--primary-500", brandColor);
+  }
+
+  const primaryBackground = activeColors.primaryBackgroundColor;
+  if (primaryBackground) {
+    root.style.setProperty("--primary-600", primaryBackground);
+    root.style.setProperty("--primary-700", primaryBackground);
+  }
+
+  const primaryForeground = activeColors.primaryForegroundColor;
+  if (primaryForeground) {
+    root.style.setProperty("--primary-button-text", primaryForeground);
+  }
+
+  const textColor = activeColors.textColor;
+  if (textColor) {
+    root.style.setProperty("--gray-900", textColor);
+    root.style.setProperty("--gray-700", textColor);
+    root.style.setProperty("--gray-600", textColor);
+  }
+
+  const pageBackground = activeColors.backgroundColor;
+  if (pageBackground) {
+    root.style.setProperty("--da-page-bg", pageBackground);
+    document.body.style.background = pageBackground;
   }
 }
 
@@ -149,6 +148,8 @@ function applyTypography(font: BrandingFont | undefined) {
 }
 
 export function useBranding() {
+  const [, setVersion] = useState(0);
+
   useEffect(() => {
     const applyFromConfig = () => {
       const cfg = window.__APP_CONFIG__;
@@ -161,7 +162,9 @@ export function useBranding() {
       // Apply favicon based on theme
       const theme = document.documentElement.getAttribute("data-da-theme");
       const isDark = theme === "dark";
-      const faviconUrl = isDark && b.faviconUrlDark ? b.faviconUrlDark : b.faviconUrl || null;
+      const faviconUrl = isDark
+        ? b.faviconUrlDark || "/favicon.svg"
+        : b.faviconUrl || "/favicon.svg";
       if (faviconUrl) updateFavicon(faviconUrl);
 
       // Apply colors for current theme
@@ -174,21 +177,14 @@ export function useBranding() {
         applyTypography(b.font);
         if (b.customCSS) applyCustomCSS(b.customCSS);
       }
-
-      // Store wording and logos globally
-      window.__BRANDING_WORDING__ = b.wording || {};
-      window.__BRANDING_LOGO_LIGHT__ = b.logoUrl || null;
-      window.__BRANDING_LOGO_DARK__ = b.logoUrlDark || null;
     };
 
-    // Apply immediately on mount
     applyFromConfig();
+    setVersion((v) => v + 1);
 
-    // Watch for theme changes and reapply colors
     const observer = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === "attributes" && mutation.attributeName === "data-da-theme") {
-          // Theme changed, reapply colors and favicon
           const cfg = window.__APP_CONFIG__;
           const b = cfg?.branding;
           if (!b) return;
@@ -199,8 +195,11 @@ export function useBranding() {
 
           const theme = document.documentElement.getAttribute("data-da-theme");
           const isDark = theme === "dark";
-          const faviconUrl = isDark && b.faviconUrlDark ? b.faviconUrlDark : b.faviconUrl || null;
+          const faviconUrl = isDark
+            ? b.faviconUrlDark || "/favicon.svg"
+            : b.faviconUrl || "/favicon.svg";
           if (faviconUrl) updateFavicon(faviconUrl);
+          setVersion((v) => v + 1);
         }
       }
     });
@@ -217,24 +216,23 @@ export function useBranding() {
 
   return {
     getText(key: string, fallback: string) {
-      return window.__BRANDING_WORDING__?.[key] || fallback;
+      return window.__APP_CONFIG__?.branding?.wording?.[key] || fallback;
     },
     getLogoUrl() {
+      const branding = window.__APP_CONFIG__?.branding;
       const theme = document.documentElement.getAttribute("data-da-theme");
       const isDark = theme === "dark";
-
-      if (isDark && window.__BRANDING_LOGO_DARK__) {
-        return window.__BRANDING_LOGO_DARK__;
-      }
-      return window.__BRANDING_LOGO_LIGHT__ || "/favicon.svg";
+      if (isDark) return branding?.logoUrlDark || "";
+      return branding?.logoUrl || "";
+    },
+    isDefaultLogoUrl(url: string) {
+      return url.startsWith("/api/branding/logo");
     },
     getTitle() {
-      return window.__APP_CONFIG__?.branding?.identity?.title || "DarkAuth";
+      return window.__APP_CONFIG__?.branding?.identity?.title || "";
     },
     getTagline() {
-      return (
-        window.__APP_CONFIG__?.branding?.identity?.tagline || "Secure Zero-Knowledge Authentication"
-      );
+      return window.__APP_CONFIG__?.branding?.identity?.tagline || "";
     },
   };
 }

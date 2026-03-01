@@ -5,10 +5,11 @@
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  background: var(--da-page-bg);
 }
 
 .container {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 1rem;
   box-shadow:
     0 10px 15px -3px rgb(0 0 0 / 0.1),
@@ -56,179 +57,31 @@
 .brandTitle {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--primary-600);
+  color: var(--da-primary, var(--primary-500));
   letter-spacing: -0.025em;
   margin: 0;
 }
 
 .tagline {
-  color: #6b7280;
+  color: var(--gray-600);
   font-size: 1rem;
   font-weight: 500;
   margin: 0;
   text-align: left;
-}
-
-.authContainer {
-  padding: 1rem 2rem 2rem;
-  text-align: left;
-}
-
-.formTitle {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #111827;
-  text-align: left;
-  margin-bottom: 1.5rem;
-}
-
-.form {
-  margin-bottom: 0;
-}
-
-.formGroup {
-  margin-bottom: 1.5rem;
-}
-
-.formLabel {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-size: 1rem;
-  font-weight: 500;
-  color: #374151;
-  text-align: left;
-}
-
-.formInput {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #d1d5db;
-  border-radius: 0.5rem;
-  color: #111827;
-  background: var(--da-input-bg);
-  transition: border-color 0.2s ease;
-  outline: none;
-  font-size: 1rem;
-}
-
-.formInput:hover {
-  border-color: var(--gray-400);
-}
-
-.formInput:focus {
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px var(--primary-100);
-}
-
-.primaryButton {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  background: var(--primary-600);
-  color: white;
-  border: none;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  font-size: 1rem;
-}
-
-.primaryButton:hover {
-  background: var(--primary-700);
-}
-
-.formFooter {
-  text-align: left;
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
-}
-
-.formFooter p {
-  font-size: 1rem;
-  color: #6b7280;
-  margin: 0;
-}
-
-.linkButton {
-  background: none;
-  border: none;
-  color: var(--primary-600);
-  font-weight: 600;
-  cursor: pointer;
-  transition: color 0.2s ease;
-  text-decoration: none;
-  font-size: 1rem;
-}
-
-.linkButton:hover {
-  color: var(--primary-700);
-  text-decoration: underline;
 }
 
 /* Dark mode styles */
 [data-da-theme="dark"] .app {
-  background: #0f172a;
+  background: var(--da-page-bg);
 }
 
 [data-da-theme="dark"] .container {
-  background: #1e293b;
+  background: rgba(255, 255, 255, 0.05);
   box-shadow:
     0 20px 25px -5px rgb(0 0 0 / 0.3),
     0 8px 10px -6px rgb(0 0 0 / 0.3);
 }
 
-[data-da-theme="dark"] .brandTitle {
-  color: var(--primary-500);
-}
-
 [data-da-theme="dark"] .tagline {
-  color: #cbd5e1;
-}
-
-[data-da-theme="dark"] .formTitle {
-  color: #f1f5f9;
-}
-
-[data-da-theme="dark"] .formLabel {
-  color: #ffffff;
-}
-
-[data-da-theme="dark"] .formInput {
-  background: #0f172a;
-  border-color: #475569;
-  color: #f8fafc;
-}
-
-[data-da-theme="dark"] .formInput:hover {
-  border-color: #64748b;
-}
-
-[data-da-theme="dark"] .formInput:focus {
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
-}
-
-[data-da-theme="dark"] .primaryButton {
-  background: var(--primary-500);
-}
-
-[data-da-theme="dark"] .primaryButton:hover {
-  background: var(--primary-600);
-}
-
-[data-da-theme="dark"] .formFooter {
-  border-top-color: #475569;
-}
-
-[data-da-theme="dark"] .formFooter p {
-  color: #cbd5e1;
-}
-
-[data-da-theme="dark"] .linkButton {
-  color: var(--primary-500);
-}
-
-[data-da-theme="dark"] .linkButton:hover {
-  color: var(--primary-600);
+  color: var(--gray-600);
 }

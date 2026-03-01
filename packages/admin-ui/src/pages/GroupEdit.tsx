@@ -1,4 +1,4 @@
-import { ArrowLeft, Trash2, UserPlus } from "lucide-react";
+import { Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -145,7 +145,6 @@ export default function GroupEdit() {
     return (
       <div>
         <ErrorBanner withMargin>{error}</ErrorBanner>
-        <Button onClick={() => navigate("/groups")}>Back to Groups</Button>
       </div>
     );
   }
@@ -156,16 +155,7 @@ export default function GroupEdit() {
 
   return (
     <div>
-      <PageHeader
-        title="Edit Group"
-        subtitle={`Group: ${group.name}`}
-        actions={
-          <Button variant="outline" onClick={() => navigate("/groups")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Edit Group" subtitle={`Group: ${group.name}`} />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

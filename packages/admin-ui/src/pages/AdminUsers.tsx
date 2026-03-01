@@ -1,4 +1,4 @@
-import { Edit, KeyRound, RefreshCcw, RotateCcw, Trash2, UserPlus } from "lucide-react";
+import { Edit, KeyRound, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -174,16 +174,10 @@ export default function AdminUsers() {
       <PageHeader
         title="Admin Users"
         actions={
-          <>
-            <Button variant="outline" onClick={loadAdminUsers}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/settings/admin-users/new")}>
-              <UserPlus />
-              Add Admin User
-            </Button>
-          </>
+          <Button onClick={() => navigate("/settings/admin-users/new")}>
+            <UserPlus />
+            Add Admin User
+          </Button>
         }
       />
 

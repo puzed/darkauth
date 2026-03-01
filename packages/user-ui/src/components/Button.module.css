@@ -66,12 +66,12 @@
 }
 
 [data-da-theme="dark"] .primary {
-  background: var(--primary-500);
+  background: var(--primary-600);
   color: var(--primary-button-text, #1f2937);
 }
 
 [data-da-theme="dark"] .primary:hover:not(:disabled) {
-  background: var(--primary-600);
+  background: var(--primary-700);
   color: var(--primary-button-text, #1f2937);
 }
 
@@ -86,12 +86,12 @@
 }
 
 [data-da-theme="dark"] .success {
-  background: var(--primary-500);
-  border-color: color-mix(in srgb, var(--primary-500) 90%, black);
+  background: var(--primary-600);
+  border-color: color-mix(in srgb, var(--primary-600) 90%, black);
 }
 
 [data-da-theme="dark"] .success:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary-500) 90%, black);
+  background: color-mix(in srgb, var(--primary-600) 90%, black);
 }
 
 [data-da-theme="dark"] .danger {

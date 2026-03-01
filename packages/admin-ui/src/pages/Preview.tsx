@@ -7,6 +7,12 @@ const isThemeMessage = (v: unknown): v is ThemeMessage => {
   const obj = v as { type?: unknown; theme?: unknown };
   return obj.type === "da:theme" && (obj.theme === "light" || obj.theme === "dark");
 };
+type BrandingMessage = { type: "da:branding"; payload: unknown };
+const isBrandingMessage = (v: unknown): v is BrandingMessage => {
+  if (typeof v !== "object" || v === null) return false;
+  const obj = v as { type?: unknown; payload?: unknown };
+  return obj.type === "da:branding" && "payload" in obj;
+};
 
 export default function Preview() {
   const innerRef = useRef<HTMLIFrameElement | null>(null);
@@ -20,7 +26,7 @@ export default function Preview() {
   useEffect(() => {
     const onMsg = (e: MessageEvent) => {
       const data: unknown = e.data;
-      if (!isThemeMessage(data)) return;
+      if (!isThemeMessage(data) && !isBrandingMessage(data)) return;
       try {
         innerRef.current?.contentWindow?.postMessage(data, window.location.origin);
       } catch {}

@@ -9,12 +9,9 @@ export default function Analytics() {
         title="Analytics"
         subtitle="Usage analytics will be available here"
         actions={
-          <>
-            <Button variant="outline" disabled>
-              Export
-            </Button>
-            <Button disabled>Refresh</Button>
-          </>
+          <Button variant="outline" disabled>
+            Export
+          </Button>
         }
       />
 

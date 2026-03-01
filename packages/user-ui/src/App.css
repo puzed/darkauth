@@ -53,6 +53,7 @@
     ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   --da-input-bg: #ffffff;
   --da-card-bg: #ffffff;
+  --da-page-bg: #f3f4f6;
 
   /* Calculate button text color based on primary color luminance */
   /* For light mode purple (#6600cc), use white text */
@@ -96,7 +97,7 @@ body {
   font-size: 1rem;
   line-height: 1.5;
   color: var(--gray-900);
-  background: var(--gray-50);
+  background: var(--da-page-bg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -115,10 +116,11 @@ body {
   align-items: center;
   justify-content: center;
   padding: 1.5rem;
+  background: var(--da-page-bg);
 }
 
 .container {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   width: 100%;
@@ -158,12 +160,12 @@ body {
 .brand h1 {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--da-primary, var(--primary-600));
+  color: var(--da-primary, var(--primary-500));
   letter-spacing: -0.025em;
 }
 
 .da-brand-title {
-  color: var(--da-primary, var(--primary-600));
+  color: var(--da-primary, var(--primary-500));
 }
 
 .tagline {
@@ -209,8 +211,7 @@ body {
 }
 
 .form-group input:focus {
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px var(--primary-100);
+  border-color: var(--da-page-bg);
 }
 
 .form-group input.error {
@@ -924,25 +925,26 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] {
-  --da-input-bg: #0f172a;
+  --da-input-bg: rgba(0, 0, 0, 0.2);
   --da-card-bg: #1e293b;
+  --da-page-bg: #0f172a;
 }
 
 [data-da-theme="dark"] body {
-  background: #0f172a;
+  background: var(--da-page-bg);
   color: var(--gray-900);
 }
 
 [data-da-theme="dark"] #root {
-  background: #0f172a;
+  background: var(--da-page-bg);
 }
 
 [data-da-theme="dark"] .app {
-  background: #0f172a;
+  background: var(--da-page-bg);
 }
 
 [data-da-theme="dark"] .container {
-  background: #1e293b;
+  background: rgba(255, 255, 255, 0.05);
   box-shadow: var(--shadow-xl);
 }
 
@@ -951,30 +953,29 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .form-title {
-  color: #f1f5f9;
+  color: var(--gray-900);
 }
 
 [data-da-theme="dark"] .da-auth-title {
-  color: #f1f5f9;
+  color: var(--gray-900);
 }
 
 [data-da-theme="dark"] .form-group label {
-  color: #ffffff;
+  color: var(--gray-700);
 }
 
 [data-da-theme="dark"] .form-group input {
-  background: #0f172a;
-  border-color: var(--gray-300);
+  background: rgba(0, 0, 0, 0.2);
+  border-color: #0000004d;
   color: var(--gray-900);
 }
 
 [data-da-theme="dark"] .form-group input:hover {
-  border-color: var(--gray-400);
+  border-color: #00000066;
 }
 
 [data-da-theme="dark"] .form-group input:focus {
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+  border-color: white;
 }
 
 [data-da-theme="dark"] .form-group input:disabled {
@@ -991,11 +992,11 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .primary-button {
-  background: var(--primary-500);
+  background: var(--primary-600);
 }
 
 [data-da-theme="dark"] .primary-button:hover:not(:disabled) {
-  background: var(--primary-600);
+  background: var(--primary-700);
 }
 
 [data-da-theme="dark"] .secondary-button {
@@ -1010,11 +1011,11 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .link-button {
-  color: var(--primary-500);
+  color: var(--primary-600);
 }
 
 [data-da-theme="dark"] .link-button:hover:not(:disabled) {
-  color: var(--primary-600);
+  color: var(--primary-700);
 }
 
 [data-da-theme="dark"] .error-message {
