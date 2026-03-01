@@ -149,8 +149,8 @@ export default function Authorize({ authRequest }: AuthorizeProps) {
 
         <div className="authorize-footer">
           <p className="security-note">
-            🛡️ Your password never leaves your device. DarkAuth uses OPAQUE protocol for
-            zero-knowledge authentication.
+            🛡️ Your password never leaves your device. We use OPAQUE protocol for zero-knowledge
+            authentication.
           </p>
         </div>
       </div>

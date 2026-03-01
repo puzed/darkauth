@@ -1,6 +1,7 @@
 import { CircleHelp } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import ErrorBanner from "@/components/feedback/error-banner";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -107,7 +108,8 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(!isCreateMode);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
@@ -144,17 +146,19 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
       setClient(null);
       setClientSecret(null);
       setShowSecret(false);
-      setError(null);
+      setLoadError(null);
+      setFormError(null);
       setLoading(false);
       return;
     }
     try {
       setLoading(true);
-      setError(null);
+      setLoadError(null);
+      setFormError(null);
       const clients = await adminApiService.getClients();
       const c = clients.find((x) => x.clientId === clientId);
       if (!c) {
-        setError("Client not found");
+        setLoadError("Client not found");
         setLoading(false);
         return;
       }
@@ -203,7 +207,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
           : "",
       });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load client");
+      setLoadError(e instanceof Error ? e.message : "Failed to load client");
     } finally {
       setLoading(false);
     }
@@ -216,7 +220,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
   const save = async () => {
     try {
       setSubmitting(true);
-      setError(null);
+      setFormError(null);
       const payload = {
         clientId: form.clientId,
         name: form.name,
@@ -232,13 +236,13 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         dashboardIconEmoji:
           form.dashboardIconMode === "emoji"
             ? form.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
-            : null,
+            : undefined,
         dashboardIconLetter:
           form.dashboardIconMode === "letter"
             ? form.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
-            : null,
+            : undefined,
         dashboardIconUpload:
-          form.dashboardIconMode === "upload" ? form.dashboardIconUpload || undefined : null,
+          form.dashboardIconMode === "upload" ? form.dashboardIconUpload || undefined : undefined,
         redirectUris: parseList(form.redirectUris),
         postLogoutRedirectUris: parseList(form.postLogoutRedirectUris),
         grantTypes: parseList(form.grantTypes),
@@ -275,7 +279,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         await load();
       }
     } catch (e) {
-      setError(
+      setFormError(
         e instanceof Error
           ? e.message
           : isCreateMode
@@ -331,10 +335,10 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
 
   if (loading) return <div>Loading client...</div>;
 
-  if (error)
+  if (loadError)
     return (
       <div>
-        <div>{error}</div>
+        <div>{loadError}</div>
       </div>
     );
 
@@ -351,6 +355,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
               : `Client ID: ${clientId || ""}`
           }
         />
+        {formError && <ErrorBanner withMargin>{formError}</ErrorBanner>}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className={styles.tabsRoot}>
           <TabsList className={styles.tabsList}>

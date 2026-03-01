@@ -17,6 +17,9 @@ interface LoginProps {
     passwordResetRequired?: boolean;
   }) => void;
   onSwitchToRegister: () => void;
+  preloadClientCheckOnly?: boolean;
+  skipClientCheck?: boolean;
+  onClientCheckResolved?: () => void;
 }
 
 interface FormData {
@@ -30,7 +33,13 @@ interface FormErrors {
   general?: string;
 }
 
-export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
+export default function Login({
+  onLogin,
+  onSwitchToRegister,
+  preloadClientCheckOnly = false,
+  skipClientCheck = false,
+  onClientCheckResolved,
+}: LoginProps) {
   const uid = useId();
   const branding = useBranding();
   const [formData, setFormData] = useState<FormData>({
@@ -40,7 +49,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<OpaqueLoginState | null>(null);
-  const [clientCheckLoading, setClientCheckLoading] = useState(true);
+  const [clientCheckLoading, setClientCheckLoading] = useState(!skipClientCheck);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
   const isPreviewMode = useMemo(() => {
     const url = new URL(window.location.href);
@@ -64,6 +73,11 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   }, []);
 
   useEffect(() => {
+    if (skipClientCheck) {
+      setClientCheckLoading(false);
+      setClientCheckError(null);
+      return;
+    }
     if (isPreviewMode) {
       setClientCheckLoading(false);
       setClientCheckError(null);
@@ -96,7 +110,14 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeClientId, isPreviewMode]);
+  }, [activeClientId, isPreviewMode, skipClientCheck]);
+
+  useEffect(() => {
+    if (clientCheckLoading) {
+      return;
+    }
+    onClientCheckResolved?.();
+  }, [clientCheckLoading, onClientCheckResolved]);
 
   const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {};
@@ -259,13 +280,23 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
     }
   };
 
+  if (preloadClientCheckOnly) {
+    return null;
+  }
+
   return (
     <div className={styles.authContainer}>
       <h2 className={styles.formTitle}>{branding.getText("welcomeBack", "Welcome back")}</h2>
       {clientCheckLoading ? (
-        <div className={styles.errorMessage}>Checking sign-in configuration...</div>
+        <div className={styles.clientCheckLoading} data-testid="client-check-loading">
+          <span className={styles.loadingSpinner} />
+        </div>
       ) : null}
-      {clientCheckError ? <div className={styles.errorMessage}>{clientCheckError}</div> : null}
+      {clientCheckError ? (
+        <div className={styles.errorMessage} data-testid="client-check-error">
+          {clientCheckError}
+        </div>
+      ) : null}
 
       {!clientCheckLoading && !clientCheckError ? (
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
