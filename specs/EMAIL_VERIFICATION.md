@@ -340,25 +340,25 @@ New/updated API surfaces:
 
 ## Implementation Checklist
 
-- [ ] Add DB columns to `users`: `email_verified_at`, `pending_email`, `pending_email_set_at`
-- [ ] Add `email_verification_tokens` table and indexes
-- [ ] Add setting keys for SMTP, verification toggle, and token TTL
-- [ ] Extend install GET to return SMTP prefills from env
-- [ ] Extend install complete to persist SMTP settings in DB
-- [ ] Compute install default for `users.require_email_verification` from SMTP presence
-- [ ] Add backend email service abstraction for SMTP send + test-send
-- [ ] Add admin settings endpoint support for test email action
-- [ ] Add admin `/settings` controls for SMTP + verification + TTL
-- [ ] Add sidebar `Email` menu item and route
-- [ ] Add admin email templates API and persistence
-- [ ] Add email templates UI for all outbound email types
-- [ ] Add signup verification token creation and email send
-- [ ] Add login gate for unverified users when verification required
-- [ ] Add resend verification endpoint and UI action
-- [ ] Add verification consume endpoint and success/error UX
-- [ ] Add pending-email verification flow for email change
-- [ ] Add audit events for verification-related actions
+- [x] Add DB columns to `users`: `email_verified_at`, `pending_email`, `pending_email_set_at`
+- [x] Add `email_verification_tokens` table and indexes
+- [x] Add setting keys for SMTP, verification toggle, and token TTL
+- [x] Extend install GET to return SMTP prefills from env
+- [x] Extend install complete to persist SMTP settings in DB
+- [x] Compute install default for `users.require_email_verification` from SMTP presence
+- [x] Add backend email service abstraction for SMTP send + test-send
+- [x] Add admin settings endpoint support for test email action
+- [x] Add admin `/settings` controls for SMTP + verification + TTL
+- [x] Add sidebar `Email` menu item and route
+- [x] Add admin email templates API and persistence
+- [x] Add email templates UI for all outbound email types
+- [x] Add signup verification token creation and email send
+- [x] Add login gate for unverified users when verification required
+- [x] Add resend verification endpoint and UI action
+- [x] Add verification consume endpoint and success/error UX
+- [x] Add pending-email verification flow for email change
+- [x] Add audit events for verification-related actions
 - [ ] Add API tests for install/settings/verification flows
 - [ ] Add UI tests for settings/templates and auth journeys
-- [ ] Run `npm run tidy`
-- [ ] Run `npm run build`
+- [x] Run `npm run tidy`
+- [x] Run `npm run build`

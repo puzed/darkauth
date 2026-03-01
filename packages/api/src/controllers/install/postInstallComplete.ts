@@ -26,6 +26,16 @@ const InstallCompleteRequestSchema = z.object({
   adminEmail: z.string().email(),
   adminName: z.string(),
   selfRegistrationEnabled: z.boolean().optional(),
+  email: z
+    .object({
+      from: z.string().optional(),
+      transport: z.string().optional(),
+      smtpHost: z.string().optional(),
+      smtpPort: z.number().int().optional(),
+      smtpUser: z.string().optional(),
+      smtpPassword: z.string().optional(),
+    })
+    .optional(),
 });
 
 const InstallCompleteResponseSchema = z.object({
@@ -117,6 +127,31 @@ async function _postInstallComplete(
       "users.self_registration_enabled",
       data.selfRegistrationEnabled === true
     );
+    const smtpFrom = data.email?.from?.trim() || "";
+    const smtpTransport = data.email?.transport?.trim() || "smtp";
+    const smtpHost = data.email?.smtpHost?.trim() || "";
+    const smtpPort = data.email?.smtpPort;
+    const smtpUser = data.email?.smtpUser?.trim() || "";
+    const smtpPassword = data.email?.smtpPassword || "";
+    const smtpDetailsProvided =
+      smtpFrom.length > 0 &&
+      smtpTransport.length > 0 &&
+      smtpHost.length > 0 &&
+      typeof smtpPort === "number" &&
+      smtpPort >= 1 &&
+      smtpPort <= 65535 &&
+      smtpUser.length > 0 &&
+      smtpPassword.length > 0;
+    const smtpEnabled = smtpDetailsProvided;
+
+    await setSetting(installCtx, "email.from", smtpFrom);
+    await setSetting(installCtx, "email.transport", smtpTransport);
+    await setSetting(installCtx, "email.smtp.host", smtpHost);
+    await setSetting(installCtx, "email.smtp.port", smtpPort && smtpPort > 0 ? smtpPort : 587);
+    await setSetting(installCtx, "email.smtp.user", smtpUser);
+    await setSetting(installCtx, "email.smtp.password", smtpPassword, true);
+    await setSetting(installCtx, "email.smtp.enabled", smtpEnabled);
+    await setSetting(installCtx, "users.require_email_verification", smtpEnabled);
     await (await import("../../models/install.ts")).writeKdfSetting(installCtx, kdfParams);
 
     context.logger.debug("[install:post] generating signing keys");

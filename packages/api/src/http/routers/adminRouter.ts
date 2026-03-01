@@ -15,6 +15,11 @@ import { deleteClientController } from "../../controllers/admin/clientDelete.ts"
 import { getClientSecretController } from "../../controllers/admin/clientSecret.ts";
 import { getClients } from "../../controllers/admin/clients.ts";
 import { updateClientController } from "../../controllers/admin/clientUpdate.ts";
+import {
+  getAdminEmailTemplates,
+  putAdminEmailTemplate,
+} from "../../controllers/admin/emailTemplates.ts";
+import { postAdminEmailTest } from "../../controllers/admin/emailTest.ts";
 import { getJwks } from "../../controllers/admin/jwks.ts";
 import { rotateJwks } from "../../controllers/admin/jwksRotate.ts";
 import { postAdminLogout } from "../../controllers/admin/logout.ts";
@@ -409,6 +414,13 @@ export function createAdminRouter(context: Context) {
       if (pathname === "/admin/settings") {
         if (method === "GET") return await getSettings(context, request, response);
         if (method === "PUT") return await updateSettings(context, request, response);
+      }
+      if (pathname === "/admin/settings/email/test" && method === "POST") {
+        return await postAdminEmailTest(context, request, response);
+      }
+      if (pathname === "/admin/email-templates") {
+        if (method === "GET") return await getAdminEmailTemplates(context, request, response);
+        if (method === "PUT") return await putAdminEmailTemplate(context, request, response);
       }
 
       if (pathname === "/admin/jwks") {

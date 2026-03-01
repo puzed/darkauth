@@ -4,6 +4,7 @@ import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto"
 import { saveDrk } from "../services/drkStorage";
 import opaqueService from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import Button from "./Button";
 
 interface ResetPasswordProps {
   onSuccess?: () => void;
@@ -108,7 +109,7 @@ export default function ResetPassword({ onSuccess, title, description }: ResetPa
           />
           {error && <div className="error-text">{error}</div>}
         </div>
-        <button type="submit" className="primary-button" disabled={loading}>
+        <Button type="submit" variant="primary" fullWidth disabled={loading}>
           {loading ? (
             <>
               <span className="loading-spinner" />
@@ -117,7 +118,7 @@ export default function ResetPassword({ onSuccess, title, description }: ResetPa
           ) : (
             "Update Password"
           )}
-        </button>
+        </Button>
       </form>
       <div className="form-footer">
         <p>{description || "Set a new password to continue."}</p>

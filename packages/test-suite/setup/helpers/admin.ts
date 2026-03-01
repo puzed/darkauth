@@ -40,9 +40,9 @@ export async function ensureSelfRegistrationEnabled(page: Page): Promise<void> {
   if (triggerState !== 'open') {
     await usersSectionTrigger.click();
   }
-  const selfRegistrationRow = page.locator('div').filter({ hasText: 'Self Registration Enabled' }).first();
-  await expect(selfRegistrationRow).toBeVisible({ timeout: 10000 });
-  const checkbox = selfRegistrationRow.locator('[role="checkbox"]');
+  const usersRegion = page.getByRole('region', { name: 'Users', exact: true });
+  await expect(usersRegion).toBeVisible({ timeout: 10000 });
+  const checkbox = usersRegion.getByRole('checkbox').nth(1);
   await expect(checkbox).toBeVisible({ timeout: 5000 });
   const state = await checkbox.getAttribute('data-state');
   if (state === 'checked') return;
