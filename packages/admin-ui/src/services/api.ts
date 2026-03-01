@@ -183,6 +183,11 @@ export interface Permission {
   directUserCount?: number;
 }
 
+export interface ClientScope {
+  key: string;
+  description?: string;
+}
+
 export interface PermissionsResponse {
   permissions: Permission[];
   pagination: PaginationMeta;
@@ -209,7 +214,7 @@ export interface Client {
   postLogoutRedirectUris: string[];
   grantTypes: string[];
   responseTypes: string[];
-  scopes: string[];
+  scopes: ClientScope[];
   allowedZkOrigins: string[];
   createdAt: string;
   updatedAt: string;
@@ -244,7 +249,7 @@ export interface CreateClientRequest {
   postLogoutRedirectUris?: string[];
   grantTypes?: string[];
   responseTypes?: string[];
-  scopes?: string[];
+  scopes?: Array<string | ClientScope>;
   allowedZkOrigins?: string[];
   idTokenLifetimeSeconds?: number;
   refreshTokenLifetimeSeconds?: number;

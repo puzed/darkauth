@@ -1,6 +1,6 @@
 import { ArrowLeft, CircleHelp } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -16,10 +16,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import adminApiService, { type Client } from "@/services/api";
+import adminApiService, { type Client, type ClientScope } from "@/services/api";
 import styles from "./ClientEdit.module.css";
 
 const joinList = (arr: string[]) => arr.join("\n");
@@ -30,6 +38,27 @@ const parseList = (v: string) =>
     .filter(Boolean);
 const DEFAULT_DASHBOARD_EMOJI = "🚀";
 const DEFAULT_DASHBOARD_LETTER = "D";
+type ScopeRow = { key: string; description: string };
+const CLIENT_EDIT_TABS = ["identity", "dashboard", "security", "token", "oauth", "crypto"];
+
+function isClientEditTab(value: string | null): value is (typeof CLIENT_EDIT_TABS)[number] {
+  if (!value) return false;
+  return CLIENT_EDIT_TABS.includes(value);
+}
+
+function normalizeScopeRows(scopes: ClientScope[]): ScopeRow[] {
+  return scopes.map((scope) => ({
+    key: scope.key,
+    description: scope.description || "",
+  }));
+}
+
+function buildDefaultScopes(): ScopeRow[] {
+  return [
+    { key: "openid", description: "Authenticate you" },
+    { key: "profile", description: "Access your profile information" },
+  ];
+}
 
 function FieldLabel({ title, tooltip }: { title: string; tooltip: string }) {
   return (
@@ -67,16 +96,21 @@ function FieldHint({ children }: { children: ReactNode }) {
   );
 }
 
-export default function ClientEdit() {
+type ClientEditProps = {
+  mode?: "create" | "edit";
+};
+
+export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
+  const isCreateMode = mode === "create";
   const { clientId } = useParams<{ clientId: string }>();
+  const location = useLocation();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isCreateMode);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
-  const [activeTab, setActiveTab] = useState("identity");
   const [form, setForm] = useState({
     clientId: "",
     name: "",
@@ -96,7 +130,7 @@ export default function ClientEdit() {
     postLogoutRedirectUris: "",
     grantTypes: "",
     responseTypes: "",
-    scopes: "",
+    scopes: buildDefaultScopes(),
     allowedZkOrigins: "",
     allowedJweAlgs: "",
     allowedJweEncs: "",
@@ -105,6 +139,14 @@ export default function ClientEdit() {
   });
 
   const load = useCallback(async () => {
+    if (isCreateMode) {
+      setClient(null);
+      setClientSecret(null);
+      setShowSecret(false);
+      setError(null);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -147,7 +189,7 @@ export default function ClientEdit() {
         postLogoutRedirectUris: joinList(c.postLogoutRedirectUris),
         grantTypes: joinList(c.grantTypes),
         responseTypes: joinList(c.responseTypes),
-        scopes: joinList(c.scopes),
+        scopes: normalizeScopeRows(c.scopes),
         allowedZkOrigins: joinList(c.allowedZkOrigins),
         allowedJweAlgs: joinList(c.allowedJweAlgs),
         allowedJweEncs: joinList(c.allowedJweEncs),
@@ -161,14 +203,13 @@ export default function ClientEdit() {
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, isCreateMode]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const save = async () => {
-    if (!client) return;
     try {
       setSubmitting(true);
       setError(null);
@@ -198,7 +239,12 @@ export default function ClientEdit() {
         postLogoutRedirectUris: parseList(form.postLogoutRedirectUris),
         grantTypes: parseList(form.grantTypes),
         responseTypes: parseList(form.responseTypes),
-        scopes: parseList(form.scopes),
+        scopes: form.scopes
+          .map((scope) => ({
+            key: scope.key.trim(),
+            description: scope.description.trim() || undefined,
+          }))
+          .filter((scope) => scope.key.length > 0),
         allowedZkOrigins: parseList(form.allowedZkOrigins),
         allowedJweAlgs: parseList(form.allowedJweAlgs),
         allowedJweEncs: parseList(form.allowedJweEncs),
@@ -209,14 +255,71 @@ export default function ClientEdit() {
           ? Number(form.refreshTokenLifetimeSeconds)
           : undefined,
       };
-      await adminApiService.updateClient(client.clientId, payload);
-      setShowSecret(false);
-      await load();
+      if (isCreateMode) {
+        const created = await adminApiService.createClient({
+          ...payload,
+          appUrl: payload.appUrl || undefined,
+        });
+        navigate(`/clients/${created.clientId}`);
+      } else {
+        if (!client) return;
+        await adminApiService.updateClient(client.clientId, payload);
+        setShowSecret(false);
+        await load();
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save client");
+      setError(
+        e instanceof Error
+          ? e.message
+          : isCreateMode
+            ? "Failed to create client"
+            : "Failed to save client"
+      );
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const updateScope = (index: number, patch: Partial<ScopeRow>) => {
+    setForm((current) => ({
+      ...current,
+      scopes: current.scopes.map((scope, idx) => (idx === index ? { ...scope, ...patch } : scope)),
+    }));
+  };
+
+  const removeScope = (index: number) => {
+    setForm((current) => ({
+      ...current,
+      scopes: current.scopes.filter((_, idx) => idx !== index),
+    }));
+  };
+
+  const addScope = () => {
+    setForm((current) => ({
+      ...current,
+      scopes: [...current.scopes, { key: "", description: "" }],
+    }));
+  };
+
+  const tabFromUrl = new URLSearchParams(location.search).get("tab");
+  const activeTab = isClientEditTab(tabFromUrl) ? tabFromUrl : "identity";
+
+  const setActiveTab = (value: string) => {
+    if (!isClientEditTab(value)) return;
+    const nextSearchParams = new URLSearchParams(location.search);
+    if (value === "identity") {
+      nextSearchParams.delete("tab");
+    } else {
+      nextSearchParams.set("tab", value);
+    }
+    const nextSearch = nextSearchParams.toString();
+    navigate(
+      {
+        pathname: location.pathname,
+        search: nextSearch ? `?${nextSearch}` : "",
+      },
+      { replace: true }
+    );
   };
 
   if (loading) return <div>Loading client...</div>;
@@ -231,14 +334,18 @@ export default function ClientEdit() {
       </div>
     );
 
-  if (!client) return null;
+  if (!isCreateMode && !client) return null;
 
   return (
     <TooltipProvider>
       <div>
         <PageHeader
-          title="Edit Client"
-          subtitle={`Client ID: ${clientId || ""}`}
+          title={isCreateMode ? "Create Client" : "Edit Client"}
+          subtitle={
+            isCreateMode
+              ? "Configure a new OAuth/OIDC client application"
+              : `Client ID: ${clientId || ""}`
+          }
           actions={
             <Button variant="outline" onClick={() => navigate("/clients")}>
               <ArrowLeft />
@@ -287,7 +394,11 @@ export default function ClientEdit() {
                       />
                     }
                   >
-                    <Input value={form.clientId} disabled />
+                    <Input
+                      value={form.clientId}
+                      onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
+                      disabled={submitting || !isCreateMode}
+                    />
                     <FieldHint>
                       Unique protocol identifier, e.g. <code>demo-public-client</code>.
                     </FieldHint>
@@ -376,50 +487,52 @@ export default function ClientEdit() {
                     </FieldHint>
                   </FormField>
 
-                  <FormField
-                    label={
-                      <FieldLabel
-                        title="Client Secret"
-                        tooltip="Server-side secret for confidential/basic-auth clients. Keep private and rotate if leaked."
-                      />
-                    }
-                  >
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <Input
-                        value={
-                          clientSecret
-                            ? showSecret
-                              ? clientSecret
-                              : "•".repeat(24)
-                            : "Not available"
-                        }
-                        disabled
-                        readOnly
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!clientSecret}
-                        onClick={() => setShowSecret((v) => !v)}
-                      >
-                        {showSecret ? "Hide" : "Show"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={!clientSecret}
-                        onClick={async () => {
-                          if (!clientSecret) return;
-                          await navigator.clipboard.writeText(clientSecret);
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <FieldHint>
-                      Public clients with auth method <code>none</code> will not have a secret.
-                    </FieldHint>
-                  </FormField>
+                  {!isCreateMode && (
+                    <FormField
+                      label={
+                        <FieldLabel
+                          title="Client Secret"
+                          tooltip="Server-side secret for confidential/basic-auth clients. Keep private and rotate if leaked."
+                        />
+                      }
+                    >
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <Input
+                          value={
+                            clientSecret
+                              ? showSecret
+                                ? clientSecret
+                                : "•".repeat(24)
+                              : "Not available"
+                          }
+                          disabled
+                          readOnly
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!clientSecret}
+                          onClick={() => setShowSecret((v) => !v)}
+                        >
+                          {showSecret ? "Hide" : "Show"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={!clientSecret}
+                          onClick={async () => {
+                            if (!clientSecret) return;
+                            await navigator.clipboard.writeText(clientSecret);
+                          }}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                      <FieldHint>
+                        Public clients with auth method <code>none</code> will not have a secret.
+                      </FieldHint>
+                    </FormField>
+                  )}
                 </FormGrid>
               </CardContent>
             </Card>
@@ -853,17 +966,57 @@ export default function ClientEdit() {
                     label={
                       <FieldLabel
                         title="Scopes"
-                        tooltip="Scopes this client may request. Restrict to least privilege needed."
+                        tooltip="Scopes this client may request, with optional consent descriptions."
                       />
                     }
                   >
-                    <Textarea
-                      value={form.scopes}
-                      onChange={(e) => setForm((f) => ({ ...f, scopes: e.target.value }))}
-                      rows={3}
-                    />
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Key</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {form.scopes.map((scope, index) => (
+                          <TableRow key={`${scope.key}-${index}`}>
+                            <TableCell>
+                              <Input
+                                value={scope.key}
+                                onChange={(e) => updateScope(index, { key: e.target.value })}
+                                placeholder="openid"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={scope.description}
+                                onChange={(e) =>
+                                  updateScope(index, { description: e.target.value })
+                                }
+                                placeholder="Optional description"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => removeScope(index)}
+                              >
+                                Remove
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div style={{ marginTop: 12 }}>
+                      <Button type="button" variant="outline" onClick={addScope}>
+                        Add Scope
+                      </Button>
+                    </div>
                     <FieldHint>
-                      Common scopes: <code>openid</code>, <code>profile</code>, <code>email</code>.
+                      Common keys: <code>openid</code>, <code>profile</code>, <code>email</code>.
                     </FieldHint>
                   </FormField>
                 </FormGrid>
@@ -942,8 +1095,11 @@ export default function ClientEdit() {
           <Button variant="outline" onClick={() => navigate("/clients")}>
             Back
           </Button>
-          <Button onClick={save} disabled={submitting}>
-            Save
+          <Button
+            onClick={save}
+            disabled={submitting || !form.clientId.trim() || !form.name.trim()}
+          >
+            {isCreateMode ? "Create" : "Save"}
           </Button>
         </FormActions>
       </div>

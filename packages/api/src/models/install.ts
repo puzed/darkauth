@@ -13,6 +13,7 @@ import {
 } from "../db/schema.ts";
 import { ConflictError, NotFoundError } from "../errors.ts";
 import type { Context } from "../types.ts";
+import { serializeClientScopeDefinitions } from "../utils/clientScopes.ts";
 
 export async function storeOpaqueAdmin(
   context: Context,
@@ -90,7 +91,11 @@ export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null
       ],
       grantTypes: ["authorization_code", "refresh_token"],
       responseTypes: ["code"],
-      scopes: ["openid", "profile", "email"],
+      scopes: serializeClientScopeDefinitions([
+        { key: "openid", description: "Authenticate you" },
+        { key: "profile", description: "Access your profile information" },
+        { key: "email", description: "Access your email address" },
+      ]),
       allowedZkOrigins: [
         "http://localhost:9092",
         "http://localhost:3000",
@@ -114,7 +119,14 @@ export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null
       postLogoutRedirectUris: ["http://localhost:4000", "https://support.example.com"],
       grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
       responseTypes: ["code"],
-      scopes: ["openid", "profile", "darkauth.users:read"],
+      scopes: serializeClientScopeDefinitions([
+        { key: "openid", description: "Authenticate you" },
+        { key: "profile", description: "Access your profile information" },
+        {
+          key: "darkauth.users:read",
+          description: "Search and read users from the directory",
+        },
+      ]),
       allowedZkOrigins: [],
       createdAt: new Date(),
       updatedAt: new Date(),
