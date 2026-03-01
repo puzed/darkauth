@@ -103,6 +103,7 @@ export default function OrganizationEdit() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
+  const [forceOtp, setForceOtp] = useState(false);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [allRoles, setAllRoles] = useState<Role[]>([]);
   const [addUserOpen, setAddUserOpen] = useState(false);
@@ -145,6 +146,7 @@ export default function OrganizationEdit() {
       });
       setName(org.name);
       setSlug(org.slug);
+      setForceOtp(org.forceOtp === true);
       setAllRoles(rolesData);
       const orgMembers = normalizeMembers(org.members);
       if (orgMembers.length > 0) {
@@ -252,6 +254,7 @@ export default function OrganizationEdit() {
       await adminApiService.updateOrganization(organization.organizationId, {
         name,
         slug: slug.trim() || undefined,
+        forceOtp,
       });
       navigate("/organizations");
     } catch (e) {
@@ -450,6 +453,15 @@ export default function OrganizationEdit() {
                 <Input
                   value={`${members.filter((member) => member.status === "active").length} active members`}
                   readOnly
+                />
+              </FormField>
+              <FormField label={<Label>Security</Label>}>
+                <CheckboxRow
+                  id="organization-force-otp"
+                  label="Force OTP for all members"
+                  checked={forceOtp}
+                  disabled={submitting}
+                  onCheckedChange={(checked) => setForceOtp(checked)}
                 />
               </FormField>
             </FormGrid>

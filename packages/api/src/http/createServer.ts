@@ -229,6 +229,8 @@ export async function createUserServer(context: Context) {
       }
 
       const isAuthorizeUiRequest = pathname === "/authorize" && url.searchParams.has("request_id");
+      const isOtpUiRoute =
+        request.method === "GET" && (pathname === "/otp/setup" || pathname === "/otp/verify");
       if (
         pathname.startsWith("/api/") ||
         (pathname === "/authorize" && !isAuthorizeUiRequest) ||
@@ -236,16 +238,20 @@ export async function createUserServer(context: Context) {
         pathname.startsWith("/.well-known") ||
         pathname.startsWith("/otp/")
       ) {
-        setSecurityHeaders(response, context.config.isDevelopment);
+        if (!(context.config.proxyUi && isOtpUiRoute)) {
+          setSecurityHeaders(response, context.config.isDevelopment);
+        }
         if (pathname.startsWith("/api/")) {
           let apiPath = pathname.slice(4);
           apiPath = apiPath.replace(/^\/user(\/|$)/, "/");
           request.url = apiPath + url.search;
         }
         if (pathname.startsWith("/otp/")) {
-          const isUiRoute =
-            request.method === "GET" && (pathname === "/otp/setup" || pathname === "/otp/verify");
-          if (isUiRoute) {
+          if (isOtpUiRoute) {
+            if (context.config.proxyUi) {
+              await proxyToVite(request, response, 5173);
+              return;
+            }
             const userCandidates = [
               join(__dirname, "../../../../user-ui/dist"),
               join(__dirname, "../../../user-ui/dist"),

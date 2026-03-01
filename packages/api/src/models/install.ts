@@ -196,9 +196,13 @@ export async function seedDefaultOrganizationRbac(context: Context) {
     where: eq(organizations.slug, "default"),
   });
   if (!existingOrg) {
-    await context.db
-      .insert(organizations)
-      .values({ slug: "default", name: "Default", createdAt: new Date(), updatedAt: new Date() });
+    await context.db.insert(organizations).values({
+      slug: "default",
+      name: "Default",
+      forceOtp: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
   }
 
   const defaultOrg = await context.db.query.organizations.findFirst({
@@ -213,13 +217,6 @@ export async function seedDefaultOrganizationRbac(context: Context) {
       {
         key: "org_admin",
         name: "Organization Admin",
-        system: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-      {
-        key: "otp_required",
-        name: "OTP Required",
         system: true,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -253,10 +250,17 @@ export async function ensureDefaultOrganizationAndSchema(context: Context) {
         "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         "slug" text NOT NULL UNIQUE,
         "name" text NOT NULL,
+        "force_otp" boolean NOT NULL DEFAULT false,
         "created_by_user_sub" text,
         "created_at" timestamp NOT NULL DEFAULT now(),
         "updated_at" timestamp NOT NULL DEFAULT now()
       );`
+    );
+  } catch {}
+  try {
+    await context.db.execute(
+      `ALTER TABLE "organizations"
+       ADD COLUMN IF NOT EXISTS "force_otp" boolean NOT NULL DEFAULT false;`
     );
   } catch {}
   try {

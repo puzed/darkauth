@@ -44,11 +44,21 @@ export async function listOrganizationsAdmin(
 
   const rows = await (condition
     ? context.db
-        .select({ id: organizations.id, slug: organizations.slug, name: organizations.name })
+        .select({
+          id: organizations.id,
+          slug: organizations.slug,
+          name: organizations.name,
+          forceOtp: organizations.forceOtp,
+        })
         .from(organizations)
         .where(condition)
     : context.db
-        .select({ id: organizations.id, slug: organizations.slug, name: organizations.name })
+        .select({
+          id: organizations.id,
+          slug: organizations.slug,
+          name: organizations.name,
+          forceOtp: organizations.forceOtp,
+        })
         .from(organizations)
   )
     .orderBy(sortFn(sortColumn), sortFn(organizations.id))
@@ -87,7 +97,7 @@ export async function listOrganizationsAdmin(
 
 export async function createOrganizationAdmin(
   context: Context,
-  data: { name: string; slug: string }
+  data: { name: string; slug: string; forceOtp?: boolean }
 ) {
   const name = data.name.trim();
   const slug = data.slug.trim().toLowerCase();
@@ -96,7 +106,13 @@ export async function createOrganizationAdmin(
 
   const [created] = await context.db
     .insert(organizations)
-    .values({ name, slug, createdAt: new Date(), updatedAt: new Date() })
+    .values({
+      name,
+      slug,
+      forceOtp: data.forceOtp === true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
     .onConflictDoNothing()
     .returning();
 
@@ -106,7 +122,12 @@ export async function createOrganizationAdmin(
 
 export async function getOrganizationAdmin(context: Context, organizationId: string) {
   const [organization] = await context.db
-    .select({ id: organizations.id, slug: organizations.slug, name: organizations.name })
+    .select({
+      id: organizations.id,
+      slug: organizations.slug,
+      name: organizations.name,
+      forceOtp: organizations.forceOtp,
+    })
     .from(organizations)
     .where(eq(organizations.id, organizationId))
     .limit(1);
@@ -391,13 +412,16 @@ export async function removeOrganizationMemberAdmin(
 export async function updateOrganizationAdmin(
   context: Context,
   organizationId: string,
-  data: { name?: string; slug?: string }
+  data: { name?: string; slug?: string; forceOtp?: boolean }
 ) {
-  const updates: { name?: string; slug?: string; updatedAt: Date } = { updatedAt: new Date() };
+  const updates: { name?: string; slug?: string; forceOtp?: boolean; updatedAt: Date } = {
+    updatedAt: new Date(),
+  };
   if (typeof data.name === "string") updates.name = data.name.trim();
   if (typeof data.slug === "string") updates.slug = data.slug.trim().toLowerCase();
+  if (typeof data.forceOtp === "boolean") updates.forceOtp = data.forceOtp;
 
-  if (!updates.name && !updates.slug) {
+  if (!updates.name && !updates.slug && updates.forceOtp === undefined) {
     throw new ValidationError("No updates provided");
   }
 

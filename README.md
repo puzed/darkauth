@@ -11,11 +11,11 @@ DarkAuth is open source and self-hosted. There is no paid plan, subscription, or
 - **Zero-Knowledge Password Auth**: OPAQUE protocol ensures passwords never reach the server
 - **OIDC Compatible**: Standard OAuth 2.0/OpenID Connect for universal compatibility
 - **Zero-Knowledge DRK Delivery**: Optional fragment-based JWE delivery for trusted clients
-- **TOTP MFA**: Time-based one-time passwords for users and admins with backup codes, rate limits, and per-group enforcement
+- **TOTP MFA**: Time-based one-time passwords for users and admins with backup codes, rate limits, and per-organization enforcement
 - **Database-Backed Configuration**: Most settings stored in PostgreSQL; minimal `config.yaml` for bootstrap
 - **Two-Port Architecture**: Separate ports for user (9080) and admin (9081). First-run installer is served on the admin port until setup completes.
 - **Secure Key Storage**: Optional encryption of private keys at rest using Argon2id-derived KEK
-- **RBAC Support**: Fine-grained permissions and groups for users
+- **RBAC Support**: Fine-grained permissions and organization-scoped roles for users
 - **Production Ready**: CSP headers, rate limiting, session management
 
 ## Quick Start
@@ -274,7 +274,7 @@ Authorization codes are short-lived and single-use. Redemption at the token endp
 
 Refresh tokens are stored hashed at rest and rotated as single-use credentials. Rotation is enforced atomically so concurrent redemption attempts cannot both succeed.
 
-When OTP is enabled and required, login creates a partial session with `data.otp_required=true`. After successful OTP verification, the session includes `data.otp_verified=true`. AMR includes `otp` and ACR is `urn:ietf:params:acr:mfa`.
+When OTP is enabled and required by the user organization policy (`organizations.force_otp=true`), login creates a partial session with `data.otp_required=true`. After successful OTP verification, the session includes `data.otp_verified=true`. AMR includes `otp` and ACR is `urn:ietf:params:acr:mfa`.
 
 ### Admin API (Port 9081)
 - `/api/admin/users` - User management
@@ -354,7 +354,7 @@ npm run test:debug
 5. **CSP Headers** - Strict Content Security Policy enforced
 6. **Rate limiting** - Configurable per endpoint
 7. **Session security** - Short-lived sessions with CSRF protection
-8. **OTP hardening** - Secrets encrypted with KEK, backup codes hashed with Argon2, anti-replay via timestep tracking, cohort/group enforcement, AMR/ACR reflect MFA
+8. **OTP hardening** - Secrets encrypted with KEK, backup codes hashed with Argon2, anti-replay via timestep tracking, cohort/organization enforcement, AMR/ACR reflect MFA
 
 ## Support
 

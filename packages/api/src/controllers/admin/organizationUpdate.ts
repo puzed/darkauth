@@ -9,13 +9,25 @@ import { withAudit } from "../../utils/auditWrapper.ts";
 import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 const RequestSchema = z
-  .object({ name: z.string().min(1).optional(), slug: z.string().min(1).optional() })
-  .refine((data) => data.name !== undefined || data.slug !== undefined, {
-    message: "Provide at least one field",
-  });
+  .object({
+    name: z.string().min(1).optional(),
+    slug: z.string().min(1).optional(),
+    forceOtp: z.boolean().optional(),
+  })
+  .refine(
+    (data) => data.name !== undefined || data.slug !== undefined || data.forceOtp !== undefined,
+    {
+      message: "Provide at least one field",
+    }
+  );
 
 const ResponseSchema = z.object({
-  organization: z.object({ id: z.string().uuid(), slug: z.string(), name: z.string() }),
+  organization: z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    name: z.string(),
+    forceOtp: z.boolean(),
+  }),
 });
 
 const handler = async (

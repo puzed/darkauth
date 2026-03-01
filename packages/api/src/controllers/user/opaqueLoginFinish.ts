@@ -1,12 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import {
-  opaqueLoginSessions,
-  organizationMemberRoles,
-  organizationMembers,
-  roles,
-} from "../../db/schema.ts";
+import { opaqueLoginSessions } from "../../db/schema.ts";
 import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
@@ -121,32 +116,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
       }
 
-      let otpRequired = false;
-      const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
-      if (
-        s &&
-        typeof s === "object" &&
-        (s as { require_for_users?: boolean }).require_for_users === true
-      ) {
-        otpRequired = true;
-      }
-      const rows = await context.db
-        .select({ roleKey: roles.key })
-        .from(organizationMembers)
-        .innerJoin(
-          organizationMemberRoles,
-          eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
-        )
-        .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
-        .where(
-          and(
-            eq(organizationMembers.userSub, user.sub),
-            eq(organizationMembers.status, "active"),
-            eq(roles.key, "otp_required")
-          )
-        )
-        .limit(1);
-      if (rows.length > 0) otpRequired = true;
+      const otpRequired = activeMemberships.some((membership) => membership.forceOtp);
 
       const sessionOrganization =
         activeMemberships.length === 1

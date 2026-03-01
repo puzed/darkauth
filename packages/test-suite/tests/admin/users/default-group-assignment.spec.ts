@@ -3,8 +3,9 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../.
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
+import { getDefaultOrganizationId } from '../../../setup/helpers/rbac.js';
 
-test.describe('Admin - Default group assignment', () => {
+test.describe('Admin - Default organization membership', () => {
   let servers: TestServers;
 
   test.beforeAll(async () => {
@@ -22,7 +23,7 @@ test.describe('Admin - Default group assignment', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('new users get Default group automatically', async () => {
+  test('new users get default organization membership automatically', async () => {
     const user = { email: `auto-default-${Date.now()}@example.com`, password: 'Passw0rd!auto', name: 'Auto Default' };
     const { sub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
 
@@ -30,12 +31,13 @@ test.describe('Admin - Default group assignment', () => {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password,
     });
-    const res = await fetch(`${servers.adminUrl}/admin/users/${encodeURIComponent(sub)}/groups`, {
+    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    const res = await fetch(`${servers.adminUrl}/admin/organizations/${defaultOrganizationId}/members`, {
       headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
     });
     expect(res.ok).toBeTruthy();
-    const json = await res.json() as { userGroups: Array<{ key: string }> };
-    const keys = json.userGroups.map(g => g.key);
-    expect(keys).toContain('default');
+    const json = await res.json() as { members: Array<{ userSub: string; status: string }> };
+    const member = json.members.find((entry) => entry.userSub === sub);
+    expect(member?.status).toBe('active');
   });
 });

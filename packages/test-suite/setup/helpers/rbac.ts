@@ -34,21 +34,6 @@ export async function getDefaultOrganizationId(
   return org.id;
 }
 
-export async function getRoleIdByKey(
-  servers: TestServers,
-  adminSession: AdminSession,
-  roleKey: string
-): Promise<string> {
-  const res = await fetch(`${servers.adminUrl}/admin/roles`, {
-    headers: adminHeaders(servers, adminSession),
-  });
-  if (!res.ok) throw new Error(`failed to list roles: ${res.status}`);
-  const json = (await res.json()) as { roles: Array<{ id: string; key: string }> };
-  const role = json.roles.find((item) => item.key === roleKey);
-  if (!role) throw new Error(`role not found: ${roleKey}`);
-  return role.id;
-}
-
 export async function getOrganizationMemberIdForUser(
   servers: TestServers,
   adminSession: AdminSession,
@@ -110,4 +95,18 @@ export async function removeOrganizationMember(
     },
   });
   if (!res.ok) throw new Error(`failed to remove organization member: ${res.status}`);
+}
+
+export async function setOrganizationForceOtp(
+  servers: TestServers,
+  adminSession: AdminSession,
+  organizationId: string,
+  forceOtp: boolean
+): Promise<void> {
+  const res = await fetch(`${servers.adminUrl}/admin/organizations/${organizationId}`, {
+    method: 'PUT',
+    headers: adminWriteHeaders(servers, adminSession),
+    body: JSON.stringify({ forceOtp }),
+  });
+  if (!res.ok) throw new Error(`failed to update organization force OTP: ${res.status}`);
 }

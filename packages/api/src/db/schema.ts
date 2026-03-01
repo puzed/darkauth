@@ -262,6 +262,7 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
+  forceOtp: boolean("force_otp").default(false).notNull(),
   createdByUserSub: text("created_by_user_sub").references(() => users.sub, {
     onDelete: "set null",
   }),
