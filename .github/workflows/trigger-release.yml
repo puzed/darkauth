@@ -211,7 +211,7 @@ jobs:
       - run: npm run build -w @darkauth/client
       - id: client_version
         run: |
-          echo "version=$(npm pkg get version -w @darkauth/client | tr -d '\"')" >> "$GITHUB_OUTPUT"
+          echo "version=$(node -p \"require('./packages/darkauth-client/package.json').version\")" >> "$GITHUB_OUTPUT"
       - id: published
         env:
           VERSION: ${{ steps.client_version.outputs.version }}
