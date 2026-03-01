@@ -70,6 +70,14 @@
   font-size: 1rem;
 }
 
+.clientCheckLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  color: var(--gray-500);
+}
+
 .errorMessage {
   display: flex;
   align-items: flex-start;
@@ -240,4 +248,8 @@
 [data-da-theme="dark"] .loadingSpinner {
   border-color: var(--gray-300);
   border-top-color: currentColor;
+}
+
+.clientCheckLoading .loadingSpinner {
+  margin-right: 0;
 }
