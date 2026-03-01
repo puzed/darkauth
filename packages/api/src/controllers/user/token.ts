@@ -28,6 +28,7 @@ import type {
   TokenResponse,
 } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
+import { resolveClientScopeKeys } from "../../utils/clientScopes.ts";
 import { constantTimeCompare } from "../../utils/crypto.ts";
 import {
   decodeBasicAuth,
@@ -374,7 +375,7 @@ export const postToken = withRateLimit("token")(
         }
         await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
 
-        const allowedScopes = Array.isArray(client.scopes) ? client.scopes : [];
+        const allowedScopes = resolveClientScopeKeys(client.scopes);
         const grantedScopes = resolveGrantedScopes(allowedScopes, tokenRequest.scope);
 
         let accessTokenTtl = 600;
