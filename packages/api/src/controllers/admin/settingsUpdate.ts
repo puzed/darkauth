@@ -25,6 +25,7 @@ const ALLOWED_SETTINGS = [
   "public_origin",
   "rp_id",
   "users",
+  "email",
   "ui_user",
   "ui_admin",
   "ui_demo",
@@ -70,13 +71,20 @@ async function updateSettingsHandler(
     validateRateLimitsSettings(data.value);
   } else if (data.key === "security") {
     validateSecuritySettings(data.value);
+  } else if (data.key === "email.smtp.port") {
+    validateSmtpPort(data.value);
+  } else if (data.key === "email.verification.token_ttl_minutes") {
+    validateVerificationTtl(data.value);
+  } else if (data.key === "email.smtp.enabled") {
+    await validateSmtpEnable(context, data.value);
   }
 
   // Get the old value for audit logging
   const oldValue = await getSetting(context, data.key);
 
   // Update the setting
-  await setSetting(context, data.key, data.value);
+  const secure = data.key === "email.smtp.password";
+  await setSetting(context, data.key, data.value, secure);
 
   if (
     data.key === "rate_limits" ||
@@ -94,6 +102,53 @@ async function updateSettingsHandler(
     oldValue,
     newValue: data.value,
   });
+}
+
+function validateSmtpPort(value: unknown): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 65535) {
+    throw new ValidationError("SMTP port must be between 1 and 65535");
+  }
+}
+
+function validateVerificationTtl(value: unknown): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 5 || value > 10080) {
+    throw new ValidationError("Verification token TTL must be between 5 and 10080 minutes");
+  }
+}
+
+async function validateSmtpEnable(context: Context, value: unknown): Promise<void> {
+  if (typeof value !== "boolean") {
+    throw new ValidationError("SMTP enabled must be a boolean");
+  }
+  if (!value) return;
+
+  const [from, transport, host, port, user, password] = await Promise.all([
+    getSetting(context, "email.from"),
+    getSetting(context, "email.transport"),
+    getSetting(context, "email.smtp.host"),
+    getSetting(context, "email.smtp.port"),
+    getSetting(context, "email.smtp.user"),
+    getSetting(context, "email.smtp.password"),
+  ]);
+
+  const fromText = typeof from === "string" ? from.trim() : "";
+  const transportText = typeof transport === "string" ? transport.trim() : "";
+  const hostText = typeof host === "string" ? host.trim() : "";
+  const userText = typeof user === "string" ? user.trim() : "";
+  const passwordText = typeof password === "string" ? password : "";
+  const portNumber = typeof port === "number" ? port : 0;
+  if (
+    !fromText ||
+    !transportText ||
+    !hostText ||
+    !userText ||
+    !passwordText ||
+    !Number.isInteger(portNumber) ||
+    portNumber < 1 ||
+    portNumber > 65535
+  ) {
+    throw new ValidationError("SMTP cannot be enabled until all required SMTP fields are set");
+  }
 }
 
 interface RateLimitConfigDb {

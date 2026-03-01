@@ -4,6 +4,7 @@ import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { userOpaqueRegisterFinish } from "../../models/registration.ts";
+import { ensureRegistrationAllowedForVerification } from "../../services/emailVerification.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
 import {
   getRefreshTokenTtlSeconds,
@@ -46,6 +47,7 @@ export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
         if (!enabled) {
           throw new ForbiddenError("Self-registration disabled");
         }
+        await ensureRegistrationAllowedForVerification(context);
 
         // Read and parse request body (may be cached by rate limit middleware)
         const body = await getCachedBody(request);
@@ -81,13 +83,18 @@ export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
           email,
           name,
         });
-        const ttlSeconds = await getSessionTtlSeconds(context, "user");
-        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
-        issueSessionCookies(response, result.sessionId, ttlSeconds, false);
-        issueRefreshTokenCookie(response, result.refreshToken, refreshTtlSeconds, false);
+        if (!result.requiresEmailVerification && result.sessionId && result.refreshToken) {
+          const ttlSeconds = await getSessionTtlSeconds(context, "user");
+          const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+          issueSessionCookies(response, result.sessionId, ttlSeconds, false);
+          issueRefreshTokenCookie(response, result.refreshToken, refreshTtlSeconds, false);
+        }
         sendJson(response, 201, {
           sub: result.sub,
-          message: "User registered successfully",
+          message: result.requiresEmailVerification
+            ? "Please verify your email to continue"
+            : "User registered successfully",
+          requiresEmailVerification: result.requiresEmailVerification,
         });
       } catch (error) {
         sendError(response, error as Error);

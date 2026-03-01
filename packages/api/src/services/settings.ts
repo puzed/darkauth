@@ -141,6 +141,7 @@ export async function seedDefaultSettings(
     tags?: string[];
     defaultValue: unknown;
     value: unknown;
+    secure?: boolean;
   }> = [
     {
       key: "issuer",
@@ -160,6 +161,16 @@ export async function seedDefaultSettings(
       category: "Users",
       description: "Allow new users to sign up without invitation",
       tags: ["users"],
+      defaultValue: false,
+      value: false,
+    },
+    {
+      key: "users.require_email_verification",
+      name: "Require Email Verification",
+      type: "boolean",
+      category: "Users",
+      description: "Require users to verify their email before login completes",
+      tags: ["users", "email"],
       defaultValue: false,
       value: false,
     },
@@ -640,6 +651,87 @@ export async function seedDefaultSettings(
         require_for_users: false,
       },
     },
+    {
+      key: "email.transport",
+      name: "Email Transport",
+      type: "string",
+      category: "Email / SMTP",
+      description: "Email transport provider",
+      tags: ["email", "smtp"],
+      defaultValue: "smtp",
+      value: "smtp",
+    },
+    {
+      key: "email.from",
+      name: "From Address",
+      type: "string",
+      category: "Email / SMTP",
+      description: "From address for outgoing emails",
+      tags: ["email", "smtp"],
+      defaultValue: "",
+      value: "",
+    },
+    {
+      key: "email.smtp.host",
+      name: "SMTP Host",
+      type: "string",
+      category: "Email / SMTP",
+      description: "SMTP host",
+      tags: ["email", "smtp"],
+      defaultValue: "",
+      value: "",
+    },
+    {
+      key: "email.smtp.port",
+      name: "SMTP Port",
+      type: "number",
+      category: "Email / SMTP",
+      description: "SMTP port",
+      tags: ["email", "smtp"],
+      defaultValue: 587,
+      value: 587,
+    },
+    {
+      key: "email.smtp.user",
+      name: "SMTP User",
+      type: "string",
+      category: "Email / SMTP",
+      description: "SMTP username",
+      tags: ["email", "smtp"],
+      defaultValue: "",
+      value: "",
+    },
+    {
+      key: "email.smtp.password",
+      name: "SMTP Password",
+      type: "string",
+      category: "Email / SMTP",
+      description: "SMTP password",
+      tags: ["email", "smtp"],
+      defaultValue: "",
+      value: "",
+      secure: true,
+    },
+    {
+      key: "email.smtp.enabled",
+      name: "SMTP Enabled",
+      type: "boolean",
+      category: "Email / SMTP",
+      description: "Enable SMTP for outgoing email",
+      tags: ["email", "smtp"],
+      defaultValue: false,
+      value: false,
+    },
+    {
+      key: "email.verification.token_ttl_minutes",
+      name: "Verification Token TTL (minutes)",
+      type: "number",
+      category: "Email / Verification",
+      description: "Minutes until email verification links expire",
+      tags: ["email", "verification"],
+      defaultValue: 1440,
+      value: 1440,
+    },
   ];
 
   const brandingDefaults = {
@@ -828,6 +920,20 @@ export async function seedDefaultSettings(
   ];
 
   items.push(...brandingItems);
+  const { listTemplateDefaults } = await import("./emailTemplates.ts");
+  const templateDefaults = listTemplateDefaults();
+  for (const [templateKey, template] of Object.entries(templateDefaults)) {
+    items.push({
+      key: `email.templates.${templateKey}`,
+      name: `${templateKey} Template`,
+      type: "object",
+      category: "Email / Templates",
+      description: `Template for ${templateKey}`,
+      tags: ["email", "templates"],
+      defaultValue: template,
+      value: template,
+    });
+  }
 
   for (const s of items) {
     await context.db
@@ -841,7 +947,7 @@ export async function seedDefaultSettings(
         tags: s.tags || [],
         defaultValue: s.defaultValue,
         value: s.value,
-        secure: false,
+        secure: s.secure === true,
         updatedAt: new Date(),
       })
       .onConflictDoUpdate({
@@ -854,6 +960,7 @@ export async function seedDefaultSettings(
           tags: s.tags || [],
           defaultValue: s.defaultValue,
           value: s.value,
+          secure: s.secure === true,
           updatedAt: new Date(),
         },
       });
