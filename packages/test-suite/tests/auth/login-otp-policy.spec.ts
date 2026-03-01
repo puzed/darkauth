@@ -5,9 +5,7 @@ import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js';
 import {
   getDefaultOrganizationId,
-  getOrganizationMemberIdForUser,
-  getRoleIdByKey,
-  setOrganizationMemberRoles,
+  setOrganizationForceOtp,
 } from '../../setup/helpers/rbac.js';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { toBase64Url, fromBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
@@ -43,7 +41,6 @@ test.describe('Auth - Login OTP Policy', () => {
   let servers: TestServers;
   let adminSession: { cookieHeader: string; csrfToken: string };
   let defaultOrganizationId: string;
-  let otpRequiredRoleId: string;
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'auth-login-otp-policy' });
@@ -59,57 +56,34 @@ test.describe('Auth - Login OTP Policy', () => {
       password: FIXED_TEST_ADMIN.password,
     });
     defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
-    otpRequiredRoleId = await getRoleIdByKey(servers, adminSession, 'otp_required');
   });
 
   test.afterAll(async () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('User with otp_required role gets otpRequired=true', async () => {
+  test('User in force OTP organization gets otpRequired=true', async () => {
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
     const user = { email: `u-${Date.now()}@example.com`, name: 'User A', password: 'Passw0rd!123' };
-    const { sub } = await createUserViaAdmin(
+    await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
       user
-    );
-    const memberId = await getOrganizationMemberIdForUser(
-      servers,
-      adminSession,
-      defaultOrganizationId,
-      sub
-    );
-    await setOrganizationMemberRoles(
-      servers,
-      adminSession,
-      defaultOrganizationId,
-      memberId,
-      [otpRequiredRoleId]
     );
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(finish.otpRequired).toBe(true);
   });
 
-  test('User without otp_required role gets otpRequired=false', async () => {
+  test('User in organization without force OTP gets otpRequired=false', async () => {
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
     const user = { email: `b-${Date.now()}@example.com`, name: 'User B', password: 'Passw0rd!123' };
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(finish.otpRequired).toBe(false);
   });
 
-  test('Global otp.require_for_users=true forces otpRequired', async () => {
-    const settingsRes = await fetch(`${servers.adminUrl}/admin/settings`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: adminSession.cookieHeader,
-        Origin: servers.adminUrl,
-        'x-csrf-token': adminSession.csrfToken,
-      },
-      body: JSON.stringify({ key: 'otp', value: { require_for_users: true } }),
-    });
-    expect(settingsRes.ok).toBeTruthy();
-
+  test('Force OTP applies to subsequent logins when enabled', async () => {
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
     const user = { email: `c-${Date.now()}@example.com`, name: 'User C', password: 'Passw0rd!123' };
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);

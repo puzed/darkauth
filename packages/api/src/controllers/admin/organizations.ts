@@ -16,6 +16,7 @@ const OrganizationSchema = z.object({
   id: z.string().uuid(),
   slug: z.string(),
   name: z.string(),
+  forceOtp: z.boolean(),
   memberCount: z.number().int().nonnegative(),
 });
 

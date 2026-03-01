@@ -102,6 +102,7 @@ export interface Organization {
   organizationId: string;
   slug: string;
   name: string;
+  forceOtp: boolean;
   memberCount?: number;
   roleCount?: number;
   createdAt?: string;
@@ -619,6 +620,7 @@ class AdminApiService {
     return {
       ...raw,
       organizationId: raw.organizationId || raw.id || "",
+      forceOtp: raw.forceOtp === true,
     };
   }
 
@@ -662,7 +664,11 @@ class AdminApiService {
     return this.normalizeOrganization("organization" in data ? data.organization : data);
   }
 
-  async createOrganization(organization: { name: string; slug?: string }): Promise<Organization> {
+  async createOrganization(organization: {
+    name: string;
+    slug?: string;
+    forceOtp?: boolean;
+  }): Promise<Organization> {
     const data = await this.request<Organization | { organization: Organization }>(
       "/organizations",
       {
@@ -675,7 +681,7 @@ class AdminApiService {
 
   async updateOrganization(
     organizationId: string,
-    updates: { name?: string; slug?: string }
+    updates: { name?: string; slug?: string; forceOtp?: boolean }
   ): Promise<Organization> {
     const data = await this.request<Organization | { organization: Organization }>(
       `/organizations/${organizationId}`,

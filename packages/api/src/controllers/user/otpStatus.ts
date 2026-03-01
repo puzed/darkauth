@@ -1,9 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
-import { organizationMemberRoles, organizationMembers, roles } from "../../db/schema.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getOtpStatusModel } from "../../models/otp.ts";
+import { getUserOrganizations } from "../../models/rbac.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -17,37 +16,9 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
   ): Promise<void> {
     const session = await requireSession(context, request, false);
     const status = await getOtpStatusModel(context, "user", session.sub as string);
-    let required = !!session.otpRequired;
-    try {
-      const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
-      if (
-        s &&
-        typeof s === "object" &&
-        (s as { require_for_users?: boolean }).require_for_users === true
-      )
-        required = true;
-    } catch {}
-    if (!required) {
-      try {
-        const rows = await context.db
-          .select({ roleKey: roles.key })
-          .from(organizationMembers)
-          .innerJoin(
-            organizationMemberRoles,
-            eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
-          )
-          .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
-          .where(
-            and(
-              eq(organizationMembers.userSub, session.sub as string),
-              eq(organizationMembers.status, "active"),
-              eq(roles.key, "otp_required")
-            )
-          )
-          .limit(1);
-        required = rows.length > 0;
-      } catch {}
-    }
+    const organizations = await getUserOrganizations(context, session.sub as string);
+    const activeMemberships = organizations.filter((membership) => membership.status === "active");
+    const required = activeMemberships.some((membership) => membership.forceOtp);
     sendJson(response, 200, {
       enabled: status.enabled,
       pending: status.pending,

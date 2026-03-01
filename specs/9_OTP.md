@@ -17,8 +17,8 @@ This specification extends DarkAuth v1 with TOTP (Time-based One-Time Password) 
 - Admin ability to reset OTP for any user (admin or regular)
 - Rate-limited verification to prevent brute force
 - Anti-replay protection via timestep tracking
-- Per-group OTP requirement with admin-configurable toggle
-- Default group requires OTP by default; configurable in Admin UI
+- Per-organization OTP requirement with admin-configurable toggle
+- `organizations.force_otp` defaults to disabled for all organizations, including `default`
 
 **Security Principles:**
 - OTP secrets encrypted at rest using KEK with AAD binding
@@ -79,8 +79,7 @@ Add to `settings` table:
     "backup_codes_count": 8,
     "max_failures": 5,
     "lockout_duration_minutes": 15,
-    "require_for_admin": true, // toggleable in Admin UI; forced by default
-    "require_for_users": false  // if true, all users must have OTP
+    "require_for_admin": true // toggleable in Admin UI; forced by default
   },
   "rate_limits": {
     // ... existing rate limits
@@ -91,26 +90,23 @@ Add to `settings` table:
 
 Policy precedence when `otp.enabled = true`:
 - Admins must complete OTP when `require_for_admin = true` (default is forced `true`).
-- All users must complete OTP when `require_for_users = true`.
-- Otherwise, OTP is required when any login-enabled group requires OTP.
+- Users must complete OTP when any active organization membership has `organizations.force_otp = true`.
 
-Group evaluation only considers groups where `enable_login = true`.
+### 2.3 Organization Policy Extension
 
-### 2.3 Group Policy Extension
-
-Add per-group OTP requirement toggle.
+Add per-organization OTP requirement toggle.
 
 Schema:
 ```
-ALTER TABLE groups ADD COLUMN require_otp boolean NOT NULL DEFAULT false;
+ALTER TABLE organizations ADD COLUMN force_otp boolean NOT NULL DEFAULT false;
 ```
 
 Seeding:
-- Ensure the `Default` group exists and set `require_otp = true` by default.
+- Ensure the `default` organization exists; `force_otp` remains `false` by default.
 
 Behavior:
-- On login, if the user is a member of any group with `enable_login = true` and `require_otp = true`, OTP is required.
-- A single matching group is sufficient to require OTP.
+- On login, if the user has any active membership in an organization with `force_otp = true`, OTP is required.
+- Any matching organization is sufficient to require OTP.
 
 ---
 

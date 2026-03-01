@@ -17,6 +17,7 @@ This model supports:
 - different roles for the same user in different organizations
 - role reuse across organizations
 - standard least-privilege permission checks
+- organization-level OTP enforcement (`organizations.force_otp`)
 
 ## Why This Change
 
@@ -56,6 +57,16 @@ For multi-tenant SaaS, the standard pattern is org-scoped RBAC:
 - `role_permissions`
 - `organization_member_roles`
 
+## Organization Security Policy
+
+OTP enforcement is organization-level, not role-level.
+
+- Every organization has `force_otp` (boolean).
+- `force_otp` default is `false` for all organizations.
+- If `force_otp = true`, every active member of that organization must complete OTP.
+- The `default` organization may enable `force_otp`, but it is not enabled automatically unless explicitly set.
+- The `otp_required` role is not part of this model.
+
 ## Relationships
 
 - User ↔ Organization:
@@ -71,6 +82,7 @@ many-to-many via `organization_member_roles`.
 - `id` `uuid` pk
 - `slug` `text` unique
 - `name` `text` not null
+- `force_otp` `boolean` not null default `false`
 - `created_by_user_sub` `text` nullable fk `users.sub`
 - `created_at`, `updated_at`
 
@@ -119,7 +131,10 @@ Given `(user_sub, organization_id)`:
 2. Resolve roles through `organization_member_roles`.
 3. Resolve permissions through `role_permissions`.
 4. Effective permission set is union of role permissions.
-5. Deny if no active membership.
+5. Resolve OTP requirement from `organizations.force_otp`.
+6. Deny if no active membership.
+
+OTP requirement is determined only by organization policy in the selected org context.
 
 ## OAuth/OIDC Behavior
 
@@ -169,6 +184,7 @@ Authorization rule:
 
 Admin portal remains control-plane and gets organization-aware endpoints:
 - org CRUD and search
+- org security policy update (including `force_otp`)
 - role CRUD
 - role-permission mapping
 - member-role assignment
@@ -188,16 +204,20 @@ Admin portal remains control-plane and gets organization-aware endpoints:
 - convert existing `groups` to `roles` one-time map.
 - convert existing `user_groups` assignments to membership-role assignments in bootstrap org.
 - convert existing `group_permissions` to `role_permissions`.
+- set `organizations.force_otp = false` by default for all orgs.
 
 ## Phase 2: Cutover
 
 - switch resolvers, APIs, and token claims to org-scoped model.
 - enforce org context rules.
+- remove `otp_required` role checks from auth gating.
+- require OTP when selected org has `force_otp = true`.
 
 ## Phase 3: Legacy Removal
 
 - remove legacy groups-based auth paths and tables.
 - keep optional data archive/export before destructive drops.
+- remove `otp_required` seed role and related assignment logic.
 ## Security Requirements
 
 - enforce server-side org membership on every org-scoped endpoint.
@@ -232,6 +252,7 @@ auth denies by reason, org-context-missing count, org resolver latency.
 - user can belong to multiple organizations.
 - same user can hold different roles in different organizations.
 - permission checks are org-scoped when flag enabled.
+- OTP requirement is org-scoped via `organizations.force_otp`, defaulting to disabled.
 - token claims include org context and org-scoped permissions.
 - no legacy auth fallback remains after cutover.
 - no cross-org data leakage in API tests.
@@ -267,6 +288,7 @@ Parallelization:
 - [ ] Add resolver feature flag switching for controlled rollout of org-scoped mode.
 - [ ] Add token claim enrichment for org context and org-scoped permissions.
 - [ ] Add org-context required handling (`ORG_CONTEXT_REQUIRED`).
+- [ ] Replace role-based OTP enforcement with `organizations.force_otp` policy check.
 - [ ] Add telemetry for resolver latency and authorization denials.
 
 Parallelization:
@@ -278,6 +300,7 @@ Parallelization:
 - [ ] Add user controllers/models for organization list/create/get.
 - [ ] Add member list and invite endpoints.
 - [ ] Add role assignment/removal endpoints at membership scope.
+- [ ] Add organization settings read endpoint exposing `force_otp` for members.
 - [ ] Add request/response schemas and OpenAPI registration.
 - [ ] Add audit logging for all org and membership mutations.
 
@@ -289,8 +312,10 @@ Parallelization:
 
 - [ ] Add admin API endpoints for org management and role templates.
 - [ ] Add admin API endpoints for role-permission mapping.
+- [ ] Add admin API endpoint to update `organizations.force_otp`.
 - [ ] Add admin UI pages for organizations, members, roles, and permissions.
 - [ ] Add admin UI actions for assigning roles to org members.
+- [ ] Add admin UI toggle for Force OTP in organization settings.
 - [ ] Add safeguards for destructive role/org operations.
 
 Parallelization:
@@ -314,6 +339,7 @@ Parallelization:
 - [ ] Add controller tests for org APIs and authorization boundaries.
 - [ ] Add token tests validating org-scoped claims.
 - [ ] Add migration/backfill tests with idempotency checks.
+- [ ] Replace `otp_required` role tests with org `force_otp` policy tests.
 - [ ] Add cross-org isolation tests (deny reads/writes across orgs).
 
 Parallelization:

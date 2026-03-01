@@ -8,7 +8,12 @@ import type { Context, ControllerSchema } from "../../types.ts";
 import { sendJsonValidated } from "../../utils/http.ts";
 
 const ResponseSchema = z.object({
-  organization: z.object({ id: z.string().uuid(), slug: z.string(), name: z.string() }),
+  organization: z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    name: z.string(),
+    forceOtp: z.boolean(),
+  }),
   members: z.array(
     z.object({
       id: z.string().uuid(),

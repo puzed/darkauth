@@ -92,6 +92,13 @@
       "when": 1772323200000,
       "tag": "0014_client_access_token_ttl",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1772393344715,
+      "tag": "0015_org_force_otp",
+      "breakpoints": true
     }
   ]
 }

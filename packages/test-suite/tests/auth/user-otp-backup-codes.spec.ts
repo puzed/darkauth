@@ -5,9 +5,7 @@ import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession, establishUserSession } from '../../setup/helpers/auth.js';
 import {
   getDefaultOrganizationId,
-  getOrganizationMemberIdForUser,
-  getRoleIdByKey,
-  setOrganizationMemberRoles,
+  setOrganizationForceOtp,
 } from '../../setup/helpers/rbac.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
@@ -31,7 +29,7 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
 
   test('Setup via UI shows backup codes; a code works on /otp/verify', async ({ page }) => {
     const user = { email: `bc-${Date.now()}@example.com`, name: 'Backup Codes', password: 'Passw0rd!123' };
-    const created = await createUserViaAdmin(
+    await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
       user
@@ -60,20 +58,7 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
       password: FIXED_TEST_ADMIN.password,
     });
     const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
-    const otpRequiredRoleId = await getRoleIdByKey(servers, adminSession, 'otp_required');
-    const memberId = await getOrganizationMemberIdForUser(
-      servers,
-      adminSession,
-      defaultOrganizationId,
-      created.sub
-    );
-    await setOrganizationMemberRoles(
-      servers,
-      adminSession,
-      defaultOrganizationId,
-      memberId,
-      [otpRequiredRoleId]
-    );
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
 
     await page.context().clearCookies();
     await establishUserSession(page.context(), servers, { email: user.email, password: user.password });
@@ -84,5 +69,6 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     await page.fill('input[placeholder="1234-5678-9ABC"]', backupCode!.trim());
     await page.getByRole('button', { name: /^Verify$/i }).click();
     await page.waitForURL(/dashboard/i, { timeout: 10000 });
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
   });
 });
