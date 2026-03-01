@@ -128,6 +128,7 @@ export default function Dashboard() {
   }, [load]);
 
   const zkEnabledClients = clients.filter((c) => c.zkDelivery !== "none").length;
+  const activeSigningKeys = jwks?.keys.filter((key) => !key.rotatedAt).length || 0;
 
   const formatEventType = (eventType: string | undefined) => {
     if (!eventType) return "Unknown";
@@ -249,8 +250,8 @@ export default function Dashboard() {
         <StatsCard
           title="Active Keys"
           icon={<KeyRound size={16} />}
-          value={jwks?.keys.length || 0}
-          description="JWKS entries"
+          value={activeSigningKeys}
+          description="Current signing keys"
         />
       </StatsGrid>
 

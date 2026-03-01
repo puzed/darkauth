@@ -70,6 +70,8 @@ export default function Keys() {
   };
 
   const allKeys = jwks?.keys || [];
+  const activeKeys = allKeys.filter((key) => !key.rotatedAt);
+  const activeKid = activeKeys[0]?.kid || jwks?.activeKid || "-";
 
   const filteredAndSorted = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -124,8 +126,8 @@ export default function Keys() {
         <StatsCard
           title="Active Keys"
           icon={<Shield size={16} />}
-          value={jwks ? 1 : 0}
-          description={`Active kid: ${jwks?.activeKid || "-"}`}
+          value={activeKeys.length}
+          description={`Active kid: ${activeKid}`}
         />
       </StatsGrid>
 
@@ -201,7 +203,7 @@ export default function Keys() {
                       <Badge>{key.use}</Badge>
                     </TableCell>
                     <TableCell>
-                      {jwks?.activeKid === key.kid ? (
+                      {!key.rotatedAt ? (
                         <Badge>Active</Badge>
                       ) : (
                         <Badge variant="secondary">Inactive</Badge>
@@ -215,26 +217,34 @@ export default function Keys() {
                             key: "export",
                             label: "Export Public Key",
                             icon: <Download size={16} />,
-                            onClick: () => {},
+                            onClick: () => {
+                              const jwk = {
+                                kid: key.kid,
+                                alg: key.alg,
+                                use: key.use,
+                                kty: key.kty,
+                                ...(key.crv ? { crv: key.crv } : {}),
+                                ...(key.x ? { x: key.x } : {}),
+                                ...(key.y ? { y: key.y } : {}),
+                              };
+                              const blob = new Blob([JSON.stringify(jwk, null, 2)], {
+                                type: "application/json",
+                              });
+                              const url = URL.createObjectURL(blob);
+                              const anchor = document.createElement("a");
+                              anchor.href = url;
+                              anchor.download = `darkauth-jwk-${key.kid}.json`;
+                              document.body.appendChild(anchor);
+                              anchor.click();
+                              document.body.removeChild(anchor);
+                              URL.revokeObjectURL(url);
+                            },
                           },
                           {
                             key: "copy",
                             label: "Copy Key ID",
                             icon: <Copy size={16} />,
                             onClick: () => navigator.clipboard.writeText(key.kid),
-                          },
-                          {
-                            key: "activate",
-                            label: "Activate Key",
-                            onClick: () => {},
-                            disabled: true,
-                          },
-                          {
-                            key: "revoke",
-                            label: "Revoke Key",
-                            destructive: true,
-                            onClick: () => {},
-                            disabled: true,
                           },
                         ]}
                       />
