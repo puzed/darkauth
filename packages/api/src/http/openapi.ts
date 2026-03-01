@@ -15,6 +15,11 @@ import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDe
 import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.ts";
 import { schema as adminClientsSchema } from "../controllers/admin/clients.ts";
 import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.ts";
+import {
+  getSchema as adminEmailTemplatesGetSchema,
+  putSchema as adminEmailTemplatesPutSchema,
+} from "../controllers/admin/emailTemplates.ts";
+import { schema as adminEmailTestSchema } from "../controllers/admin/emailTest.ts";
 import { schema as adminJwksSchema } from "../controllers/admin/jwks.ts";
 import { schema as adminJwksRotateSchema } from "../controllers/admin/jwksRotate.ts";
 import { schema as adminLogoutSchema } from "../controllers/admin/logout.ts";
@@ -66,6 +71,8 @@ import { schema as adminUsersSchema } from "../controllers/admin/users.ts";
 import { schema as adminUserUpdateSchema } from "../controllers/admin/userUpdate.ts";
 import { schema as userAuthorizeSchema } from "../controllers/user/authorize.ts";
 import { schema as userAuthorizeFinalizeSchema } from "../controllers/user/authorizeFinalize.ts";
+import { schema as userEmailVerificationResendSchema } from "../controllers/user/emailVerificationResend.ts";
+import { schema as userEmailVerificationVerifySchema } from "../controllers/user/emailVerificationVerify.ts";
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
 import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
 import { schema as userAppsSchema } from "../controllers/user/getUserApps.ts";
@@ -92,6 +99,7 @@ import { schema as userPasswordChangeFinishSchema } from "../controllers/user/pa
 import { schema as userPasswordChangeStartSchema } from "../controllers/user/passwordChangeStart.ts";
 import { schema as userPasswordChangeVerifyFinishSchema } from "../controllers/user/passwordChangeVerifyFinish.ts";
 import { schema as userPasswordChangeVerifyStartSchema } from "../controllers/user/passwordChangeVerifyStart.ts";
+import { schema as userProfileEmailSchema } from "../controllers/user/profileEmailUpdate.ts";
 import { schema as userSessionSchema } from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
 import {
@@ -156,6 +164,9 @@ const documentedSchemas: ControllerSchema[] = [
   adminPermissionDeleteSchema,
   adminSettingsSchema,
   adminSettingsUpdateSchema,
+  adminEmailTestSchema,
+  adminEmailTemplatesGetSchema,
+  adminEmailTemplatesPutSchema,
   adminUserCreateSchema,
   adminUserUpdateSchema,
   adminUserDeleteSchema,
@@ -186,6 +197,8 @@ const documentedSchemas: ControllerSchema[] = [
   userOpaqueLoginFinishSchema,
   userOpaqueRegisterStartSchema,
   userOpaqueRegisterFinishSchema,
+  userEmailVerificationResendSchema,
+  userEmailVerificationVerifySchema,
   userOrganizationsSchema,
   userCreateOrganizationSchema,
   userOrganizationSchema,
@@ -197,6 +210,7 @@ const documentedSchemas: ControllerSchema[] = [
   userPasswordChangeFinishSchema,
   userPasswordChangeVerifyStartSchema,
   userPasswordChangeVerifyFinishSchema,
+  userProfileEmailSchema,
   userEncPublicGetSchema,
   userEncPublicPutSchema,
   userWrappedDrkSchema,

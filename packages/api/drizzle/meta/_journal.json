@@ -99,6 +99,13 @@
       "when": 1772393344715,
       "tag": "0015_org_force_otp",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1772445600000,
+      "tag": "0016_email_verification",
+      "breakpoints": true
     }
   ]
 }

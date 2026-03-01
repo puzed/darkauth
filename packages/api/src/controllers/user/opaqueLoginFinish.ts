@@ -106,6 +106,18 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       if (!user) {
         throw new UnauthorizedError("Authentication failed");
       }
+      const requireEmailVerification =
+        (await getSetting(context, "users.require_email_verification")) === true;
+      if (requireEmailVerification && !user.emailVerifiedAt) {
+        sendJson(response, 403, {
+          error: "Please verify your email to continue",
+          code: "EMAIL_UNVERIFIED",
+          unverified: true,
+          resendAllowed: true,
+          email: user.email || userEmail,
+        });
+        return;
+      }
 
       const { getUserOrganizations } = await import("../../models/rbac.ts");
       const organizations = await getUserOrganizations(context, user.sub);
