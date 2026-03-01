@@ -263,9 +263,15 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
     <div className={styles.authContainer}>
       <h2 className={styles.formTitle}>{branding.getText("welcomeBack", "Welcome back")}</h2>
       {clientCheckLoading ? (
-        <div className={styles.errorMessage}>Checking sign-in configuration...</div>
+        <div className={styles.clientCheckLoading} data-testid="client-check-loading">
+          <span className={styles.loadingSpinner} />
+        </div>
       ) : null}
-      {clientCheckError ? <div className={styles.errorMessage}>{clientCheckError}</div> : null}
+      {clientCheckError ? (
+        <div className={styles.errorMessage} data-testid="client-check-error">
+          {clientCheckError}
+        </div>
+      ) : null}
 
       {!clientCheckLoading && !clientCheckError ? (
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
