@@ -6,6 +6,7 @@ on:
 permissions:
   contents: write
   packages: write
+  id-token: write
 
 jobs:
   release:
@@ -186,3 +187,39 @@ jobs:
             -t "${IMAGE}:${TAG}" \
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
+
+  publish-darkauth-client:
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.no_release != 'true'
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - id: release_version
+        run: echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+      - run: npm version ${{ steps.release_version.outputs.value }} --no-git-tag-version -w @darkauth/client
+      - run: npm run build -w @darkauth/client
+      - id: client_version
+        run: |
+          echo "version=$(npm pkg get version -w @darkauth/client | tr -d '\"')" >> "$GITHUB_OUTPUT"
+      - id: published
+        env:
+          VERSION: ${{ steps.client_version.outputs.version }}
+        run: |
+          if npm view @darkauth/client@"$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.published.outputs.exists != 'true'
+        run: npm publish -w @darkauth/client --provenance --access public
