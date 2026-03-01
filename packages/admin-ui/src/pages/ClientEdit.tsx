@@ -236,13 +236,13 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         dashboardIconEmoji:
           form.dashboardIconMode === "emoji"
             ? form.dashboardIconEmoji.trim() || DEFAULT_DASHBOARD_EMOJI
-            : null,
+            : undefined,
         dashboardIconLetter:
           form.dashboardIconMode === "letter"
             ? form.dashboardIconLetter.trim() || DEFAULT_DASHBOARD_LETTER
-            : null,
+            : undefined,
         dashboardIconUpload:
-          form.dashboardIconMode === "upload" ? form.dashboardIconUpload || undefined : null,
+          form.dashboardIconMode === "upload" ? form.dashboardIconUpload || undefined : undefined,
         redirectUris: parseList(form.redirectUris),
         postLogoutRedirectUris: parseList(form.postLogoutRedirectUris),
         grantTypes: parseList(form.grantTypes),
