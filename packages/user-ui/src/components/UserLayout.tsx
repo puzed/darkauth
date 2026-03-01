@@ -22,6 +22,8 @@ export default function UserLayout({
   children,
 }: UserLayoutProps) {
   const branding = useBranding();
+  const logoUrl = branding.getLogoUrl();
+  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -40,9 +42,9 @@ export default function UserLayout({
         <div className={styles.headerContent}>
           <Link to="/" className={styles.brand}>
             <img
-              src={branding.getLogoUrl()}
+              src={logoUrl}
               alt={branding.getTitle()}
-              className={branding.getLogoUrl() === "/favicon.svg" ? styles.defaultLogo : ""}
+              className={isDefaultLogo ? styles.defaultLogo : ""}
             />
             <h1>{branding.getTitle()}</h1>
           </Link>
