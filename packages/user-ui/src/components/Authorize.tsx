@@ -47,6 +47,7 @@ interface AuthorizeProps {
     requestId: string;
     clientName: string;
     scopes: string[];
+    scopeDescriptions?: Record<string, string>;
     hasZk: boolean;
   };
   sessionData: { sub: string; name?: string; email?: string };
@@ -72,6 +73,8 @@ export default function Authorize({
   const currentPasswordId = useId();
   const oldPasswordId = useId();
   const appName = authRequest.clientName || "Application";
+  const hasZkDeliveryScope =
+    authRequest.hasZk && new URL(window.location.href).searchParams.has("zk_pub");
 
   const generateZkKeyPair = useCallback(async () => {
     try {
@@ -93,16 +96,18 @@ export default function Authorize({
   const getScopeInfo = (scope: string): ScopeInfo => {
     const info = SCOPE_DESCRIPTIONS[scope];
     if (info) {
+      const customDescription = authRequest.scopeDescriptions?.[scope];
       return {
         ...info,
-        description: info.textKey
-          ? branding.getText(info.textKey, info.description)
-          : info.description,
+        description:
+          customDescription ||
+          (info.textKey ? branding.getText(info.textKey, info.description) : info.description),
       };
     }
+    const customDescription = authRequest.scopeDescriptions?.[scope];
     return {
       scope,
-      description: `Access your ${scope} information`,
+      description: customDescription || `Access your ${scope} information`,
       icon: "🔐",
     };
   };
@@ -496,18 +501,25 @@ export default function Authorize({
         </div>
 
         <div className="authorize-scopes da-authorize-scopes">
-          <h3>Permissions</h3>
-          {authRequest.scopes.length === 0 ? (
+          <h3>Scopes</h3>
+          {authRequest.scopes.length === 0 && !hasZkDeliveryScope ? (
             <p className="authorize-empty">No additional permissions requested.</p>
           ) : (
             <ul className="authorize-scope-list">
+              {hasZkDeliveryScope && (
+                <li className="authorize-scope-item da-authorize-scope">
+                  <span className="authorize-scope-icon">🔐</span>
+                  <div className="authorize-scope-text">
+                    <span className="authorize-scope-description">Access your encryption keys</span>
+                  </div>
+                </li>
+              )}
               {authRequest.scopes.map((scope) => {
                 const scopeInfo = getScopeInfo(scope);
                 return (
                   <li key={scope} className="authorize-scope-item da-authorize-scope">
                     <span className="authorize-scope-icon">{scopeInfo.icon}</span>
                     <div className="authorize-scope-text">
-                      <span className="authorize-scope-name">{scopeInfo.scope}</span>
                       <span className="authorize-scope-description">{scopeInfo.description}</span>
                     </div>
                   </li>
@@ -516,16 +528,6 @@ export default function Authorize({
             </ul>
           )}
         </div>
-
-        {authRequest.hasZk && (
-          <div className="authorize-flag">
-            <span className="authorize-flag-icon">🔐</span>
-            <div className="authorize-flag-text">
-              <h4>Zero-Knowledge Delivery</h4>
-              <p>Encryption keys are delivered directly to the app.</p>
-            </div>
-          </div>
-        )}
 
         {error && (
           <div className="error-message da-error-message">
