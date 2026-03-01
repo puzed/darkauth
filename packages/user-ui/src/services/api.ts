@@ -13,12 +13,10 @@ export interface OpaqueLoginStartRequest {
 
 export interface OpaqueLoginStartResponse {
   message: string;
-  sub: string;
   sessionId: string;
 }
 
 export interface OpaqueLoginFinishRequest {
-  sub: string;
   finish: string;
   sessionId: string;
 }
