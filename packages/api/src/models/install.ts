@@ -2,18 +2,14 @@ import { eq } from "drizzle-orm";
 import {
   adminOpaqueRecords,
   adminUsers,
-  clients,
   organizationMemberRoles,
   organizationMembers,
   organizations,
-  permissions,
-  rolePermissions,
   roles,
   settings,
 } from "../db/schema.ts";
 import { ConflictError, NotFoundError } from "../errors.ts";
 import type { Context } from "../types.ts";
-import { serializeClientScopeDefinitions } from "../utils/clientScopes.ts";
 
 export async function storeOpaqueAdmin(
   context: Context,
@@ -61,181 +57,6 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
   await context.db
     .insert(settings)
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
-}
-
-export function buildDefaultClientSeeds(
-  demoConfidentialSecretEnc: Buffer | null,
-  publicOrigin: string
-) {
-  const normalizedOrigin = publicOrigin.replace(/\/+$/, "");
-  return [
-    {
-      clientId: "user",
-      name: "User Portal",
-      type: "public" as const,
-      tokenEndpointAuthMethod: "none" as const,
-      clientSecretEnc: null,
-      requirePkce: true,
-      zkDelivery: "none" as const,
-      zkRequired: false,
-      allowedJweAlgs: [],
-      allowedJweEncs: [],
-      redirectUris: [`${normalizedOrigin}/callback`],
-      postLogoutRedirectUris: [normalizedOrigin],
-      grantTypes: ["authorization_code", "refresh_token"],
-      responseTypes: ["code"],
-      scopes: serializeClientScopeDefinitions([
-        { key: "openid", description: "Authenticate you" },
-        { key: "profile", description: "Access your profile information" },
-        { key: "email", description: "Access your email address" },
-      ]),
-      allowedZkOrigins: [normalizedOrigin],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      clientId: "demo-public-client",
-      name: "Demo Public Client",
-      type: "public" as const,
-      tokenEndpointAuthMethod: "none" as const,
-      clientSecretEnc: null,
-      requirePkce: true,
-      zkDelivery: "fragment-jwe" as const,
-      zkRequired: true,
-      allowedJweAlgs: ["ECDH-ES"],
-      allowedJweEncs: ["A256GCM"],
-      redirectUris: [
-        "http://localhost:9092/",
-        "http://localhost:9092/callback",
-        "http://localhost:3000/",
-        "http://localhost:3000/callback",
-        "https://app.example.com/",
-        "https://app.example.com/callback",
-      ],
-      postLogoutRedirectUris: [
-        "http://localhost:9092/",
-        "http://localhost:3000",
-        "https://app.example.com",
-      ],
-      grantTypes: ["authorization_code", "refresh_token"],
-      responseTypes: ["code"],
-      scopes: serializeClientScopeDefinitions([
-        { key: "openid", description: "Authenticate you" },
-        { key: "profile", description: "Access your profile information" },
-        { key: "email", description: "Access your email address" },
-      ]),
-      allowedZkOrigins: [
-        "http://localhost:9092",
-        "http://localhost:3000",
-        "https://app.example.com",
-      ],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-    {
-      clientId: "demo-confidential-client",
-      name: "Demo Confidential Client",
-      type: "confidential" as const,
-      tokenEndpointAuthMethod: "client_secret_basic" as const,
-      clientSecretEnc: demoConfidentialSecretEnc,
-      requirePkce: false,
-      zkDelivery: "none" as const,
-      zkRequired: false,
-      allowedJweAlgs: [],
-      allowedJweEncs: [],
-      redirectUris: ["http://localhost:4000/callback", "https://support.example.com/callback"],
-      postLogoutRedirectUris: ["http://localhost:4000", "https://support.example.com"],
-      grantTypes: ["authorization_code", "refresh_token", "client_credentials"],
-      responseTypes: ["code"],
-      scopes: serializeClientScopeDefinitions([
-        { key: "openid", description: "Authenticate you" },
-        { key: "profile", description: "Access your profile information" },
-        {
-          key: "darkauth.users:read",
-          description: "Search and read users from the directory",
-        },
-      ]),
-      allowedZkOrigins: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    },
-  ];
-}
-
-export async function seedDefaultClients(
-  context: Context,
-  demoConfidentialSecretEnc: Buffer | null,
-  publicOrigin: string
-) {
-  await context.db
-    .insert(clients)
-    .values(buildDefaultClientSeeds(demoConfidentialSecretEnc, publicOrigin));
-}
-
-export async function seedDefaultOrganizationRbac(context: Context) {
-  const usersReadPermission = await context.db.query.permissions.findFirst({
-    where: eq(permissions.key, "darkauth.users:read"),
-  });
-  if (!usersReadPermission) {
-    await context.db.insert(permissions).values({
-      key: "darkauth.users:read",
-      description: "Allows searching and reading users from the user directory endpoints",
-    });
-  }
-  const orgManagePermission = await context.db.query.permissions.findFirst({
-    where: eq(permissions.key, "darkauth.org:manage"),
-  });
-  if (!orgManagePermission) {
-    await context.db.insert(permissions).values({
-      key: "darkauth.org:manage",
-      description: "Allows management of organization members, roles, and invites",
-    });
-  }
-
-  const existingOrg = await context.db.query.organizations.findFirst({
-    where: eq(organizations.slug, "default"),
-  });
-  if (!existingOrg) {
-    await context.db.insert(organizations).values({
-      slug: "default",
-      name: "Default",
-      forceOtp: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-
-  const defaultOrg = await context.db.query.organizations.findFirst({
-    where: eq(organizations.slug, "default"),
-  });
-  if (!defaultOrg) return;
-
-  await context.db
-    .insert(roles)
-    .values([
-      { key: "member", name: "Member", system: true, createdAt: new Date(), updatedAt: new Date() },
-      {
-        key: "org_admin",
-        name: "Organization Admin",
-        system: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ])
-    .onConflictDoNothing();
-
-  const orgAdminRole = await context.db.query.roles.findFirst({
-    where: eq(roles.key, "org_admin"),
-  });
-  if (orgAdminRole) {
-    await context.db
-      .insert(rolePermissions)
-      .values([
-        { roleId: orgAdminRole.id, permissionKey: "darkauth.org:manage" },
-        { roleId: orgAdminRole.id, permissionKey: "darkauth.users:read" },
-      ])
-      .onConflictDoNothing();
-  }
 }
 
 export async function ensureDefaultOrganizationAndSchema(context: Context) {
@@ -317,10 +138,6 @@ export async function ensureDefaultOrganizationAndSchema(context: Context) {
         created_at timestamp NOT NULL DEFAULT now()
       );`
     );
-  } catch {}
-
-  try {
-    await seedDefaultOrganizationRbac(context);
   } catch {}
 
   try {
