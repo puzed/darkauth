@@ -11,6 +11,8 @@ export default function RegisterView(props?: {
   onRegister?: (session: SessionData) => void;
 }) {
   const branding = useBranding();
+  const logoUrl = branding.getLogoUrl();
+  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
 
   return (
     <div className={styles.app}>
@@ -20,9 +22,9 @@ export default function RegisterView(props?: {
             <div className={styles.brand}>
               <span className={styles.brandIcon}>
                 <img
-                  src={branding.getLogoUrl()}
+                  src={logoUrl}
                   alt={branding.getTitle()}
-                  className={branding.getLogoUrl() === "/favicon.svg" ? styles.defaultLogo : ""}
+                  className={isDefaultLogo ? styles.defaultLogo : ""}
                 />
               </span>
               <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>

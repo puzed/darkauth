@@ -1,4 +1,4 @@
-import { Building2, Edit, Plus, RefreshCcw, Trash2, Users as UsersIcon } from "lucide-react";
+import { Building2, Edit, Plus, Trash2, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -125,16 +125,10 @@ export default function Organizations() {
         title="Organizations"
         subtitle="Manage organizations and member access"
         actions={
-          <>
-            <Button variant="outline" onClick={loadOrganizations}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/organizations/new")}>
-              <Plus />
-              Create Organization
-            </Button>
-          </>
+          <Button onClick={() => navigate("/organizations/new")}>
+            <Plus />
+            Create Organization
+          </Button>
         }
       />
 

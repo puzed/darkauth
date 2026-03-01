@@ -43,8 +43,10 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [clientCheckLoading, setClientCheckLoading] = useState(true);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
   const isPreviewMode = useMemo(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    return searchParams.get("da_preview") === "1";
+    const url = new URL(window.location.href);
+    return (
+      url.searchParams.get("da_preview") === "1" || url.pathname.endsWith("/branding/preview.html")
+    );
   }, []);
 
   const activeClientId = useMemo(() => {

@@ -1,12 +1,4 @@
-import {
-  Edit,
-  KeyRound,
-  RefreshCcw,
-  RotateCcw,
-  Trash2,
-  UserPlus,
-  Users as UsersIcon,
-} from "lucide-react";
+import { Edit, KeyRound, RotateCcw, Trash2, UserPlus, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -219,6 +211,10 @@ export default function Users() {
     navigate(`/users/${encodeURIComponent(user.sub)}`);
   };
 
+  const refreshUsers = useCallback(async () => {
+    await Promise.all([loadUsers(), loadGroupsAndPermissions()]);
+  }, [loadUsers, loadGroupsAndPermissions]);
+
   if (loading && users.length === 0) return null;
 
   return (
@@ -227,16 +223,15 @@ export default function Users() {
         title="Users"
         subtitle="Manage user accounts and permissions"
         actions={
-          <>
-            <Button variant="outline" onClick={loadUsers}>
-              <RefreshCcw />
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="outline" onClick={() => void refreshUsers()}>
               Refresh
             </Button>
             <Button onClick={() => navigate("/users/new")}>
               <UserPlus />
               Add User
             </Button>
-          </>
+          </div>
         }
       />
 
@@ -387,7 +382,7 @@ export default function Users() {
                                 {
                                   key: "otp-unlock",
                                   label: "Unlock OTP",
-                                  icon: <RefreshCcw className="h-4 w-4" />,
+                                  icon: <RotateCcw className="h-4 w-4" />,
                                   disabled: isRowActionInFlight,
                                   onClick: () => unlockOtp(user),
                                 },

@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -96,16 +95,7 @@ export default function GroupCreate() {
 
   return (
     <div>
-      <PageHeader
-        title="Create Group"
-        subtitle="Create a new user group with permissions"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/groups")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Create Group" subtitle="Create a new user group with permissions" />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -76,9 +76,6 @@ export default function UserEdit() {
     return (
       <div>
         <div>{error}</div>
-        <button type="button" onClick={() => navigate("/users")}>
-          Back
-        </button>
       </div>
     );
 
@@ -86,16 +83,7 @@ export default function UserEdit() {
 
   return (
     <div>
-      <PageHeader
-        title="Edit User"
-        subtitle={`User ID: ${sub || ""}`}
-        actions={
-          <Button variant="outline" onClick={() => navigate("/users")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Edit User" subtitle={`User ID: ${sub || ""}`} />
       <Card>
         <CardHeader>
           <CardTitle>User Details</CardTitle>
@@ -163,9 +151,6 @@ export default function UserEdit() {
                 </Button>
               </>
             )}
-            <Button variant="outline" onClick={() => navigate("/users")}>
-              Back
-            </Button>
             <Button onClick={save} disabled={submitting}>
               Save
             </Button>

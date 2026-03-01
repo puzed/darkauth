@@ -1,4 +1,4 @@
-import { Download, Eye, FileText, Filter, RefreshCcw, X } from "lucide-react";
+import { Download, Eye, FileText, Filter, X } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -195,16 +195,10 @@ export default function AuditLogs() {
         title="Audit Logs"
         subtitle="Monitor system activity and security events"
         actions={
-          <>
-            <Button variant="outline" onClick={loadAuditLogs}>
-              <RefreshCcw size={16} />
-              Refresh
-            </Button>
-            <Button variant="outline" onClick={handleExport}>
-              <Download size={16} />
-              Export CSV
-            </Button>
-          </>
+          <Button variant="outline" onClick={handleExport}>
+            <Download size={16} />
+            Export CSV
+          </Button>
         }
       />
 

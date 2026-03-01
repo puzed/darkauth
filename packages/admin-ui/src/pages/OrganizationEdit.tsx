@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, ChevronDown, UserPlus } from "lucide-react";
+import { Check, ChevronDown, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -408,7 +408,6 @@ export default function OrganizationEdit() {
     return (
       <div>
         <ErrorBanner withMargin>{error}</ErrorBanner>
-        <Button onClick={() => navigate("/organizations")}>Back to Organizations</Button>
       </div>
     );
   }
@@ -419,16 +418,7 @@ export default function OrganizationEdit() {
 
   return (
     <div>
-      <PageHeader
-        title="Manage Organization"
-        subtitle={organization.name}
-        actions={
-          <Button variant="outline" onClick={() => navigate("/organizations")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Manage Organization" subtitle={organization.name} />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

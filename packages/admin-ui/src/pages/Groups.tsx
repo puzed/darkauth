@@ -1,4 +1,4 @@
-import { Edit, Plus, RefreshCcw, Shield, Trash2, Users as UsersIcon } from "lucide-react";
+import { Edit, Plus, Shield, Trash2, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -106,16 +106,10 @@ export default function Groups() {
         title="Groups"
         subtitle="Manage user groups and their permissions"
         actions={
-          <>
-            <Button variant="outline" onClick={loadGroups}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/groups/new")}>
-              <Plus />
-              Create Group
-            </Button>
-          </>
+          <Button onClick={() => navigate("/groups/new")}>
+            <Plus />
+            Create Group
+          </Button>
         }
       />
 

@@ -50,6 +50,16 @@ import type { Context } from "../../types.ts";
 import { assertCsrf } from "../../utils/csrf.ts";
 import { sendError } from "../../utils/http.ts";
 
+function readColor(
+  colors: Record<string, string>,
+  primaryKey: string,
+  fallback: string,
+  legacyKey?: string
+): string {
+  const value = colors[primaryKey] || (legacyKey ? colors[legacyKey] : undefined) || fallback;
+  return String(value);
+}
+
 export function createUserRouter(context: Context) {
   return async function router(request: IncomingMessage, response: ServerResponse) {
     const method = request.method || "GET";
@@ -73,7 +83,9 @@ export function createUserRouter(context: Context) {
           ]);
           const c = (colors as Record<string, string>) || {};
           const cd = (colorsDark as Record<string, string>) || {};
-          const color = useDark ? cd.primary || c.primary || "#aec1e0" : c.primary || "#6600cc";
+          const color = useDark
+            ? readColor(cd, "brandColor", "#aec1e0", "primary")
+            : readColor(c, "brandColor", "#6600cc", "primary");
           const svg = getDefaultLogoSvg(color);
           response.statusCode = 200;
           response.setHeader("Content-Type", "image/svg+xml");
@@ -121,80 +133,95 @@ export function createUserRouter(context: Context) {
         const cd = (colorsDark as Record<string, string>) || {};
         const f =
           (font as { family?: string; size?: string; weight?: Record<string, string> }) || {};
+        const lightBrand = readColor(c, "brandColor", "#6600cc", "primary");
+        const lightPrimaryBg = readColor(c, "primaryBackgroundColor", lightBrand);
+        const lightPrimaryHover = readColor(c, "primaryHoverColor", lightBrand, "primaryHover");
+        const lightPrimaryLight = readColor(c, "primaryLightColor", lightPrimaryBg, "primaryLight");
+        const lightPrimaryDark = readColor(c, "primaryDarkColor", lightPrimaryBg, "primaryDark");
+        const lightText = readColor(c, "textColor", "#111827", "text");
+        const lightTextSecondary = readColor(c, "textSecondaryColor", "#6b7280", "textSecondary");
+        const lightTextMuted = readColor(c, "textMutedColor", "#9ca3af", "textMuted");
+        const lightBorder = readColor(c, "borderColor", "#e5e7eb", "border");
+        const lightBg = readColor(c, "backgroundColor", "#f3f4f6", "backgroundGradientStart");
+        const darkBrand = readColor(cd, "brandColor", "#aec1e0", "primary");
+        const darkPrimaryBg = readColor(cd, "primaryBackgroundColor", darkBrand);
+        const darkPrimaryHover = readColor(cd, "primaryHoverColor", darkBrand, "primaryHover");
+        const darkPrimaryLight = readColor(cd, "primaryLightColor", darkPrimaryBg, "primaryLight");
+        const darkText = readColor(cd, "textColor", "#f9fafb", "text");
+        const darkTextSecondary = readColor(cd, "textSecondaryColor", "#d1d5db", "textSecondary");
+        const darkTextMuted = readColor(cd, "textMutedColor", "#9ca3af", "textMuted");
+        const darkBorder = readColor(cd, "borderColor", "#374151", "border");
+        const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
         const cssVarsLight: Record<string, string> = {
-          "--da-bg-gradient-start": String(c.backgroundGradientStart || "#f3f4f6"),
-          "--da-bg-gradient-end": String(c.backgroundGradientEnd || "#eff6ff"),
+          "--da-bg-gradient-start": lightBg,
+          "--da-bg-gradient-end": String(c.backgroundGradientEnd || lightBg),
           "--da-bg-angle": String(c.backgroundAngle || "135deg"),
-          "--da-primary": String(c.primary || "#6600cc"),
-          "--da-primary-hover": String(c.primaryHover || "#2563eb"),
-          "--da-primary-light": String(c.primaryLight || "#dbeafe"),
-          "--primary-50": String(c.primaryLight || "#eef2ff"),
-          "--da-primary-dark": String(c.primaryDark || "#1d4ed8"),
+          "--da-primary": lightBrand,
+          "--da-primary-hover": lightPrimaryHover,
+          "--da-primary-light": lightPrimaryLight,
+          "--primary-50": lightPrimaryLight,
+          "--da-primary-dark": lightPrimaryDark,
           "--da-secondary": String(c.secondary || "#6b7280"),
           "--da-secondary-hover": String(c.secondaryHover || "#4b5563"),
           "--da-success": String(c.success || "#10b981"),
           "--da-error": String(c.error || "#ef4444"),
           "--da-warning": String(c.warning || "#f59e0b"),
-          "--da-info": String(c.info || "#6600cc"),
-          "--da-text": String(c.text || "#111827"),
-          "--da-text-secondary": String(c.textSecondary || "#6b7280"),
-          "--da-text-muted": String(c.textMuted || "#9ca3af"),
-          "--da-border": String(c.border || "#e5e7eb"),
+          "--da-info": String(c.info || lightBrand),
+          "--da-text": lightText,
+          "--da-text-secondary": lightTextSecondary,
+          "--da-text-muted": lightTextMuted,
+          "--da-border": lightBorder,
           "--da-card-bg": String(c.cardBackground || "#ffffff"),
           "--da-card-shadow": String(c.cardShadow || "rgba(0,0,0,0.1)"),
           "--da-input-bg": String(c.inputBackground || "#ffffff"),
-          "--da-input-border": String(c.inputBorder || "#d1d5db"),
-          "--da-input-focus": String(c.inputFocus || "#6600cc"),
+          "--da-input-border": String(c.inputBorder || lightBorder),
+          "--da-input-focus": String(c.inputFocus || lightBrand),
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
           "--da-font-size": String(f.size || "16px"),
           "--da-font-weight-normal": String(f.weight?.normal || "400"),
           "--da-font-weight-medium": String(f.weight?.medium || "500"),
           "--da-font-weight-bold": String(f.weight?.bold || "700"),
-          "--primary-500": String(c.primary || "#6600cc"),
-          "--primary-600": String(c.primary || "#6600cc"),
-          "--primary-700": String(c.primaryHover || "#2563eb"),
-          "--primary-100": String(c.primaryLight || "#dbeafe"),
-          "--gray-900": String(c.text || "#111827"),
-          "--gray-700": String(c.textSecondary || "#374151"),
-          "--gray-600": String(c.textSecondary || "#6b7280"),
-          "--gray-300": String(c.border || "#d1d5db"),
-          "--gray-50": String(c.backgroundGradientStart || "#f9fafb"),
+          "--primary-500": lightBrand,
+          "--primary-600": lightPrimaryBg,
+          "--primary-700": lightPrimaryHover,
+          "--primary-100": lightPrimaryLight,
+          "--gray-900": lightText,
+          "--gray-700": lightTextSecondary,
+          "--gray-600": lightTextSecondary,
+          "--gray-300": lightBorder,
+          "--gray-50": lightBg,
         };
         const cssVarsDark: Record<string, string> = {
-          "--da-bg-gradient-start": String(
-            cd.backgroundGradientStart || c.backgroundGradientStart || "#0b1220"
-          ),
-          "--da-bg-gradient-end": String(
-            cd.backgroundGradientEnd || c.backgroundGradientEnd || "#111827"
-          ),
-          "--da-bg-angle": String(cd.backgroundAngle || c.backgroundAngle || "135deg"),
-          "--da-primary": String(cd.primary || c.primary || "#aec1e0"),
-          "--da-primary-hover": String(cd.primaryHover || c.primaryHover || "#2563eb"),
-          "--da-primary-light": String(cd.primaryLight || c.primaryLight || "#1f2937"),
-          "--primary-50": String(cd.primaryLight || c.primaryLight || "#111827"),
-          "--da-text": String(cd.text || c.text || "#e5e7eb"),
-          "--da-text-secondary": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
-          "--da-text-muted": String(cd.textMuted || c.textMuted || "#6b7280"),
-          "--da-border": String(cd.border || c.border || "#374151"),
-          "--da-card-bg": String(cd.cardBackground || c.cardBackground || "#0b1220"),
-          "--da-card-shadow": String(cd.cardShadow || c.cardShadow || "rgba(0,0,0,0.6)"),
-          "--da-input-bg": String(cd.inputBackground || c.inputBackground || "#0f172a"),
-          "--da-input-border": String(cd.inputBorder || c.inputBorder || "#334155"),
-          "--da-input-focus": String(cd.inputFocus || c.inputFocus || "#aec1e0"),
+          "--da-bg-gradient-start": darkBg,
+          "--da-bg-gradient-end": String(cd.backgroundGradientEnd || darkBg),
+          "--da-bg-angle": String(cd.backgroundAngle || "135deg"),
+          "--da-primary": darkBrand,
+          "--da-primary-hover": darkPrimaryHover,
+          "--da-primary-light": darkPrimaryLight,
+          "--primary-50": darkPrimaryLight,
+          "--da-text": darkText,
+          "--da-text-secondary": darkTextSecondary,
+          "--da-text-muted": darkTextMuted,
+          "--da-border": darkBorder,
+          "--da-card-bg": String(cd.cardBackground || "#1f2937"),
+          "--da-card-shadow": String(cd.cardShadow || "rgba(0,0,0,0.3)"),
+          "--da-input-bg": String(cd.inputBackground || "#111827"),
+          "--da-input-border": String(cd.inputBorder || darkBorder),
+          "--da-input-focus": String(cd.inputFocus || darkBrand),
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
           "--da-font-size": String(f.size || "16px"),
           "--da-font-weight-normal": String(f.weight?.normal || "400"),
           "--da-font-weight-medium": String(f.weight?.medium || "500"),
           "--da-font-weight-bold": String(f.weight?.bold || "700"),
-          "--primary-500": String(cd.primary || c.primary || "#aec1e0"),
-          "--primary-600": String(cd.primary || c.primary || "#aec1e0"),
-          "--primary-700": String(cd.primaryHover || c.primaryHover || "#2563eb"),
-          "--primary-100": String(cd.primaryLight || c.primaryLight || "#1f2937"),
-          "--gray-900": String(cd.text || c.text || "#e5e7eb"),
-          "--gray-700": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
-          "--gray-600": String(cd.textSecondary || c.textSecondary || "#9ca3af"),
-          "--gray-300": String(cd.border || c.border || "#374151"),
-          "--gray-50": String(cd.backgroundGradientStart || c.backgroundGradientStart || "#0b1220"),
+          "--primary-500": darkBrand,
+          "--primary-600": darkPrimaryBg,
+          "--primary-700": darkPrimaryHover,
+          "--primary-100": darkPrimaryLight,
+          "--gray-900": darkText,
+          "--gray-700": darkTextSecondary,
+          "--gray-600": darkTextSecondary,
+          "--gray-300": darkBorder,
+          "--gray-50": darkBg,
         };
         const varBlock = `:root{${Object.entries(cssVarsLight)
           .map(([k, v]) => `${k}:${v}`)
