@@ -42,6 +42,10 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [opaqueState, setOpaqueState] = useState<OpaqueLoginState | null>(null);
   const [clientCheckLoading, setClientCheckLoading] = useState(true);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
+  const isPreviewMode = useMemo(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    return searchParams.get("da_preview") === "1";
+  }, []);
 
   const activeClientId = useMemo(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -58,6 +62,11 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   }, []);
 
   useEffect(() => {
+    if (isPreviewMode) {
+      setClientCheckLoading(false);
+      setClientCheckError(null);
+      return;
+    }
     let cancelled = false;
     const checkClient = async () => {
       setClientCheckLoading(true);
@@ -85,7 +94,7 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
     return () => {
       cancelled = true;
     };
-  }, [activeClientId]);
+  }, [activeClientId, isPreviewMode]);
 
   const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {};
