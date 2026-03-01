@@ -211,6 +211,10 @@ export default function Users() {
     navigate(`/users/${encodeURIComponent(user.sub)}`);
   };
 
+  const refreshUsers = useCallback(async () => {
+    await Promise.all([loadUsers(), loadGroupsAndPermissions()]);
+  }, [loadUsers, loadGroupsAndPermissions]);
+
   if (loading && users.length === 0) return null;
 
   return (
@@ -219,10 +223,15 @@ export default function Users() {
         title="Users"
         subtitle="Manage user accounts and permissions"
         actions={
-          <Button onClick={() => navigate("/users/new")}>
-            <UserPlus />
-            Add User
-          </Button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <Button variant="outline" onClick={() => void refreshUsers()}>
+              Refresh
+            </Button>
+            <Button onClick={() => navigate("/users/new")}>
+              <UserPlus />
+              Add User
+            </Button>
+          </div>
         }
       />
 
