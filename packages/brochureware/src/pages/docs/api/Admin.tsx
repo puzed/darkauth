@@ -5,7 +5,6 @@ import { Cog, ServerCog, Shield, UserRoundCog } from "lucide-react";
 
 const adminEndpoints = `POST /admin/login
 POST /admin/token
-POST /admin/refresh-token
 GET /admin/session
 POST /admin/logout`;
 

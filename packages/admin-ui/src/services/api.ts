@@ -57,23 +57,6 @@ export interface AdminOpaqueLoginFinishResponse {
   };
 }
 
-export interface AdminOpaqueRegisterStartRequest {
-  email: string;
-  request: string; // base64url encoded
-}
-
-export interface AdminOpaqueRegisterStartResponse {
-  message: string; // base64url encoded
-  serverPublicKey: string; // base64url encoded
-}
-
-export interface AdminOpaqueRegisterFinishRequest {
-  email: string;
-  name: string;
-  role: "read" | "write";
-  record: string; // base64url encoded
-}
-
 export interface AdminSessionResponse {
   authenticated: boolean;
   adminId?: string;
@@ -469,22 +452,6 @@ class AdminApiService {
     request: AdminOpaqueLoginFinishRequest
   ): Promise<AdminOpaqueLoginFinishResponse> {
     return this.request<AdminOpaqueLoginFinishResponse>("/opaque/login/finish", {
-      method: "POST",
-      body: JSON.stringify(request),
-    });
-  }
-
-  async adminOpaqueRegisterStart(
-    request: AdminOpaqueRegisterStartRequest
-  ): Promise<AdminOpaqueRegisterStartResponse> {
-    return this.request("/opaque/register/start", {
-      method: "POST",
-      body: JSON.stringify(request),
-    });
-  }
-
-  async adminOpaqueRegisterFinish(request: AdminOpaqueRegisterFinishRequest): Promise<void> {
-    return this.request("/opaque/register/finish", {
       method: "POST",
       body: JSON.stringify(request),
     });

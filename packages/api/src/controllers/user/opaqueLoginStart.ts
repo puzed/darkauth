@@ -81,7 +81,6 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     // Convert response to base64url for JSON transmission
     const responseData = {
       message: toBase64Url(Buffer.from(loginResponse.message)),
-      sub: "00000000-0000-0000-0000-000000000000",
       sessionId: loginResponse.sessionId,
     };
 
