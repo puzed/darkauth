@@ -127,6 +127,10 @@ export function assertRefreshTokenClientBinding(
   }
 }
 
+export function shouldIssueFirstPartyRefreshCookies(tokenRequest: TokenRequest): boolean {
+  return tokenRequest.grant_type === "refresh_token" && !tokenRequest.refresh_token;
+}
+
 export const TokenRequestSchema = z.union([
   z.object({
     grant_type: z.literal("authorization_code"),
@@ -327,10 +331,12 @@ export const postToken = withRateLimit("token")(
         if (tokenRequest.refresh_token) {
           tokenResponse.refresh_token = rotated.refreshToken;
         }
-        const ttlSeconds = await getSessionTtlSeconds(context, "user");
-        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
-        issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
-        issueRefreshTokenCookie(response, rotated.refreshToken, refreshTtlSeconds, false);
+        if (shouldIssueFirstPartyRefreshCookies(tokenRequest)) {
+          const ttlSeconds = await getSessionTtlSeconds(context, "user");
+          const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+          issueSessionCookies(response, rotated.sessionId, ttlSeconds, false);
+          issueRefreshTokenCookie(response, rotated.refreshToken, refreshTtlSeconds, false);
+        }
         sendJson(response, 200, tokenResponse);
         return;
       }
