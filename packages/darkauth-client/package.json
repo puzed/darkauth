@@ -2,6 +2,11 @@
   "name": "@darkauth/client",
   "version": "1.4.4",
   "license": "MIT",
+  "repository": {
+    "directory": "packages/darkauth-client",
+    "type": "git",
+    "url": "https://github.com/puzed/darkauth"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
