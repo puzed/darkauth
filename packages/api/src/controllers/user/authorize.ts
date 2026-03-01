@@ -8,6 +8,7 @@ import { getClient } from "../../models/clients.ts";
 import { getSession, getSessionId } from "../../services/sessions.ts";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.ts";
 import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.ts";
+import { resolveClientScopeDescriptions } from "../../utils/clientScopes.ts";
 import { generateRandomString } from "../../utils/crypto.ts";
 import { parseQueryParams } from "../../utils/http.ts";
 import { validateCodeChallenge } from "../../utils/pkce.ts";
@@ -124,6 +125,17 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   qs.set("request_id", requestId);
   qs.set("client_name", client.name);
   qs.set("scopes", authRequest.scope);
+  const requestedScopeKeys = authRequest.scope.split(/\s+/).filter(Boolean);
+  const scopeDescriptions = resolveClientScopeDescriptions(client.scopes, requestedScopeKeys);
+  if (Object.keys(scopeDescriptions).length > 0) {
+    qs.set(
+      "scope_descriptions",
+      Buffer.from(JSON.stringify(scopeDescriptions)).toString("base64url")
+    );
+    for (const [key, description] of Object.entries(scopeDescriptions)) {
+      qs.set(`scope_desc_${key}`, description);
+    }
+  }
   if (zkPubKid) qs.set("has_zk", "1");
   if (authRequest.zk_pub && canonicalZkPub) qs.set("zk_pub", canonicalZkPub);
   if (authRequest.client_id) qs.set("client_id", authRequest.client_id);

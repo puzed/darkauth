@@ -34,11 +34,18 @@ interface AuthRequest {
   requestId: string;
   clientName: string;
   scopes: string[];
+  scopeDescriptions?: Record<string, string>;
   hasZk: boolean;
   clientId?: string;
   redirectUri?: string;
   state?: string;
   zkPub?: string;
+}
+
+function decodeBase64Url(value: string): string {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = (4 - (base64.length % 4)) % 4;
+  return atob(`${base64}${"=".repeat(padding)}`);
 }
 
 function AppContent() {
@@ -100,6 +107,28 @@ function AppContent() {
     }
     const clientName = params.get("client_name") || "Application";
     const scopes = (params.get("scopes") || "").split(/\s+/).filter(Boolean);
+    const scopeDescriptionsParam = params.get("scope_descriptions");
+    let scopeDescriptions: Record<string, string> | undefined;
+    if (scopeDescriptionsParam) {
+      try {
+        const decoded = decodeBase64Url(scopeDescriptionsParam);
+        const parsed = JSON.parse(decoded) as Record<string, unknown>;
+        scopeDescriptions = Object.fromEntries(
+          Object.entries(parsed).filter(
+            (entry): entry is [string, string] =>
+              typeof entry[0] === "string" && typeof entry[1] === "string"
+          )
+        );
+      } catch {}
+    }
+    for (const [key, value] of params.entries()) {
+      if (!key.startsWith("scope_desc_")) continue;
+      const scopeKey = key.slice("scope_desc_".length).trim();
+      const description = value.trim();
+      if (!scopeKey || !description) continue;
+      scopeDescriptions = scopeDescriptions || {};
+      scopeDescriptions[scopeKey] = description;
+    }
     const hasZk = params.get("has_zk") === "1";
     const clientId = params.get("client_id") || undefined;
     const redirectUri = params.get("redirect_uri") || undefined;
@@ -110,6 +139,8 @@ function AppContent() {
         current &&
         current.requestId === reqId &&
         current.clientName === clientName &&
+        JSON.stringify(current.scopeDescriptions || {}) ===
+          JSON.stringify(scopeDescriptions || {}) &&
         current.hasZk === hasZk &&
         current.clientId === clientId &&
         current.redirectUri === redirectUri &&
@@ -123,6 +154,7 @@ function AppContent() {
         requestId: reqId,
         clientName,
         scopes,
+        scopeDescriptions,
         hasZk,
         clientId,
         redirectUri,
@@ -146,6 +178,41 @@ function AppContent() {
 
     apiService.setSessionExpiredCallback(handleSessionExpired);
   }, []);
+
+  const authRequestId = authRequest?.requestId || "";
+  const authClientId = authRequest?.clientId || "";
+  const authScopesValue = authRequest?.scopes.join(" ") || "";
+
+  useEffect(() => {
+    if (!authRequestId || !authClientId || !authScopesValue) {
+      return;
+    }
+    let cancelled = false;
+    const scopes = authScopesValue.split(/\s+/).filter(Boolean);
+    apiService
+      .getClientScopeDescriptions(authClientId, scopes)
+      .then((descriptions) => {
+        if (cancelled || Object.keys(descriptions).length === 0) {
+          return;
+        }
+        setAuthRequest((current) => {
+          if (!current || current.requestId !== authRequestId) {
+            return current;
+          }
+          const nextDescriptions = { ...(current.scopeDescriptions || {}), ...descriptions };
+          if (
+            JSON.stringify(nextDescriptions) === JSON.stringify(current.scopeDescriptions || {})
+          ) {
+            return current;
+          }
+          return { ...current, scopeDescriptions: nextDescriptions };
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [authClientId, authRequestId, authScopesValue]);
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
@@ -285,20 +352,14 @@ function AppContent() {
           ) : (
             <div className="app da-app">
               <div className="container da-container">
-                <div
-                  className="header da-header"
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-                >
+                <div className="header da-header authorize-page-header">
                   <div className="brand da-brand">
                     <span className="brand-icon da-brand-icon">
                       <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
                     </span>
                     <h1 className="da-brand-title">{branding.getTitle()}</h1>
                   </div>
-                  <div
-                    className="user-info da-user-info"
-                    style={{ display: "flex", alignItems: "center", gap: 12 }}
-                  >
+                  <div className="user-info da-user-info authorize-page-actions">
                     <ThemeToggle />
                   </div>
                 </div>
