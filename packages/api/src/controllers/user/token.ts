@@ -287,24 +287,10 @@ export const postToken = withRateLimit("token")(
           });
         }
         const now = Math.floor(Date.now() / 1000);
-        let defaultIdTtl = 300;
-        const idSettings = (await getSetting(context, "id_token")) as
-          | { lifetime_seconds?: number }
-          | undefined
-          | null;
-        if (idSettings?.lifetime_seconds && idSettings.lifetime_seconds > 0)
-          defaultIdTtl = idSettings.lifetime_seconds;
-        else {
-          const flat = (await getSetting(context, "id_token.lifetime_seconds")) as
-            | number
-            | undefined
-            | null;
-          if (typeof flat === "number" && flat > 0) defaultIdTtl = flat;
-        }
         const idTokenTtl =
           client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
             ? client.idTokenLifetimeSeconds
-            : defaultIdTtl;
+            : 300;
         let amr: string[] | undefined = ["pwd"];
         const data = sessionData as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
@@ -559,24 +545,10 @@ export const postToken = withRateLimit("token")(
 
       // Create ID token claims
       const now = Math.floor(Date.now() / 1000);
-      let defaultIdTtl = 300;
-      const idSettings = (await getSetting(context, "id_token")) as
-        | { lifetime_seconds?: number }
-        | undefined
-        | null;
-      if (idSettings?.lifetime_seconds && idSettings.lifetime_seconds > 0) {
-        defaultIdTtl = idSettings.lifetime_seconds;
-      } else {
-        const flat = (await getSetting(context, "id_token.lifetime_seconds")) as
-          | number
-          | undefined
-          | null;
-        if (typeof flat === "number" && flat > 0) defaultIdTtl = flat;
-      }
       const idTokenTtl =
         client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
           ? client.idTokenLifetimeSeconds
-          : defaultIdTtl;
+          : 300;
       const amr: string[] = ["pwd"];
       const issuer = await resolveIssuer(context);
       const idTokenClaims = buildUserIdTokenClaims({
