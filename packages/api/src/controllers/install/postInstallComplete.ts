@@ -141,7 +141,8 @@ async function _postInstallComplete(
     );
     await (await import("../../models/install.ts")).seedDefaultClients(
       installCtx,
-      demoConfidentialSecretEnc
+      demoConfidentialSecretEnc,
+      context.config.publicOrigin
     );
     await (await import("../../models/install.ts")).ensureDefaultOrganizationAndSchema(installCtx);
     await (await import("../../models/install.ts")).seedDefaultOrganizationRbac(installCtx);
@@ -177,6 +178,7 @@ async function _postInstallComplete(
       message: "Installation completed successfully. Server will restart in 2 seconds.",
       adminId,
       clients: [
+        { id: "user", name: "User Portal", type: "public" },
         { id: "demo-public-client", name: "Demo Public Client", type: "public" },
         {
           id: "demo-confidential-client",
