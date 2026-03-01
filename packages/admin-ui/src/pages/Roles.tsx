@@ -97,7 +97,11 @@ export default function Roles() {
   };
 
   const totalPermissions = useMemo(
-    () => roles.reduce((total, role) => total + (role.permissionCount || 0), 0),
+    () =>
+      roles.reduce(
+        (total, role) => total + (role.permissionCount || role.permissionKeys?.length || 0),
+        0
+      ),
     [roles]
   );
 

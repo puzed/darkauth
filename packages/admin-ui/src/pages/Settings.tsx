@@ -40,6 +40,7 @@ function inferType(s: AdminSetting): "string" | "number" | "boolean" | "object" 
 
 export default function Settings() {
   const { toast } = useToast();
+  const [adminRole, setAdminRole] = useState<"read" | "write">("read");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -54,7 +55,12 @@ export default function Settings() {
     try {
       setLoading(true);
       setError(null);
-      const { settings } = await adminApiService.getSettings();
+      const [settingsResponse, sessionResponse] = await Promise.all([
+        adminApiService.getSettings(),
+        adminApiService.getAdminSession(),
+      ]);
+      const settings = settingsResponse.settings;
+      setAdminRole(sessionResponse.role || "read");
       setSettings(settings);
       const d: Record<string, unknown> = {};
       for (const s of settings) {
@@ -130,6 +136,47 @@ export default function Settings() {
     }
   };
 
+  const smtpMissing = useMemo(() => {
+    const readString = (key: string) => {
+      const v = drafts[key];
+      return typeof v === "string" ? v.trim() : "";
+    };
+    const portRaw = drafts["email.smtp.port"];
+    const port =
+      typeof portRaw === "number" ? portRaw : typeof portRaw === "string" ? Number(portRaw) : 0;
+    const values = {
+      from: readString("email.from"),
+      transport: readString("email.transport"),
+      host: readString("email.smtp.host"),
+      user: readString("email.smtp.user"),
+      password: readString("email.smtp.password"),
+      port,
+    };
+    return (
+      !values.from ||
+      !values.transport ||
+      !values.host ||
+      !values.user ||
+      !values.password ||
+      !Number.isInteger(values.port) ||
+      values.port < 1 ||
+      values.port > 65535
+    );
+  }, [drafts]);
+
+  const sendTestEmail = async () => {
+    try {
+      await adminApiService.sendSettingsTestEmail();
+      toast({ title: "Sent", description: "Test email sent to your admin address" });
+    } catch (e) {
+      toast({
+        title: "Error",
+        description: e instanceof Error ? e.message : "Failed to send test email",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className={settingsStyles.pageContainer}>
       <PageHeader
@@ -154,6 +201,22 @@ export default function Settings() {
           {groups.map(([top, inner]) => (
             <SettingsSection key={top} value={top} title={top}>
               <div className={settingsStyles.inner}>
+                {top === "Email" && (
+                  <div className={settingsStyles.rows}>
+                    <SettingRow
+                      label="Email verification flow"
+                      description="Send a test email to check if your SMTP settings are working"
+                      right={
+                        <Button
+                          onClick={sendTestEmail}
+                          disabled={adminRole === "read" || smtpMissing}
+                        >
+                          Send test email
+                        </Button>
+                      }
+                    />
+                  </div>
+                )}
                 {inner.map(([sub, items]) => (
                   <div key={sub}>
                     {sub !== "General" && <div className={settingsStyles.subHeading}>{sub}</div>}

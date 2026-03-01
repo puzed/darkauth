@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { ensureRegistrationAllowedForVerification } from "../../services/emailVerification.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -29,6 +30,7 @@ export const postOpaqueRegisterStart = withRateLimit("auth", (body) =>
     if (!enabled) {
       throw new ForbiddenError("Self-registration disabled");
     }
+    await ensureRegistrationAllowedForVerification(context);
 
     const body = await getCachedBody(request);
     const data = parseJsonSafely(body);

@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { getAuthorize } from "../../controllers/user/authorize.ts";
 import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.ts";
+import { postEmailVerificationResend } from "../../controllers/user/emailVerificationResend.ts";
+import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
 import { getUserApps } from "../../controllers/user/getUserApps.ts";
@@ -29,6 +31,7 @@ import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordCha
 import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.ts";
 import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.ts";
 import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.ts";
+import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession } from "../../controllers/user/session.ts";
 import { postToken } from "../../controllers/user/token.ts";
@@ -273,6 +276,15 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/opaque/register/finish") {
         return await postOpaqueRegisterFinish(context, request, response);
+      }
+      if (method === "POST" && pathname === "/email/verification/resend") {
+        return await postEmailVerificationResend(context, request, response);
+      }
+      if (method === "POST" && pathname === "/email/verification/verify") {
+        return await postEmailVerificationVerify(context, request, response);
+      }
+      if (method === "PUT" && pathname === "/profile/email") {
+        return await putUserProfileEmail(context, request, response);
       }
 
       if (method === "POST" && pathname === "/password/change/start") {

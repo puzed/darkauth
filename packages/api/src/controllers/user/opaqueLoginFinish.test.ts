@@ -2,15 +2,20 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, mock, test } from "node:test";
 import { organizationMembers } from "../../db/schema.ts";
+import { generateEdDSAKeyPair } from "../../services/jwks.ts";
 import type { Context } from "../../types.ts";
 import { postOpaqueLoginFinish } from "./opaqueLoginFinish.ts";
 
 function createMockResponse() {
   let payload = "";
+  const headers = new Map<string, string | string[]>();
 
   return {
     statusCode: 0,
-    setHeader: mock.fn(),
+    setHeader: mock.fn((key: string, value: string | string[]) => {
+      headers.set(key.toLowerCase(), value);
+    }),
+    getHeader: mock.fn((key: string) => headers.get(key.toLowerCase())),
     write: mock.fn((chunk: unknown) => {
       if (chunk !== undefined) {
         payload += String(chunk);
@@ -101,7 +106,8 @@ describe("User OPAQUE Login Finish", () => {
   let response: ReturnType<typeof createMockResponse>;
   let finishLogin = mock.fn(async () => ({ sessionKey: new Uint8Array(32) }));
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    const { privateJwk, publicJwk, kid } = await generateEdDSAKeyPair();
     const userState = {
       user: {
         sub: "user-123",
@@ -136,6 +142,23 @@ describe("User OPAQUE Login Finish", () => {
           },
           users: {
             findFirst: mock.fn(() => Promise.resolve(userState.user)),
+          },
+          clients: {
+            findFirst: mock.fn(() =>
+              Promise.resolve({
+                clientId: "user",
+                accessTokenLifetimeSeconds: 600,
+              })
+            ),
+          },
+          jwks: {
+            findFirst: mock.fn(() =>
+              Promise.resolve({
+                kid,
+                publicJwk,
+                privateJwkEnc: Buffer.from(JSON.stringify(privateJwk)),
+              })
+            ),
           },
           settings: {
             findFirst: mock.fn(() => Promise.resolve(null)),
@@ -223,7 +246,12 @@ describe("User OPAQUE Login Finish", () => {
       throw new Error("KEK service not configured");
     }
 
-    kekService.decrypt = mock.fn(async (_value: Buffer) => Buffer.from("server@example.com"));
+    kekService.decrypt = mock.fn(async (value: Buffer) => {
+      if (value.equals(Buffer.from("encrypted"))) {
+        return Buffer.from("server@example.com");
+      }
+      return value;
+    });
     context.db.query.opaqueLoginSessions.findFirst = mock.fn(() =>
       Promise.resolve({
         id: "session-id",
@@ -241,10 +269,12 @@ describe("User OPAQUE Login Finish", () => {
     );
 
     assert.equal(response.statusCode, 200);
-    assert.equal(context.services.kek?.decrypt?.mock.calls.length, 1);
-    const encryptedArg = context.services.kek?.decrypt?.mock.calls[0]?.arguments?.[0] as
-      | Buffer
-      | undefined;
+    assert.ok((context.services.kek?.decrypt?.mock.calls.length || 0) >= 1);
+    const encryptedCall = context.services.kek?.decrypt?.mock.calls.find((call) => {
+      const value = call.arguments?.[0] as Buffer | undefined;
+      return Buffer.isBuffer(value) && value.equals(Buffer.from("encrypted"));
+    });
+    const encryptedArg = encryptedCall?.arguments?.[0] as Buffer | undefined;
     assert.equal(Buffer.isBuffer(encryptedArg), true);
   });
 
@@ -262,5 +292,32 @@ describe("User OPAQUE Login Finish", () => {
         return error instanceof Error && error.message === "Invalid or expired login session";
       }
     );
+  });
+
+  test("returns unverified response when verification is required", async () => {
+    context.db.query.settings.findFirst = mock.fn(() => Promise.resolve({ value: true }));
+    context.db.query.users.findFirst = mock.fn(() =>
+      Promise.resolve({
+        sub: "user-123",
+        email: "server@example.com",
+        name: "User",
+        emailVerifiedAt: null,
+      })
+    );
+
+    await postOpaqueLoginFinish(
+      context,
+      request as IncomingMessage,
+      response as unknown as ServerResponse
+    );
+
+    assert.equal(response.statusCode, 403);
+    assert.deepEqual(response.json, {
+      error: "Please verify your email to continue",
+      code: "EMAIL_UNVERIFIED",
+      unverified: true,
+      resendAllowed: true,
+      email: "server@example.com",
+    });
   });
 });

@@ -15,6 +15,7 @@ import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
 import RegisterView from "./components/RegisterView";
 import SettingsSecurityView from "./components/SettingsSecurityView";
+import VerifyEmailView from "./components/VerifyEmailView";
 import apiService from "./services/api";
 import { clearAllDrk } from "./services/drkStorage";
 import { clearAllExportKeys } from "./services/sessionKey";
@@ -304,6 +305,7 @@ function AppContent() {
           )
         }
       />
+      <Route path="/verify-email" element={<VerifyEmailView />} />
       <Route
         path="/otp/setup"
         element={

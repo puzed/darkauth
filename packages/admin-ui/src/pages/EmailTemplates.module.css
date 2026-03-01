@@ -1,0 +1,102 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.headerActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.container {
+  max-width: 1200px;
+}
+
+.loadingState {
+  color: hsl(var(--muted-foreground));
+  padding: 2rem;
+  text-align: center;
+}
+
+.tabsRoot {
+  display: flex;
+  flex-direction: column;
+}
+
+.tabCard {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+
+.formContent {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.gridFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.textarea {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.variablesBlock {
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.variablesTitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.variablesList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.variableBadge {
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+@media (max-width: 1024px) {
+  .gridFields {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .tabCard {
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+    border-top: 1px solid hsl(var(--border));
+  }
+}

@@ -107,9 +107,35 @@ export const users = pgTable("users", {
   sub: text("sub").primaryKey(),
   email: text("email").unique(),
   name: text("name"),
+  emailVerifiedAt: timestamp("email_verified_at"),
+  pendingEmail: text("pending_email"),
+  pendingEmailSetAt: timestamp("pending_email_set_at"),
   passwordResetRequired: boolean("password_reset_required").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const emailVerificationTokens = pgTable(
+  "email_verification_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    purpose: text("purpose").notNull(),
+    targetEmail: text("target_email").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userPurposeIdx: index("email_verification_tokens_user_purpose_idx").on(
+      table.userSub,
+      table.purpose
+    ),
+    expiresAtIdx: index("email_verification_tokens_expires_at_idx").on(table.expiresAt),
+  })
+);
 
 export const opaqueRecords = pgTable("opaque_records", {
   sub: text("sub")
@@ -416,6 +442,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   organizations: many(organizationMembers),
   permissions: many(userPermissions),
+  emailVerificationTokens: many(emailVerificationTokens),
+}));
+
+export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [emailVerificationTokens.userSub],
+    references: [users.sub],
+  }),
 }));
 
 export const clientsRelations = relations(clients, ({ many }) => ({

@@ -25,6 +25,9 @@ export interface OpaqueLoginFinishResponse {
   sub: string;
   sessionKey?: string;
   otpRequired?: boolean;
+  unverified?: boolean;
+  resendAllowed?: boolean;
+  email?: string;
   user?: {
     sub: string;
     email: string | null;
@@ -60,6 +63,7 @@ export interface OpaqueRegisterFinishRequest {
 
 export interface OpaqueRegisterFinishResponse {
   sub: string;
+  requiresEmailVerification?: boolean;
 }
 
 export interface AuthorizeRequest {
@@ -190,7 +194,21 @@ class ApiService {
           }
         }
 
-        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        const err = new Error(
+          data.error || `HTTP ${response.status}: ${response.statusText}`
+        ) as Error & {
+          code?: string;
+          details?: unknown;
+          unverified?: boolean;
+          resendAllowed?: boolean;
+          email?: string;
+        };
+        if (typeof data.code === "string") err.code = data.code;
+        if (data.details !== undefined) err.details = data.details;
+        if (data.unverified === true) err.unverified = true;
+        if (data.resendAllowed === true) err.resendAllowed = true;
+        if (typeof data.email === "string") err.email = data.email;
+        throw err;
       }
 
       return data;
@@ -254,6 +272,27 @@ class ApiService {
     return this.request<OpaqueRegisterFinishResponse>("/opaque/register/finish", {
       method: "POST",
       body: JSON.stringify(request),
+    });
+  }
+
+  async resendEmailVerification(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request("/email/verification/resend", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async verifyEmailToken(token: string): Promise<{ success: boolean; message: string }> {
+    return this.request("/email/verification/verify", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  async requestEmailChange(email: string): Promise<{ success: boolean; message: string }> {
+    return this.request("/profile/email", {
+      method: "PUT",
+      body: JSON.stringify({ email }),
     });
   }
 
