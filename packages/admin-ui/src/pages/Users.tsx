@@ -23,13 +23,12 @@ import {
 import tableStyles from "@/components/ui/table.module.css";
 import UserCell from "@/components/user/user-cell";
 import { cn } from "@/lib/utils";
-import adminApiService, { type Group, type SortOrder, type User } from "@/services/api";
+import adminApiService, { type SortOrder, type User } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
 import { logger } from "@/services/logger";
 import adminOpaqueService from "@/services/opaque-cloudflare";
 
 interface UserWithDetails extends User {
-  groups?: string[];
   permissions?: string[];
   otp?: { enabled: boolean; pending: boolean; verified: boolean };
 }
@@ -38,7 +37,6 @@ export default function Users() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<UserWithDetails[]>([]);
-  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -97,19 +95,9 @@ export default function Users() {
     }
   }, [currentPage, debouncedSearch, sortBy, sortOrder]);
 
-  const loadGroupsAndPermissions = useCallback(async () => {
-    try {
-      const [groupsData] = await Promise.all([adminApiService.getGroups()]);
-      setGroups(groupsData);
-    } catch (loadError) {
-      logger.error(loadError, "Failed to load groups");
-    }
-  }, []);
-
   useEffect(() => {
     loadUsers();
-    loadGroupsAndPermissions();
-  }, [loadUsers, loadGroupsAndPermissions]);
+  }, [loadUsers]);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -212,8 +200,8 @@ export default function Users() {
   };
 
   const refreshUsers = useCallback(async () => {
-    await Promise.all([loadUsers(), loadGroupsAndPermissions()]);
-  }, [loadUsers, loadGroupsAndPermissions]);
+    await loadUsers();
+  }, [loadUsers]);
 
   if (loading && users.length === 0) return null;
 
@@ -244,7 +232,6 @@ export default function Users() {
           value={totalCount}
           description="Registered users"
         />
-        <StatsCard title="Groups" value={groups.length} description="Total groups" />
       </StatsGrid>
 
       <ListCard
@@ -277,7 +264,6 @@ export default function Users() {
                     sortOrder={sortOrder}
                     onToggle={() => toggleSort("email")}
                   />
-                  <TableHead>Groups</TableHead>
                   <TableHead>Security</TableHead>
                   <SortableTableHead
                     label="Created"
@@ -306,20 +292,6 @@ export default function Users() {
                         </button>
                       </TableCell>
                       <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        {user.groups && user.groups.length > 0 ? (
-                          <div style={{ display: "inline-flex", gap: 4 }}>
-                            {user.groups.slice(0, 2).map((groupKey) => (
-                              <Badge key={groupKey}>
-                                {groups.find((g) => g.key === groupKey)?.name || groupKey}
-                              </Badge>
-                            ))}
-                            {user.groups.length > 2 && <Badge>+{user.groups.length - 2}</Badge>}
-                          </div>
-                        ) : (
-                          <span style={{ color: "hsl(var(--muted-foreground))" }}>No groups</span>
-                        )}
-                      </TableCell>
                       <TableCell>
                         {user.otp?.enabled ? (
                           <Badge>OTP</Badge>
