@@ -87,6 +87,20 @@ export async function sendSignupVerification(
   });
 }
 
+export async function sendSignupExistingAccountNotice(
+  context: Context,
+  params: { email: string; name: string }
+): Promise<void> {
+  await sendTemplatedEmail(context, {
+    to: params.email,
+    template: "signup_existing_account_notice",
+    variables: {
+      name: params.name || params.email,
+      recovery_link: `${context.config.publicOrigin}/login`,
+    },
+  });
+}
+
 export async function resendSignupVerificationByEmail(
   context: Context,
   email: string

@@ -309,6 +309,7 @@ export interface AdminSetting {
 
 export type EmailTemplateKey =
   | "signup_verification"
+  | "signup_existing_account_notice"
   | "verification_resend_confirmation"
   | "email_change_verification"
   | "password_recovery"

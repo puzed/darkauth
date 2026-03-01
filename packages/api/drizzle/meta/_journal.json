@@ -120,6 +120,13 @@
       "when": 1772449200000,
       "tag": "0018_default_clients_and_org_rbac",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1772538000000,
+      "tag": "0019_prevent_email_enumeration_on_registration",
+      "breakpoints": true
     }
   ]
 }
