@@ -5,7 +5,13 @@ import path from "node:path";
 import { test } from "node:test";
 import { createPglite } from "../db/pglite.ts";
 import type { Context } from "../types.ts";
-import { createClient, getClientDashboardIcon, listVisibleApps } from "./clients.ts";
+import {
+  createClient,
+  getClient,
+  getClientDashboardIcon,
+  listVisibleApps,
+  updateClient,
+} from "./clients.ts";
 
 function createLogger() {
   return {
@@ -104,6 +110,48 @@ test("getClientDashboardIcon returns icon data for existing client and null for 
     assert.ok(icon.dashboardIconData);
     assert.equal(Buffer.from(icon.dashboardIconData).equals(Buffer.from([1, 2, 3])), true);
     assert.equal(missing, null);
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("createClient and updateClient persist serialized scope definitions", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-clients-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger(), services: {} } as Context;
+
+  try {
+    await createClient(context, {
+      clientId: "scope-client",
+      name: "Scope Client",
+      type: "public",
+      scopes: [
+        { key: "openid", description: "Authenticate you" },
+        { key: "profile", description: "Access your profile information" },
+        "profile",
+        '{"key":"email","description":"Access your email"}',
+      ],
+    });
+
+    const created = await getClient(context, "scope-client");
+    assert.ok(created);
+    assert.deepEqual(created.scopes, [
+      '{"key":"openid","description":"Authenticate you"}',
+      '{"key":"profile","description":"Access your profile information"}',
+      '{"key":"email","description":"Access your email"}',
+    ]);
+
+    await updateClient(context, "scope-client", {
+      scopes: ["openid", { key: "offline_access", description: "Refresh your session" }],
+    });
+
+    const updated = await getClient(context, "scope-client");
+    assert.ok(updated);
+    assert.deepEqual(updated.scopes, [
+      "openid",
+      '{"key":"offline_access","description":"Refresh your session"}',
+    ]);
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });
