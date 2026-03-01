@@ -55,7 +55,10 @@ test("createOrganizationInvite rejects unknown or non-assignable role ids", asyn
       .returning();
     assert.ok(managerRole);
 
-    await db.insert(permissions).values({ key: "darkauth.org:manage", description: "Manage org" });
+    await db
+      .insert(permissions)
+      .values({ key: "darkauth.org:manage", description: "Manage org" })
+      .onConflictDoNothing();
     await db
       .insert(rolePermissions)
       .values({ roleId: managerRole.id, permissionKey: "darkauth.org:manage" });
