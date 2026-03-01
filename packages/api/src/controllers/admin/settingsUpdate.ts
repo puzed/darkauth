@@ -17,10 +17,6 @@ interface SettingsUpdateRequest {
 const ALLOWED_SETTINGS = [
   "rate_limits",
   "security",
-  "code",
-  "pkce",
-  "id_token",
-  "access_token",
   "zk_delivery",
   "opaque",
   "security_headers",

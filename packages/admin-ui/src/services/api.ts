@@ -203,6 +203,7 @@ export interface Client {
   updatedAt: string;
   clientSecret?: string; // Only returned when creating/updating
   idTokenLifetimeSeconds?: number;
+  accessTokenLifetimeSeconds?: number;
   refreshTokenLifetimeSeconds?: number;
 }
 
@@ -235,6 +236,7 @@ export interface CreateClientRequest {
   scopes?: Array<string | ClientScope>;
   allowedZkOrigins?: string[];
   idTokenLifetimeSeconds?: number;
+  accessTokenLifetimeSeconds?: number;
   refreshTokenLifetimeSeconds?: number;
 }
 
