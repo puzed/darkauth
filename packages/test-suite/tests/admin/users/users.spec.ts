@@ -45,8 +45,6 @@ test.describe('Admin - Users', () => {
     await page.getByRole('button', { name: 'Done' }).click();
     await page.goto(`${servers.adminUrl}/users`);
     await expect(page.getByRole('heading', { name: 'Users', exact: true })).toBeVisible({ timeout: 15000 });
-    await page.getByRole('button', { name: 'Refresh' }).click();
-    await page.waitForLoadState('networkidle');
     await expect(page.locator(`text=${email}`)).toBeVisible({ timeout: 15000 });
   });
 
@@ -60,8 +58,6 @@ test.describe('Admin - Users', () => {
     await expect(page.getByText('Temporary Password')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Done' }).click();
     await page.goto(`${servers.adminUrl}/users`);
-    await page.getByRole('button', { name: 'Refresh' }).click();
-    await page.waitForLoadState('networkidle');
     await expect(page.locator(`text=${email}`)).toBeVisible({ timeout: 15000 });
     const row = page.locator('table tr', { hasText: email }).first();
     await row.locator('button[aria-label="Actions"]').click();
