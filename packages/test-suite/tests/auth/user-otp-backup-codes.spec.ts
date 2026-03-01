@@ -3,6 +3,12 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../s
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession, establishUserSession } from '../../setup/helpers/auth.js';
+import {
+  getDefaultOrganizationId,
+  getOrganizationMemberIdForUser,
+  getRoleIdByKey,
+  setOrganizationMemberRoles,
+} from '../../setup/helpers/rbac.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Auth - User OTP backup codes (UI)', () => {
@@ -25,7 +31,11 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
 
   test('Setup via UI shows backup codes; a code works on /otp/verify', async ({ page }) => {
     const user = { email: `bc-${Date.now()}@example.com`, name: 'Backup Codes', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    const created = await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user
+    );
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
@@ -49,16 +59,21 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password,
     });
-    await fetch(`${servers.adminUrl}/admin/groups/default`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: adminSession.cookieHeader,
-        Origin: servers.adminUrl,
-        'x-csrf-token': adminSession.csrfToken,
-      },
-      body: JSON.stringify({ requireOtp: true })
-    });
+    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    const otpRequiredRoleId = await getRoleIdByKey(servers, adminSession, 'otp_required');
+    const memberId = await getOrganizationMemberIdForUser(
+      servers,
+      adminSession,
+      defaultOrganizationId,
+      created.sub
+    );
+    await setOrganizationMemberRoles(
+      servers,
+      adminSession,
+      defaultOrganizationId,
+      memberId,
+      [otpRequiredRoleId]
+    );
 
     await page.context().clearCookies();
     await establishUserSession(page.context(), servers, { email: user.email, password: user.password });
