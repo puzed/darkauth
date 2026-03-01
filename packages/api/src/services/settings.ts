@@ -1,10 +1,12 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { settings } from "../db/schema.ts";
 import type { Context } from "../types.ts";
 
 function resolveSettingsDb(context: Context) {
   return context.services.install?.tempDb || context.db;
 }
+
+const DEPRECATED_SETTING_KEYS = ["admin_session.refresh_lifetime_seconds"] as const;
 
 export async function getSetting(context: Context, key: string): Promise<unknown> {
   const db = resolveSettingsDb(context);
@@ -71,6 +73,44 @@ export async function isSystemInitialized(context: Context): Promise<boolean> {
 
 export async function markSystemInitialized(context: Context): Promise<void> {
   await setSetting(context, "initialized", true);
+}
+
+export async function pruneDeprecatedSettings(context: Context): Promise<void> {
+  const db = resolveSettingsDb(context);
+  if (!db) return;
+
+  if (DEPRECATED_SETTING_KEYS.length > 0) {
+    await db.delete(settings).where(inArray(settings.key, [...DEPRECATED_SETTING_KEYS]));
+  }
+
+  const adminSession = await db.query.settings.findFirst({
+    where: eq(settings.key, "admin_session"),
+  });
+  if (!adminSession || typeof adminSession.value !== "object" || adminSession.value === null) {
+    return;
+  }
+  const currentValue = adminSession.value as Record<string, unknown>;
+  if (!("refresh_lifetime_seconds" in currentValue)) {
+    return;
+  }
+
+  const { refresh_lifetime_seconds: _ignoreValue, ...nextValue } = currentValue;
+  const currentDefault =
+    typeof adminSession.defaultValue === "object" && adminSession.defaultValue !== null
+      ? (adminSession.defaultValue as Record<string, unknown>)
+      : undefined;
+  const nextDefault = currentDefault
+    ? (({ refresh_lifetime_seconds: _ignoreDefault, ...rest }) => rest)(currentDefault)
+    : adminSession.defaultValue;
+
+  await db
+    .update(settings)
+    .set({
+      value: nextValue,
+      defaultValue: nextDefault,
+      updatedAt: new Date(),
+    })
+    .where(eq(settings.key, "admin_session"));
 }
 
 export async function seedDefaultSettings(
@@ -625,16 +665,6 @@ export async function seedDefaultSettings(
       defaultValue: 15 * 60,
       value: 15 * 60,
     },
-    {
-      key: "admin_session.refresh_lifetime_seconds",
-      name: "Admin Refresh TTL (s)",
-      type: "number",
-      category: "Admin / Session",
-      description: "Admin refresh token lifetime in seconds",
-      tags: ["session"],
-      defaultValue: 7 * 24 * 60 * 60,
-      value: 7 * 24 * 60 * 60,
-    },
 
     {
       key: "otp",
@@ -888,6 +918,8 @@ export async function seedDefaultSettings(
         },
       });
   }
+
+  await pruneDeprecatedSettings(context);
 }
 
 /**
