@@ -7,6 +7,7 @@ import {
   buildUserIdTokenClaims,
   resolveGrantedScopes,
   resolveSessionClientId,
+  shouldIssueFirstPartyRefreshCookies,
   TokenRequestSchema,
 } from "./user/token.ts";
 
@@ -128,4 +129,25 @@ test("assertRefreshTokenClientBinding rejects mismatched client ids", () => {
 
 test("assertRefreshTokenClientBinding allows legacy unbound tokens", () => {
   assert.doesNotThrow(() => assertRefreshTokenClientBinding(null, "demo-client"));
+});
+
+test("shouldIssueFirstPartyRefreshCookies returns true for cookie-transport refresh requests", () => {
+  assert.equal(
+    shouldIssueFirstPartyRefreshCookies({
+      grant_type: "refresh_token",
+      client_id: "demo-public-client",
+    }),
+    true
+  );
+});
+
+test("shouldIssueFirstPartyRefreshCookies returns false for body refresh token requests", () => {
+  assert.equal(
+    shouldIssueFirstPartyRefreshCookies({
+      grant_type: "refresh_token",
+      client_id: "demo-public-client",
+      refresh_token: "rt-123",
+    }),
+    false
+  );
 });
