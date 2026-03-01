@@ -3,6 +3,7 @@ import { getSetting, setSetting } from "./settings.ts";
 
 export type EmailTemplateKey =
   | "signup_verification"
+  | "signup_existing_account_notice"
   | "verification_resend_confirmation"
   | "email_change_verification"
   | "password_recovery"
@@ -19,6 +20,11 @@ const DEFAULT_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
     subject: "Verify your email",
     text: "Hello {{name}},\n\nPlease verify your email by opening this link:\n{{verification_link}}\n\nIf you did not create this account, ignore this email.",
     html: '<p>Hello {{name}},</p><p>Please verify your email by opening this link:</p><p><a href="{{verification_link}}">Verify email</a></p><p>If you did not create this account, ignore this email.</p>',
+  },
+  signup_existing_account_notice: {
+    subject: "Someone tried to create an account with this email",
+    text: "Hello {{name}},\n\nSomeone attempted to create a new account using this email address, but an account already exists.\n\nIf this was you and you forgot your password, recover access here:\n{{recovery_link}}",
+    html: '<p>Hello {{name}},</p><p>Someone attempted to create a new account using this email address, but an account already exists.</p><p>If this was you and you forgot your password, recover access here:</p><p><a href="{{recovery_link}}">Recover account</a></p>',
   },
   verification_resend_confirmation: {
     subject: "A new verification link has been sent",
