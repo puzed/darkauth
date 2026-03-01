@@ -131,6 +131,10 @@ export function shouldIssueFirstPartyRefreshCookies(tokenRequest: TokenRequest):
   return tokenRequest.grant_type === "refresh_token" && !tokenRequest.refresh_token;
 }
 
+export function shouldIssueRefreshTokenForClient(grantTypes: string[]): boolean {
+  return grantTypes.includes("refresh_token");
+}
+
 export const TokenRequestSchema = z.union([
   z.object({
     grant_type: z.literal("authorization_code"),
@@ -623,16 +627,18 @@ export const postToken = withRateLimit("token")(
         context.logger.info("token zk delivery: drk_hash included");
       }
 
-      const sessionData = {
-        sub: user.sub,
-        email: user.email || undefined,
-        name: user.name || undefined,
-        organizationId,
-        organizationSlug: organizationSlug || undefined,
-        clientId: authenticatedClientId,
-      } satisfies SessionData;
-      const s = await createSession(context, "user", sessionData);
-      tokenResponse.refresh_token = s.refreshToken;
+      if (shouldIssueRefreshTokenForClient(client.grantTypes)) {
+        const sessionData = {
+          sub: user.sub,
+          email: user.email || undefined,
+          name: user.name || undefined,
+          organizationId,
+          organizationSlug: organizationSlug || undefined,
+          clientId: authenticatedClientId,
+        } satisfies SessionData;
+        const s = await createSession(context, "user", sessionData);
+        tokenResponse.refresh_token = s.refreshToken;
+      }
 
       sendJson(response, 200, tokenResponse);
     }
