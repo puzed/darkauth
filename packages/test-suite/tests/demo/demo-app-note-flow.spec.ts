@@ -59,7 +59,7 @@ test.describe('Demo App Note Flow', () => {
     }
     const bundle: DemoServerBundle = { servers, demoApi, demoUi };
     await ensureAdminDashboard(page, servers, secondaryAdmin);
-    await ensureSelfRegistrationEnabled(page);
+    await ensureSelfRegistrationEnabled(servers, secondaryAdmin);
     await configureDemoClient(servers, secondaryAdmin, demoUi.url);
     const { user, page: userPage, snapshot } = await registerDemoUser(context, servers);
     const demoPage = await openDemoDashboard(context, bundle, user, snapshot);
@@ -74,7 +74,7 @@ test.describe('Demo App Note Flow', () => {
     const bundle: DemoServerBundle = { servers, demoApi, demoUi };
     const adminPage = await context.newPage();
     await ensureAdminDashboard(adminPage, servers, secondaryAdmin);
-    await ensureSelfRegistrationEnabled(adminPage);
+    await ensureSelfRegistrationEnabled(servers, secondaryAdmin);
     await configureDemoClient(servers, secondaryAdmin, demoUi.url);
     await adminPage.close();
     const userData = await registerDemoUser(context, servers);
