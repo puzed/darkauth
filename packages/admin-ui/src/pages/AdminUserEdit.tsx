@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -111,16 +111,7 @@ export default function AdminUserEdit() {
 
   return (
     <div>
-      <PageHeader
-        title="Edit Admin User"
-        subtitle="Update administrator account details"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/settings/admin-users")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Edit Admin User" subtitle="Update administrator account details" />
 
       <Card>
         <CardHeader>

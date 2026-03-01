@@ -1,4 +1,4 @@
-import { Edit, Plus, RefreshCcw, Shield, Trash2 } from "lucide-react";
+import { Edit, Plus, Shield, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -102,16 +102,10 @@ export default function Clients() {
         title="OAuth Clients"
         subtitle="Manage OAuth/OIDC client applications"
         actions={
-          <>
-            <Button variant="outline" onClick={loadClients}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/clients/new")}>
-              <Plus />
-              Create Client
-            </Button>
-          </>
+          <Button onClick={() => navigate("/clients/new")}>
+            <Plus />
+            Create Client
+          </Button>
         }
       />
 

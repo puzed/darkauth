@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -78,16 +77,7 @@ export default function RoleCreate() {
 
   return (
     <div>
-      <PageHeader
-        title="Create Role"
-        subtitle="Create a role and map permissions"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/roles")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Create Role" subtitle="Create a role and map permissions" />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

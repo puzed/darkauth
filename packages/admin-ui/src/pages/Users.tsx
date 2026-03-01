@@ -1,12 +1,4 @@
-import {
-  Edit,
-  KeyRound,
-  RefreshCcw,
-  RotateCcw,
-  Trash2,
-  UserPlus,
-  Users as UsersIcon,
-} from "lucide-react";
+import { Edit, KeyRound, RotateCcw, Trash2, UserPlus, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
@@ -227,16 +219,10 @@ export default function Users() {
         title="Users"
         subtitle="Manage user accounts and permissions"
         actions={
-          <>
-            <Button variant="outline" onClick={loadUsers}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => navigate("/users/new")}>
-              <UserPlus />
-              Add User
-            </Button>
-          </>
+          <Button onClick={() => navigate("/users/new")}>
+            <UserPlus />
+            Add User
+          </Button>
         }
       />
 
