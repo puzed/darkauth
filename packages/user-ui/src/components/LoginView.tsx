@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import Login from "./Login";
@@ -12,8 +13,43 @@ export default function LoginView(props?: {
   onLogin?: (session: SessionData) => void;
 }) {
   const branding = useBranding();
+  const [brandingReady, setBrandingReady] = useState(() =>
+    Boolean(window.__APP_CONFIG__?.branding)
+  );
+  const [clientCheckReady, setClientCheckReady] = useState(false);
   const logoUrl = branding.getLogoUrl();
   const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
+  const showView = brandingReady && clientCheckReady;
+
+  useEffect(() => {
+    if (brandingReady) {
+      return;
+    }
+    let cancelled = false;
+    const check = () => {
+      if (cancelled) return;
+      if (window.__APP_CONFIG__?.branding) {
+        setBrandingReady(true);
+        return;
+      }
+      setTimeout(check, 50);
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, [brandingReady]);
+
+  if (!showView) {
+    return (
+      <Login
+        onLogin={props?.onLogin || (() => {})}
+        onSwitchToRegister={props?.onSwitchToRegister || (() => {})}
+        preloadClientCheckOnly
+        onClientCheckResolved={() => setClientCheckReady(true)}
+      />
+    );
+  }
 
   return (
     <div className={styles.app}>
@@ -37,6 +73,7 @@ export default function LoginView(props?: {
         <Login
           onLogin={props?.onLogin || (() => {})}
           onSwitchToRegister={props?.onSwitchToRegister || (() => {})}
+          skipClientCheck
         />
       </div>
     </div>

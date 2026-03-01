@@ -40,14 +40,14 @@ test.describe('Authentication - User Login', () => {
     await expect(page.locator('input[name="password"], input[type="password"]')).toBeVisible();
   });
 
-  test('shows loading spinner while sign-in configuration is still loading', async ({ page }) => {
+  test('keeps login view hidden while sign-in configuration is still loading', async ({ page }) => {
     await page.route('**/api/user/scope-descriptions**', async (route) => {
       await page.waitForTimeout(3000);
       await route.continue();
     });
     await page.reload();
-    await expect(page.getByTestId('client-check-loading')).toBeVisible();
-    await expect(page.getByTestId('client-check-error')).toHaveCount(0);
+    await expect(page.getByText('Welcome back')).toHaveCount(0);
+    await expect(page.getByText('DarkAuth')).toHaveCount(0);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
 
