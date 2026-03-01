@@ -1,9 +1,10 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
-  groupPermissions,
-  groups,
+  organizationMemberRoles,
+  organizationMembers,
   permissions,
-  userGroups,
+  rolePermissions,
+  roles,
   userPermissions,
   users,
 } from "../db/schema.ts";
@@ -58,33 +59,44 @@ export async function getUserPermissionsDetails(context: Context, userSub: strin
     .innerJoin(permissions, eq(userPermissions.permissionKey, permissions.key))
     .where(eq(userPermissions.userSub, userSub))
     .orderBy(permissions.key);
-  const groupPermissionsData = await context.db
+  const inheritedPermissionsData = await context.db
     .select({
       permissionKey: permissions.key,
       permissionDescription: permissions.description,
-      groupKey: groups.key,
-      groupName: groups.name,
+      roleId: roles.id,
+      roleKey: roles.key,
+      roleName: roles.name,
     })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .innerJoin(groupPermissions, eq(groups.key, groupPermissions.groupKey))
-    .innerJoin(permissions, eq(groupPermissions.permissionKey, permissions.key))
-    .where(eq(userGroups.userSub, userSub))
+    .from(organizationMembers)
+    .innerJoin(
+      organizationMemberRoles,
+      eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
+    )
+    .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
+    .innerJoin(rolePermissions, eq(rolePermissions.roleId, roles.id))
+    .innerJoin(permissions, eq(rolePermissions.permissionKey, permissions.key))
+    .where(and(eq(organizationMembers.userSub, userSub), eq(organizationMembers.status, "active")))
     .orderBy(permissions.key);
   const inheritedMap = new Map<
     string,
-    { key: string; description: string; groups: Array<{ key: string; name: string }> }
+    {
+      key: string;
+      description: string;
+      roles: Array<{ roleId: string; roleKey: string; roleName: string }>;
+    }
   >();
-  for (const item of groupPermissionsData) {
+  for (const item of inheritedPermissionsData) {
     if (!inheritedMap.has(item.permissionKey)) {
       inheritedMap.set(item.permissionKey, {
         key: item.permissionKey,
         description: item.permissionDescription,
-        groups: [],
+        roles: [],
       });
     }
     const entry = inheritedMap.get(item.permissionKey);
-    if (entry) entry.groups.push({ key: item.groupKey, name: item.groupName });
+    if (entry && !entry.roles.some((role) => role.roleId === item.roleId)) {
+      entry.roles.push({ roleId: item.roleId, roleKey: item.roleKey, roleName: item.roleName });
+    }
   }
   const inheritedPermissions = Array.from(inheritedMap.values());
   const availablePermissions = await context.db

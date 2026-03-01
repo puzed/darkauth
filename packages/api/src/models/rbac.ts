@@ -20,6 +20,7 @@ export async function getUserOrganizations(context: Context, userSub: string) {
       organizationId: organizations.id,
       slug: organizations.slug,
       name: organizations.name,
+      forceOtp: organizations.forceOtp,
       status: organizationMembers.status,
     })
     .from(organizationMembers)

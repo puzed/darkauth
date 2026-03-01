@@ -262,6 +262,7 @@ export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull(),
+  forceOtp: boolean("force_otp").default(false).notNull(),
   createdByUserSub: text("created_by_user_sub").references(() => users.sub, {
     onDelete: "set null",
   }),
@@ -361,43 +362,6 @@ export const organizationInvites = pgTable(
   })
 );
 
-export const groups = pgTable("groups", {
-  key: text("key").primaryKey(),
-  name: text("name").notNull(),
-  enableLogin: boolean("enable_login").default(true).notNull(),
-  requireOtp: boolean("require_otp").default(false).notNull(),
-});
-
-export const groupPermissions = pgTable(
-  "group_permissions",
-  {
-    groupKey: text("group_key")
-      .notNull()
-      .references(() => groups.key, { onDelete: "cascade" }),
-    permissionKey: text("permission_key")
-      .notNull()
-      .references(() => permissions.key, { onDelete: "cascade" }),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.groupKey, table.permissionKey] }),
-  })
-);
-
-export const userGroups = pgTable(
-  "user_groups",
-  {
-    userSub: text("user_sub")
-      .notNull()
-      .references(() => users.sub, { onDelete: "cascade" }),
-    groupKey: text("group_key")
-      .notNull()
-      .references(() => groups.key, { onDelete: "cascade" }),
-  },
-  (table) => ({
-    pk: primaryKey({ columns: [table.userSub, table.groupKey] }),
-  })
-);
-
 export const userPermissions = pgTable(
   "user_permissions",
   {
@@ -451,7 +415,6 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   authCodes: many(authCodes),
   sessions: many(sessions),
   organizations: many(organizationMembers),
-  groups: many(userGroups),
   permissions: many(userPermissions),
 }));
 
@@ -503,13 +466,7 @@ export const adminOpaqueRecordsRelations = relations(adminOpaqueRecords, ({ one 
   }),
 }));
 
-export const groupsRelations = relations(groups, ({ many }) => ({
-  permissions: many(groupPermissions),
-  users: many(userGroups),
-}));
-
 export const permissionsRelations = relations(permissions, ({ many }) => ({
-  groups: many(groupPermissions),
   users: many(userPermissions),
   roles: many(rolePermissions),
 }));
@@ -544,28 +501,6 @@ export const organizationInvitesRelations = relations(organizationInvites, ({ on
   createdBy: one(users, {
     fields: [organizationInvites.createdByUserSub],
     references: [users.sub],
-  }),
-}));
-
-export const userGroupsRelations = relations(userGroups, ({ one }) => ({
-  user: one(users, {
-    fields: [userGroups.userSub],
-    references: [users.sub],
-  }),
-  group: one(groups, {
-    fields: [userGroups.groupKey],
-    references: [groups.key],
-  }),
-}));
-
-export const groupPermissionsRelations = relations(groupPermissions, ({ one }) => ({
-  group: one(groups, {
-    fields: [groupPermissions.groupKey],
-    references: [groups.key],
-  }),
-  permission: one(permissions, {
-    fields: [groupPermissions.permissionKey],
-    references: [permissions.key],
   }),
 }));
 

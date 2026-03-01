@@ -112,7 +112,7 @@ export default function Permissions() {
   };
 
   const handleDeletePermission = async (permission: Permission) => {
-    if (!confirm(`Delete permission "${permission.key}"? This will remove it from all groups.`))
+    if (!confirm(`Delete permission "${permission.key}"? This will remove it from all roles.`))
       return;
     try {
       setError(null);
@@ -123,7 +123,7 @@ export default function Permissions() {
     }
   };
 
-  const totalGroups = permissions.reduce((total, p) => total + (p.groupCount || 0), 0);
+  const totalRoles = permissions.reduce((total, p) => total + (p.roleCount || 0), 0);
   const totalUsers = permissions.reduce((total, p) => total + (p.directUserCount || 0), 0);
 
   if (loading && permissions.length === 0) return null;
@@ -132,7 +132,7 @@ export default function Permissions() {
     <div>
       <PageHeader
         title="Permissions"
-        subtitle="Manage permissions that can be assigned to groups"
+        subtitle="Manage permissions that can be assigned to roles"
         actions={
           <Button onClick={() => setCreateDialogOpen(true)}>
             <Plus />
@@ -151,10 +151,10 @@ export default function Permissions() {
           description="Defined permissions"
         />
         <StatsCard
-          title="Group Assignments"
+          title="Role Assignments"
           icon={<Shield size={16} />}
-          value={totalGroups}
-          description="Times assigned to groups"
+          value={totalRoles}
+          description="Times assigned to roles"
         />
         <StatsCard
           title="Direct User Assignments"
@@ -166,7 +166,7 @@ export default function Permissions() {
 
       <ListCard
         title="Permission Management"
-        description="Define permissions that can be assigned to groups. Users inherit permissions from their groups."
+        description="Define permissions that can be assigned to roles. Users inherit permissions from their organization role assignments."
         search={{
           placeholder: "Search permissions...",
           value: searchQuery,
@@ -177,7 +177,7 @@ export default function Permissions() {
           <EmptyState
             icon={<Key />}
             title="No Permissions Defined"
-            description="Create permissions to assign to groups. Users will inherit permissions from their groups."
+            description="Create permissions to assign to roles. Users will inherit permissions from role assignments."
             action={
               <Button onClick={() => setCreateDialogOpen(true)}>
                 <Plus size={16} />
@@ -202,7 +202,7 @@ export default function Permissions() {
                     sortOrder={sortOrder}
                     onToggle={() => toggleSort("description")}
                   />
-                  <TableHead>Groups</TableHead>
+                  <TableHead>Roles</TableHead>
                   <TableHead>Direct Users</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
@@ -230,8 +230,8 @@ export default function Permissions() {
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary">
-                        {permission.groupCount || 0} group
-                        {(permission.groupCount || 0) !== 1 ? "s" : ""}
+                        {permission.roleCount || 0} role
+                        {(permission.roleCount || 0) !== 1 ? "s" : ""}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -273,7 +273,7 @@ export default function Permissions() {
           <DialogHeader>
             <DialogTitle>Create Permission</DialogTitle>
             <DialogDescription>
-              Define a new permission that can be assigned to groups.
+              Define a new permission that can be assigned to roles.
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>

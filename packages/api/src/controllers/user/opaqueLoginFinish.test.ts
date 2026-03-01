@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, mock, test } from "node:test";
-import { organizationMembers, roles, userGroups } from "../../db/schema.ts";
+import { organizationMembers } from "../../db/schema.ts";
 import type { Context } from "../../types.ts";
 import { postOpaqueLoginFinish } from "./opaqueLoginFinish.ts";
 
@@ -37,10 +37,10 @@ function createSelectBuilder(state: {
     organizationId: string;
     status: string;
     slug: string;
+    name: string;
+    membershipId: string;
+    forceOtp: boolean;
   }>;
-  loginGroups: Array<{ enableLogin: boolean }>;
-  roleRows: Array<{ roleKey: string }>;
-  groupOtpRows: Array<{ groupKey: string }>;
 }) {
   return (selection: unknown) => {
     const keys =
@@ -54,20 +54,6 @@ function createSelectBuilder(state: {
         if (keys.includes("organizationId")) {
           return state.organizations;
         }
-        if (keys.includes("roleKey")) {
-          return state.roleRows;
-        }
-      }
-      if (fromTable === userGroups) {
-        if (keys.includes("enableLogin")) {
-          return state.loginGroups;
-        }
-        if (keys.includes("groupKey")) {
-          return state.groupOtpRows;
-        }
-      }
-      if (fromTable === roles) {
-        return [];
       }
       return [];
     };
@@ -127,11 +113,11 @@ describe("User OPAQUE Login Finish", () => {
           organizationId: "org-1",
           status: "active",
           slug: "default",
+          name: "Default",
+          membershipId: "membership-1",
+          forceOtp: false,
         },
       ],
-      loginGroups: [{ enableLogin: true }],
-      roleRows: [],
-      groupOtpRows: [],
     };
 
     context = {

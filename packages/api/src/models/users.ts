@@ -1,12 +1,10 @@
-import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import {
-  groupPermissions,
-  groups,
   organizationMemberRoles,
   organizationMembers,
   organizations,
+  rolePermissions,
   roles,
-  userGroups,
   userPermissions,
   users,
 } from "../db/schema.ts";
@@ -14,7 +12,6 @@ import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
 async function getAccessMapsForSubs(context: Context, subs: string[]) {
-  let groupsByUser = new Map<string, string[]>();
   const permissionsByUser = new Map<string, string[]>();
   const organizationRolesByUser = new Map<
     string,
@@ -22,45 +19,28 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
   >();
 
   if (subs.length === 0) {
-    return { groupsByUser, permissionsByUser, organizationRolesByUser };
+    return { permissionsByUser, organizationRolesByUser };
   }
-
-  const groupRows = await context.db
-    .select({ userSub: userGroups.userSub, groupKey: groups.key })
-    .from(userGroups)
-    .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-    .where(inArray(userGroups.userSub, subs));
-
-  groupsByUser = groupRows.reduce((map, row) => {
-    const list = map.get(row.userSub) || [];
-    list.push(row.groupKey);
-    map.set(row.userSub, list);
-    return map;
-  }, new Map<string, string[]>());
 
   const directPermissionsRows = await context.db
     .select({ userSub: userPermissions.userSub, permissionKey: userPermissions.permissionKey })
     .from(userPermissions)
     .where(inArray(userPermissions.userSub, subs));
 
-  const groupKeys = Array.from(new Set(groupRows.map((row) => row.groupKey)));
-  const groupPermissionsRows =
-    groupKeys.length > 0
-      ? await context.db
-          .select({
-            groupKey: groupPermissions.groupKey,
-            permissionKey: groupPermissions.permissionKey,
-          })
-          .from(groupPermissions)
-          .where(inArray(groupPermissions.groupKey, groupKeys))
-      : [];
-
-  const permissionKeysByGroup = groupPermissionsRows.reduce((map, row) => {
-    const list = map.get(row.groupKey) || [];
-    list.push(row.permissionKey);
-    map.set(row.groupKey, list);
-    return map;
-  }, new Map<string, string[]>());
+  const inheritedPermissionRows = await context.db
+    .select({
+      userSub: organizationMembers.userSub,
+      permissionKey: rolePermissions.permissionKey,
+    })
+    .from(organizationMembers)
+    .innerJoin(
+      organizationMemberRoles,
+      eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
+    )
+    .innerJoin(rolePermissions, eq(rolePermissions.roleId, organizationMemberRoles.roleId))
+    .where(
+      and(inArray(organizationMembers.userSub, subs), eq(organizationMembers.status, "active"))
+    );
 
   const directPermissionsByUser = directPermissionsRows.reduce((map, row) => {
     const list = map.get(row.userSub) || [];
@@ -69,13 +49,17 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
     return map;
   }, new Map<string, string[]>());
 
+  const inheritedPermissionsByUser = inheritedPermissionRows.reduce((map, row) => {
+    const list = map.get(row.userSub) || [];
+    list.push(row.permissionKey);
+    map.set(row.userSub, list);
+    return map;
+  }, new Map<string, string[]>());
+
   for (const sub of subs) {
     const direct = directPermissionsByUser.get(sub) || [];
-    const groupsForUser = groupsByUser.get(sub) || [];
-    const inherited = groupsForUser.flatMap(
-      (groupKey) => permissionKeysByGroup.get(groupKey) || []
-    );
-    permissionsByUser.set(sub, Array.from(new Set([...direct, ...inherited])));
+    const inherited = inheritedPermissionsByUser.get(sub) || [];
+    permissionsByUser.set(sub, Array.from(new Set([...direct, ...inherited])).sort());
   }
 
   const orgRoleRows = await context.db
@@ -92,7 +76,9 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
       eq(organizationMemberRoles.organizationMemberId, organizationMembers.id)
     )
     .leftJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
-    .where(inArray(organizationMembers.userSub, subs));
+    .where(
+      and(inArray(organizationMembers.userSub, subs), eq(organizationMembers.status, "active"))
+    );
 
   for (const row of orgRoleRows) {
     const list = organizationRolesByUser.get(row.userSub) || [];
@@ -118,7 +104,7 @@ async function getAccessMapsForSubs(context: Context, subs: string[]) {
     organizationRolesByUser.set(sub, list);
   }
 
-  return { groupsByUser, permissionsByUser, organizationRolesByUser };
+  return { permissionsByUser, organizationRolesByUser };
 }
 
 export async function listUsers(
@@ -171,10 +157,7 @@ export async function listUsers(
     .offset(offset);
 
   const subs = usersList.map((u) => u.sub);
-  const { groupsByUser, permissionsByUser, organizationRolesByUser } = await getAccessMapsForSubs(
-    context,
-    subs
-  );
+  const { permissionsByUser, organizationRolesByUser } = await getAccessMapsForSubs(context, subs);
 
   const total = totalCount[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
@@ -182,7 +165,6 @@ export async function listUsers(
   return {
     users: usersList.map((u) => ({
       ...u,
-      groups: groupsByUser.get(u.sub) || [],
       permissions: permissionsByUser.get(u.sub) || [],
       organizationRoles: organizationRolesByUser.get(u.sub) || [],
     })),
@@ -212,7 +194,6 @@ export async function createUser(
   const sub = subInput || (await (await import("../utils/crypto.ts")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
-    await tx.insert(userGroups).values({ userSub: sub, groupKey: "default" }).onConflictDoNothing();
     const defaultOrg = await tx.query.organizations.findFirst({
       where: eq(organizations.slug, "default"),
     });
@@ -252,7 +233,7 @@ export async function getUserBySub(context: Context, sub: string) {
   return user;
 }
 
-export async function getUsersBySubsWithGroups(context: Context, subs: string[]) {
+export async function getUsersBySubsWithAccess(context: Context, subs: string[]) {
   if (subs.length === 0) {
     return [];
   }
@@ -267,17 +248,16 @@ export async function getUsersBySubsWithGroups(context: Context, subs: string[])
     .from(users)
     .where(inArray(users.sub, subs));
 
-  const { groupsByUser, permissionsByUser } = await getAccessMapsForSubs(context, subs);
+  const { permissionsByUser } = await getAccessMapsForSubs(context, subs);
 
   return usersList.map((user) => ({
     ...user,
-    groups: groupsByUser.get(user.sub) || [],
     permissions: permissionsByUser.get(user.sub) || [],
   }));
 }
 
-export async function getUserBySubWithGroups(context: Context, sub: string) {
-  const rows = await getUsersBySubsWithGroups(context, [sub]);
+export async function getUserBySubWithAccess(context: Context, sub: string) {
+  const rows = await getUsersBySubsWithAccess(context, [sub]);
   return rows[0] || null;
 }
 

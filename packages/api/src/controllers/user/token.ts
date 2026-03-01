@@ -260,7 +260,6 @@ export const postToken = withRateLimit("token")(
         const { getUserOrgAccess, resolveOrganizationContext } = await import(
           "../../models/rbac.ts"
         );
-        const { getUserAccess } = await import("../../models/access.ts");
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
@@ -275,9 +274,14 @@ export const postToken = withRateLimit("token")(
           user.sub,
           organizationId
         );
-        const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+        const directPermissionRows = await context.db.query.userPermissions.findMany({
+          where: (table, { eq }) => eq(table.userSub, user.sub),
+        });
         const uniquePermissions = Array.from(
-          new Set([...organizationPermissions, ...userAccessPermissions])
+          new Set([
+            ...organizationPermissions,
+            ...directPermissionRows.map((row) => row.permissionKey),
+          ])
         ).sort();
         if (sessionOrganizationId !== organizationId) {
           await updateSession(context, rotated.sessionId, {
@@ -519,7 +523,6 @@ export const postToken = withRateLimit("token")(
       }
 
       const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
-      const { getUserAccess } = await import("../../models/access.ts");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
         user.sub,
@@ -530,9 +533,14 @@ export const postToken = withRateLimit("token")(
         user.sub,
         organizationId
       );
-      const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
+      const directPermissionRows = await context.db.query.userPermissions.findMany({
+        where: (table, { eq }) => eq(table.userSub, user.sub),
+      });
       const uniquePermissions = Array.from(
-        new Set([...organizationPermissions, ...userAccessPermissions])
+        new Set([
+          ...organizationPermissions,
+          ...directPermissionRows.map((row) => row.permissionKey),
+        ])
       ).sort();
 
       const codeConsumed = await (await import("../../models/authCodes.ts")).consumeAuthCode(

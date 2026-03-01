@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 import { ForbiddenError, UnauthorizedError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getClient } from "../../models/clients.ts";
-import { getUserBySubWithGroups, getUsersBySubsWithGroups, listUsers } from "../../models/users.ts";
+import { getUserBySubWithAccess, getUsersBySubsWithAccess, listUsers } from "../../models/users.ts";
 import { getDirectoryEntry, searchDirectory } from "../../models/usersDirectory.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -131,7 +131,7 @@ export async function getUserDirectoryEntry(
 
   if (permission.mode === "management") {
     context.logger.info({ sub: parsedSub }, "users management get");
-    const user = await getUserBySubWithGroups(context, parsedSub);
+    const user = await getUserBySubWithAccess(context, parsedSub);
     if (!user) {
       sendJson(response, 404, { error: "user_not_found" });
       return;
@@ -174,7 +174,7 @@ export async function searchUserDirectory(
       .filter((sid) => sid.length > 0)
       .slice(0, 100);
     if (sids.length > 0) {
-      const users = await getUsersBySubsWithGroups(context, sids);
+      const users = await getUsersBySubsWithAccess(context, sids);
       sendJson(response, 200, { users });
       return;
     }
@@ -233,7 +233,6 @@ const ManagementUser = z.object({
   name: z.string().nullable().optional(),
   createdAt: z.union([z.string(), z.date()]).optional(),
   passwordResetRequired: z.boolean().optional(),
-  groups: z.array(z.string()).optional(),
   permissions: z.array(z.string()).optional(),
 });
 

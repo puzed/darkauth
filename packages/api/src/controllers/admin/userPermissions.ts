@@ -33,7 +33,7 @@ export async function getUserPermissions(
 }
 
 // Zod schemas for OpenAPI description
-const Group = z.object({ key: z.string(), name: z.string() });
+const Role = z.object({ roleId: z.string(), roleKey: z.string(), roleName: z.string() });
 const Perm = z.object({ key: z.string(), description: z.string() });
 const Resp = z.object({
   user: z.object({
@@ -43,7 +43,7 @@ const Resp = z.object({
   }),
   directPermissions: z.array(Perm),
   inheritedPermissions: z.array(
-    z.object({ key: z.string(), description: z.string(), groups: z.array(Group) })
+    z.object({ key: z.string(), description: z.string(), roles: z.array(Role) })
   ),
   availablePermissions: z.array(Perm),
 });

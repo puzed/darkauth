@@ -19,6 +19,7 @@ const OrganizationSchema = z.object({
   organizationId: z.string().uuid(),
   slug: z.string(),
   name: z.string(),
+  forceOtp: z.boolean(),
   membershipId: z.string().uuid(),
   status: z.string(),
 });
@@ -58,7 +59,11 @@ export const postOrganizations = withAudit({
 ) {
   const session = await requireSession(context, request, false);
   const body = parseJsonSafely(await readBody(request));
-  const Req = z.object({ name: z.string().min(1), slug: z.string().optional() });
+  const Req = z.object({
+    name: z.string().min(1),
+    slug: z.string().optional(),
+    forceOtp: z.boolean().optional(),
+  });
   const parsed = Req.parse(body);
   const organization = await createOrganization(context, session.sub as string, parsed);
   sendJson(response, 201, { organization });
@@ -193,7 +198,11 @@ export const createOrganizationSchema = {
     description: "",
     required: true,
     contentType: "application/json",
-    schema: z.object({ name: z.string().min(1), slug: z.string().optional() }),
+    schema: z.object({
+      name: z.string().min(1),
+      slug: z.string().optional(),
+      forceOtp: z.boolean().optional(),
+    }),
   },
   responses: {
     201: {
