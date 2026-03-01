@@ -8,6 +8,7 @@ import {
   resolveGrantedScopes,
   resolveSessionClientId,
   shouldIssueFirstPartyRefreshCookies,
+  shouldIssueRefreshTokenForClient,
   TokenRequestSchema,
 } from "./user/token.ts";
 
@@ -150,4 +151,12 @@ test("shouldIssueFirstPartyRefreshCookies returns false for body refresh token r
     }),
     false
   );
+});
+
+test("shouldIssueRefreshTokenForClient returns true when client allows refresh_token grant", () => {
+  assert.equal(shouldIssueRefreshTokenForClient(["authorization_code", "refresh_token"]), true);
+});
+
+test("shouldIssueRefreshTokenForClient returns false when client does not allow refresh_token grant", () => {
+  assert.equal(shouldIssueRefreshTokenForClient(["authorization_code"]), false);
 });
