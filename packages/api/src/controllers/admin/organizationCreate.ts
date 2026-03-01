@@ -11,10 +11,16 @@ import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.t
 const RequestSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
+  forceOtp: z.boolean().optional(),
 });
 
 const ResponseSchema = z.object({
-  organization: z.object({ id: z.string().uuid(), slug: z.string(), name: z.string() }),
+  organization: z.object({
+    id: z.string().uuid(),
+    slug: z.string(),
+    name: z.string(),
+    forceOtp: z.boolean(),
+  }),
 });
 
 const handler = async (context: Context, request: IncomingMessage, response: ServerResponse) => {

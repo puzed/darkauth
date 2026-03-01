@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { AuditLogsListResponseSchema, schema as auditLogsSchema } from "./auditLogs.ts";
 import { ClientsListResponseSchema, schema as clientsSchema } from "./clients.ts";
-import { schema as groupUsersSchema } from "./groupUsers.ts";
 import { LIST_PAGE_MAX, LIST_SEARCH_MAX_LENGTH } from "./listQueryBounds.ts";
 import { PermissionsListResponseSchema, schema as permissionsSchema } from "./permissions.ts";
 import { schema as rolesSchema } from "./roles.ts";
@@ -32,16 +31,14 @@ test("clients schema supports standard pagination, search and sorting query fiel
   assert.equal(parsed.sortOrder, "desc");
 });
 
-test("roles, permissions and group users schemas expose sorting query fields", () => {
+test("roles and permissions schemas expose sorting query fields", () => {
   const roleQuery = rolesSchema.query.parse({ sortBy: "key", sortOrder: "asc" });
   const permissionQuery = permissionsSchema.query.parse({
     sortBy: "description",
     sortOrder: "desc",
   });
-  const groupUsersQuery = groupUsersSchema.query.parse({ sortBy: "name", sortOrder: "asc" });
   assert.equal(roleQuery.sortBy, "key");
   assert.equal(permissionQuery.sortBy, "description");
-  assert.equal(groupUsersQuery.sortBy, "name");
 });
 
 test("users and clients responses require pagination object", () => {

@@ -280,13 +280,13 @@ test.describe('API - Users endpoint auth methods', () => {
       email: string | null
       name: string | null
       display_name?: unknown
-      groups?: unknown[]
+      permissions?: unknown[]
     }
     expect(json.sub).toBe(targetSub)
     expect(json.email).toBe(targetEmail)
     expect(json.name).toBe(targetName)
     expect('display_name' in json).toBeFalsy()
-    expect(Array.isArray(json.groups)).toBeTruthy()
+    expect(Array.isArray(json.permissions)).toBeTruthy()
   })
 
   test('Missing authorization returns unauthorized', async () => {

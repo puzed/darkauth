@@ -75,7 +75,6 @@ export interface User {
   name?: string;
   createdAt: string;
   passwordResetRequired?: boolean;
-  groups?: string[];
   permissions?: string[];
 }
 
@@ -99,26 +98,11 @@ export interface UsersResponse {
   pagination: PaginationMeta;
 }
 
-// Groups and Permissions
-export interface Group {
-  key: string;
-  name: string;
-  enableLogin?: boolean;
-  requireOtp?: boolean;
-  permissions?: Array<{ key: string; description: string }>;
-  permissionCount?: number;
-  userCount?: number;
-}
-
-export interface GroupsResponse {
-  groups: Group[];
-  pagination: PaginationMeta;
-}
-
 export interface Organization {
   organizationId: string;
   slug: string;
   name: string;
+  forceOtp: boolean;
   memberCount?: number;
   roleCount?: number;
   createdAt?: string;
@@ -162,7 +146,7 @@ export interface OrganizationMemberWithOrganizationId extends OrganizationMember
 export interface Permission {
   key: string;
   description: string;
-  groupCount?: number;
+  roleCount?: number;
   directUserCount?: number;
 }
 
@@ -607,22 +591,6 @@ class AdminApiService {
     });
   }
 
-  async getUserGroups(userSub: string): Promise<string[]> {
-    const data = await this.request<{
-      user: { sub: string; email: string; name?: string };
-      userGroups: Array<{ key: string; name: string }>;
-      availableGroups: Array<{ key: string; name: string }>;
-    }>(`/users/${userSub}/groups`);
-    return data.userGroups.map((g) => g.key);
-  }
-
-  async updateUserGroups(userSub: string, groups: string[]): Promise<void> {
-    await this.request(`/users/${userSub}/groups`, {
-      method: "PUT",
-      body: JSON.stringify({ groups }),
-    });
-  }
-
   async getUserPermissions(userSub: string): Promise<string[]> {
     const data = await this.request<{
       user: { sub: string; email: string; name?: string };
@@ -630,7 +598,7 @@ class AdminApiService {
       inheritedPermissions: Array<{
         key: string;
         description: string;
-        groups: Array<{ key: string; name: string }>;
+        roles: Array<{ roleId: string; roleKey: string; roleName: string }>;
       }>;
       availablePermissions: Array<{ key: string; description: string }>;
     }>(`/users/${userSub}/permissions`);
@@ -652,6 +620,7 @@ class AdminApiService {
     return {
       ...raw,
       organizationId: raw.organizationId || raw.id || "",
+      forceOtp: raw.forceOtp === true,
     };
   }
 
@@ -695,7 +664,11 @@ class AdminApiService {
     return this.normalizeOrganization("organization" in data ? data.organization : data);
   }
 
-  async createOrganization(organization: { name: string; slug?: string }): Promise<Organization> {
+  async createOrganization(organization: {
+    name: string;
+    slug?: string;
+    forceOtp?: boolean;
+  }): Promise<Organization> {
     const data = await this.request<Organization | { organization: Organization }>(
       "/organizations",
       {
@@ -708,7 +681,7 @@ class AdminApiService {
 
   async updateOrganization(
     organizationId: string,
-    updates: { name?: string; slug?: string }
+    updates: { name?: string; slug?: string; forceOtp?: boolean }
   ): Promise<Organization> {
     const data = await this.request<Organization | { organization: Organization }>(
       `/organizations/${organizationId}`,
@@ -864,78 +837,6 @@ class AdminApiService {
 
   async deleteRole(roleId: string): Promise<void> {
     await this.request(`/roles/${roleId}`, { method: "DELETE" });
-  }
-
-  // Legacy Groups Management
-  async getGroups(): Promise<Group[]> {
-    const data = await this.request<{ groups: Group[] }>("/groups");
-    return data.groups;
-  }
-
-  async getGroupsPaged(
-    pageOrParams?: number | ListQueryParams,
-    limit?: number,
-    search?: string
-  ): Promise<GroupsResponse> {
-    const params = this.normalizeListParams(pageOrParams, limit, search);
-    return this.request(this.getPagedEndpoint("/groups", params));
-  }
-
-  async getGroup(key: string): Promise<Group> {
-    return this.request<Group>(`/groups/${key}`);
-  }
-
-  async getGroupUsers(groupKey: string): Promise<{
-    users: Array<{ sub: string; email: string; name?: string }>;
-    availableUsers: Array<{ sub: string; email: string; name?: string }>;
-  }> {
-    const data = await this.request<{
-      group: { key: string; name: string };
-      users: Array<{ sub: string; email: string; name?: string }>;
-      availableUsers: Array<{ sub: string; email: string; name?: string }>;
-    }>(`/groups/${groupKey}/users`);
-    return { users: data.users, availableUsers: data.availableUsers };
-  }
-
-  async updateGroupUsers(groupKey: string, userSubs: string[]): Promise<void> {
-    await this.request(`/groups/${groupKey}/users`, {
-      method: "PUT",
-      body: JSON.stringify({ userSubs }),
-    });
-  }
-
-  async createGroup(group: {
-    key: string;
-    name: string;
-    enableLogin?: boolean;
-    requireOtp?: boolean;
-    permissionKeys?: string[];
-  }): Promise<void> {
-    await this.request("/groups", {
-      method: "POST",
-      body: JSON.stringify(group),
-    });
-  }
-
-  async updateGroup(
-    groupKey: string,
-    updates: {
-      name?: string;
-      enableLogin?: boolean;
-      requireOtp?: boolean;
-      permissionKeys?: string[];
-    }
-  ): Promise<void> {
-    await this.request(`/groups/${groupKey}`, {
-      method: "PUT",
-      body: JSON.stringify(updates),
-    });
-  }
-
-  async deleteGroup(groupKey: string): Promise<void> {
-    await this.request(`/groups/${groupKey}`, {
-      method: "DELETE",
-    });
   }
 
   async getUserOtpStatus(userSub: string): Promise<{

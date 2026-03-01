@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
+import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -17,12 +18,17 @@ export default function OrganizationCreate() {
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [forceOtp, setForceOtp] = useState(false);
 
   const create = async () => {
     try {
       setSubmitting(true);
       setError(null);
-      await adminApiService.createOrganization({ name, slug: slug.trim() || undefined });
+      await adminApiService.createOrganization({
+        name,
+        slug: slug.trim() || undefined,
+        forceOtp,
+      });
       navigate("/organizations");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create organization");
@@ -60,6 +66,15 @@ export default function OrganizationCreate() {
                   onChange={(e) => setSlug(e.target.value)}
                   disabled={submitting}
                   placeholder="acme"
+                />
+              </FormField>
+              <FormField label={<Label>Security</Label>}>
+                <CheckboxRow
+                  id="organization-force-otp"
+                  label="Force OTP for all members"
+                  checked={forceOtp}
+                  disabled={submitting}
+                  onCheckedChange={(checked) => setForceOtp(checked)}
                 />
               </FormField>
             </FormGrid>

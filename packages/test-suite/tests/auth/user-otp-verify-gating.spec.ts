@@ -3,6 +3,10 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../s
 import { installDarkAuth } from '../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js';
+import {
+  getDefaultOrganizationId,
+  setOrganizationForceOtp,
+} from '../../setup/helpers/rbac.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Auth - OTP verification gating (UI)', () => {
@@ -29,19 +33,10 @@ test.describe('Auth - OTP verification gating (UI)', () => {
   });
 
 test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
-    await fetch(`${servers.adminUrl}/admin/groups/default`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: adminSession.cookieHeader,
-        Origin: servers.adminUrl,
-        'x-csrf-token': adminSession.csrfToken,
-      },
-      body: JSON.stringify({ requireOtp: true })
-    });
-
     const user = { email: `og-${Date.now()}@example.com`, name: 'OTP Gate', password: 'Passw0rd!123' };
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
@@ -61,5 +56,6 @@ test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
     await page.getByText('Backup Codes').waitFor({ state: 'visible', timeout: 10000 });
     await page.getByRole('button', { name: /^Continue$/i }).click();
     await page.waitForURL(/dashboard/i, { timeout: 10000 });
+    await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
   });
 });

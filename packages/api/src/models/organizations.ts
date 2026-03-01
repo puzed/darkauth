@@ -31,6 +31,7 @@ export async function listOrganizationsForUser(context: Context, userSub: string
       organizationId: organizations.id,
       slug: organizations.slug,
       name: organizations.name,
+      forceOtp: organizations.forceOtp,
       membershipId: organizationMembers.id,
       status: organizationMembers.status,
     })
@@ -49,6 +50,7 @@ export async function getOrganizationForUser(
       organizationId: organizations.id,
       slug: organizations.slug,
       name: organizations.name,
+      forceOtp: organizations.forceOtp,
       membershipId: organizationMembers.id,
       status: organizationMembers.status,
     })
@@ -102,7 +104,7 @@ export async function requireAnyOrganizationManagePermission(context: Context, u
 export async function createOrganization(
   context: Context,
   userSub: string,
-  data: { name: string; slug?: string }
+  data: { name: string; slug?: string; forceOtp?: boolean }
 ) {
   const name = data.name.trim();
   if (!name) throw new ValidationError("Organization name is required");
@@ -119,6 +121,7 @@ export async function createOrganization(
       .values({
         slug,
         name,
+        forceOtp: data.forceOtp === true,
         createdByUserSub: userSub,
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -156,6 +159,7 @@ export async function createOrganization(
       organizationId: created.id,
       slug: created.slug,
       name: created.name,
+      forceOtp: created.forceOtp,
       membershipId: membership.id,
       status: membership.status,
     };
