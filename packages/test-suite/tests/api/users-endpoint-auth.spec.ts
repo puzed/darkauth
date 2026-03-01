@@ -27,11 +27,17 @@ function readSessionCookieHeader(response: Response): string {
   return [authCookie, csrfCookie, refreshCookie].join('; ')
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const parts = token.split('.')
+  if (parts.length !== 3 || !parts[1]) throw new Error('invalid jwt')
+  return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<string, unknown>
+}
+
 async function opaqueLoginFinish(
   userUrl: string,
   email: string,
   password: string
-): Promise<{ cookieHeader: string }> {
+): Promise<{ cookieHeader: string; clientId: string }> {
   const client = new OpaqueClient()
   await client.initialize()
   const start = await client.startLogin(password, email)
@@ -55,10 +61,15 @@ async function opaqueLoginFinish(
     body: JSON.stringify({ finish: toBase64Url(Buffer.from(finish.finish)), sessionId: startJson.sessionId })
   })
   expect(resFinish.ok).toBeTruthy()
-  return { cookieHeader: readSessionCookieHeader(resFinish) }
+  const finishJson = await resFinish.json() as { accessToken?: string }
+  const aud = typeof finishJson.accessToken === 'string'
+    ? decodeJwtPayload(finishJson.accessToken).aud
+    : null
+  if (typeof aud !== 'string' || !aud) throw new Error('missing client audience in access token')
+  return { cookieHeader: readSessionCookieHeader(resFinish), clientId: aud }
 }
 
-async function getUserJwt(userUrl: string, cookieHeader: string) {
+async function getUserJwt(userUrl: string, cookieHeader: string, clientId: string) {
   const tokenRes = await fetch(`${userUrl}/api/user/token`, {
     method: 'POST',
     headers: {
@@ -68,7 +79,7 @@ async function getUserJwt(userUrl: string, cookieHeader: string) {
     },
     body: new URLSearchParams({
       grant_type: 'refresh_token',
-      client_id: 'demo-public-client'
+      client_id: clientId
     })
   })
   expect(tokenRes.ok).toBeTruthy()
@@ -217,9 +228,13 @@ test.describe('API - Users endpoint auth methods', () => {
     expect(updatePermissionsRes.ok).toBeTruthy()
 
     const loginResult = await opaqueLoginFinish(servers.userUrl, reader.email, reader.password)
-    userJwt = await getUserJwt(servers.userUrl, loginResult.cookieHeader)
+    userJwt = await getUserJwt(servers.userUrl, loginResult.cookieHeader, loginResult.clientId)
     const plainLoginResult = await opaqueLoginFinish(servers.userUrl, plain.email, plain.password)
-    plainUserJwt = await getUserJwt(servers.userUrl, plainLoginResult.cookieHeader)
+    plainUserJwt = await getUserJwt(
+      servers.userUrl,
+      plainLoginResult.cookieHeader,
+      plainLoginResult.clientId
+    )
   })
 
   test.afterAll(async () => {
