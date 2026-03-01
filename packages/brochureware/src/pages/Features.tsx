@@ -76,7 +76,7 @@ const features: Feature[] = [
     title: "SPA Session & Refresh",
     bullets: [
       "/session for minimal session info",
-      "/refresh-token to rotate session tokens",
+      "/token refresh grant to rotate session tokens",
     ],
     tags: ["Bearer", "SPA"],
   },

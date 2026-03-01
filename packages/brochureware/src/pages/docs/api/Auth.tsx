@@ -122,7 +122,7 @@ const AuthPage = () => {
               <RefreshCw className="h-4 w-4 text-primary" />
               <h3 className="font-semibold">Maintain</h3>
             </div>
-            <p className="text-sm text-muted-foreground">`GET /api/session`, `/api/refresh-token`, `/api/logout`</p>
+            <p className="text-sm text-muted-foreground">`GET /api/session`, `/api/token` (refresh grant), `/api/logout`</p>
           </CardContent>
         </Card>
       </div>

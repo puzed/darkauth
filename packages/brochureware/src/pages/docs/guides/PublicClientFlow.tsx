@@ -121,7 +121,7 @@ const PublicClientFlowPage = () => {
         <ul className="list-disc space-y-2 pl-5 text-base">
           <li>DarkAuth user-facing APIs use bearer tokens on `Authorization: Bearer`.</li>
           <li>Use `/api/session` for quick session introspection.</li>
-          <li>Use `/api/refresh-token` when id/access token renewals are required.</li>
+          <li>Use `/api/token` with `grant_type=refresh_token` when renewals are required.</li>
         </ul>
       </DocsCallout>
 
@@ -135,7 +135,7 @@ const PublicClientFlowPage = () => {
             <li><code>GET /api/authorize</code> &rarr; authorization request entry.</li>
             <li><code>POST /api/authorize/finalize</code> &rarr; confirm pending auth code.</li>
             <li><code>POST /api/token</code> &rarr; authorization_code token exchange.</li>
-            <li><code>POST /api/logout</code> and <code>POST /api/refresh-token</code>.</li>
+            <li><code>POST /api/logout</code> and <code>POST /api/token</code> refresh grant.</li>
           </ul>
           <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
             <CheckCircle className="h-4 w-4 text-primary" />
