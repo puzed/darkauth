@@ -2,6 +2,10 @@ import { asc, count, desc, eq, ilike, or } from "drizzle-orm";
 import { clients } from "../db/schema.ts";
 import { NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
+import {
+  type ClientScopeDefinition,
+  serializeClientScopeDefinitions,
+} from "../utils/clientScopes.ts";
 
 export async function deleteClient(context: Context, clientId: string) {
   if (!clientId) throw new ValidationError("Client ID is required");
@@ -152,7 +156,7 @@ export async function createClient(
     postLogoutRedirectUris?: string[];
     grantTypes?: string[];
     responseTypes?: string[];
-    scopes?: string[];
+    scopes?: Array<string | ClientScopeDefinition>;
     allowedZkOrigins?: string[];
     idTokenLifetimeSeconds?: number | null;
     refreshTokenLifetimeSeconds?: number | null;
@@ -193,7 +197,12 @@ export async function createClient(
     postLogoutRedirectUris: data.postLogoutRedirectUris ?? [],
     grantTypes: data.grantTypes ?? ["authorization_code"],
     responseTypes: data.responseTypes ?? ["code"],
-    scopes: data.scopes ?? ["openid", "profile"],
+    scopes: serializeClientScopeDefinitions(
+      data.scopes ?? [
+        { key: "openid", description: "Authenticate you" },
+        { key: "profile", description: "Access your profile information" },
+      ]
+    ),
     allowedZkOrigins: data.allowedZkOrigins ?? [],
     idTokenLifetimeSeconds: data.idTokenLifetimeSeconds ?? null,
     refreshTokenLifetimeSeconds: data.refreshTokenLifetimeSeconds ?? null,
@@ -207,7 +216,9 @@ export async function createClient(
 export async function updateClient(
   context: Context,
   clientId: string,
-  updates: Partial<typeof clients.$inferInsert>
+  updates: Partial<
+    Omit<typeof clients.$inferInsert, "scopes"> & { scopes: Array<string | ClientScopeDefinition> }
+  >
 ) {
   const existing = await getClient(context, clientId);
   if (!existing) {
@@ -220,11 +231,15 @@ export async function updateClient(
       ? "none"
       : (updates.tokenEndpointAuthMethod ?? existing.tokenEndpointAuthMethod);
   const needsSecret = nextType === "confidential" || nextAuthMethod === "client_secret_basic";
+  const { scopes: scopeUpdates, ...baseUpdates } = updates;
 
   const patch: Partial<typeof clients.$inferInsert> = {
-    ...updates,
+    ...baseUpdates,
     tokenEndpointAuthMethod: nextAuthMethod,
   };
+  if (Object.hasOwn(updates, "scopes")) {
+    patch.scopes = serializeClientScopeDefinitions(scopeUpdates ?? []);
+  }
 
   if (needsSecret) {
     if (!existing.clientSecretEnc) {

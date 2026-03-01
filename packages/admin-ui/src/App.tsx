@@ -17,7 +17,6 @@ import AuditLogDetail from "./pages/AuditLogDetail";
 import AuditLogs from "./pages/AuditLogs";
 import Branding from "./pages/Branding";
 import Changelog from "./pages/Changelog";
-import ClientCreate from "./pages/ClientCreate";
 import ClientEdit from "./pages/ClientEdit";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
@@ -354,7 +353,7 @@ const App = () => {
               path="/clients/new"
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
-                  <ClientCreate />
+                  <ClientEdit mode="create" />
                 </DashboardLayout>
               }
             />

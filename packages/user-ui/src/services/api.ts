@@ -264,6 +264,21 @@ class ApiService {
     return this.request("/session");
   }
 
+  async getClientScopeDescriptions(
+    clientId: string,
+    scopes: string[]
+  ): Promise<Record<string, string>> {
+    const query = new URLSearchParams();
+    query.set("client_id", clientId);
+    if (scopes.length > 0) {
+      query.set("scopes", scopes.join(" "));
+    }
+    const data = await this.request<{ descriptions?: Record<string, string> }>(
+      `/scope-descriptions?${query.toString()}`
+    );
+    return data.descriptions || {};
+  }
+
   async logout(): Promise<void> {
     await this.request("/logout", {
       method: "POST",

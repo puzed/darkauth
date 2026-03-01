@@ -2,6 +2,13 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 
 import { ForbiddenError, ValidationError } from "../../errors.ts";
+import { parseClientScopeDefinitions } from "../../utils/clientScopes.ts";
+
+const ScopeSchema = z.object({
+  key: z.string().min(1),
+  description: z.string().optional(),
+});
+
 export const CreateClientSchema = z.object({
   clientId: z.string().min(1),
   name: z.string().min(1).max(255),
@@ -28,7 +35,13 @@ export const CreateClientSchema = z.object({
   postLogoutRedirectUris: z.array(z.string().url()).optional().default([]),
   grantTypes: z.array(z.string()).optional().default(["authorization_code"]),
   responseTypes: z.array(z.string()).optional().default(["code"]),
-  scopes: z.array(z.string()).optional().default(["openid", "profile"]),
+  scopes: z
+    .array(z.union([z.string().min(1), ScopeSchema]))
+    .optional()
+    .default([
+      { key: "openid", description: "Authenticate you" },
+      { key: "profile", description: "Access your profile information" },
+    ]),
   allowedZkOrigins: z.array(z.string()).optional().default([]),
   idTokenLifetimeSeconds: z.number().int().positive().optional(),
   refreshTokenLifetimeSeconds: z.number().int().positive().optional(),
@@ -54,7 +67,7 @@ export const ClientResponseSchema = z.object({
   postLogoutRedirectUris: z.array(z.string()),
   grantTypes: z.array(z.string()),
   responseTypes: z.array(z.string()),
-  scopes: z.array(z.string()),
+  scopes: z.array(ScopeSchema),
   allowedZkOrigins: z.array(z.string()),
   idTokenLifetimeSeconds: z.number().int().positive().nullable(),
   refreshTokenLifetimeSeconds: z.number().int().positive().nullable(),
@@ -109,7 +122,7 @@ async function createClientHandler(
   };
 
   const created = await createClientModel(context, data);
-  const responseData = { ...created };
+  const responseData = { ...created, scopes: parseClientScopeDefinitions(created.scopes) };
   sendJsonValidated(response, 201, responseData, ClientResponseSchema);
 }
 
