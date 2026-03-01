@@ -209,12 +209,9 @@ jobs:
         run: echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
       - run: npm version ${{ steps.release_version.outputs.value }} --no-git-tag-version -w @darkauth/client
       - run: npm run build -w @darkauth/client
-      - id: client_version
-        run: |
-          echo "version=$(node -p \"require('./packages/darkauth-client/package.json').version\")" >> "$GITHUB_OUTPUT"
       - id: published
         env:
-          VERSION: ${{ steps.client_version.outputs.version }}
+          VERSION: ${{ steps.release_version.outputs.value }}
         run: |
           if npm view @darkauth/client@"$VERSION" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
