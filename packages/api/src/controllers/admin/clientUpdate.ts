@@ -57,6 +57,7 @@ async function updateClientHandler(
     scopes: z.array(z.union([z.string().min(1), ScopeSchema])).optional(),
     allowedZkOrigins: z.array(z.string()).optional(),
     idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+    accessTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
     refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
   });
   const parsedUpdates = Req.parse(parsed as unknown);
@@ -142,6 +143,7 @@ const Req = z.object({
   scopes: z.array(z.union([z.string().min(1), ScopeSchema])).optional(),
   allowedZkOrigins: z.array(z.string()).optional(),
   idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
+  accessTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
   refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
 });
 

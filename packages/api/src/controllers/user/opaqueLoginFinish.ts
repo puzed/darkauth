@@ -202,20 +202,14 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
       issueSessionCookies(response, createdSessionId, ttlSeconds, false);
       issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
-      let accessTokenTtl = 600;
-      const accessTokenSettings = (await getSetting(context, "access_token")) as
-        | { lifetime_seconds?: number }
-        | undefined
-        | null;
-      if (accessTokenSettings?.lifetime_seconds && accessTokenSettings.lifetime_seconds > 0) {
-        accessTokenTtl = accessTokenSettings.lifetime_seconds;
-      } else {
-        const flat = (await getSetting(context, "access_token.lifetime_seconds")) as
-          | number
-          | undefined
-          | null;
-        if (typeof flat === "number" && flat > 0) accessTokenTtl = flat;
-      }
+      const client = await (await import("../../models/clients.ts")).getClient(
+        context,
+        userClientId
+      );
+      const accessTokenTtl =
+        client?.accessTokenLifetimeSeconds && client.accessTokenLifetimeSeconds > 0
+          ? client.accessTokenLifetimeSeconds
+          : 600;
       const now = Math.floor(Date.now() / 1000);
       const accessToken = await signJWT(
         context,

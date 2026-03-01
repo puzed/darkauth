@@ -135,6 +135,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     allowedJweAlgs: "",
     allowedJweEncs: "",
     idTokenLifetimeSeconds: "",
+    accessTokenLifetimeSeconds: "",
     refreshTokenLifetimeSeconds: "",
   });
 
@@ -194,6 +195,9 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         allowedJweAlgs: joinList(c.allowedJweAlgs),
         allowedJweEncs: joinList(c.allowedJweEncs),
         idTokenLifetimeSeconds: c.idTokenLifetimeSeconds ? String(c.idTokenLifetimeSeconds) : "",
+        accessTokenLifetimeSeconds: c.accessTokenLifetimeSeconds
+          ? String(c.accessTokenLifetimeSeconds)
+          : "",
         refreshTokenLifetimeSeconds: c.refreshTokenLifetimeSeconds
           ? String(c.refreshTokenLifetimeSeconds)
           : "",
@@ -250,6 +254,9 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         allowedJweEncs: parseList(form.allowedJweEncs),
         idTokenLifetimeSeconds: form.idTokenLifetimeSeconds
           ? Number(form.idTokenLifetimeSeconds)
+          : undefined,
+        accessTokenLifetimeSeconds: form.accessTokenLifetimeSeconds
+          ? Number(form.accessTokenLifetimeSeconds)
           : undefined,
         refreshTokenLifetimeSeconds: form.refreshTokenLifetimeSeconds
           ? Number(form.refreshTokenLifetimeSeconds)
@@ -834,9 +841,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
             <Card className={styles.tabCard}>
               <CardHeader>
                 <CardTitle>Token Policy</CardTitle>
-                <CardDescription>
-                  Optional token lifetime overrides for this client.
-                </CardDescription>
+                <CardDescription>Token lifetime configuration for this client.</CardDescription>
               </CardHeader>
               <CardContent>
                 <FormGrid columns={1}>
@@ -844,7 +849,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     label={
                       <FieldLabel
                         title="ID Token TTL (seconds)"
-                        tooltip="Overrides global ID token lifetime for this client. Leave empty to use system defaults."
+                        tooltip="ID token lifetime for this client."
                       />
                     }
                   >
@@ -854,6 +859,25 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                       value={form.idTokenLifetimeSeconds}
                       onChange={(e) =>
                         setForm((f) => ({ ...f, idTokenLifetimeSeconds: e.target.value }))
+                      }
+                    />
+                    <FieldHint>Typical values: 300 to 3600 seconds.</FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Access Token TTL (seconds)"
+                        tooltip="Access token lifetime for this client."
+                      />
+                    }
+                  >
+                    <Input
+                      type="number"
+                      min={60}
+                      value={form.accessTokenLifetimeSeconds}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, accessTokenLifetimeSeconds: e.target.value }))
                       }
                     />
                     <FieldHint>Typical values: 300 to 3600 seconds.</FieldHint>
