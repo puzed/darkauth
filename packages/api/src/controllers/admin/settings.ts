@@ -5,6 +5,7 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { listSettings } from "../../models/settings.ts";
 import { ensureBrandingDefaults } from "../../services/branding.ts";
 import { requireSession } from "../../services/sessions.ts";
+import { pruneDeprecatedSettings } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { sendJson } from "../../utils/http.ts";
 
@@ -23,6 +24,7 @@ export async function getSettings(
 
   // Get all settings
   await ensureBrandingDefaults(context);
+  await pruneDeprecatedSettings(context);
   const settingsData = await listSettings(context);
 
   const flattened = settingsData;

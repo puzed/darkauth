@@ -43,7 +43,6 @@ import { schema as adminPasswordChangeFinishSchema } from "../controllers/admin/
 import { schema as adminPermissionCreateSchema } from "../controllers/admin/permissionCreate.ts";
 import { schema as adminPermissionDeleteSchema } from "../controllers/admin/permissionDelete.ts";
 import { schema as adminPermissionsSchema } from "../controllers/admin/permissions.ts";
-import { schema as adminRefreshTokenSchema } from "../controllers/admin/refreshToken.ts";
 import { schema as adminRoleCreateSchema } from "../controllers/admin/roleCreate.ts";
 import { schema as adminRoleDeleteSchema } from "../controllers/admin/roleDelete.ts";
 import { schema as adminRoleGetSchema } from "../controllers/admin/roleGet.ts";
@@ -93,7 +92,6 @@ import { schema as userPasswordChangeFinishSchema } from "../controllers/user/pa
 import { schema as userPasswordChangeStartSchema } from "../controllers/user/passwordChangeStart.ts";
 import { schema as userPasswordChangeVerifyFinishSchema } from "../controllers/user/passwordChangeVerifyFinish.ts";
 import { schema as userPasswordChangeVerifyStartSchema } from "../controllers/user/passwordChangeVerifyStart.ts";
-import { schema as userRefreshTokenSchema } from "../controllers/user/refreshToken.ts";
 import { schema as userSessionSchema } from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
 import {
@@ -111,7 +109,6 @@ import type { ControllerSchema } from "../types.ts";
 const documentedSchemas: ControllerSchema[] = [
   adminSessionSchema,
   adminLogoutSchema,
-  adminRefreshTokenSchema,
   adminOpaqueLoginStartSchema,
   adminOpaqueLoginFinishSchema,
   getAdminOtpStatusSchema,
@@ -178,7 +175,6 @@ const documentedSchemas: ControllerSchema[] = [
   userAuthorizeFinalizeSchema,
   userSessionSchema,
   userLogoutSchema,
-  userRefreshTokenSchema,
   userTokenSchema,
   userOtpStatusSchema,
   userOtpVerifySchema,

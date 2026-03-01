@@ -70,7 +70,7 @@ const ConfidentialClientFlowPage = () => {
             <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
               <li>Scopes become effective permissions (`darkauth.users:read`, etc).</li>
               <li>Token TTL and rotation are enforced by global settings.</li>
-              <li>Use `/api/refresh-token` only if you explicitly support refresh grants for that client.</li>
+              <li>Use `/api/token` with `grant_type=refresh_token` only when client grants allow it.</li>
             </ul>
           </CardContent>
         </Card>

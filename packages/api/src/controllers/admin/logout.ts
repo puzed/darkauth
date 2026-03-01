@@ -2,7 +2,12 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 
-import { clearSessionCookies, deleteSession, getSessionId } from "../../services/sessions.ts";
+import {
+  clearRefreshTokenCookie,
+  clearSessionCookies,
+  deleteSession,
+  getSessionId,
+} from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { sendJson } from "../../utils/http.ts";
@@ -19,6 +24,7 @@ async function postAdminLogoutHandler(
     await deleteSession(context, sessionId);
   }
   clearSessionCookies(response, true);
+  clearRefreshTokenCookie(response, true);
 
   sendJson(response, 200, {
     success: true,
