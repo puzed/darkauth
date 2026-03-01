@@ -144,7 +144,7 @@ export async function createUserServer(context: Context) {
           | undefined;
         const payload = {
           issuer,
-          clientId: ui.clientId || "demo-public-client",
+          clientId: ui.clientId || "user",
           redirectUri: ui.redirectUri || `${publicOrigin}/callback`,
           features: {
             selfRegistrationEnabled: !!selfReg,

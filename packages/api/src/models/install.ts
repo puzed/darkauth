@@ -63,8 +63,36 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
 }
 
-export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null) {
+export function buildDefaultClientSeeds(
+  demoConfidentialSecretEnc: Buffer | null,
+  publicOrigin: string
+) {
+  const normalizedOrigin = publicOrigin.replace(/\/+$/, "");
   return [
+    {
+      clientId: "user",
+      name: "User Portal",
+      type: "public" as const,
+      tokenEndpointAuthMethod: "none" as const,
+      clientSecretEnc: null,
+      requirePkce: true,
+      zkDelivery: "none" as const,
+      zkRequired: false,
+      allowedJweAlgs: [],
+      allowedJweEncs: [],
+      redirectUris: [`${normalizedOrigin}/callback`],
+      postLogoutRedirectUris: [normalizedOrigin],
+      grantTypes: ["authorization_code", "refresh_token"],
+      responseTypes: ["code"],
+      scopes: serializeClientScopeDefinitions([
+        { key: "openid", description: "Authenticate you" },
+        { key: "profile", description: "Access your profile information" },
+        { key: "email", description: "Access your email address" },
+      ]),
+      allowedZkOrigins: [normalizedOrigin],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
     {
       clientId: "demo-public-client",
       name: "Demo Public Client",
@@ -136,9 +164,12 @@ export function buildDefaultClientSeeds(demoConfidentialSecretEnc: Buffer | null
 
 export async function seedDefaultClients(
   context: Context,
-  demoConfidentialSecretEnc: Buffer | null
+  demoConfidentialSecretEnc: Buffer | null,
+  publicOrigin: string
 ) {
-  await context.db.insert(clients).values(buildDefaultClientSeeds(demoConfidentialSecretEnc));
+  await context.db
+    .insert(clients)
+    .values(buildDefaultClientSeeds(demoConfidentialSecretEnc, publicOrigin));
 }
 
 export async function seedDefaultOrganizationRbac(context: Context) {

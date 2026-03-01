@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto";
@@ -40,6 +40,52 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<OpaqueLoginState | null>(null);
+  const [clientCheckLoading, setClientCheckLoading] = useState(true);
+  const [clientCheckError, setClientCheckError] = useState<string | null>(null);
+
+  const activeClientId = useMemo(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryClientId = searchParams.get("client_id");
+    const appConfig = window as Window & {
+      __APP_CONFIG__?: { clientId?: string; auth?: { clientId?: string } };
+    };
+    return (
+      queryClientId ||
+      appConfig.__APP_CONFIG__?.clientId ||
+      appConfig.__APP_CONFIG__?.auth?.clientId ||
+      "user"
+    );
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkClient = async () => {
+      setClientCheckLoading(true);
+      setClientCheckError(null);
+      try {
+        await apiService.getClientScopeDescriptions(activeClientId, ["openid"]);
+        if (!cancelled) {
+          setClientCheckError(null);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          const message =
+            error instanceof Error && error.message.toLowerCase().includes("unknown client")
+              ? "Sign-in is unavailable because the configured client does not exist."
+              : "Sign-in is unavailable due to client configuration.";
+          setClientCheckError(message);
+        }
+      } finally {
+        if (!cancelled) {
+          setClientCheckLoading(false);
+        }
+      }
+    };
+    checkClient();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeClientId]);
 
   const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {};
@@ -206,61 +252,69 @@ export default function Login({ onLogin, onSwitchToRegister }: LoginProps) {
   return (
     <div className={styles.authContainer}>
       <h2 className={styles.formTitle}>{branding.getText("welcomeBack", "Welcome back")}</h2>
+      {clientCheckLoading ? (
+        <div className={styles.errorMessage}>Checking sign-in configuration...</div>
+      ) : null}
+      {clientCheckError ? <div className={styles.errorMessage}>{clientCheckError}</div> : null}
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-email`}>
-            {branding.getText("email", "Email")}
-          </label>
-          <input
-            type="email"
-            id={`${uid}-email`}
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            placeholder={branding.getText("emailPlaceholder", "Enter your email")}
-            className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="email"
-            required
-          />
-          {errors.email && <div className={styles.errorText}>{errors.email}</div>}
-        </div>
+      {!clientCheckLoading && !clientCheckError ? (
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-email`}>
+              {branding.getText("email", "Email")}
+            </label>
+            <input
+              type="email"
+              id={`${uid}-email`}
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder={branding.getText("emailPlaceholder", "Enter your email")}
+              className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="email"
+              required
+            />
+            {errors.email && <div className={styles.errorText}>{errors.email}</div>}
+          </div>
 
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-password`}>
-            {branding.getText("password", "Password")}
-          </label>
-          <input
-            type="password"
-            id={`${uid}-password`}
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            placeholder={branding.getText("passwordPlaceholder", "Enter your password")}
-            className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="current-password"
-            required
-          />
-          {errors.password && <div className={styles.errorText}>{errors.password}</div>}
-        </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-password`}>
+              {branding.getText("password", "Password")}
+            </label>
+            <input
+              type="password"
+              id={`${uid}-password`}
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder={branding.getText("passwordPlaceholder", "Enter your password")}
+              className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="current-password"
+              required
+            />
+            {errors.password && <div className={styles.errorText}>{errors.password}</div>}
+          </div>
 
-        {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
+          {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
 
-        <Button type="submit" variant="primary" fullWidth disabled={loading}>
-          {loading ? (
-            <>
-              <span className={styles.loadingSpinner} />
-              {branding.getText("signingIn", "Signing in...")}
-            </>
-          ) : (
-            branding.getText("signin", "Continue")
-          )}
-        </Button>
-      </form>
+          <Button type="submit" variant="primary" fullWidth disabled={loading}>
+            {loading ? (
+              <>
+                <span className={styles.loadingSpinner} />
+                {branding.getText("signingIn", "Signing in...")}
+              </>
+            ) : (
+              branding.getText("signin", "Continue")
+            )}
+          </Button>
+        </form>
+      ) : null}
 
-      {window.__APP_CONFIG__?.features?.selfRegistrationEnabled ? (
+      {window.__APP_CONFIG__?.features?.selfRegistrationEnabled &&
+      !clientCheckLoading &&
+      !clientCheckError ? (
         <div className={styles.formFooter}>
           <p>
             {branding.getText("noAccount", "Don't have an account?")}{" "}

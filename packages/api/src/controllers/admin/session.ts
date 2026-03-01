@@ -14,7 +14,14 @@ export const AdminSessionResponseSchema = z.object({
 });
 
 import { getAdminById } from "../../models/adminUsers.ts";
-import { requireSession } from "../../services/sessions.ts";
+import {
+  getCsrfCookieToken,
+  getSessionId,
+  getSessionTtlSeconds,
+  issueSessionCookies,
+  refreshSession,
+  requireSession,
+} from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { sendJsonValidated } from "../../utils/http.ts";
 
@@ -37,6 +44,13 @@ export async function getAdminSession(
   } catch {}
   if (!sessionData.adminId || !sessionData.adminRole) {
     throw new UnauthorizedError("Invalid admin session");
+  }
+  const sessionId = getSessionId(request, true);
+  if (sessionId) {
+    await refreshSession(context, sessionId);
+    const ttlSeconds = await getSessionTtlSeconds(context, "admin");
+    const csrfToken = getCsrfCookieToken(request, true) || undefined;
+    issueSessionCookies(response, sessionId, ttlSeconds, true, csrfToken);
   }
   const admin = await getAdminById(context, sessionData.adminId);
   const resetRequired = !!admin?.passwordResetRequired;

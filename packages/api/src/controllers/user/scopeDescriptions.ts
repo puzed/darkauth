@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { InvalidRequestError, UnauthorizedClientError } from "../../errors.ts";
+import { InvalidRequestError, NotFoundError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getClient } from "../../models/clients.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -25,7 +25,7 @@ export async function getScopeDescriptions(
 
   const client = await getClient(context, parsed.data.client_id);
   if (!client) {
-    throw new UnauthorizedClientError("Unknown client");
+    throw new NotFoundError("Unknown client");
   }
 
   const requestedScopes = (parsed.data.scopes || "")
