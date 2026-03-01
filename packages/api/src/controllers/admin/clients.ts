@@ -2,11 +2,17 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { parseClientScopeDefinitions } from "../../utils/clientScopes.ts";
 import {
   listPageOpenApiQuerySchema,
   listPageQuerySchema,
   listSearchQuerySchema,
 } from "./listQueryBounds.ts";
+
+const ScopeSchema = z.object({
+  key: z.string(),
+  description: z.string().optional(),
+});
 
 const ClientResponseSchema = z.object({
   clientId: z.string(),
@@ -28,7 +34,7 @@ const ClientResponseSchema = z.object({
   postLogoutRedirectUris: z.array(z.string()),
   grantTypes: z.array(z.string()),
   responseTypes: z.array(z.string()),
-  scopes: z.array(z.string()),
+  scopes: z.array(ScopeSchema),
   allowedZkOrigins: z.array(z.string()),
   idTokenLifetimeSeconds: z.number().int().positive().nullable(),
   refreshTokenLifetimeSeconds: z.number().int().positive().nullable(),
@@ -74,7 +80,14 @@ export async function getClients(
   });
   const parsed = Query.parse(Object.fromEntries(url.searchParams));
   const responseData = await listClients(context, parsed);
-  sendJsonValidated(response, 200, responseData, ClientsListResponseSchema);
+  const normalized = {
+    ...responseData,
+    clients: responseData.clients.map((client) => ({
+      ...client,
+      scopes: parseClientScopeDefinitions(client.scopes),
+    })),
+  };
+  sendJsonValidated(response, 200, normalized, ClientsListResponseSchema);
 }
 
 export const schema = {

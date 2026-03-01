@@ -441,6 +441,28 @@ body {
   font-size: 1.5rem;
 }
 
+.authorize-page-header {
+  flex-direction: row;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
+}
+
+.authorize-page-header .brand {
+  min-width: 0;
+}
+
+.authorize-page-header .brand h1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.authorize-page-actions {
+  width: auto;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
 .user-info {
   display: flex;
   align-items: center;
@@ -671,7 +693,7 @@ body {
 
 .authorize-scope-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
   background: var(--gray-50);
@@ -697,7 +719,8 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  justify-content: center;
+  gap: 0;
   flex: 1;
   min-width: 0;
 }
@@ -722,32 +745,6 @@ body {
   margin: 0;
   color: var(--gray-600);
   font-size: 0.95rem;
-}
-
-.authorize-flag {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: var(--success-50);
-  border: 1px solid var(--success-500);
-  border-radius: var(--radius-md);
-}
-
-.authorize-flag-icon {
-  font-size: 1.25rem;
-}
-
-.authorize-flag-text h4 {
-  margin: 0 0 0.2rem;
-  font-size: 0.95rem;
-  color: var(--success-700);
-}
-
-.authorize-flag-text p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--success-700);
 }
 
 .authorize-recovery {
@@ -850,6 +847,16 @@ button .loading-spinner {
   .user-info {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .authorize-page-header {
+    flex-direction: row;
+    gap: 0.75rem;
+  }
+
+  .authorize-page-header .user-info {
+    width: auto;
+    justify-content: flex-end;
   }
 
   .authenticated-state {

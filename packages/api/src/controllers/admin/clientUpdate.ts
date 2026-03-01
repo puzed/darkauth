@@ -8,6 +8,11 @@ import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
 
+const ScopeSchema = z.object({
+  key: z.string().min(1),
+  description: z.string().optional(),
+});
+
 async function updateClientHandler(
   context: Context,
   request: IncomingMessage,
@@ -49,7 +54,7 @@ async function updateClientHandler(
     postLogoutRedirectUris: z.array(z.string()).optional(),
     grantTypes: z.array(z.string()).optional(),
     responseTypes: z.array(z.string()).optional(),
-    scopes: z.array(z.string()).optional(),
+    scopes: z.array(z.union([z.string().min(1), ScopeSchema])).optional(),
     allowedZkOrigins: z.array(z.string()).optional(),
     idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
     refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
@@ -134,7 +139,7 @@ const Req = z.object({
   postLogoutRedirectUris: z.array(z.string()).optional(),
   grantTypes: z.array(z.string()).optional(),
   responseTypes: z.array(z.string()).optional(),
-  scopes: z.array(z.string()).optional(),
+  scopes: z.array(z.union([z.string().min(1), ScopeSchema])).optional(),
   allowedZkOrigins: z.array(z.string()).optional(),
   idTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),
   refreshTokenLifetimeSeconds: z.number().int().positive().nullable().optional(),

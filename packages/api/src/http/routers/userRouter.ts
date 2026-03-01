@@ -29,6 +29,7 @@ import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordCha
 import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.ts";
 import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.ts";
 import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.ts";
+import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession } from "../../controllers/user/session.ts";
 import { postToken } from "../../controllers/user/token.ts";
 import {
@@ -305,6 +306,10 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/session") {
         return await getSession(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/scope-descriptions") {
+        return await getScopeDescriptions(context, request, response);
       }
 
       if (method === "GET" && pathname === "/otp/status") {
