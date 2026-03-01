@@ -37,6 +37,7 @@ const securityItems: SidebarNavItem[] = [
 const systemItems: SidebarNavItem[] = [
   { title: "Changelog", url: "/changelog", icon: FileText },
   { title: "Settings", url: "/settings", icon: Settings },
+  { title: "Email", url: "/settings/email-templates", icon: FileText },
   { title: "Admin Users", url: "/settings/admin-users", icon: Users },
 ];
 

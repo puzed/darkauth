@@ -307,6 +307,19 @@ export interface AdminSetting {
   updatedAt: string;
 }
 
+export type EmailTemplateKey =
+  | "signup_verification"
+  | "verification_resend_confirmation"
+  | "email_change_verification"
+  | "password_recovery"
+  | "admin_test_email";
+
+export interface EmailTemplate {
+  subject: string;
+  text: string;
+  html: string;
+}
+
 class AdminApiService {
   private baseUrl: string;
   private onSessionExpired?: () => void;
@@ -992,6 +1005,21 @@ class AdminApiService {
     await this.request("/settings", {
       method: "PUT",
       body: JSON.stringify({ key, value }),
+    });
+  }
+
+  async sendSettingsTestEmail(): Promise<void> {
+    await this.request("/settings/email/test", { method: "POST" });
+  }
+
+  async getEmailTemplates(): Promise<{ templates: Record<EmailTemplateKey, EmailTemplate> }> {
+    return this.request("/email-templates");
+  }
+
+  async updateEmailTemplate(key: EmailTemplateKey, template: EmailTemplate): Promise<void> {
+    await this.request("/email-templates", {
+      method: "PUT",
+      body: JSON.stringify({ key, template }),
     });
   }
 

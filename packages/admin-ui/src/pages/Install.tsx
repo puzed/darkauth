@@ -17,9 +17,20 @@ interface InstallData {
   selfRegistrationEnabled: boolean;
 }
 
+interface InstallEmailData {
+  from: string;
+  transport: string;
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpPassword: string;
+}
+
 export default function Install() {
   const uid = useId();
-  const [stage, setStage] = useState<"checking" | "form" | "installing" | "error">("checking");
+  const [stage, setStage] = useState<"checking" | "form" | "installing" | "restarting" | "error">(
+    "checking"
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -28,6 +39,14 @@ export default function Install() {
     adminName: "",
     adminPassword: "",
     selfRegistrationEnabled: false,
+  });
+  const [emailData, setEmailData] = useState<InstallEmailData>({
+    from: "",
+    transport: "smtp",
+    smtpHost: "",
+    smtpPort: "587",
+    smtpUser: "",
+    smtpPassword: "",
   });
   const [opaqueState, setOpaqueState] = useState<AdminOpaqueRegistrationState | null>(null);
   const [dbMode, setDbMode] = useState<"remote" | "pglite">("remote");
@@ -50,7 +69,21 @@ export default function Install() {
         return;
       }
       if (r.ok) {
-        await r.json();
+        const data = await r.json();
+        const prefillEmail = data?.prefill?.email || {};
+        const prefillPort =
+          typeof prefillEmail.smtpPort === "number" && prefillEmail.smtpPort > 0
+            ? String(prefillEmail.smtpPort)
+            : "587";
+        setEmailData({
+          from: typeof prefillEmail.from === "string" ? prefillEmail.from : "",
+          transport: typeof prefillEmail.transport === "string" ? prefillEmail.transport : "smtp",
+          smtpHost: typeof prefillEmail.smtpHost === "string" ? prefillEmail.smtpHost : "",
+          smtpPort: prefillPort,
+          smtpUser: typeof prefillEmail.smtpUser === "string" ? prefillEmail.smtpUser : "",
+          smtpPassword:
+            typeof prefillEmail.smtpPassword === "string" ? prefillEmail.smtpPassword : "",
+        });
         setStage("form");
       } else setStage("error");
     } catch {
@@ -66,6 +99,11 @@ export default function Install() {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  };
+
+  const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setEmailData((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   };
 
   const submit = async (e: React.FormEvent) => {
@@ -126,6 +164,14 @@ export default function Install() {
           adminEmail: formData.adminEmail,
           adminName: formData.adminName,
           selfRegistrationEnabled: formData.selfRegistrationEnabled,
+          email: {
+            from: emailData.from.trim(),
+            transport: emailData.transport.trim() || "smtp",
+            smtpHost: emailData.smtpHost.trim(),
+            smtpPort: Number(emailData.smtpPort) || undefined,
+            smtpUser: emailData.smtpUser.trim(),
+            smtpPassword: emailData.smtpPassword,
+          },
           token,
         }),
       });
@@ -218,140 +264,243 @@ export default function Install() {
     <div className={styles.container}>
       <div className={styles.inner}>
         <div className={styles.header}>
-          <img src="/favicon.svg" alt="DarkAuth" className={styles.logo} />
-          <h1>DarkAuth Installation</h1>
-          <p>Complete the setup to initialize your DarkAuth server</p>
+          <div className={styles.logoContainer}>
+            <img src="/favicon.svg" alt="DarkAuth" className={styles.logo} />
+          </div>
+          <h1 className={styles.title}>DarkAuth Installation</h1>
+          <p className={styles.subtitle}>Complete the setup to initialize your DarkAuth server</p>
         </div>
+
         <form onSubmit={submit} className={styles.form}>
-          {error && <div className={styles.error}>{error}</div>}
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin User</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormGrid columns={1}>
-                <GridField label={<Label htmlFor={`${uid}-name`}>Admin Name</Label>}>
-                  <Input
-                    id={`${uid}-name`}
-                    name="adminName"
-                    value={formData.adminName}
-                    onChange={onChange}
-                    placeholder="Your full name"
-                    disabled={loading}
-                    required
-                  />
-                </GridField>
-                <GridField label={<Label htmlFor={`${uid}-email`}>Admin Email</Label>}>
-                  <Input
-                    id={`${uid}-email`}
-                    name="adminEmail"
-                    type="email"
-                    value={formData.adminEmail}
-                    onChange={onChange}
-                    placeholder="admin@yourcompany.com"
-                    disabled={loading}
-                    required
-                  />
-                </GridField>
-                <GridField label={<Label htmlFor={`${uid}-pass`}>Admin Password</Label>}>
-                  <Input
-                    id={`${uid}-pass`}
-                    name="adminPassword"
-                    type="password"
-                    value={formData.adminPassword}
-                    onChange={onChange}
-                    placeholder="Choose a strong password"
-                    minLength={8}
-                    disabled={loading}
-                    required
-                  />
-                </GridField>
-              </FormGrid>
-            </CardContent>
-          </Card>
+          {error && (
+            <div className={styles.errorBanner}>
+              <div className={styles.errorIcon}>⚠️</div>
+              <div className={styles.errorMessage}>{error}</div>
+            </div>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>User Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormGrid columns={1}>
-                <GridField
-                  label={<Label htmlFor={`${uid}-self-registration`}>User Self Registration</Label>}
-                >
-                  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input
-                      id={`${uid}-self-registration`}
-                      name="selfRegistrationEnabled"
-                      type="checkbox"
-                      checked={formData.selfRegistrationEnabled}
-                      onChange={onChange}
-                      disabled={loading}
-                    />
-                    Enable user registration on the login page
-                  </label>
-                </GridField>
-              </FormGrid>
-            </CardContent>
-          </Card>
+          <div className={styles.gridContainer}>
+            <div className={styles.mainColumn}>
+              <Card className={styles.sectionCard}>
+                <CardHeader>
+                  <CardTitle>Admin User</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormGrid columns={1}>
+                    <GridField label={<Label htmlFor={`${uid}-name`}>Admin Name</Label>}>
+                      <Input
+                        id={`${uid}-name`}
+                        name="adminName"
+                        value={formData.adminName}
+                        onChange={onChange}
+                        placeholder="Your full name"
+                        disabled={loading}
+                        required
+                      />
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-email`}>Admin Email</Label>}>
+                      <Input
+                        id={`${uid}-email`}
+                        name="adminEmail"
+                        type="email"
+                        value={formData.adminEmail}
+                        onChange={onChange}
+                        placeholder="admin@yourcompany.com"
+                        disabled={loading}
+                        required
+                      />
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-pass`}>Admin Password</Label>}>
+                      <Input
+                        id={`${uid}-pass`}
+                        name="adminPassword"
+                        type="password"
+                        value={formData.adminPassword}
+                        onChange={onChange}
+                        placeholder="Choose a strong password"
+                        minLength={8}
+                        disabled={loading}
+                        required
+                      />
+                    </GridField>
+                  </FormGrid>
+                </CardContent>
+              </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Database</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <FormGrid columns={1}>
-                <GridField label={<Label htmlFor={`${uid}-dbmode`}>Choose</Label>}>
-                  <div style={{ display: "flex", gap: 12 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input
-                        type="radio"
-                        name="dbMode"
-                        checked={dbMode === "remote"}
-                        onChange={() => setDbMode("remote")}
+              <Card className={styles.sectionCard}>
+                <CardHeader>
+                  <CardTitle>Database Configuration</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormGrid columns={1}>
+                    <GridField label={<Label>Storage Engine</Label>}>
+                      <div className={styles.radioGroup}>
+                        <label
+                          className={
+                            dbMode === "remote" ? styles.radioLabelActive : styles.radioLabel
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="dbMode"
+                            checked={dbMode === "remote"}
+                            onChange={() => setDbMode("remote")}
+                            className={styles.radioInput}
+                          />
+                          <div className={styles.radioContent}>
+                            <div className={styles.radioTitle}>Remote Postgres</div>
+                            <div className={styles.radioDesc}>External PostgreSQL instance</div>
+                          </div>
+                        </label>
+                        <label
+                          className={
+                            dbMode === "pglite" ? styles.radioLabelActive : styles.radioLabel
+                          }
+                        >
+                          <input
+                            type="radio"
+                            name="dbMode"
+                            checked={dbMode === "pglite"}
+                            onChange={() => setDbMode("pglite")}
+                            className={styles.radioInput}
+                          />
+                          <div className={styles.radioContent}>
+                            <div className={styles.radioTitle}>Embedded PGLite</div>
+                            <div className={styles.radioDesc}>Local file-based storage</div>
+                          </div>
+                        </label>
+                      </div>
+                    </GridField>
+                    {dbMode === "remote" && (
+                      <GridField label={<Label htmlFor={`${uid}-pg`}>Postgres URI</Label>}>
+                        <Input
+                          id={`${uid}-pg`}
+                          value={postgresUri}
+                          onChange={(e) => setPostgresUri(e.target.value)}
+                          placeholder="postgresql://user:pass@host:5432/dbname"
+                          disabled={loading}
+                        />
+                      </GridField>
+                    )}
+                    {dbMode === "pglite" && (
+                      <GridField label={<Label htmlFor={`${uid}-pglite`}>PGLite Directory</Label>}>
+                        <Input
+                          id={`${uid}-pglite`}
+                          value={pgliteDir}
+                          onChange={(e) => setPgliteDir(e.target.value)}
+                          placeholder="./data/pglite"
+                          disabled={loading}
+                        />
+                      </GridField>
+                    )}
+                  </FormGrid>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className={styles.sideColumn}>
+              <Card className={styles.sectionCard}>
+                <CardHeader>
+                  <CardTitle>Email (SMTP)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <FormGrid columns={1}>
+                    <GridField label={<Label htmlFor={`${uid}-email-from`}>From Address</Label>}>
+                      <Input
+                        id={`${uid}-email-from`}
+                        name="from"
+                        value={emailData.from}
+                        onChange={onEmailChange}
+                        placeholder="no-reply@example.com"
+                        disabled={loading}
                       />
-                      Remote Postgres
-                    </label>
-                    <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input
-                        type="radio"
-                        name="dbMode"
-                        checked={dbMode === "pglite"}
-                        onChange={() => setDbMode("pglite")}
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-smtp-host`}>SMTP Host</Label>}>
+                      <Input
+                        id={`${uid}-smtp-host`}
+                        name="smtpHost"
+                        value={emailData.smtpHost}
+                        onChange={onEmailChange}
+                        placeholder="smtp.example.com"
+                        disabled={loading}
                       />
-                      Embedded PGLite
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-smtp-port`}>Port</Label>}>
+                      <Input
+                        id={`${uid}-smtp-port`}
+                        name="smtpPort"
+                        value={emailData.smtpPort}
+                        onChange={onEmailChange}
+                        placeholder="587"
+                        disabled={loading}
+                      />
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-smtp-user`}>User</Label>}>
+                      <Input
+                        id={`${uid}-smtp-user`}
+                        name="smtpUser"
+                        value={emailData.smtpUser}
+                        onChange={onEmailChange}
+                        placeholder="smtp-user"
+                        disabled={loading}
+                      />
+                    </GridField>
+                    <GridField label={<Label htmlFor={`${uid}-smtp-password`}>Password</Label>}>
+                      <Input
+                        id={`${uid}-smtp-password`}
+                        name="smtpPassword"
+                        type="password"
+                        value={emailData.smtpPassword}
+                        onChange={onEmailChange}
+                        placeholder="SMTP password"
+                        disabled={loading}
+                      />
+                    </GridField>
+                  </FormGrid>
+                </CardContent>
+              </Card>
+
+              <Card className={styles.sectionCard}>
+                <CardHeader>
+                  <CardTitle>Features</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={styles.checkboxField}>
+                    <label className={styles.checkboxLabel}>
+                      <input
+                        id={`${uid}-self-registration`}
+                        name="selfRegistrationEnabled"
+                        type="checkbox"
+                        checked={formData.selfRegistrationEnabled}
+                        onChange={onChange}
+                        disabled={loading}
+                        className={styles.checkboxInput}
+                      />
+                      <div className={styles.checkboxContent}>
+                        <div className={styles.checkboxTitle}>Self-registration</div>
+                        <div className={styles.checkboxDesc}>
+                          Allow users to sign up on login page
+                        </div>
+                      </div>
                     </label>
                   </div>
-                </GridField>
-                {dbMode === "remote" && (
-                  <GridField label={<Label htmlFor={`${uid}-pg`}>Postgres URI</Label>}>
-                    <Input
-                      id={`${uid}-pg`}
-                      value={postgresUri}
-                      onChange={(e) => setPostgresUri(e.target.value)}
-                      placeholder="postgresql://user:pass@host:5432/dbname"
-                      disabled={loading}
-                    />
-                  </GridField>
-                )}
-                {dbMode === "pglite" && (
-                  <GridField label={<Label htmlFor={`${uid}-pglite`}>PGLite Directory</Label>}>
-                    <Input
-                      id={`${uid}-pglite`}
-                      value={pgliteDir}
-                      onChange={(e) => setPgliteDir(e.target.value)}
-                      placeholder="./data/pglite"
-                      disabled={loading}
-                    />
-                  </GridField>
-                )}
-              </FormGrid>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
-          <Button size="lg" disabled={loading} style={{ width: "100%" }}>
-            {loading ? "Installing…" : "Complete Installation"}
-          </Button>
+          <div className={styles.formActions}>
+            <Button size="lg" disabled={loading} className={styles.submitButton}>
+              {loading ? (
+                <>
+                  <Loader2 size={18} className={styles.spinner} />
+                  <span>Installing…</span>
+                </>
+              ) : (
+                "Complete Installation"
+              )}
+            </Button>
+          </div>
         </form>
       </div>
     </div>

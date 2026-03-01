@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../services/api";
+import Button from "./Button";
 
 export default function SettingsSecurity() {
   const [loading, setLoading] = useState(true);
@@ -89,9 +90,9 @@ export default function SettingsSecurity() {
           <h3>Enable Two-Factor Authentication</h3>
           {!provisioningUri ? (
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <button type="button" className="primary-button" onClick={doResetup}>
+              <Button type="button" variant="primary" onClick={doResetup}>
                 Start Setup
-              </button>
+              </Button>
             </div>
           ) : (
             <>
@@ -112,20 +113,9 @@ export default function SettingsSecurity() {
                   height={192}
                   style={{ background: "#fff", borderRadius: 8 }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowManual((v) => !v)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "var(--primary-500)",
-                    textDecoration: "underline",
-                    cursor: "pointer",
-                    padding: 0,
-                  }}
-                >
+                <Button type="button" variant="secondary" onClick={() => setShowManual((v) => !v)}>
                   {showManual ? "Hide secret" : "Can't scan? Show secret"}
-                </button>
+                </Button>
                 {showManual && secret && (
                   <div style={{ maxWidth: 420, width: "100%" }}>
                     <div
@@ -141,9 +131,9 @@ export default function SettingsSecurity() {
                       {secret}
                     </div>
                     <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                      <button
+                      <Button
                         type="button"
-                        className="secondary-button"
+                        variant="secondary"
                         onClick={async () => {
                           try {
                             await navigator.clipboard.writeText(secret);
@@ -151,7 +141,7 @@ export default function SettingsSecurity() {
                         }}
                       >
                         Copy secret
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -168,15 +158,15 @@ export default function SettingsSecurity() {
                 pattern="[0-9]*"
               />
               <div style={{ width: 192, margin: "0 auto" }}>
-                <button
+                <Button
                   type="button"
-                  className="primary-button"
+                  variant="primary"
+                  fullWidth
                   onClick={doSetupVerify}
                   disabled={code.length !== 6}
-                  style={{ width: "100%" }}
                 >
                   Verify
-                </button>
+                </Button>
               </div>
             </>
           )}
@@ -205,20 +195,9 @@ export default function SettingsSecurity() {
                 height={192}
                 style={{ background: "#fff", borderRadius: 8 }}
               />
-              <button
-                type="button"
-                onClick={() => setShowManual((v) => !v)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--primary-500)",
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                  padding: 0,
-                }}
-              >
+              <Button type="button" variant="secondary" onClick={() => setShowManual((v) => !v)}>
                 {showManual ? "Hide secret" : "Can't scan? Show secret"}
-              </button>
+              </Button>
               {showManual && secret && (
                 <div style={{ maxWidth: 420, width: "100%" }}>
                   <div
@@ -234,9 +213,9 @@ export default function SettingsSecurity() {
                     {secret}
                   </div>
                   <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                    <button
+                    <Button
                       type="button"
-                      className="secondary-button"
+                      variant="secondary"
                       onClick={async () => {
                         try {
                           await navigator.clipboard.writeText(secret);
@@ -244,7 +223,7 @@ export default function SettingsSecurity() {
                       }}
                     >
                       Copy secret
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
@@ -252,9 +231,9 @@ export default function SettingsSecurity() {
           )}
           {!provisioningUri && (
             <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <button type="button" className="secondary-button" onClick={doResetup}>
+              <Button type="button" variant="secondary" onClick={doResetup}>
                 Generate new QR
-              </button>
+              </Button>
             </div>
           )}
           <div className="help-text" style={{ textAlign: "center" }}>
@@ -278,24 +257,24 @@ export default function SettingsSecurity() {
             maxLength={14}
           />
           <div style={{ width: 192, margin: "0 auto" }}>
-            <button
+            <Button
               type="button"
-              className="primary-button"
+              variant="primary"
+              fullWidth
               onClick={doSetupVerify}
               disabled={code.replace(/-/g, "").length !== 6}
-              style={{ width: "100%" }}
             >
               Verify
-            </button>
+            </Button>
           </div>
         </div>
       )}
       {status?.enabled && status.verified && (
         <div className="form-footer">
           <div className="actions">
-            <button type="button" className="primary-button" onClick={doResetup}>
+            <Button type="button" variant="primary" onClick={doResetup}>
               Resetup OTP
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -311,9 +290,9 @@ export default function SettingsSecurity() {
             ))}
           </ul>
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <button
+            <Button
               type="button"
-              className="secondary-button"
+              variant="secondary"
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(backupCodes.join("\n"));
@@ -321,10 +300,10 @@ export default function SettingsSecurity() {
               }}
             >
               Copy
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="secondary-button"
+              variant="secondary"
               onClick={() => {
                 const blob = new Blob([backupCodes.join("\n")], { type: "text/plain" });
                 const url = URL.createObjectURL(blob);
@@ -338,10 +317,10 @@ export default function SettingsSecurity() {
               }}
             >
               Download
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              className="secondary-button"
+              variant="secondary"
               onClick={() => {
                 const content = backupCodes.join("\n");
                 const w = window.open("", "_blank");
@@ -356,7 +335,7 @@ export default function SettingsSecurity() {
               }}
             >
               Print
-            </button>
+            </Button>
           </div>
         </div>
       )}

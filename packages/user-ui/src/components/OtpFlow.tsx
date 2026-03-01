@@ -109,20 +109,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
               height={192}
               style={{ background: "#fff", borderRadius: 8 }}
             />
-            <button
-              type="button"
-              onClick={() => setShowManual((v) => !v)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--primary-500)",
-                textDecoration: "underline",
-                cursor: "pointer",
-                padding: 0,
-              }}
-            >
+            <Button type="button" variant="secondary" onClick={() => setShowManual((v) => !v)}>
               {showManual ? "Hide secret" : "Can't scan? Show secret"}
-            </button>
+            </Button>
             {showManual && secret && (
               <div style={{ maxWidth: 420, width: "100%" }}>
                 <div
@@ -138,9 +127,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   {secret}
                 </div>
                 <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
-                  <button
+                  <Button
                     type="button"
-                    className="secondary-button"
+                    variant="secondary"
                     onClick={async () => {
                       try {
                         if (secret) await navigator.clipboard.writeText(secret);
@@ -148,7 +137,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                     }}
                   >
                     Copy secret
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
@@ -198,9 +187,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                 ))}
               </ul>
               <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 8 }}>
-                <button
+                <Button
                   type="button"
-                  className="secondary-button"
+                  variant="secondary"
                   onClick={async () => {
                     try {
                       await navigator.clipboard.writeText(backupCodes.join("\n"));
@@ -208,10 +197,10 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   }}
                 >
                   Copy
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="secondary-button"
+                  variant="secondary"
                   onClick={() => {
                     const blob = new Blob([backupCodes.join("\n")], { type: "text/plain" });
                     const url = URL.createObjectURL(blob);
@@ -225,10 +214,10 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   }}
                 >
                   Download
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="secondary-button"
+                  variant="secondary"
                   onClick={() => {
                     const content = backupCodes.join("\n");
                     const w = window.open("", "_blank");
@@ -243,7 +232,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   }}
                 >
                   Print
-                </button>
+                </Button>
               </div>
               <div
                 style={{

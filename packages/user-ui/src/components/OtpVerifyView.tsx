@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import api from "../services/api";
+import Button from "./Button";
 import btnStyles from "./Login.module.css";
 import styles from "./LoginView.module.css";
 import ThemeToggle from "./ThemeToggle";
@@ -124,30 +125,31 @@ export default function OtpVerifyView() {
               />
             </div>
             <div className={btnStyles.formFooter}>
-              <button
+              <Button
                 type="button"
-                className={btnStyles.linkButton}
+                variant="secondary"
+                fullWidth
                 onClick={() => {
                   setCode("");
                   setUseBackup((v) => !v);
                 }}
               >
                 {useBackup ? "Use a 6-digit code" : "Use a backup code"}
-              </button>
+              </Button>
             </div>
             {error && <div className={btnStyles.errorMessage}>{error}</div>}
-            <button
+            <Button
               type="submit"
-              className={btnStyles.primaryButton}
+              variant="primary"
+              fullWidth
               disabled={
                 loading ||
                 (!useBackup && code.length < 6) ||
                 (useBackup && code.replace(/-/g, "").length < 12)
               }
-              style={{ width: "100%" }}
             >
               Verify
-            </button>
+            </Button>
           </form>
         </div>
       </div>
