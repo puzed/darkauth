@@ -2,12 +2,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import {
-  groups,
   opaqueLoginSessions,
   organizationMemberRoles,
   organizationMembers,
   roles,
-  userGroups,
 } from "../../db/schema.ts";
 import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
@@ -122,14 +120,6 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       if (activeMemberships.length === 0) {
         throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
       }
-      const loginGroups = await context.db
-        .select({ enableLogin: groups.enableLogin })
-        .from(userGroups)
-        .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-        .where(eq(userGroups.userSub, user.sub));
-      if (loginGroups.length > 0 && !loginGroups.some((group) => Boolean(group.enableLogin))) {
-        throw new AppError("Authentication not permitted", "USER_LOGIN_NOT_ALLOWED", 403);
-      }
 
       let otpRequired = false;
       const s = await (await import("../../services/settings.ts")).getSetting(context, "otp");
@@ -157,19 +147,6 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         )
         .limit(1);
       if (rows.length > 0) otpRequired = true;
-      const groupOtpRows = await context.db
-        .select({ groupKey: userGroups.groupKey })
-        .from(userGroups)
-        .innerJoin(groups, eq(userGroups.groupKey, groups.key))
-        .where(
-          and(
-            eq(userGroups.userSub, user.sub),
-            eq(groups.enableLogin, true),
-            eq(groups.requireOtp, true)
-          )
-        )
-        .limit(1);
-      if (groupOtpRows.length > 0) otpRequired = true;
 
       const sessionOrganization =
         activeMemberships.length === 1

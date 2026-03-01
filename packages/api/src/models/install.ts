@@ -316,50 +316,6 @@ export async function ensureDefaultOrganizationAndSchema(context: Context) {
   } catch {}
 
   try {
-    await context.db.execute(
-      `CREATE TABLE IF NOT EXISTS "groups" (
-        "key" text PRIMARY KEY,
-        "name" text NOT NULL,
-        "enable_login" boolean NOT NULL DEFAULT true,
-        "require_otp" boolean NOT NULL DEFAULT false
-      );`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "enable_login" boolean NOT NULL DEFAULT true;`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `ALTER TABLE "groups" ADD COLUMN IF NOT EXISTS "require_otp" boolean NOT NULL DEFAULT false;`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `CREATE TABLE IF NOT EXISTS "user_groups" (
-        "user_sub" text NOT NULL,
-        "group_key" text NOT NULL,
-        PRIMARY KEY ("user_sub", "group_key")
-      );`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `INSERT INTO "groups" ("key", "name", "enable_login", "require_otp")
-       VALUES ('default', 'Default', true, false)
-       ON CONFLICT ("key") DO NOTHING;`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `INSERT INTO "user_groups" ("user_sub", "group_key")
-       SELECT u.sub, 'default' FROM users u
-       ON CONFLICT DO NOTHING;`
-    );
-  } catch {}
-
-  try {
     await seedDefaultOrganizationRbac(context);
   } catch {}
 

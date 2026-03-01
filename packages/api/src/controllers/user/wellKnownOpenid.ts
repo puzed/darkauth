@@ -34,7 +34,6 @@ export async function getWellKnownOpenidConfiguration(
       "email_verified",
       "name",
       "permissions",
-      "groups",
     ],
     code_challenge_methods_supported: ["S256"],
     request_parameter_supported: false,

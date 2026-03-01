@@ -11,7 +11,7 @@ import {
 const PermissionResponseSchema = z.object({
   key: z.string(),
   description: z.string(),
-  groupCount: z.number().int().nonnegative(),
+  roleCount: z.number().int().nonnegative(),
   directUserCount: z.number().int().nonnegative(),
 });
 export const PermissionsListResponseSchema = z.object({
