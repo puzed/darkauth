@@ -3,6 +3,12 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../.
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
+import {
+  getDefaultOrganizationId,
+  getOrganizationMemberIdForUser,
+  getRoleIdByKey,
+  setOrganizationMemberRoles,
+} from '../../../setup/helpers/rbac.js';
 
 test.describe('User - OTP - Forced setup UI', () => {
   let servers: TestServers;
@@ -21,16 +27,6 @@ test.describe('User - OTP - Forced setup UI', () => {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password,
     });
-    await fetch(`${servers.adminUrl}/admin/groups/default`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: adminSession.cookieHeader,
-        Origin: servers.adminUrl,
-        'x-csrf-token': adminSession.csrfToken,
-      },
-      body: JSON.stringify({ requireOtp: true })
-    });
   });
 
   test.afterAll(async () => {
@@ -39,7 +35,22 @@ test.describe('User - OTP - Forced setup UI', () => {
 
   test('When required and not configured, login redirects to /otp/setup?forced=1', async ({ page }) => {
     const user = { email: `otp-ui-${Date.now()}@example.com`, name: 'OTP UI', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    const created = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    const otpRequiredRoleId = await getRoleIdByKey(servers, adminSession, 'otp_required');
+    const memberId = await getOrganizationMemberIdForUser(
+      servers,
+      adminSession,
+      defaultOrganizationId,
+      created.sub
+    );
+    await setOrganizationMemberRoles(
+      servers,
+      adminSession,
+      defaultOrganizationId,
+      memberId,
+      [otpRequiredRoleId]
+    );
 
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);

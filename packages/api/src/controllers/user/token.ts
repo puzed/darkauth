@@ -274,7 +274,15 @@ export const postToken = withRateLimit("token")(
           user.sub,
           organizationId
         );
-        const uniquePermissions = organizationPermissions;
+        const directPermissionRows = await context.db.query.userPermissions.findMany({
+          where: (table, { eq }) => eq(table.userSub, user.sub),
+        });
+        const uniquePermissions = Array.from(
+          new Set([
+            ...organizationPermissions,
+            ...directPermissionRows.map((row) => row.permissionKey),
+          ])
+        ).sort();
         if (sessionOrganizationId !== organizationId) {
           await updateSession(context, rotated.sessionId, {
             ...(sessionData as SessionData),
@@ -525,7 +533,15 @@ export const postToken = withRateLimit("token")(
         user.sub,
         organizationId
       );
-      const uniquePermissions = organizationPermissions;
+      const directPermissionRows = await context.db.query.userPermissions.findMany({
+        where: (table, { eq }) => eq(table.userSub, user.sub),
+      });
+      const uniquePermissions = Array.from(
+        new Set([
+          ...organizationPermissions,
+          ...directPermissionRows.map((row) => row.permissionKey),
+        ])
+      ).sort();
 
       const codeConsumed = await (await import("../../models/authCodes.ts")).consumeAuthCode(
         context,
