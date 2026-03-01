@@ -85,6 +85,13 @@
       "when": 1772269200000,
       "tag": "0013_client_dashboard_icons",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1772323200000,
+      "tag": "0014_client_access_token_ttl",
+      "breakpoints": true
     }
   ]
 }

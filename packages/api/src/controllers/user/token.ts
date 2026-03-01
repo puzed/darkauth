@@ -378,20 +378,10 @@ export const postToken = withRateLimit("token")(
         const allowedScopes = resolveClientScopeKeys(client.scopes);
         const grantedScopes = resolveGrantedScopes(allowedScopes, tokenRequest.scope);
 
-        let accessTokenTtl = 600;
-        const accessTokenSettings = (await getSetting(context, "access_token")) as
-          | { lifetime_seconds?: number }
-          | undefined
-          | null;
-        if (accessTokenSettings?.lifetime_seconds && accessTokenSettings.lifetime_seconds > 0) {
-          accessTokenTtl = accessTokenSettings.lifetime_seconds;
-        } else {
-          const flat = (await getSetting(context, "access_token.lifetime_seconds")) as
-            | number
-            | undefined
-            | null;
-          if (typeof flat === "number" && flat > 0) accessTokenTtl = flat;
-        }
+        const accessTokenTtl =
+          client.accessTokenLifetimeSeconds && client.accessTokenLifetimeSeconds > 0
+            ? client.accessTokenLifetimeSeconds
+            : 600;
 
         const now = Math.floor(Date.now() / 1000);
         const issuer = await resolveIssuer(context);
