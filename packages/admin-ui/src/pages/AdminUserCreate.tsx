@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -65,16 +64,7 @@ export default function AdminUserCreate() {
 
   return (
     <div>
-      <PageHeader
-        title="Create Admin User"
-        subtitle="Add a new administrator account"
-        actions={
-          <Button variant="outline" onClick={() => navigate("/settings/admin-users")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Create Admin User" subtitle="Add a new administrator account" />
 
       <Card>
         <CardHeader>

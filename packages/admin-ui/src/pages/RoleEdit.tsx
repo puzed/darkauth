@@ -1,4 +1,3 @@
-import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -82,7 +81,6 @@ export default function RoleEdit() {
     return (
       <div>
         <ErrorBanner withMargin>{error}</ErrorBanner>
-        <Button onClick={() => navigate("/roles")}>Back to Roles</Button>
       </div>
     );
   }
@@ -93,16 +91,7 @@ export default function RoleEdit() {
 
   return (
     <div>
-      <PageHeader
-        title="Edit Role"
-        subtitle={`Role: ${role.name}`}
-        actions={
-          <Button variant="outline" onClick={() => navigate("/roles")}>
-            <ArrowLeft />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Edit Role" subtitle={`Role: ${role.name}`} />
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 

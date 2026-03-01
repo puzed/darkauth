@@ -1,9 +1,8 @@
-import { ArrowLeft, FileText } from "lucide-react";
+import { FileText } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PageHeader from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import adminApiService, { type AuditLog } from "@/services/api";
 
@@ -57,9 +56,6 @@ export default function AuditLogDetail() {
     return (
       <div>
         <div>{error}</div>
-        <button type="button" onClick={() => navigate("/audit")}>
-          Back
-        </button>
       </div>
     );
 
@@ -80,16 +76,7 @@ export default function AuditLogDetail() {
 
   return (
     <div>
-      <PageHeader
-        title="Audit Event"
-        subtitle={`Event ID: ${log.id}`}
-        actions={
-          <Button variant="outline" onClick={() => navigate("/audit")}>
-            <ArrowLeft size={16} />
-            Back
-          </Button>
-        }
-      />
+      <PageHeader title="Audit Event" subtitle={`Event ID: ${log.id}`} />
 
       <Card>
         <CardHeader>

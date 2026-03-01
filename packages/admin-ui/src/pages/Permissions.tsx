@@ -1,4 +1,4 @@
-import { Key, Plus, RefreshCcw, Shield, Trash2, Users as UsersIcon } from "lucide-react";
+import { Key, Plus, Shield, Trash2, Users as UsersIcon } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
@@ -134,16 +134,10 @@ export default function Permissions() {
         title="Permissions"
         subtitle="Manage permissions that can be assigned to groups"
         actions={
-          <>
-            <Button variant="outline" onClick={loadPermissions}>
-              <RefreshCcw />
-              Refresh
-            </Button>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus />
-              Create Permission
-            </Button>
-          </>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus />
+            Create Permission
+          </Button>
         }
       />
 

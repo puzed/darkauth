@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleHelp } from "lucide-react";
+import { CircleHelp } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -335,9 +335,6 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     return (
       <div>
         <div>{error}</div>
-        <button type="button" onClick={() => navigate("/clients")}>
-          Back
-        </button>
       </div>
     );
 
@@ -352,12 +349,6 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
             isCreateMode
               ? "Configure a new OAuth/OIDC client application"
               : `Client ID: ${clientId || ""}`
-          }
-          actions={
-            <Button variant="outline" onClick={() => navigate("/clients")}>
-              <ArrowLeft />
-              Back
-            </Button>
           }
         />
 
@@ -1116,9 +1107,6 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         </Tabs>
 
         <FormActions>
-          <Button variant="outline" onClick={() => navigate("/clients")}>
-            Back
-          </Button>
           <Button
             onClick={save}
             disabled={submitting || !form.clientId.trim() || !form.name.trim()}
