@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 
+/**
+ * Seeding policy:
+ * - Production/default bootstrap data (for example settings, RBAC, default clients) must be owned by database migrations.
+ * - Runtime install logic should only write install-specific values that are unique to this instance.
+ * - Code-based seeding is reserved for test/dev/sample/demo data.
+ */
+import { eq } from "drizzle-orm";
 import { createContext } from "../src/context/createContext.ts";
-import { adminUsers, settings } from "../src/db/schema.ts";
-import { seedDefaultOrganizationRbac } from "../src/models/install.ts";
+import { adminUsers, clients, settings } from "../src/db/schema.ts";
 import { generateEdDSAKeyPair, storeKeyPair } from "../src/services/jwks.ts";
 import { createKekService, generateKdfParams } from "../src/services/kek.ts";
-import { isSystemInitialized, markSystemInitialized, seedDefaultSettings } from "../src/services/settings.ts";
-import { seedDefaultClients } from "../src/models/install.ts";
+import { isSystemInitialized, markSystemInitialized, setSetting } from "../src/services/settings.ts";
 import type { Config, KdfParams } from "../src/types.ts";
 import { generateRandomString } from "../src/utils/crypto.ts";
 import fs from "node:fs";
@@ -135,13 +140,9 @@ async function install() {
 			updatedAt: new Date(),
 		});
 
-		console.log("3. Seeding default settings...");
-		await seedDefaultSettings(
-			context,
-			config.issuer,
-			config.publicOrigin,
-			config.rpId,
-		);
+		await setSetting(context, "issuer", config.issuer);
+		await setSetting(context, "public_origin", config.publicOrigin);
+		await setSetting(context, "rp_id", config.rpId);
 
 		await context.db.insert(settings).values({
 			key: "ui_user",
@@ -289,13 +290,28 @@ async function install() {
 					Buffer.from(demoConfidentialClientSecret),
 				);
 			}
+			// Seeding is migration-owned. Install only writes runtime-specific values.
+			if (demoConfidentialSecretEnc) {
+				await context.db
+					.update(clients)
+					.set({
+						clientSecretEnc: demoConfidentialSecretEnc,
+						updatedAt: new Date(),
+					})
+					.where(eq(clients.clientId, "demo-confidential-client"));
+			}
+			const normalizedOrigin = config.publicOrigin.replace(/\/+$/, "");
+			await context.db
+				.update(clients)
+				.set({
+					redirectUris: [`${normalizedOrigin}/callback`],
+					postLogoutRedirectUris: [normalizedOrigin],
+					allowedZkOrigins: [normalizedOrigin],
+					updatedAt: new Date(),
+				})
+				.where(eq(clients.clientId, "user"));
 
-			await seedDefaultClients(context, demoConfidentialSecretEnc, config.publicOrigin);
-
-		console.log("6. Seeding default group...");
-		await seedDefaultOrganizationRbac(context);
-
-		console.log("7. Creating default admin user...");
+		console.log("6. Creating default admin user...");
 		const adminEmail = "admin@example.com";
 		const adminName = "System Administrator";
 
@@ -306,7 +322,7 @@ async function install() {
 			createdAt: new Date(),
 		});
 
-		console.log("8. Marking system as initialized...");
+		console.log("7. Marking system as initialized...");
 		await markSystemInitialized(context);
 
 		console.log(

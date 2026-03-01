@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 
+import { clients } from "../../db/schema.ts";
 import {
   AlreadyInitializedError,
   ExpiredInstallTokenError,
@@ -10,12 +12,7 @@ import {
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { generateEdDSAKeyPair, storeKeyPair } from "../../services/jwks.ts";
 import { ensureKekService, generateKdfParams } from "../../services/kek.ts";
-import {
-  isSystemInitialized,
-  markSystemInitialized,
-  seedDefaultSettings,
-  setSetting,
-} from "../../services/settings.ts";
+import { isSystemInitialized, markSystemInitialized, setSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { generateRandomString } from "../../utils/crypto.ts";
@@ -113,15 +110,11 @@ async function _postInstallComplete(
       throw new Error("No database available for installation");
     }
 
-    context.logger.info("[install:post] Seeding default settings");
-    const tempContextDb = { ...context, db } as Context;
-    await seedDefaultSettings(
-      tempContextDb,
-      context.config.issuer,
-      context.config.publicOrigin,
-      context.config.rpId
-    );
     const installCtx = { ...context, db } as Context;
+    const tempContextDb = { ...context, db } as Context;
+    await setSetting(installCtx, "issuer", context.config.issuer);
+    await setSetting(installCtx, "public_origin", context.config.publicOrigin);
+    await setSetting(installCtx, "rp_id", context.config.rpId);
     await setSetting(
       installCtx,
       "users.self_registration_enabled",
@@ -174,13 +167,24 @@ async function _postInstallComplete(
     const demoConfidentialSecretEnc = await kekService.encrypt(
       Buffer.from(demoConfidentialClientSecret)
     );
-    await (await import("../../models/install.ts")).seedDefaultClients(
-      installCtx,
-      demoConfidentialSecretEnc,
-      context.config.publicOrigin
-    );
+    await installCtx.db
+      .update(clients)
+      .set({
+        clientSecretEnc: demoConfidentialSecretEnc,
+        updatedAt: new Date(),
+      })
+      .where(eq(clients.clientId, "demo-confidential-client"));
+    const normalizedOrigin = context.config.publicOrigin.replace(/\/+$/, "");
+    await installCtx.db
+      .update(clients)
+      .set({
+        redirectUris: [`${normalizedOrigin}/callback`],
+        postLogoutRedirectUris: [normalizedOrigin],
+        allowedZkOrigins: [normalizedOrigin],
+        updatedAt: new Date(),
+      })
+      .where(eq(clients.clientId, "user"));
     await (await import("../../models/install.ts")).ensureDefaultOrganizationAndSchema(installCtx);
-    await (await import("../../models/install.ts")).seedDefaultOrganizationRbac(installCtx);
 
     context.logger.debug(
       "[install:post] verifying admin user was created during OPAQUE registration"
