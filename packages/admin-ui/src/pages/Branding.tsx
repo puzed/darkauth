@@ -63,7 +63,7 @@ function buildPreviewUrl(
   };
   const o = toB64Url(JSON.stringify(options));
   const u = encodeURIComponent(issuer);
-  return `/preview?options=${o}&u=${u}`;
+  return `/preview?options=${o}&u=${u}&da_preview=1`;
 }
 
 function _inferType(s: AdminSetting): "string" | "number" | "boolean" | "object" {

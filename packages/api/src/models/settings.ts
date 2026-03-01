@@ -79,8 +79,6 @@ export async function listSettings(context: Context) {
     .orderBy(settings.key);
 
   const DROP_OBJECT_KEYS = new Set([
-    "code",
-    "pkce",
     "id_token",
     "access_token",
     "zk_delivery",

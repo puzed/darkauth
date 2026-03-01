@@ -97,6 +97,7 @@ export const clients = pgTable("clients", {
   scopes: text("scopes").array().default(["openid", "profile"]).notNull(),
   allowedZkOrigins: text("allowed_zk_origins").array().default([]).notNull(),
   idTokenLifetimeSeconds: integer("id_token_lifetime_seconds"),
+  accessTokenLifetimeSeconds: integer("access_token_lifetime_seconds"),
   refreshTokenLifetimeSeconds: integer("refresh_token_lifetime_seconds"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

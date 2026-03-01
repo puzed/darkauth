@@ -78,6 +78,7 @@ export async function listClients(
           scopes: clients.scopes,
           allowedZkOrigins: clients.allowedZkOrigins,
           idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
+          accessTokenLifetimeSeconds: clients.accessTokenLifetimeSeconds,
           refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
           createdAt: clients.createdAt,
           updatedAt: clients.updatedAt,
@@ -108,6 +109,7 @@ export async function listClients(
           scopes: clients.scopes,
           allowedZkOrigins: clients.allowedZkOrigins,
           idTokenLifetimeSeconds: clients.idTokenLifetimeSeconds,
+          accessTokenLifetimeSeconds: clients.accessTokenLifetimeSeconds,
           refreshTokenLifetimeSeconds: clients.refreshTokenLifetimeSeconds,
           createdAt: clients.createdAt,
           updatedAt: clients.updatedAt,
@@ -159,6 +161,7 @@ export async function createClient(
     scopes?: Array<string | ClientScopeDefinition>;
     allowedZkOrigins?: string[];
     idTokenLifetimeSeconds?: number | null;
+    accessTokenLifetimeSeconds?: number | null;
     refreshTokenLifetimeSeconds?: number | null;
   }
 ) {
@@ -205,6 +208,7 @@ export async function createClient(
     ),
     allowedZkOrigins: data.allowedZkOrigins ?? [],
     idTokenLifetimeSeconds: data.idTokenLifetimeSeconds ?? null,
+    accessTokenLifetimeSeconds: data.accessTokenLifetimeSeconds ?? null,
     refreshTokenLifetimeSeconds: data.refreshTokenLifetimeSeconds ?? null,
     createdAt: new Date(),
     updatedAt: new Date(),

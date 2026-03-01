@@ -44,6 +44,7 @@ export const CreateClientSchema = z.object({
     ]),
   allowedZkOrigins: z.array(z.string()).optional().default([]),
   idTokenLifetimeSeconds: z.number().int().positive().optional(),
+  accessTokenLifetimeSeconds: z.number().int().positive().optional(),
   refreshTokenLifetimeSeconds: z.number().int().positive().optional(),
 });
 
@@ -70,6 +71,7 @@ export const ClientResponseSchema = z.object({
   scopes: z.array(ScopeSchema),
   allowedZkOrigins: z.array(z.string()),
   idTokenLifetimeSeconds: z.number().int().positive().nullable(),
+  accessTokenLifetimeSeconds: z.number().int().positive().nullable(),
   refreshTokenLifetimeSeconds: z.number().int().positive().nullable(),
   createdAt: z.date().or(z.string()),
   updatedAt: z.date().or(z.string()),
