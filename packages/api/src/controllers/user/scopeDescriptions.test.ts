@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { test } from "node:test";
-import { UnauthorizedClientError } from "../../errors.ts";
+import { NotFoundError } from "../../errors.ts";
 import type { Context } from "../../types.ts";
 import { getScopeDescriptions } from "./scopeDescriptions.ts";
 
@@ -53,8 +53,7 @@ test("getScopeDescriptions rejects unknown client", async () => {
 
   await assert.rejects(
     () => getScopeDescriptions(context, request, response),
-    (error: unknown) =>
-      error instanceof UnauthorizedClientError && error.error_description === "Unknown client"
+    (error: unknown) => error instanceof NotFoundError && error.message === "Unknown client"
   );
 });
 

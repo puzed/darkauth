@@ -10,6 +10,7 @@ import {
 } from "../db/schema.ts";
 import { ValidationError } from "../errors.ts";
 import { createSession } from "../services/sessions.ts";
+import { getSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
 
 export async function userOpaqueRegisterFinish(
@@ -72,11 +73,19 @@ export async function userOpaqueRegisterFinish(
       updatedAt: new Date(),
     });
   });
+  const uiUserSettings = (await getSetting(context, "ui_user")) as
+    | { clientId?: string }
+    | undefined
+    | null;
+  const userClientId =
+    typeof uiUserSettings?.clientId === "string" && uiUserSettings.clientId.length > 0
+      ? uiUserSettings.clientId
+      : "user";
   const sessionInfo = await createSession(context, "user", {
     sub,
     email: data.email,
     name: data.name,
-    clientId: "demo-public-client",
+    clientId: userClientId,
   });
   return { sub, sessionId: sessionInfo.sessionId, refreshToken: sessionInfo.refreshToken };
 }
