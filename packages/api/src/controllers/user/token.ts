@@ -260,7 +260,6 @@ export const postToken = withRateLimit("token")(
         const { getUserOrgAccess, resolveOrganizationContext } = await import(
           "../../models/rbac.ts"
         );
-        const { getUserAccess } = await import("../../models/access.ts");
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
@@ -275,10 +274,7 @@ export const postToken = withRateLimit("token")(
           user.sub,
           organizationId
         );
-        const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
-        const uniquePermissions = Array.from(
-          new Set([...organizationPermissions, ...userAccessPermissions])
-        ).sort();
+        const uniquePermissions = organizationPermissions;
         if (sessionOrganizationId !== organizationId) {
           await updateSession(context, rotated.sessionId, {
             ...(sessionData as SessionData),
@@ -519,7 +515,6 @@ export const postToken = withRateLimit("token")(
       }
 
       const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
-      const { getUserAccess } = await import("../../models/access.ts");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
         user.sub,
@@ -530,10 +525,7 @@ export const postToken = withRateLimit("token")(
         user.sub,
         organizationId
       );
-      const { permissions: userAccessPermissions } = await getUserAccess(context, user.sub);
-      const uniquePermissions = Array.from(
-        new Set([...organizationPermissions, ...userAccessPermissions])
-      ).sort();
+      const uniquePermissions = organizationPermissions;
 
       const codeConsumed = await (await import("../../models/authCodes.ts")).consumeAuthCode(
         context,

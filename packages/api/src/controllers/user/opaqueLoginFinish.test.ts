@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { beforeEach, describe, mock, test } from "node:test";
-import { organizationMembers, roles, userGroups } from "../../db/schema.ts";
+import { organizationMembers, roles } from "../../db/schema.ts";
 import type { Context } from "../../types.ts";
 import { postOpaqueLoginFinish } from "./opaqueLoginFinish.ts";
 
@@ -38,9 +38,7 @@ function createSelectBuilder(state: {
     status: string;
     slug: string;
   }>;
-  loginGroups: Array<{ enableLogin: boolean }>;
   roleRows: Array<{ roleKey: string }>;
-  groupOtpRows: Array<{ groupKey: string }>;
 }) {
   return (selection: unknown) => {
     const keys =
@@ -56,14 +54,6 @@ function createSelectBuilder(state: {
         }
         if (keys.includes("roleKey")) {
           return state.roleRows;
-        }
-      }
-      if (fromTable === userGroups) {
-        if (keys.includes("enableLogin")) {
-          return state.loginGroups;
-        }
-        if (keys.includes("groupKey")) {
-          return state.groupOtpRows;
         }
       }
       if (fromTable === roles) {
@@ -129,9 +119,7 @@ describe("User OPAQUE Login Finish", () => {
           slug: "default",
         },
       ],
-      loginGroups: [{ enableLogin: true }],
       roleRows: [],
-      groupOtpRows: [],
     };
 
     context = {

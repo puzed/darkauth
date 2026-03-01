@@ -1,5 +1,5 @@
 import { asc, count, desc, eq, ilike, inArray, or } from "drizzle-orm";
-import { groupPermissions, permissions, userPermissions } from "../db/schema.ts";
+import { permissions, rolePermissions, userPermissions } from "../db/schema.ts";
 import { ConflictError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
@@ -44,15 +44,15 @@ export async function listPermissionsWithCounts(
     .offset(offset);
 
   const permissionKeys = permissionsData.map((permission) => permission.key);
-  const groupCounts = permissionKeys.length
+  const roleCounts = permissionKeys.length
     ? await context.db
         .select({
-          permissionKey: groupPermissions.permissionKey,
-          groupCount: count(groupPermissions.groupKey),
+          permissionKey: rolePermissions.permissionKey,
+          roleCount: count(rolePermissions.roleId),
         })
-        .from(groupPermissions)
-        .where(inArray(groupPermissions.permissionKey, permissionKeys))
-        .groupBy(groupPermissions.permissionKey)
+        .from(rolePermissions)
+        .where(inArray(rolePermissions.permissionKey, permissionKeys))
+        .groupBy(rolePermissions.permissionKey)
     : [];
 
   const userCounts = permissionKeys.length
@@ -66,7 +66,7 @@ export async function listPermissionsWithCounts(
         .groupBy(userPermissions.permissionKey)
     : [];
 
-  const groupCountMap = new Map(groupCounts.map((gc) => [gc.permissionKey, gc.groupCount]));
+  const roleCountMap = new Map(roleCounts.map((rc) => [rc.permissionKey, rc.roleCount]));
   const userCountMap = new Map(userCounts.map((uc) => [uc.permissionKey, uc.userCount]));
 
   const totalPages = Math.ceil(total / limit);
@@ -74,7 +74,7 @@ export async function listPermissionsWithCounts(
     permissions: permissionsData.map((p) => ({
       key: p.key,
       description: p.description,
-      groupCount: groupCountMap.get(p.key) || 0,
+      roleCount: roleCountMap.get(p.key) || 0,
       directUserCount: userCountMap.get(p.key) || 0,
     })),
     pagination: {
@@ -111,7 +111,7 @@ export async function createPermission(
   return {
     key: data.key,
     description: data.description,
-    groupCount: 0,
+    roleCount: 0,
     directUserCount: 0,
   };
 }

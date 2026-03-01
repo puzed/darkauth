@@ -13,14 +13,14 @@ import {
 } from "./user/token.ts";
 
 test("resolveGrantedScopes returns allowed scopes when no scope is requested", () => {
-  const allowed = ["darkauth.users:read", "darkauth.groups:read"];
+  const allowed = ["darkauth.users:read", "darkauth.roles:read"];
   const granted = resolveGrantedScopes(allowed);
   assert.deepEqual(granted, allowed);
 });
 
 test("resolveGrantedScopes returns requested scopes when all are allowed", () => {
   const granted = resolveGrantedScopes(
-    ["darkauth.users:read", "darkauth.groups:read"],
+    ["darkauth.users:read", "darkauth.roles:read"],
     "darkauth.users:read"
   );
   assert.deepEqual(granted, ["darkauth.users:read"]);
