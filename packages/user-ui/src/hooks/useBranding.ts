@@ -222,11 +222,11 @@ export function useBranding() {
       const branding = window.__APP_CONFIG__?.branding;
       const theme = document.documentElement.getAttribute("data-da-theme");
       const isDark = theme === "dark";
-      if (isDark) return branding?.logoUrlDark || "/favicon.svg";
-      return branding?.logoUrl || "/favicon.svg";
+      if (isDark) return branding?.logoUrlDark || "";
+      return branding?.logoUrl || "";
     },
     isDefaultLogoUrl(url: string) {
-      return url === "/favicon.svg" || url.startsWith("/api/branding/logo");
+      return url.startsWith("/api/branding/logo");
     },
     getTitle() {
       return window.__APP_CONFIG__?.branding?.identity?.title || "";
