@@ -8,6 +8,7 @@ import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 import Button from "./Button";
 import styles from "./Login.module.css";
+import viewStyles from "./LoginView.module.css";
 
 interface LoginProps {
   onLogin: (sessionData: {
@@ -49,6 +50,9 @@ export default function Login({
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<OpaqueLoginState | null>(null);
+  const [unverifiedEmail, setUnverifiedEmail] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [clientCheckLoading, setClientCheckLoading] = useState(!skipClientCheck);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
   const isPreviewMode = useMemo(() => {
@@ -158,6 +162,8 @@ export default function Login({
 
     setLoading(true);
     setErrors({});
+    setUnverifiedEmail(null);
+    setResendMessage(null);
 
     try {
       logger.debug({ email: formData.email }, "[user-ui] login start");
@@ -262,6 +268,17 @@ export default function Login({
 
       let errorMessage = "Login failed. Please try again.";
       if (error instanceof Error) {
+        const authError = error as Error & {
+          unverified?: boolean;
+          resendAllowed?: boolean;
+          email?: string;
+        };
+        if (authError.unverified && authError.resendAllowed) {
+          setUnverifiedEmail(authError.email || formData.email);
+          errorMessage = "Please verify your email to continue";
+          setErrors({ general: errorMessage });
+          return;
+        }
         if (error.message.includes("not found")) {
           errorMessage = "No account found with this email address.";
         } else if (error.message.includes("authentication")) {
@@ -339,17 +356,53 @@ export default function Login({
           </div>
 
           {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
+          {unverifiedEmail ? (
+            <div className={styles.formFooter}>
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                disabled={resendLoading}
+                onClick={async () => {
+                  try {
+                    setResendLoading(true);
+                    const result = await apiService.resendEmailVerification(unverifiedEmail);
+                    setResendMessage(result.message);
+                  } catch (error) {
+                    setResendMessage(
+                      error instanceof Error ? error.message : "Failed to resend verification email"
+                    );
+                  } finally {
+                    setResendLoading(false);
+                  }
+                }}
+              >
+                {resendLoading ? "Sending..." : "Resend verification email"}
+              </Button>
+            </div>
+          ) : null}
+          {resendMessage ? (
+            <output
+              className={viewStyles.infoAlert}
+              style={{ marginTop: "1rem" }}
+              aria-live="polite"
+            >
+              <span className={viewStyles.infoText}>{resendMessage}</span>
+            </output>
+          ) : null}
 
-          <Button type="submit" variant="primary" fullWidth disabled={loading}>
-            {loading ? (
-              <>
-                <span className={styles.loadingSpinner} />
-                {branding.getText("signingIn", "Signing in...")}
-              </>
-            ) : (
-              branding.getText("signin", "Continue")
-            )}
-          </Button>
+          <div style={{ marginTop: "1.5rem" }}>
+            <Button type="submit" variant="primary" fullWidth disabled={loading}>
+              {loading ? (
+                <>
+                  <span className={styles.loadingSpinner} />
+                  {branding.getText("signingIn", "Signing in...")}
+                </>
+              ) : (
+                branding.getText("signin", "Continue")
+              )}
+            </Button>
+          </div>
         </form>
       ) : null}
 

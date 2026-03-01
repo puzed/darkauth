@@ -238,21 +238,12 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
             Your encryption key could not be recovered. You can generate new keys to continue.
           </p>
           <div className="actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setNeedsKeyRegen(false)}
-            >
+            <Button type="button" variant="secondary" onClick={() => setNeedsKeyRegen(false)}>
               Try Again
-            </button>
-            <button
-              type="button"
-              className="primary-button"
-              onClick={handleGenerateNew}
-              style={{ background: "var(--success-600)" }}
-            >
+            </Button>
+            <Button type="button" variant="success" onClick={handleGenerateNew}>
               Generate New Keys
-            </button>
+            </Button>
           </div>
         </div>
       )}

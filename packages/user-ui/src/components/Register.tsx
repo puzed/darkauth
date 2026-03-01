@@ -6,6 +6,8 @@ import { saveDrk } from "../services/drkStorage";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import Button from "./Button";
+import viewStyles from "./LoginView.module.css";
 import styles from "./Register.module.css";
 
 interface RegisterProps {
@@ -45,6 +47,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
   const [opaqueState, setOpaqueState] = useState<OpaqueRegistrationState | null>(null);
+  const [verificationSent, setVerificationSent] = useState<string | null>(null);
 
   const validateForm = (): FormErrors => {
     const newErrors: FormErrors = {};
@@ -127,6 +130,12 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         message: registrationFinish.request,
         serverPublicKey: registrationStartResponse.serverPublicKey,
       });
+      if (registrationFinishResponse.requiresEmailVerification) {
+        opaqueService.clearState(registrationStart.state);
+        cryptoService.clearSensitiveData(registrationFinish.passwordKey);
+        setVerificationSent(formData.email);
+        return;
+      }
 
       const keys = await cryptoService.deriveKeysFromExportKey(
         registrationFinish.passwordKey,
@@ -240,128 +249,149 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
       <h2 className={styles.formTitle}>
         {branding.getText("createAccount", "Create your account")}
       </h2>
+      {verificationSent ? (
+        <>
+          <output className={viewStyles.successAlert} aria-live="polite">
+            <span className={viewStyles.successTitle}>Verification email sent</span>
+            <span className={viewStyles.successText}>
+              We sent a verification link to {verificationSent}. Verify your email, then continue to
+              sign in.
+            </span>
+          </output>
+          <div className={styles.stageActions}>
+            <Button type="button" variant="primary" fullWidth onClick={onSwitchToLogin}>
+              Continue to sign in
+            </Button>
+          </div>
+        </>
+      ) : (
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-name`}>
+              {branding.getText("name", "Name")}
+            </label>
+            <input
+              type="text"
+              id={`${uid}-name`}
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder={branding.getText("namePlaceholder", "Enter your full name")}
+              className={`${styles.formInput} ${errors.name ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="name"
+              required
+            />
+            {errors.name && <div className={styles.errorText}>{errors.name}</div>}
+          </div>
 
-      <form className={styles.form} onSubmit={handleSubmit} noValidate>
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-name`}>
-            {branding.getText("name", "Name")}
-          </label>
-          <input
-            type="text"
-            id={`${uid}-name`}
-            name="name"
-            value={formData.name}
-            onChange={handleInputChange}
-            placeholder={branding.getText("namePlaceholder", "Enter your full name")}
-            className={`${styles.formInput} ${errors.name ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="name"
-            required
-          />
-          {errors.name && <div className={styles.errorText}>{errors.name}</div>}
-        </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-email`}>
+              {branding.getText("email", "Email")}
+            </label>
+            <input
+              type="email"
+              id={`${uid}-email`}
+              name="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder={branding.getText("emailPlaceholder", "Enter your email")}
+              className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="email"
+              required
+            />
+            {errors.email && <div className={styles.errorText}>{errors.email}</div>}
+          </div>
 
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-email`}>
-            {branding.getText("email", "Email")}
-          </label>
-          <input
-            type="email"
-            id={`${uid}-email`}
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            placeholder={branding.getText("emailPlaceholder", "Enter your email")}
-            className={`${styles.formInput} ${errors.email ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="email"
-            required
-          />
-          {errors.email && <div className={styles.errorText}>{errors.email}</div>}
-        </div>
-
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-password`}>
-            {branding.getText("password", "Password")}
-          </label>
-          <input
-            type="password"
-            id={`${uid}-password`}
-            name="password"
-            value={formData.password}
-            onChange={handleInputChange}
-            placeholder={branding.getText("createPasswordPlaceholder", "Create a strong password")}
-            className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="new-password"
-            required
-          />
-          {formData.password && (
-            <div className={styles.passwordStrength}>
-              <div className={styles.strengthBar}>
-                <div className={`${styles.strengthFill} ${styles[passwordStrength.level]}`} />
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-password`}>
+              {branding.getText("password", "Password")}
+            </label>
+            <input
+              type="password"
+              id={`${uid}-password`}
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder={branding.getText(
+                "createPasswordPlaceholder",
+                "Create a strong password"
+              )}
+              className={`${styles.formInput} ${errors.password ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="new-password"
+              required
+            />
+            {formData.password && (
+              <div className={styles.passwordStrength}>
+                <div className={styles.strengthBar}>
+                  <div className={`${styles.strengthFill} ${styles[passwordStrength.level]}`} />
+                </div>
+                <span className={`${styles.strengthText} ${styles[passwordStrength.level]}`}>
+                  {passwordStrength.text}
+                </span>
               </div>
-              <span className={`${styles.strengthText} ${styles[passwordStrength.level]}`}>
-                {passwordStrength.text}
-              </span>
-            </div>
-          )}
-          {errors.password && <div className={styles.errorText}>{errors.password}</div>}
-          {!errors.password && formData.password && (
-            <div className={styles.helpText}>
-              {branding.getText("passwordRequirement", "Must be at least 12 characters")}
-            </div>
-          )}
-        </div>
+            )}
+            {errors.password && <div className={styles.errorText}>{errors.password}</div>}
+            {!errors.password && formData.password && (
+              <div className={styles.helpText}>
+                {branding.getText("passwordRequirement", "Must be at least 12 characters")}
+              </div>
+            )}
+          </div>
 
-        <div className={styles.formGroup}>
-          <label className={styles.formLabel} htmlFor={`${uid}-confirmPassword`}>
-            {branding.getText("confirmPassword", "Confirm Password")}
-          </label>
-          <input
-            type="password"
-            id={`${uid}-confirmPassword`}
-            name="confirmPassword"
-            value={formData.confirmPassword}
-            onChange={handleInputChange}
-            placeholder={branding.getText("confirmPasswordPlaceholder", "Confirm your password")}
-            className={`${styles.formInput} ${errors.confirmPassword ? styles.error : ""}`}
-            disabled={loading}
-            autoComplete="new-password"
-            required
-          />
-          {errors.confirmPassword && (
-            <div className={styles.errorText}>{errors.confirmPassword}</div>
-          )}
-        </div>
+          <div className={styles.formGroup}>
+            <label className={styles.formLabel} htmlFor={`${uid}-confirmPassword`}>
+              {branding.getText("confirmPassword", "Confirm Password")}
+            </label>
+            <input
+              type="password"
+              id={`${uid}-confirmPassword`}
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              placeholder={branding.getText("confirmPasswordPlaceholder", "Confirm your password")}
+              className={`${styles.formInput} ${errors.confirmPassword ? styles.error : ""}`}
+              disabled={loading}
+              autoComplete="new-password"
+              required
+            />
+            {errors.confirmPassword && (
+              <div className={styles.errorText}>{errors.confirmPassword}</div>
+            )}
+          </div>
 
-        {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
+          {errors.general && <div className={styles.errorMessage}>{errors.general}</div>}
 
-        <button type="submit" className={styles.primaryButton} disabled={loading}>
-          {loading ? (
-            <>
-              <span className={styles.loadingSpinner} />
-              {branding.getText("signingUp", "Creating account...")}
-            </>
-          ) : (
-            branding.getText("signup", "Continue")
-          )}
-        </button>
-      </form>
-
-      <div className={styles.formFooter}>
-        <p>
-          {branding.getText("hasAccount", "Already have an account?")}{" "}
-          <button
-            type="button"
-            className={styles.linkButton}
-            onClick={onSwitchToLogin}
-            disabled={loading}
-          >
-            {branding.getText("signin", "Continue")}
+          <button type="submit" className={styles.primaryButton} disabled={loading}>
+            {loading ? (
+              <>
+                <span className={styles.loadingSpinner} />
+                {branding.getText("signingUp", "Creating account...")}
+              </>
+            ) : (
+              branding.getText("signup", "Continue")
+            )}
           </button>
-        </p>
-      </div>
+        </form>
+      )}
+
+      {!verificationSent ? (
+        <div className={styles.formFooter}>
+          <p>
+            {branding.getText("hasAccount", "Already have an account?")}{" "}
+            <button
+              type="button"
+              className={styles.linkButton}
+              onClick={onSwitchToLogin}
+              disabled={loading}
+            >
+              {branding.getText("signin", "Continue")}
+            </button>
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

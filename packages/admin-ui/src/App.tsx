@@ -20,6 +20,7 @@ import Changelog from "./pages/Changelog";
 import ClientEdit from "./pages/ClientEdit";
 import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
+import EmailTemplates from "./pages/EmailTemplates";
 import ErrorPage from "./pages/Error";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
@@ -442,6 +443,14 @@ const App = () => {
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                   <AdminUsers />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/settings/email-templates"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <EmailTemplates />
                 </DashboardLayout>
               }
             />
