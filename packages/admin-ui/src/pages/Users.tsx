@@ -373,7 +373,7 @@ export default function Users() {
                                 {
                                   key: "otp-unlock",
                                   label: "Unlock OTP",
-                                  icon: <RefreshCcw className="h-4 w-4" />,
+                                  icon: <RotateCcw className="h-4 w-4" />,
                                   disabled: isRowActionInFlight,
                                   onClick: () => unlockOtp(user),
                                 },
