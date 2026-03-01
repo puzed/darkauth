@@ -76,11 +76,10 @@ function buildCookie(
 async function getDurations(context: Context, cohort: "user" | "admin") {
   if (cohort === "admin") {
     const s = (await getSetting(context, "admin_session")) as
-      | { lifetime_seconds?: number; refresh_lifetime_seconds?: number }
+      | { lifetime_seconds?: number }
       | undefined
       | null;
     let lifetime = s?.lifetime_seconds;
-    let refreshLifetime = s?.refresh_lifetime_seconds;
     if (lifetime === undefined) {
       const v = (await getSetting(context, "admin_session.lifetime_seconds")) as
         | number
@@ -88,16 +87,8 @@ async function getDurations(context: Context, cohort: "user" | "admin") {
         | null;
       if (typeof v === "number") lifetime = v;
     }
-    if (refreshLifetime === undefined) {
-      const v = (await getSetting(context, "admin_session.refresh_lifetime_seconds")) as
-        | number
-        | undefined
-        | null;
-      if (typeof v === "number") refreshLifetime = v;
-    }
     const sessionSeconds = lifetime && lifetime > 0 ? lifetime : 15 * 60;
-    const refreshSeconds =
-      refreshLifetime && refreshLifetime > 0 ? refreshLifetime : 7 * 24 * 60 * 60;
+    const refreshSeconds = 7 * 24 * 60 * 60;
     return { sessionMs: sessionSeconds * 1000, refreshMs: refreshSeconds * 1000 };
   }
   return { sessionMs: 15 * 60 * 1000, refreshMs: 7 * 24 * 60 * 60 * 1000 };

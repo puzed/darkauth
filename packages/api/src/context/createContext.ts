@@ -9,6 +9,7 @@ import { ensureDefaultOrganizationAndSchema } from "../models/install.ts";
 import { ensureKekService } from "../services/kek.ts";
 import { createOpaqueService } from "../services/opaque.ts";
 import { cleanupExpiredSessions } from "../services/sessions.ts";
+import { pruneDeprecatedSettings } from "../services/settings.ts";
 import type { Config, Context, Database } from "../types.ts";
 
 async function waitForPostgres(pool: Pool, attempts = 20, delayMs = 500) {
@@ -108,6 +109,11 @@ export async function createContext(config: Config): Promise<Context> {
       await ensureDefaultOrganizationAndSchema(context);
     } catch (err) {
       logger.warn({ err }, "ensureDefaultOrganizationAndSchema failed");
+    }
+    try {
+      await pruneDeprecatedSettings(context);
+    } catch (err) {
+      logger.warn({ err }, "pruneDeprecatedSettings failed");
     }
   }
 
