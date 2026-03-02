@@ -7,8 +7,12 @@ import {
   roles,
   users,
 } from "../db/schema.ts";
-import { ValidationError } from "../errors.ts";
-import { sendSignupVerification } from "../services/emailVerification.ts";
+import { ConflictError, ValidationError } from "../errors.ts";
+import { isEmailSendingAvailable } from "../services/email.ts";
+import {
+  sendSignupExistingAccountNotice,
+  sendSignupVerification,
+} from "../services/emailVerification.ts";
 import { createSession } from "../services/sessions.ts";
 import { getSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
@@ -23,19 +27,28 @@ export async function userOpaqueRegisterFinish(
   const opaqueRecord = await context.services.opaque.finishRegistration(data.record, data.email);
   const requireEmailVerification =
     (await getSetting(context, "users.require_email_verification")) === true;
+  const preventEmailEnumeration =
+    (await getSetting(context, "users.prevent_email_enumeration_on_registration")) === true;
   const { generateRandomString } = await import("../utils/crypto.ts");
   const sub = generateRandomString(16);
-  // Check if user already exists before transaction
-  // Return a generic success response to prevent user enumeration attacks
   const existingUser = await context.db.query.users.findFirst({
     where: eq(users.email, data.email),
   });
   if (existingUser) {
-    const { generateRandomString: genFakeId } = await import("../utils/crypto.ts");
-    return {
-      sub: genFakeId(16),
-      requiresEmailVerification: true,
-    };
+    const emailSendingAvailable = await isEmailSendingAvailable(context);
+    if (preventEmailEnumeration && requireEmailVerification && emailSendingAvailable) {
+      try {
+        await sendSignupExistingAccountNotice(context, {
+          email: data.email,
+          name: existingUser.name || data.name,
+        });
+      } catch (error) {
+        context.logger.warn(error, "Failed to send existing-account signup notice");
+        throw new ConflictError("A user with this email address already exists");
+      }
+      return { sub, requiresEmailVerification: true };
+    }
+    throw new ConflictError("A user with this email address already exists");
   }
 
   await context.db.transaction(async (tx) => {

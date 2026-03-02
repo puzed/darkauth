@@ -25,6 +25,12 @@ const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
     variables: ["name", "verification_link"],
   },
   {
+    key: "signup_existing_account_notice",
+    label: "Existing account signup notice",
+    description: "Sent when signup is attempted with an email that already has an account.",
+    variables: ["name", "recovery_link"],
+  },
+  {
     key: "verification_resend_confirmation",
     label: "Resend confirmation",
     description: "Confirms that a fresh verification email was requested.",

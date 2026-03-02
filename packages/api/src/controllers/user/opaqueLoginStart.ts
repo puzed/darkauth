@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ValidationError } from "../../errors.ts";
+import { NotFoundError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getUserOpaqueRecordByEmail } from "../../models/users.ts";
@@ -48,11 +48,18 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
     }
     context.logger.debug({ reqLen: requestBuffer.length }, "decoded request");
 
-    const userLookup = await getUserOpaqueRecordByEmail(context, parsed.email);
-    context.logger.debug({ found: !!userLookup.user }, "user lookup");
+    let userLookup: Awaited<ReturnType<typeof getUserOpaqueRecordByEmail>> | null = null;
+    try {
+      userLookup = await getUserOpaqueRecordByEmail(context, parsed.email);
+    } catch (error) {
+      if (!(error instanceof NotFoundError)) {
+        throw error;
+      }
+    }
+    context.logger.debug({ found: !!userLookup?.user }, "user lookup");
 
     let loginResponse: OpaqueLoginResponse;
-    if (!userLookup.user) {
+    if (!userLookup?.user) {
       loginResponse = await opaque.startLoginWithDummy(requestBuffer, parsed.email);
     } else {
       const envelopeBuffer = userLookup.envelope as unknown as Buffer | string | null;
