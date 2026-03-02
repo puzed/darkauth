@@ -268,6 +268,7 @@ export default function Login({
 
       let errorMessage = "Login failed. Please try again.";
       if (error instanceof Error) {
+        const normalizedMessage = error.message.toLowerCase();
         const authError = error as Error & {
           unverified?: boolean;
           resendAllowed?: boolean;
@@ -279,11 +280,13 @@ export default function Login({
           setErrors({ general: errorMessage });
           return;
         }
-        if (error.message.includes("not found")) {
-          errorMessage = "No account found with this email address.";
-        } else if (error.message.includes("authentication")) {
+        if (
+          normalizedMessage.includes("not found") ||
+          normalizedMessage.includes("authentication") ||
+          normalizedMessage.includes("invalid")
+        ) {
           errorMessage = "Invalid email or password.";
-        } else if (error.message.includes("network") || error.message.includes("fetch")) {
+        } else if (normalizedMessage.includes("network") || normalizedMessage.includes("fetch")) {
           errorMessage = "Network error. Please check your connection and try again.";
         } else {
           errorMessage = error.message;

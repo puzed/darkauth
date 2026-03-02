@@ -33,26 +33,28 @@ export async function ensureAdminDashboard(
   });
 }
 
-export async function ensureSelfRegistrationEnabled(page: Page): Promise<void> {
-  await page.click('a[href="/settings"], button:has-text("Settings")');
-  const usersSectionTrigger = page.getByRole('button', { name: 'Users', exact: true }).first();
-  const triggerState = await usersSectionTrigger.getAttribute('data-state');
-  if (triggerState !== 'open') {
-    await usersSectionTrigger.click();
-  }
-  const usersRegion = page.getByRole('region', { name: 'Users', exact: true });
-  await expect(usersRegion).toBeVisible({ timeout: 10000 });
-  const checkbox = usersRegion.getByRole('checkbox').nth(1);
-  await expect(checkbox).toBeVisible({ timeout: 5000 });
-  const state = await checkbox.getAttribute('data-state');
-  if (state === 'checked') return;
-  const updateResponse = page.waitForResponse((response) => {
-    return response.url().endsWith('/admin/settings') && response.request().method() === 'PUT';
+export async function ensureSelfRegistrationEnabled(
+  servers: TestServers,
+  admin: AdminCredentials
+): Promise<void> {
+  const adminSession = await getAdminSession(servers, admin);
+  const updateResponse = await fetch(`${servers.adminUrl}/admin/settings`, {
+    method: 'PUT',
+    headers: {
+      Cookie: adminSession.cookieHeader,
+      Origin: servers.adminUrl,
+      'Content-Type': 'application/json',
+      'x-csrf-token': adminSession.csrfToken,
+    },
+    body: JSON.stringify({
+      key: 'users.self_registration_enabled',
+      value: true,
+    }),
   });
-  await checkbox.click();
-  const response = await updateResponse;
-  expect(response.ok()).toBeTruthy();
-  await expect(checkbox).toHaveAttribute('data-state', 'checked', { timeout: 5000 });
+  if (!updateResponse.ok) {
+    const errorText = await updateResponse.text().catch(() => '');
+    throw new Error(`failed to enable self-registration: ${updateResponse.status} ${errorText}`);
+  }
 }
 
 export async function configureDemoClient(
