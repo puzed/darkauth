@@ -9,7 +9,7 @@ test.describe('Admin - Default organization membership', () => {
   let servers: TestServers;
 
   test.beforeAll(async () => {
-    servers = await createTestServers({ testName: 'admin-default-group-assignment' });
+    servers = await createTestServers({ testName: 'admin-default-organization-membership' });
     await installDarkAuth({
       adminUrl: servers.adminUrl,
       adminEmail: FIXED_TEST_ADMIN.email,

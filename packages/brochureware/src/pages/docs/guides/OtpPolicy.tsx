@@ -23,8 +23,8 @@ const OtpPolicyPage = () => {
         </CardHeader>
         <CardContent>
           <p className="text-base text-muted-foreground">
-            OTP in DarkAuth is implemented as an explicit policy layer. It can be enabled for users, users
-            in groups, or role-based scenarios where step-up authentication is required.
+            OTP in DarkAuth is implemented as an explicit policy layer. It can be enabled for users,
+            organizations, or role-based scenarios where step-up authentication is required.
           </p>
         </CardContent>
       </Card>

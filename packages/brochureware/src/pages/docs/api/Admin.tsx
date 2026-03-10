@@ -13,7 +13,6 @@ POST /admin/users
 GET /admin/users/{sub}
 PATCH /admin/users/{sub}
 DELETE /admin/users/{sub}
-PUT /admin/users/{sub}/groups
 GET /admin/users/{sub}/permissions`;
 
 const authzOps = `GET /admin/clients
@@ -21,9 +20,7 @@ POST /admin/clients
 GET /admin/roles
 POST /admin/roles
 GET /admin/permissions
-POST /admin/permissions
-GET /admin/groups
-POST /admin/groups`;
+POST /admin/permissions`;
 
 const adminApiPage = () => {
   return (
@@ -67,7 +64,7 @@ const adminApiPage = () => {
               <code>{userOps}</code>
             </pre>
             <p className="mt-2 text-sm text-muted-foreground">
-              Includes admin user CRUD and user-to-group/permission management.
+              Includes admin user CRUD and direct permission management.
             </p>
           </CardContent>
         </Card>
@@ -81,7 +78,7 @@ const adminApiPage = () => {
               <code>{authzOps}</code>
             </pre>
             <p className="mt-2 text-sm text-muted-foreground">
-              Manage clients, roles, permissions, groups, and org structures.
+              Manage clients, roles, permissions, and org structures.
             </p>
           </CardContent>
         </Card>

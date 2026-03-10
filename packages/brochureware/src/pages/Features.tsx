@@ -37,7 +37,7 @@ const features: Feature[] = [
     title: "TOTP MFA (Users & Admins)",
     bullets: [
       "Setup and verify with backup codes",
-      "Per-group and cohort enforcement with rate limits",
+      "Per-organization enforcement with rate limits",
       "AMR includes otp; ACR indicates MFA",
     ],
     tags: ["OTP", "TOTP", "MFA"],
@@ -84,7 +84,7 @@ const features: Feature[] = [
     icon: Settings,
     title: "Admin: Clients, Settings, RBAC",
     bullets: [
-      "Manage clients, settings, users, groups, permissions",
+      "Manage clients, settings, users, roles, permissions, and organizations",
       "JWKS list and rotate",
       "OpenAPI served for Admin APIs",
     ],
@@ -119,10 +119,10 @@ const features: Feature[] = [
   },
   {
     icon: Hash,
-    title: "Claims: Permissions and Groups",
+    title: "Claims: Permissions",
     bullets: [
-      "ID tokens can include permissions and groups",
-      "Computed from direct and group‑derived access",
+      "ID tokens can include permissions",
+      "Computed from direct and organization role-derived access",
     ],
     tags: ["Custom Claims"],
   },

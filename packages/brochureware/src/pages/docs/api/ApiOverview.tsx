@@ -47,7 +47,7 @@ const ApiOverviewPage = () => {
             </div>
             <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
               <li>Tenant bootstrapping and identity providers.</li>
-              <li>Full RBAC management: clients, users, roles, permissions, groups, orgs.</li>
+              <li>Full RBAC management: clients, users, roles, permissions, and orgs.</li>
               <li>Audit trail and settings surfaces.</li>
               <li>Admin-only OTP and security tooling.</li>
             </ul>
