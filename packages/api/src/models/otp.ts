@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { verify as argonVerify, hash } from "argon2";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { otpBackupCodes, otpConfigs, users } from "../db/schema.ts";
 import { ValidationError } from "../errors.ts";
 import { getSetting } from "../services/settings.ts";
@@ -184,7 +184,13 @@ export async function verifyOtpCode(
     const backupCodes = await context.db
       .select({ id: otpBackupCodes.id, codeHash: otpBackupCodes.codeHash })
       .from(otpBackupCodes)
-      .where(and(eq(otpBackupCodes.cohort, cohort), eq(otpBackupCodes.subjectId, subjectId)));
+      .where(
+        and(
+          eq(otpBackupCodes.cohort, cohort),
+          eq(otpBackupCodes.subjectId, subjectId),
+          isNull(otpBackupCodes.usedAt)
+        )
+      );
     for (const backupCode of backupCodes) {
       const isMatch = await argonVerify(backupCode.codeHash, code).catch(() => false);
       if (isMatch) {
@@ -200,7 +206,7 @@ export async function verifyOtpCode(
         await context.db
           .update(otpBackupCodes)
           .set({ usedAt: new Date() })
-          .where(eq(otpBackupCodes.id, backupCode.id));
+          .where(and(eq(otpBackupCodes.id, backupCode.id), isNull(otpBackupCodes.usedAt)));
         return { success: true };
       }
     }
