@@ -11,7 +11,7 @@ test.describe('Admin - Organizations Default', () => {
   let adminCred = { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password };
 
   test.beforeAll(async () => {
-    servers = await createTestServers({ testName: 'admin-groups-default' });
+    servers = await createTestServers({ testName: 'admin-organizations-default' });
     await installDarkAuth({
       adminUrl: servers.adminUrl,
       adminEmail: FIXED_TEST_ADMIN.email,
