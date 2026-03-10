@@ -166,8 +166,6 @@ function getScopeDescription(scope: string): string {
       return "Access your basic profile information";
     case "email":
       return "Access your email address";
-    case "groups":
-      return "Access your group memberships";
     case "permissions":
       return "Access your permissions";
     default:

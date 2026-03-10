@@ -69,7 +69,6 @@ const managementResponseExample = `{
       "email": "target@example.com",
       "name": "Directory Target",
       "createdAt": "2026-01-24T19:17:27.000Z",
-      "groups": ["support", "ops"],
       "permissions": ["darkauth.users:read"]
     }
   ]
