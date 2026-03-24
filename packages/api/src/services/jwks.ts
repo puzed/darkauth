@@ -118,13 +118,15 @@ export async function signJWT(
   expiresIn = "5m"
 ): Promise<string> {
   const { kid, privateKey } = await getLatestSigningKey(context);
+  const issuer =
+    typeof payload.iss === "string" && payload.iss.length > 0 ? payload.iss : context.config.issuer;
 
   const jwt = new SignJWT(payload)
     .setProtectedHeader({ alg: "EdDSA", kid })
     .setIssuedAt()
     .setJti(generateRandomString(32))
     .setExpirationTime(expiresIn)
-    .setIssuer(context.config.issuer);
+    .setIssuer(issuer);
 
   // Set audience if provided in payload
   if (payload.aud) {
