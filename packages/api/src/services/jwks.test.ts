@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { decodeJwt, exportJWK, generateKeyPair } from "jose";
+import { decodeJwt } from "jose";
 import type { Context } from "../types.ts";
-import { signJWT } from "./jwks.ts";
+import { generateEdDSAKeyPair, signJWT } from "./jwks.ts";
 
 function createContextWithKey(issuer: string) {
   return async () => {
-    const { publicKey, privateKey } = await generateKeyPair("EdDSA");
-    const publicJwk = await exportJWK(publicKey);
-    const privateJwk = await exportJWK(privateKey);
+    const { publicJwk, privateJwk } = await generateEdDSAKeyPair();
+    const privateJwkEnc = Buffer.from(JSON.stringify(privateJwk));
 
     const context = {
       config: {
@@ -20,11 +19,17 @@ function createContextWithKey(issuer: string) {
             findFirst: async () => ({
               kid: "test-kid",
               publicJwk,
-              privateJwk,
-              privateJwkEnc: null,
+              privateJwkEnc,
               createdAt: new Date(),
             }),
           },
+        },
+      },
+      services: {
+        kek: {
+          decrypt: async (data: Buffer) => data,
+          encrypt: async (data: Buffer) => data,
+          isAvailable: () => true,
         },
       },
     } as unknown as Context;
