@@ -20,6 +20,7 @@ import ConceptsPage from "./pages/docs/Concepts";
 import SecurityModelPage from "./pages/docs/concepts/SecurityModel";
 import ArchitecturePage from "./pages/docs/concepts/Architecture";
 import PublicClientFlowPage from "./pages/docs/guides/PublicClientFlow";
+import ExampleTodosAppPage from "./pages/docs/guides/ExampleTodosApp";
 import ConfidentialClientFlowPage from "./pages/docs/guides/ConfidentialClientFlow";
 import UsersDirectoryGuidePage from "./pages/docs/guides/UsersDirectory";
 import OrganizationsRbacPage from "./pages/docs/guides/OrganizationsRbac";
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="concepts/security-model" element={<SecurityModelPage />} />
             <Route path="concepts/architecture" element={<ArchitecturePage />} />
             <Route path="guides/public-client-flow" element={<PublicClientFlowPage />} />
+            <Route path="guides/example-todos-app" element={<ExampleTodosAppPage />} />
             <Route path="guides/confidential-client-flow" element={<ConfidentialClientFlowPage />} />
             <Route path="guides/users-directory" element={<UsersDirectoryGuidePage />} />
             <Route path="guides/organizations-rbac" element={<OrganizationsRbacPage />} />
