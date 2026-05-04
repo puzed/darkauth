@@ -55,6 +55,11 @@ export const docsSections: DocsSection[] = [
         description: "Browser/SPAs with PKCE and short-lived auth codes.",
       },
       {
+        title: "Example Todos App",
+        path: "/docs/guides/example-todos-app",
+        description: "Build a browser app and API with DarkAuth login and permissions.",
+      },
+      {
         title: "Confidential Clients",
         path: "/docs/guides/confidential-client-flow",
         description: "Server-to-server flows with client credentials.",
