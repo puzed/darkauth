@@ -94,6 +94,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         userSub: sessionData.sub,
         organizationId: parsed.organization_id || pendingRequest.organizationId || undefined,
         redirectUri: pendingRequest.redirectUri,
+        scope: pendingRequest.scope,
         nonce: pendingRequest.nonce,
         codeChallenge: pendingRequest.codeChallenge,
         codeChallengeMethod: pendingRequest.codeChallengeMethod || undefined,

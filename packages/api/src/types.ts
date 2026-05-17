@@ -326,6 +326,7 @@ export interface SessionData {
   organizationId?: string;
   organizationSlug?: string;
   clientId?: string;
+  scope?: string;
   adminId?: string;
   adminRole?: "read" | "write";
   pendingAuthId?: string;

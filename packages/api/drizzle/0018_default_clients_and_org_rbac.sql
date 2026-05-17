@@ -71,7 +71,8 @@ VALUES
     ARRAY[
       '{"key":"openid","description":"Authenticate you"}',
       '{"key":"profile","description":"Access your profile information"}',
-      '{"key":"email","description":"Access your email address"}'
+      '{"key":"email","description":"Access your email address"}',
+      '{"key":"darkauth.users:read","description":"Search and read users from the directory"}'
     ]::text[],
     ARRAY['http://localhost:9080']::text[],
     now(),
