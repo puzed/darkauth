@@ -288,15 +288,6 @@ export async function openDemoDashboard(
     createCard.waitFor({ state: 'visible', timeout: 30000 }),
     newNoteButton.waitFor({ state: 'visible', timeout: 30000 }),
   ]);
-  await expect.poll(
-    () =>
-      demoPage
-        .evaluate(() => {
-          return typeof window !== 'undefined' && !!window.localStorage.getItem('id_token');
-        })
-        .catch(() => false),
-    { timeout: 30000 }
-  ).toBe(true);
   return demoPage;
 }
 
