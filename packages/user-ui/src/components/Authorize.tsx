@@ -2,7 +2,6 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
-import { clearDrk, loadDrk, saveDrk } from "../services/drkStorage";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
 import { loadExportKey, saveExportKey } from "../services/sessionKey";
@@ -140,35 +139,13 @@ export default function Authorize({
             const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
             const wrappedDrkB64 = await apiService.getWrappedDrk();
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
-            const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
             const exportKey = await loadExportKey(sessionData.sub);
             if (!exportKey) {
-              const stored = loadDrk(sessionData.sub);
-              if (!stored || stored.wrappedDrkHash !== wrappedDrkHash) {
-                clearDrk(sessionData.sub);
-                throw new Error("Missing export key");
-              }
-              const jwe = await cryptoService.createDrkJWE(
-                stored.drk,
-                zkPubJwk,
-                sessionData.sub,
-                clientId
-              );
-              const drkHash = await sha256Base64Url(jwe);
-              const authResponse = await apiService.authorize({
-                requestId: authRequest.requestId,
-                approve,
-                drkHash,
-              });
-              const redirectUrl = new URL(authResponse.redirectUrl);
-              redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
-              window.location.href = redirectUrl.toString();
-              return;
+              throw new Error("Missing export key");
             }
             const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
             const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
             const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
-            saveDrk(sessionData.sub, drk, wrappedDrkHash);
 
             // Clear sensitive data immediately
             cryptoService.clearSensitiveData(
@@ -205,7 +182,7 @@ export default function Authorize({
         requestId: authRequest.requestId,
         approve,
       });
-      logger.info({ response: authResponse }, "[Authorize] finalize without ZK");
+      logger.info({ requestId: authRequest.requestId, approve }, "[Authorize] finalize without ZK");
       window.location.href = authResponse.redirectUrl;
     } catch (error) {
       logger.error(error, "Authorization failed");
@@ -254,10 +231,8 @@ export default function Authorize({
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys keys derived");
       const drk = await cryptoService.generateDRK();
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
-      const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys storing wrapped DRK");
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-      saveDrk(sessionData.sub, drk, wrappedDrkHash);
       try {
         const kp = await cryptoService.generateECDHKeyPair();
         const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
@@ -280,6 +255,7 @@ export default function Authorize({
       }
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys success");
       setRecoveryVisible(false);
+      const drkForHandoff = drk.slice();
       cryptoService.clearSensitiveData(drk);
       try {
         const url = new URL(window.location.href);
@@ -287,7 +263,12 @@ export default function Authorize({
         const clientId = url.searchParams.get("client_id") || "";
         if (authRequest.hasZk && zkPubParam && clientId) {
           const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
-          const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
+          const jwe = await cryptoService.createDrkJWE(
+            drkForHandoff,
+            zkPubJwk,
+            sessionData.sub,
+            clientId
+          );
           const drkHash = await sha256Base64Url(jwe);
           logger.debug(
             { requestId: authRequest.requestId },
@@ -297,10 +278,10 @@ export default function Authorize({
             requestId: authRequest.requestId,
             approve: true,
             drkHash,
-            drkJwe: jwe,
           });
           const redirectUrl = new URL(authResponse.redirectUrl);
           redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          cryptoService.clearSensitiveData(drkForHandoff);
           window.location.href = redirectUrl.toString();
           return;
         }
@@ -312,6 +293,7 @@ export default function Authorize({
           "[Authorize] immediate finalize after generateNewKeys failed"
         );
       }
+      cryptoService.clearSensitiveData(drkForHandoff);
       queueMicrotask(() => {
         logger.debug(
           { requestId: authRequest.requestId },
@@ -338,8 +320,13 @@ export default function Authorize({
     }
     setRecoveryLoading(true);
     setError(null);
+    let currentExportKey: Uint8Array | null = null;
+    let oldExportKey: Uint8Array | null = null;
+    let recoveredDrk: Uint8Array | null = null;
+    let keysOld: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
+    let keysNew: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     try {
-      let currentExportKey = await loadExportKey(sessionData.sub);
+      currentExportKey = await loadExportKey(sessionData.sub);
       if (!currentExportKey) {
         if (!currentPassword) {
           throw new Error("Enter your current password to unlock keys.");
@@ -363,6 +350,8 @@ export default function Authorize({
       const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
       await apiService.passwordRecoveryVerifyFinish(oldFinish.request, oldStartResp.sessionId);
       opaqueService.clearState(oldStart.state);
+      oldExportKey = oldFinish.exportKey;
+      cryptoService.clearSensitiveData(oldFinish.sessionKey);
 
       logger.debug(
         { sub: sessionData.sub },
@@ -371,24 +360,16 @@ export default function Authorize({
       const wrappedDrkB64 = await apiService.getWrappedDrk();
       const wrapped = fromBase64Url(wrappedDrkB64);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword unwrap old DRK");
-      const keysOld = await cryptoService.deriveKeysFromExportKey(
-        oldFinish.exportKey,
-        sessionData.sub
-      );
-      const drk = await cryptoService.unwrapDRK(wrapped, keysOld.wrapKey, sessionData.sub);
+      keysOld = await cryptoService.deriveKeysFromExportKey(oldExportKey, sessionData.sub);
+      recoveredDrk = await cryptoService.unwrapDRK(wrapped, keysOld.wrapKey, sessionData.sub);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword rewrap new DRK");
-      const keysNew = await cryptoService.deriveKeysFromExportKey(
-        currentExportKey,
-        sessionData.sub
-      );
-      const rewrapped = await cryptoService.wrapDRK(drk, keysNew.wrapKey, sessionData.sub);
-      const wrappedDrkHash = await sha256Base64Url(rewrapped);
+      keysNew = await cryptoService.deriveKeysFromExportKey(currentExportKey, sessionData.sub);
+      const rewrapped = await cryptoService.wrapDRK(recoveredDrk, keysNew.wrapKey, sessionData.sub);
       logger.debug(
         { sub: sessionData.sub },
         "[Authorize] recoverWithOldPassword store wrapped DRK"
       );
       await apiService.putWrappedDrk(toBase64Url(rewrapped));
-      saveDrk(sessionData.sub, drk, wrappedDrkHash);
       logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
       setRecoveryVisible(false);
       setOldPassword("");
@@ -399,7 +380,12 @@ export default function Authorize({
         const clientId = url.searchParams.get("client_id") || "";
         if (authRequest.hasZk && zkPubParam && clientId) {
           const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
-          const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
+          const jwe = await cryptoService.createDrkJWE(
+            recoveredDrk,
+            zkPubJwk,
+            sessionData.sub,
+            clientId
+          );
           const drkHash = await sha256Base64Url(jwe);
           logger.debug(
             { requestId: authRequest.requestId },
@@ -409,7 +395,6 @@ export default function Authorize({
             requestId: authRequest.requestId,
             approve: true,
             drkHash,
-            drkJwe: jwe,
           });
           const redirectUrl = new URL(authResponse.redirectUrl);
           redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
@@ -437,6 +422,20 @@ export default function Authorize({
         msg.includes("auth") || msg.includes("OPAQUE") ? "Old password verification failed" : msg
       );
     } finally {
+      const arraysToClear = [
+        currentExportKey,
+        oldExportKey,
+        recoveredDrk,
+        keysOld?.masterKey,
+        keysOld?.wrapKey,
+        keysOld?.deriveKey,
+        keysNew?.masterKey,
+        keysNew?.wrapKey,
+        keysNew?.deriveKey,
+      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      if (arraysToClear.length > 0) {
+        cryptoService.clearSensitiveData(...arraysToClear);
+      }
       setRecoveryLoading(false);
     }
   };

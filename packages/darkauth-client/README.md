@@ -10,9 +10,9 @@ The client supports both:
 
 - **Zero-Knowledge Authentication**: Secure OAuth2/OIDC flow with PKCE and ephemeral key exchange
 - **Client-Side Encryption**: Built-in cryptographic functions for data encryption/decryption
-- **Token Management**: Automatic token storage, validation, and refresh
+- **Token Management**: First-party cookie refresh by default, with optional legacy token storage
 - **Data Encryption Keys (DEK)**: Support for deriving and managing data encryption keys
-- **Session Persistence**: Secure session storage with key obfuscation
+- **DRK Custody**: Memory-only DRK handling by default for hosted web zero-knowledge apps
 - **TypeScript Support**: Full TypeScript definitions included
 
 ## Installation
@@ -42,10 +42,10 @@ await initiateLogin();
 // Handle OAuth callback (on your callback page)
 const session = await handleCallback();
 if (session) {
-  console.log('Logged in!', session.idToken);
+  console.log('Logged in!', session.accessToken);
 }
 
-// Get existing session
+// Get existing in-memory session
 const existingSession = getStoredSession();
 if (existingSession && isTokenValid(existingSession.idToken)) {
   // User is authenticated
@@ -65,7 +65,13 @@ setConfig({
   issuer: 'https://auth.example.com',     // DarkAuth server URL
   clientId: 'your-client-id',              // Your application's client ID
   redirectUri: 'https://app.example.com/callback', // OAuth callback URL
-  zk: true                                 // Optional. Default true. Set false for non-ZK flows.
+  scope: 'openid profile email',           // Optional OAuth scopes
+  zk: true,                                // Optional. Default true. Set false for non-ZK flows.
+  firstParty: true,                        // Optional. Default true. Uses cookie refresh and memory storage.
+  tokenStorage: 'memory',                  // Optional. Default 'memory'. Use 'localStorage' only for legacy flows.
+  drkStorage: 'memory',                    // Optional. Default 'memory'. Use 'localStorage' only for explicit convenience mode.
+  refreshMode: 'cookie',                   // Optional. Default 'cookie'. Use 'token' only for legacy refresh-token clients.
+  credentials: 'include'                   // Optional. Default 'include' for cookie refresh.
 });
 ```
 
@@ -84,24 +90,30 @@ Starts the OAuth2/OIDC login flow with PKCE. Redirects the user to the DarkAuth 
 
 Processes the OAuth callback after successful authentication. Returns an `AuthSession` object containing:
 - `idToken`: JWT ID token
+- `accessToken?`: OAuth access token for API authorization
 - `drk`: Derived Root Key for encryption operations. In non-ZK flows this is an empty `Uint8Array`.
 - `refreshToken?`: Optional refresh token
 
 Behavior:
+- OAuth `state` is validated before exchanging the authorization code.
 - If ZK artifacts are present in the callback/token response, ZK validation and DRK decryption are enforced.
 - If no ZK artifacts are present, callback still succeeds as a standard OIDC flow.
+- In default first-party mode, tokens and DRK are kept in memory and refresh uses `HttpOnly` cookies set by DarkAuth.
+- Legacy `localStorage` token or DRK persistence is available only when explicitly configured.
 
 #### `logout(): void`
 
-Clears all authentication data from storage.
+Clears the in-memory session, callback state, PKCE verifier, ephemeral ZK key, and any explicitly configured legacy storage.
 
 #### `getStoredSession(): AuthSession | null`
 
-Retrieves the current session from storage if valid. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
+Retrieves the current in-memory session if valid. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
+
+If `tokenStorage: 'localStorage'` or `drkStorage: 'localStorage'` is configured for a legacy app, this function can also restore those explicitly persisted values.
 
 #### `refreshSession(): Promise<AuthSession | null>`
 
-Refreshes the current session using the stored refresh token. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
+Refreshes the current session. In default first-party mode, the browser sends the DarkAuth refresh cookie and no JavaScript-readable refresh token is required. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
 
 ### User Information
 
@@ -181,6 +193,7 @@ setHooks({
 ```typescript
 interface AuthSession {
   idToken: string;
+  accessToken?: string;
   drk: Uint8Array;
   refreshToken?: string;
 }
@@ -205,6 +218,11 @@ type Config = {
   clientId: string;
   redirectUri: string;
   zk?: boolean;
+  firstParty?: boolean;
+  tokenStorage?: 'memory' | 'localStorage';
+  drkStorage?: 'memory' | 'localStorage';
+  refreshMode?: 'cookie' | 'token';
+  credentials?: RequestCredentials;
 }
 ```
 
@@ -220,16 +238,26 @@ type ClientHooks = {
 
 - **PKCE (Proof Key for Code Exchange)**: Protects against authorization code interception
 - **Zero-Knowledge Mode**: Ephemeral key exchange for enhanced privacy
-- **Key Obfuscation**: DRK is obfuscated in storage for additional protection
-- **Secure Storage**: Uses sessionStorage for tokens and localStorage for persistent data
+- **State Validation**: Verifies OAuth state before token exchange
+- **First-Party Cookie Refresh**: Supports `HttpOnly` refresh cookies instead of JavaScript-readable refresh tokens
+- **Memory-Only DRK Default**: Keeps the DRK out of persistent browser storage unless explicitly configured otherwise
 - **AEAD Encryption**: AES-GCM with additional authenticated data for all encryption operations
+
+## Custody Model
+
+Auth and session tokens are not the same as the DRK.
+
+In the default first-party hosted-web profile, DarkAuth protects refresh credentials with `HttpOnly` cookies and the SDK keeps the active ID/access token view in memory. The DRK is returned to the app because the app's browser code needs it to decrypt user data. That DRK is also memory-only by default. A page reload loses it and the app should start a fresh authorization request with a new ephemeral `zk_pub`.
+
+This model supports the hosted-web zero-knowledge claim for honest operation: the DarkAuth backend and app backend do not receive the user's password, OPAQUE export key, plaintext DRK, or plaintext app data. It still requires trusting the browser, the user's device, and the JavaScript served by the trusted origins.
 
 ## Browser Compatibility
 
 This library requires a modern browser with support for:
 - Web Crypto API
 - ES2015+ features
-- SessionStorage and LocalStorage
+- SessionStorage
+- LocalStorage only when explicitly using legacy persistence options
 
 ## Development
 
