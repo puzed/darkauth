@@ -1,4 +1,4 @@
-Below is a **complete, implementable spec** for **DarkAuth v1** that your codegen agent can build. It’s OIDC-compatible by default, adds an **opt‑in zero-knowledge (ZK) DRK delivery** for your own clients via **fragment JWE**, uses **OPAQUE (RFC 9380)** for password auth (server never learns the password), and **stores *all* settings in Postgres**. The only required env at install is **POSTGRES\_URI**. Everything else is seeded into the DB.
+Below is a **complete, implementable spec** for **DarkAuth v1** that your codegen agent can build. It’s OIDC-compatible by default, adds an **opt‑in zero-knowledge (ZK) DRK delivery** for your own clients via **fragment JWE**, uses **OPAQUE (RFC 9380)** for password auth (passwords are not sent to the server in the OPAQUE flow), and **stores *all* settings in Postgres**. The only required env at install is **POSTGRES\_URI**. Everything else is seeded into the DB.
 
 Config rules:
 
@@ -15,9 +15,11 @@ Config rules:
 **Status:** implement now
 **Principles:**
 
-* Password never leaves the client (OPAQUE).
+* Passwords are not sent to the server during the OPAQUE flow.
 * Same deterministic client secret every session for a user+password (`export_key`).
-* Server stores only **opaque verifier** + **wrapped DRK ciphertext**.
+* Server stores only **opaque verifier** + **wrapped DRK ciphertext** for DRK recovery.
+* Hosted-web ZK protects against backend/database access during honest frontend operation; users still trust the JavaScript served by the DarkAuth and RP origins while keys are usable in the browser.
+* Default DRK custody for hosted web apps is memory-only. Persistent DRK storage, including XOR-obfuscated `localStorage`, is a lower-security convenience mode and is not the default security boundary.
 * OIDC-compatible for every client; ZK DRK delivery is **per‑client opt‑in** (your apps get it; others don’t).
 * No config file at runtime; **all settings in Postgres**. Install script seeds defaults.
 
@@ -51,13 +53,13 @@ Config rules:
 * **DRK (Data Root Key)**: 32 bytes random, generated once on first login.
 
   * Server stores **WRAPPED\_DRK = AEAD\_Encrypt(KW, DRK, aad=sub)**.
-  * Client unwraps DRK using `KW` each session; server never sees DRK or KW.
+  * Client unwraps DRK using `KW` each session. During honest frontend operation the server cannot derive DRK or KW from stored state, but same-origin frontend code can access DRK while it is usable in the browser.
 * **JWE for DRK handoff (ZK delivery)**: **ECDH-ES + A256GCM** (compact JWE) using **P‑256**.
 
   * Receiver key: app’s ephemeral `zk_pub` JWK from `/authorize` query.
   * AAD includes `sub` and `client_id`.
   * **`drk_hash = base64url(SHA-256(drk_jwe))`** is stored with the auth code and returned by `/token` to bind fragment → code.
-  * **CRITICAL SECURITY**: Server NEVER stores `drk_jwe` - only `drk_hash` for verification. JWE is transmitted ONLY via URL fragment.
+  * **CRITICAL SECURITY**: The AS protocol stores only `drk_hash` for verification, not `drk_jwe`. The JWE is delivered via URL fragment during honest hosted-web operation.
 
 ### 2.1 P-256 Public Key Validation Requirements
 
@@ -95,7 +97,7 @@ To protect cryptographic material and user privacy, the following logging restri
 #### 2.2.3 Development vs Production
 * **Development**: May log additional detail for debugging but MUST NOT include cryptographic payloads
 * **Production**: MUST use structured logging with explicit field filtering to prevent accidental disclosure
-* **Log retention**: Production logs containing user metadata SHOULD be retained per compliance requirements but MUST be encrypted at rest
+* **Log retention**: Production logs containing user metadata SHOULD have an explicit retention period, SHOULD be minimized to operational need, and MUST be encrypted at rest
 
 #### 2.2.4 Monitoring and Alerting
 * **Security events**: Multiple failed authentications, unusual access patterns, key validation failures
@@ -201,7 +203,7 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
 Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 * DarkAuth **only** honors `zk_pub` if the client has `zk_delivery='fragment-jwe'`.
-* **SECURITY PRINCIPLE**: JWE ciphertext exists ONLY in client memory and URL fragments - never stored on server.
+* **SECURITY PRINCIPLE**: JWE ciphertext is produced in browser code and delivered through the URL fragment; the AS stores only `drk_hash` in the protocol path.
 * After OPAQUE completes and the UI has unwrapped **DRK** client-side:
 
   1. Browser JS creates `drk_jwe = JWE_ECDH_ES_A256GCM(DRK, zk_pub)` with AAD `{sub, client_id}`.
@@ -211,7 +213,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
   3. Browser redirects:
      `location.assign(`\${redirect\_uri}?code=...\&state=...#drk\_jwe=\${encodeURIComponent(drk\_jwe)}`)`
 
-> **CRITICAL**: Server never sees or stores `drk_jwe`. The fragment redirect is client-side only - server 302 would be impossible and insecure.
+> **CRITICAL**: The AS does not receive or store `drk_jwe` in the designed flow. The fragment redirect is client-side only; a server 302 cannot attach the fragment safely.
 
 **/authorize internals**
 
@@ -228,7 +230,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Refresh grant enforces `client_id` binding: only the original client can rotate that refresh token.
 - Refresh token rotation is single-use and atomic: exactly one concurrent redemption can succeed.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
-- **SECURITY**: If the code had `has_zk=true`, include ONLY `zk_drk_hash` for verification. Server NEVER returns `zk_drk_jwe` as it doesn't store it.
+- **SECURITY**: If the code had `has_zk=true`, include only `zk_drk_hash` for verification. The token endpoint MUST NOT return `zk_drk_jwe`.
 - Atomically consume the code so concurrent redemption attempts cannot both succeed.
 
 ### 5.4 App behavior (ZK vs Standard)
@@ -236,8 +238,8 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 * **ZK client**:
 
   1. Generate ephemeral ECDH keypair; send `zk_pub` on `/authorize`.
-  2. After landing back, read `#drk_jwe` from URL fragment (never from server); call `/token`; verify `base64url(sha256(drk_jwe)) === zk_drk_hash`; decrypt JWE using local ephemeral private key → **DRK** in memory.
-  3. **SECURITY**: JWE exists only in client memory and URL fragment - never transmitted through server channels.
+  2. After landing back, read `#drk_jwe` from URL fragment; call `/token`; verify `base64url(sha256(drk_jwe)) === zk_drk_hash`; decrypt JWE using local ephemeral private key → **DRK** in memory.
+  3. **SECURITY**: The designed flow keeps JWE in browser memory and the URL fragment, not in AS token responses or AS storage.
 * **Standard client**: ignore ZK. Normal OIDC.
 
 ---
@@ -600,11 +602,12 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
   - Silent renewal uses Authorization Code + PKCE issued refresh tokens with OAuth 2.0 refresh grant semantics.
   - Refresh token rotation remains single-use, client-bound, and atomic.
   - On successful refresh, the AS reissues the first-party session cookie so `/session` and UI state remain aligned.
-* **Client-side key storage**: 
-  - DRK is XOR-obfuscated and stored in localStorage for session persistence (required for OAuth flow)
-  - Ephemeral keys are cleared immediately after OAuth callback
-  - No plaintext secrets in storage
-  - Consider WebCrypto non-extractable keys for future enhancement
+* **DRK custody (hosted-web default)**:
+  - DRK is memory-only by default after callback handling.
+  - The app removes `drk_jwe` from the URL immediately after processing and clears the ephemeral ZK private key after decrypting.
+  - Reload without an in-memory DRK starts a fresh authorization request with a new `zk_pub`. If the Auth UI still has a valid session and session-scoped `export_key`, it can unwrap DRK and return a fresh JWE without prompting for the password. If `export_key` is missing, step-up OPAQUE verification is required.
+  - Persistent DRK storage in `localStorage`, including static XOR obfuscation, MUST NOT be the default hosted-web ZK profile and MUST NOT be described as cryptographic protection.
+  - Optional convenience modes MAY retain DRK or non-extractable WebCrypto handles only for the active browser session and MUST be labeled as a UX/security tradeoff.
 * **Client-side browser storage (first-party web profile)**:
   - First-party cookie session ID is never readable by JS (`HttpOnly`) and is never stored in `localStorage` or `sessionStorage`.
   - First-party refresh credentials are also `HttpOnly` cookies and are never readable by JS.
@@ -613,6 +616,11 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
   - When `export_key` is missing, the UI MUST require step-up password verification to rederive it; silent fallback to weaker key material is prohibited.
   - `pkce_verifier` and ephemeral ZK private key are kept in `sessionStorage` only for callback continuity and cleared immediately after callback/logout.
   - Public-client protections are mandatory: PKCE S256, strict `client_id` binding on refresh, single-use rotation, replay rejection, short lifetimes, CSP, and rate limiting.
+* **Hosted-web ZK trust boundary**:
+  - Security claims assume trusted user devices/browsers and trusted JavaScript from configured DarkAuth and RP frontend origins.
+  - During honest operation, DarkAuth and app backends cannot decrypt app data from server-side state alone.
+  - Malicious frontend code, XSS, compromised dependencies, browser extensions, device malware, compromised browsers, or an intentionally exfiltrating RP app can access DRK or plaintext while the browser can.
+  - Trusted frontend origins for ZK clients MUST be explicit, HTTPS in production, and aligned with registered redirect URIs and `allowed_zk_origins`. Do not share a trusted origin with unrelated apps or user-controlled script surfaces.
 * Admin authorization is coarse: `read` → deny all mutating operations; `write` → allow.
 * User authorization is data-driven: effective permissions are the union of direct user permissions and those implied by groups.
 
@@ -748,7 +756,7 @@ POST /token
 ## 17. Guardrails & Footguns
 
 * If you refuse a bootstrap secret (KEK) and your DB leaks, attackers can mint tokens (private JWKs are in plaintext). That’s on you.
-* Client-side crypto doesn’t protect against **XSS in the app**. Keep CSP strict.
+* Client-side crypto does not protect against XSS, malicious same-origin frontend code, compromised browsers/extensions, or RP apps that intentionally exfiltrate DRK/plaintext. Keep CSP strict and keep trusted origins narrow.
 * Do **not** fall back to “hash password in JS and send to server”. That is not zero‑knowledge.
 
 ---
@@ -772,8 +780,8 @@ The system includes a fully functional demo application showcasing zero-knowledg
   4. Both parties can decrypt note content
 
 ### 18.3 Security Properties
-* Server never sees plaintext notes
-* Server cannot decrypt shared notes
+* During honest frontend operation, servers do not receive plaintext notes.
+* During honest frontend operation, servers cannot decrypt shared notes from stored ciphertext alone.
 * Perfect forward secrecy per note
 * Cryptographic binding of notes to users
 
@@ -795,7 +803,7 @@ The system includes a fully functional demo application showcasing zero-knowledg
 
 * Standard OIDC clients can authenticate and get tokens without any ZK additions.
 * ZK-enabled clients can receive DRK via fragment JWE, verify `zk_drk_hash`, and decrypt DRK locally.
-* Password never hits server; server can’t derive DRK.
+* Password is not sent to the server in the OPAQUE flow; during honest frontend operation the server cannot derive DRK from stored state.
 * All settings live in Postgres; install works with only `POSTGRES_URI`.
 * Keys at rest are always encrypted with KEK.
 
@@ -817,6 +825,10 @@ This spec is tight enough to build the whole thing without guesswork.
 - Sessions and pending auth: store both in Postgres. Browser/API auth for first-party UI uses the `__Host-DarkAuth` HttpOnly cookie and CSRF token protection. Session state, pending-auth records, refresh token rotation state, and authorization codes are bound in DB for revocation and horizontal scaling.
 - KEK passphrase (mandatory): Must be provided in `config.yaml`. System refuses to start without valid KEK.
 - Defaults: seed `issuer` and `public_origin` to `http://localhost:9080` for development and require HTTPS origins in production. Seed `rp_id` accordingly.
+- Trusted frontend origins: production ZK clients must use explicit HTTPS origins for Auth UI and RP frontends, with redirect URI allowlists and `allowed_zk_origins` kept in sync. Avoid wildcard origins and isolate apps that can execute user-authored content.
+- Frontend compromise response: if Auth UI or RP frontend code, build pipeline, CDN, or dependency supply chain is suspected compromised, immediately disable affected ZK clients or ZK delivery, rotate/redeploy clean frontend assets, revoke active sessions and refresh tokens, review audit logs for suspicious authorization/finalize/token activity, notify affected users, and require OPAQUE step-up before resuming DRK handoff.
+- Audit log retention: keep authentication, authorization, client-admin, key-management, and ZK handoff metadata for a documented retention window; encrypt logs at rest; never retain cryptographic payloads or bearer secrets.
+- Release note requirement: any change from persistent DRK storage to memory-only custody must warn operators that page reloads can require a fresh ZK authorization and may require OPAQUE step-up when `export_key` is no longer session-cached.
 - UI technology: build the Auth UI and Admin UI with React + TypeScript + CSS Modules. The Node HTTP server serves the built static assets; no server-side rendering.
 - ZK public key input: `zk_pub` is strictly `base64url(JSON.stringify(JWK))` where JWK fields include `kty`, `crv`, `x`, `y` (P‑256). The server computes `zk_pub_kid = SHA-256(zk_pub)` over the exact base64url string received to avoid ambiguity. No alternative encodings are accepted.
 - Install flow: a one-time Install UI runs on the admin port when uninitialized. It is protected by a single-use, time-bound token. The initial admin (role `write`) is created with a password during installation via OPAQUE registration.
