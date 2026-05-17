@@ -1,4 +1,4 @@
-import { refreshSession } from "@DarkAuth/client";
+import { getStoredSession, refreshSession } from "@DarkAuth/client";
 import { z } from "zod";
 import { logger } from "./logger";
 
@@ -32,7 +32,13 @@ export interface UserProfile {
 }
 
 function getBearerToken(): string | null {
-  return localStorage.getItem("access_token") || localStorage.getItem("id_token");
+  const session = getStoredSession();
+  return (
+    session?.accessToken ||
+    session?.idToken ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("id_token")
+  );
 }
 
 class ApiClient {
