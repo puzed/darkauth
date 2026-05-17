@@ -83,7 +83,8 @@ async function getUserJwt(userUrl: string, cookieHeader: string, clientId: strin
     })
   })
   expect(tokenRes.ok).toBeTruthy()
-  const tokenJson = await tokenRes.json() as { id_token: string }
+  const tokenJson = await tokenRes.json() as { access_token: string; id_token: string }
+  expect(typeof tokenJson.access_token).toBe('string')
   return tokenJson.id_token
 }
 

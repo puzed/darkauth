@@ -18,6 +18,7 @@ export async function createAuthCode(
     userSub: string;
     organizationId?: string | null;
     redirectUri: string;
+    scope: string;
     nonce?: string | null;
     codeChallenge?: string | null;
     codeChallengeMethod?: string | null;
@@ -33,6 +34,7 @@ export async function createAuthCode(
     userSub: data.userSub,
     organizationId: data.organizationId ?? null,
     redirectUri: data.redirectUri,
+    scope: data.scope,
     nonce: data.nonce ?? null,
     codeChallenge: data.codeChallenge ?? null,
     codeChallengeMethod: data.codeChallengeMethod ?? null,

@@ -193,10 +193,22 @@ test.describe('API - OIDC nonce auth code flow', () => {
       const errorBody = await tokenRes.text()
       throw new Error(`token failed: ${tokenRes.status} ${errorBody}`)
     }
-    const tokenJson = await tokenRes.json() as { id_token: string }
+    const tokenJson = await tokenRes.json() as {
+      access_token: string
+      id_token: string
+      token_type: string
+      expires_in: number
+      scope: string
+    }
+    expect(typeof tokenJson.access_token).toBe('string')
+    expect(tokenJson.token_type).toBe('Bearer')
+    expect(tokenJson.scope.split(/\s+/)).toContain('openid')
     const claims = decodeJwtPayload(tokenJson.id_token)
+    const accessClaims = decodeJwtPayload(tokenJson.access_token)
 
     expect(claims.nonce).toBe(nonce)
+    expect(accessClaims.token_use).toBe('access')
+    expect(accessClaims.grant_type).toBe('authorization_code')
   })
 
   test('deny finalize returns access_denied without authorization code', async () => {

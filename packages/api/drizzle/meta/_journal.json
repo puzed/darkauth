@@ -127,6 +127,13 @@
       "when": 1772538000000,
       "tag": "0019_prevent_email_enumeration_on_registration",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1773586800000,
+      "tag": "0020_oauth_granted_scope",
+      "breakpoints": true
     }
   ]
 }

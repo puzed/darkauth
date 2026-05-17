@@ -26,6 +26,9 @@ export const useAuthStore = create<AuthStore>((set) => ({
   clearSession: () => {
     sessionStorage.removeItem("id_token");
     sessionStorage.removeItem("drk_b64");
+    localStorage.removeItem("id_token");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("drk_protected");
     localStorage.removeItem("refresh_token");
     set({
       session: null,

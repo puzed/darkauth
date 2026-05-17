@@ -5,13 +5,20 @@ import "./styles/globals.css";
 import { setConfig, setHooks } from "@DarkAuth/client";
 import { api } from "./services/api";
 
-type RuntimeConfig = { issuer?: string; clientId?: string; redirectUri?: string; zk?: boolean };
+type RuntimeConfig = {
+  issuer?: string;
+  clientId?: string;
+  redirectUri?: string;
+  scope?: string;
+  zk?: boolean;
+};
 const appConfiguration =
   (window as unknown as { __APP_CONFIG__?: RuntimeConfig }).__APP_CONFIG__ || {};
 setConfig({
   issuer: appConfiguration.issuer || "http://localhost:9080",
   clientId: appConfiguration.clientId || "demo-public-client",
   redirectUri: appConfiguration.redirectUri || `${window.location.origin}/callback`,
+  scope: appConfiguration.scope || "openid profile email darkauth.users:read",
   zk: appConfiguration.zk ?? true,
 });
 

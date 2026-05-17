@@ -56,6 +56,7 @@ export function ensureDarkAuthConfig() {
     issuer,
     clientId,
     redirectUri,
+    scope: \`openid profile email \${TODOS_LOGIN_PERMISSION}\`,
     zk: false,
   });
 
@@ -92,7 +93,7 @@ export async function resolveSession(forceRefresh = false) {
   if (!claims) return null;
   if (!claims.permissions?.includes(TODOS_LOGIN_PERMISSION)) return null;
 
-  return { idToken: session.idToken, claims };
+  return { accessToken: session.accessToken, idToken: session.idToken, claims };
 }`;
 
 const callbackSnippet = `import { handleCallback } from "@darkauth/client";
@@ -110,7 +111,7 @@ export function CallbackPage() {
       try {
         ensureDarkAuthConfig();
         const session = await handleCallback();
-        if (!session?.idToken) throw new Error("DarkAuth did not return a session.");
+        if (!session?.idToken || !session.accessToken) throw new Error("DarkAuth did not return a session.");
         const resolved = await resolveSession();
         if (!resolved) throw new Error("Your account cannot access Example Todos.");
         navigate("/", { replace: true });
@@ -145,13 +146,13 @@ export async function todosRequest<T>(path: string, init: RequestInit = {}) {
 async function requestWithAuth<T>(path: string, init: RequestInit, retried: boolean) {
   const session = await resolveSession();
   const headers = new Headers(init.headers);
-  if (session?.idToken) headers.set("authorization", \`Bearer \${session.idToken}\`);
+  if (session?.accessToken) headers.set("authorization", \`Bearer \${session.accessToken}\`);
 
   let response = await fetch(\`/api\${path}\`, { ...init, headers });
   if (response.status === 401 && !retried) {
     await refreshSession();
     const refreshed = await resolveSession(true);
-    if (refreshed?.idToken) headers.set("authorization", \`Bearer \${refreshed.idToken}\`);
+    if (refreshed?.accessToken) headers.set("authorization", \`Bearer \${refreshed.accessToken}\`);
     response = await fetch(\`/api\${path}\`, { ...init, headers });
   }
 
@@ -241,7 +242,7 @@ const faq = [
   {
     question: "Should Example Todos use the ID token or access token for its API?",
     answer:
-      "For this browser-app pattern, use the DarkAuth ID token as the app bearer token because it contains the stable identity claims and permission claim the app needs. If you introduce resource-specific access tokens later, keep the same verification shape: issuer, audience, expiry, signature, and permissions.",
+      "Use the DarkAuth access token as the API bearer token. Keep the ID token for local identity claims and sign-in state.",
   },
   {
     question: "Do I have to use zero-knowledge delivery?",
@@ -279,8 +280,8 @@ const ExampleTodosAppPage = () => {
           <p className="text-base text-muted-foreground">
             This guide walks through a production-style DarkAuth integration for a fictional Example
             Todos app. The browser uses the authorization code flow with PKCE through
-            <code> @darkauth/client</code>, the API verifies the ID token with DarkAuth JWKS, and both
-            sides require a user permission before the app loads.
+            <code> @darkauth/client</code>, the API verifies the access token with DarkAuth JWKS, and
+            both sides require a user permission before the app loads.
           </p>
         </CardContent>
       </Card>
@@ -306,8 +307,8 @@ const ExampleTodosAppPage = () => {
               <h3 className="font-semibold">The token</h3>
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
-              The SPA sends the current DarkAuth ID token as <code>Authorization: Bearer</code>. The
-              API treats that token as the session credential.
+              The SPA sends the current DarkAuth access token as <code>Authorization: Bearer</code>.
+              The API treats that token as the session credential.
             </p>
           </CardContent>
         </Card>
@@ -339,8 +340,8 @@ const ExampleTodosAppPage = () => {
             <code>{darkAuthAdminSetup}</code>
           </pre>
           <p className="mt-4 text-sm text-muted-foreground">
-            DarkAuth ID tokens use the client id as the audience for this style of browser app, so the
-            Example Todos API verifies <code>aud=example-todos</code>. Add the
+            DarkAuth access tokens use the client id as the audience for this style of browser app, so
+            the Example Todos API verifies <code>aud=example-todos</code>. Add the
             <code> example-todos:login</code> permission to the groups or users allowed into the app.
           </p>
         </CardContent>
@@ -384,9 +385,9 @@ const ExampleTodosAppPage = () => {
         </CardHeader>
         <CardContent>
           <p className="mb-4 text-base text-muted-foreground">
-            The app should normalize the DarkAuth session into one local concept: an ID token plus
-            claims that satisfy the app permission. If the current token is missing or expired, try the
-            refresh token before sending the user back to login.
+            The app should normalize the DarkAuth session into one local concept: an access token,
+            an ID token, and claims that satisfy the app permission. If the current token is missing
+            or expired, try the refresh token before sending the user back to login.
           </p>
           <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-4 text-xs">
             <code>{sessionSnippet}</code>
@@ -449,8 +450,9 @@ const ExampleTodosAppPage = () => {
         <CardContent>
           <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
             <li>
-              <code>@darkauth/client</code> stores the ID token and refresh token for the browser
-              session lifecycle. Do not duplicate long-lived token storage under app-specific keys.
+              <code>@darkauth/client</code> stores the access token, ID token, and refresh token for
+              the browser session lifecycle. Do not duplicate long-lived token storage under
+              app-specific keys.
             </li>
             <li>
               Call <code>refreshSession()</code> before important requests when no valid stored token is
