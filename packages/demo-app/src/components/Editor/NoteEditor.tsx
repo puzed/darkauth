@@ -35,7 +35,7 @@ export function NoteEditor() {
   const [hasChanges, setHasChanges] = React.useState(false);
   const [showShare, setShowShare] = React.useState(false);
 
-  const saveTimeoutRef = React.useRef<NodeJS.Timeout>();
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const removeTag = (tagToRemove: string) => {
     setTags((previous) => previous.filter((tag) => tag !== tagToRemove));
@@ -204,7 +204,7 @@ export function NoteEditor() {
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
-    saveNote();
+    void saveNote();
   };
 
   const handleShare = () => setShowShare(true);
