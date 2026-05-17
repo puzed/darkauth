@@ -4,6 +4,7 @@ import { postInstallOpaqueRegisterFinish } from "../../controllers/install/opaqu
 import { postInstallOpaqueRegisterStart } from "../../controllers/install/opaqueRegisterStart.ts";
 import { postInstallComplete } from "../../controllers/install/postInstallComplete.ts";
 import { NotFoundError } from "../../errors.ts";
+import { sanitizeAuditPath, sanitizeLoggedError } from "../../services/audit.ts";
 import type { Context } from "../../types.ts";
 import { sendError } from "../../utils/http.ts";
 
@@ -13,7 +14,7 @@ export function createInstallRouter(context: Context) {
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const pathname = url.pathname;
 
-    context.logger.debug(`[install-router] ${method} ${pathname}${url.search || ""}`);
+    context.logger.debug({ method, url: sanitizeAuditPath(request.url) }, "[install-router]");
 
     try {
       if (method === "GET" && (pathname === "/install" || pathname === "/api/install")) {
@@ -48,7 +49,7 @@ export function createInstallRouter(context: Context) {
       throw new NotFoundError("Endpoint not found");
     } catch (error) {
       context.logger.error(
-        { err: error, method, pathname, url: request.url },
+        { err: sanitizeLoggedError(error), method, pathname, url: sanitizeAuditPath(request.url) },
         "install router request failed"
       );
       sendError(response, error as Error);

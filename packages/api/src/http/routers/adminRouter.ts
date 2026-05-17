@@ -72,6 +72,7 @@ import { getUsers } from "../../controllers/admin/users.ts";
 import { updateUser } from "../../controllers/admin/userUpdate.ts";
 import { NotFoundError, UnauthorizedError } from "../../errors.ts";
 import { getClientDashboardIcon } from "../../models/clients.ts";
+import { sanitizeAuditPath, sanitizeLoggedError } from "../../services/audit.ts";
 import { getSessionId } from "../../services/sessions.ts";
 import type { Context } from "../../types.ts";
 import { assertCsrf } from "../../utils/csrf.ts";
@@ -466,7 +467,7 @@ export function createAdminRouter(context: Context) {
       throw new NotFoundError("Endpoint not found");
     } catch (error) {
       context.logger.error(
-        { err: error, method, pathname, url: request.url },
+        { err: sanitizeLoggedError(error), method, pathname, url: sanitizeAuditPath(request.url) },
         "admin router request failed"
       );
       sendError(response, error as Error);

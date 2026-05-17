@@ -47,6 +47,7 @@ import { getWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivGe
 import { putWrappedEncPrivateJwk } from "../../controllers/user/wrappedEncPrivPut.ts";
 import { NotFoundError } from "../../errors.ts";
 import { getClientDashboardIcon } from "../../models/clients.ts";
+import { sanitizeAuditPath, sanitizeLoggedError } from "../../services/audit.ts";
 import { sanitizeCSS } from "../../services/branding.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context } from "../../types.ts";
@@ -472,7 +473,7 @@ export function createUserRouter(context: Context) {
       throw new NotFoundError("Endpoint not found");
     } catch (error) {
       context.logger.error(
-        { err: error, method, pathname, url: request.url },
+        { err: sanitizeLoggedError(error), method, pathname, url: sanitizeAuditPath(request.url) },
         "user router request failed"
       );
       sendError(response, error as Error);
