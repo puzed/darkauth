@@ -43,44 +43,251 @@ export interface AuditFilters {
   sortOrder?: "asc" | "desc";
 }
 
-// Sanitize sensitive data from request bodies
-export function sanitizeRequestBody(body: unknown): Record<string, unknown> | null {
-  if (!body || typeof body !== "object") return null;
+const redacted = "[REDACTED]";
 
-  const sanitized: Record<string, unknown> = { ...(body as Record<string, unknown>) };
-  const sensitiveFields = [
-    "password",
-    "oldPassword",
-    "newPassword",
-    "token",
-    "secret",
-    "clientSecret",
-    "privateKey",
-    "privateJwk",
-    "envelope",
-    "wrappedDrk",
-    "kekPassphrase",
-    "code_verifier",
-    "authorization",
-  ];
+const sensitiveFieldNames = new Set([
+  "accesskey",
+  "accesstoken",
+  "adminsession",
+  "apikey",
+  "authorization",
+  "authorizationcode",
+  "bearer",
+  "clientsecret",
+  "code",
+  "codeverifier",
+  "credential",
+  "drk",
+  "drkjwe",
+  "envelope",
+  "exportkey",
+  "exportkeyhash",
+  "finish",
+  "idtoken",
+  "kek",
+  "kekpassphrase",
+  "message",
+  "newpassword",
+  "oldpassword",
+  "opaquepayload",
+  "opaquerecord",
+  "password",
+  "passphrase",
+  "pkce",
+  "privatejwk",
+  "privatekey",
+  "record",
+  "refreshtoken",
+  "request",
+  "rootkey",
+  "secret",
+  "session",
+  "sessionid",
+  "sessionkey",
+  "sessiontoken",
+  "token",
+  "wrappeddrk",
+  "wrappedencprivatejwk",
+  "zkpub",
+]);
 
-  for (const field of sensitiveFields) {
-    if (field in sanitized) {
-      sanitized[field] = "[REDACTED]";
-    }
+const sensitiveFieldPattern =
+  /^(?:(?:.*)(?:password|passphrase|secret|token|privatekey|privatejwk|sessionkey|sessiontoken)|accesskey|adminsession|authorization|authorizationcode|bearer|clientsecret|code|codeverifier|credential|drk|drkhash|drkjwe|envelope|exportkey|exportkeyhash|finish|kek|message|opaquepayload|opaquerecord|pkce|record|request|rootkey|session|sessionid|wrappeddrk|wrappedencprivatejwk|zkpub)$/;
+
+const stringSensitiveFieldPattern =
+  "(?:access[_-]?key|access[_-]?token|admin[_-]?session|api[_-]?key|authorization|authorization[_-]?code|bearer|client[_-]?secret|code|code[_-]?verifier|credential|drk|drk[_-]?hash|drk[_-]?jwe|envelope|export[_-]?key|export[_-]?key[_-]?hash|finish|id[_-]?token|kek|kek[_-]?passphrase|message|new[_-]?password|old[_-]?password|opaque[_-]?payload|opaque[_-]?record|password|passphrase|pkce|private[_-]?jwk|private[_-]?key|record|refresh[_-]?token|request|root[_-]?key|secret|session|session[_-]?id|session[_-]?key|session[_-]?token|token|wrapped[_-]?drk|wrapped[_-]?enc[_-]?private[_-]?jwk|zk[_-]?pub)";
+
+function normalizeAuditFieldName(field: string): string {
+  return field.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+export function isSensitiveAuditField(field: string): boolean {
+  const normalized = normalizeAuditFieldName(field);
+  return sensitiveFieldNames.has(normalized) || sensitiveFieldPattern.test(normalized);
+}
+
+function appendFormValue(target: Record<string, unknown>, key: string, value: string): void {
+  const existing = target[key];
+  if (existing === undefined) {
+    target[key] = value;
+  } else if (Array.isArray(existing)) {
+    existing.push(value);
+  } else {
+    target[key] = [existing, value];
   }
+}
 
+function parseFormEncodedBody(body: string): Record<string, unknown> | null {
+  if (!body.includes("=")) return null;
+  if (/\s/.test(body)) return null;
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(body)) return null;
+  const params = new URLSearchParams(body);
+  const parsed: Record<string, unknown> = {};
+  for (const [key, value] of params.entries()) {
+    if (!key) continue;
+    appendFormValue(parsed, key, value);
+  }
+  return Object.keys(parsed).length > 0 ? parsed : null;
+}
+
+export function parseAuditRequestBody(body: string): unknown {
+  const trimmed = body.trim();
+  if (!trimmed) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+  return parseFormEncodedBody(trimmed) || { raw: trimmed };
+}
+
+function sanitizeAuditString(value: string, redactLongTokens: boolean): string {
+  let sanitized = value
+    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, `Bearer ${redacted}`)
+    .replace(
+      new RegExp(`(${stringSensitiveFieldPattern})(\\s*[=:]\\s*)(["']?)[^"',&\\s}]+`, "gi"),
+      (_match, key: string, separator: string, quote: string) =>
+        `${key}${separator}${quote}${redacted}`
+    )
+    .replace(
+      new RegExp(`(["'])(${stringSensitiveFieldPattern})(\\1\\s*:\\s*)(["'])[^"']*(\\4)`, "gi"),
+      (_match, keyQuote: string, key: string, middle: string, valueQuote: string) =>
+        `${keyQuote}${key}${middle}${valueQuote}${redacted}${valueQuote}`
+    );
+  const parsedForm = parseFormEncodedBody(sanitized);
+  if (parsedForm) {
+    const params = new URLSearchParams();
+    const sanitizedForm = sanitizeAuditValue(parsedForm) as Record<string, unknown>;
+    for (const [key, value] of Object.entries(sanitizedForm)) {
+      if (Array.isArray(value)) {
+        for (const item of value) params.append(key, String(item));
+      } else {
+        params.append(key, String(value));
+      }
+    }
+    sanitized = params.toString();
+  }
+  if (redactLongTokens) {
+    sanitized = sanitized
+      .replace(/[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, redacted)
+      .replace(/[A-Za-z0-9+/=_-]{32,}/g, redacted);
+  }
   return sanitized;
 }
 
-// Sanitize error messages
+function sanitizeAuditValue(
+  value: unknown,
+  fieldName?: string,
+  seen = new WeakSet<object>()
+): unknown {
+  if (fieldName && isSensitiveAuditField(fieldName)) return redacted;
+  if (value === null || value === undefined) return value;
+  if (typeof value === "string") {
+    return sanitizeAuditString(value, false);
+  }
+  if (typeof value !== "object") return value;
+  if (seen.has(value)) return redacted;
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeAuditValue(item, undefined, seen));
+  }
+  if (value instanceof Date) return value.toISOString();
+  if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) return redacted;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (key === "raw" && typeof item === "string") {
+      const parsed = parseAuditRequestBody(item);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && !("raw" in parsed)) {
+        Object.assign(
+          sanitized,
+          sanitizeAuditValue(parsed, undefined, seen) as Record<string, unknown>
+        );
+      } else {
+        sanitized[key] = redacted;
+      }
+    } else {
+      sanitized[key] = sanitizeAuditValue(item, key, seen);
+    }
+  }
+  return sanitized;
+}
+
+function sanitizeAuditRecord(
+  record: Record<string, unknown> | undefined
+): Record<string, unknown> | null {
+  if (!record) return null;
+  const sanitized = sanitizeAuditValue(record);
+  return sanitized && typeof sanitized === "object" && !Array.isArray(sanitized)
+    ? (sanitized as Record<string, unknown>)
+    : null;
+}
+
+export function sanitizeAuditDetails(
+  details: Record<string, unknown> | undefined
+): Record<string, unknown> | null {
+  return sanitizeAuditRecord(details);
+}
+
+export function sanitizeAuditPath(path: string | undefined): string {
+  if (!path) return "/";
+  try {
+    const url = new URL(path, "http://audit.local");
+    for (const key of [...url.searchParams.keys()]) {
+      if (isSensitiveAuditField(key)) {
+        url.searchParams.set(key, redacted);
+      }
+    }
+    const query = url.searchParams.toString();
+    let hash = url.hash;
+    if (hash.includes("=")) {
+      const hashParams = new URLSearchParams(hash.slice(1));
+      for (const key of [...hashParams.keys()]) {
+        if (isSensitiveAuditField(key)) {
+          hashParams.set(key, redacted);
+        }
+      }
+      hash = `#${hashParams.toString()}`;
+    } else {
+      hash = sanitizeAuditString(hash, true);
+    }
+    return `${url.pathname}${query ? `?${query}` : ""}${hash}`;
+  } catch {
+    return sanitizeAuditString(path, true);
+  }
+}
+
+export function sanitizeLoggedError(error: unknown): unknown {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: sanitizeError(error.message),
+      stack: sanitizeError(error.stack),
+    };
+  }
+  return sanitizeAuditValue(error);
+}
+
+function sanitizeAuditEventForLog(event: AuditEvent): Record<string, unknown> {
+  return {
+    ...event,
+    path: sanitizeAuditPath(event.path),
+    userAgent: sanitizeError(event.userAgent),
+    resourceId: event.resourceId ? redacted : undefined,
+    errorMessage: sanitizeError(event.errorMessage),
+    requestBody: sanitizeAuditRecord(event.requestBody),
+    changes: sanitizeAuditRecord(event.changes),
+    details: sanitizeAuditRecord(event.details),
+  };
+}
+
+export function sanitizeRequestBody(body: unknown): Record<string, unknown> | null {
+  const parsed = typeof body === "string" ? parseAuditRequestBody(body) : body;
+  if (!parsed || typeof parsed !== "object") return null;
+  if (Array.isArray(parsed)) return { value: sanitizeAuditValue(parsed) };
+  return sanitizeAuditRecord(parsed as Record<string, unknown>);
+}
+
 export function sanitizeError(message: string | undefined): string | undefined {
   if (!message) return undefined;
-
-  // Remove any potential secrets from error messages
-  return message
-    .replace(/Bearer [A-Za-z0-9\-._~+/]+=*/g, "Bearer [REDACTED]")
-    .replace(/[A-Za-z0-9]{32,}/g, "[REDACTED]");
+  return sanitizeAuditString(message, true);
 }
 
 // Get client IP from request
@@ -115,7 +322,7 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
     await context.db.insert(auditLogs).values({
       eventType: event.eventType,
       method: event.method || "UNKNOWN",
-      path: event.path || "/",
+      path: sanitizeAuditPath(event.path),
       cohort: event.cohort || null,
       userId: event.userId || null,
       adminId,
@@ -130,12 +337,15 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
       resourceId: event.resourceId || null,
       action: event.action || null,
       requestBody: event.requestBody ? sanitizeRequestBody(event.requestBody) : null,
-      changes: event.changes || null,
+      changes: sanitizeAuditRecord(event.changes),
       responseTime: event.responseTime || null,
-      details: event.details || null,
+      details: sanitizeAuditRecord(event.details),
     });
   } catch (error) {
-    context.logger.error({ error, event }, "audit log failed");
+    context.logger.error(
+      { error: sanitizeLoggedError(error), event: sanitizeAuditEventForLog(event) },
+      "audit log failed"
+    );
   }
 }
 

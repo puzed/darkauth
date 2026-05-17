@@ -1,5 +1,13 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { getClientIp, logAuditEvent, sanitizeRequestBody } from "../services/audit.ts";
+import {
+  getClientIp,
+  isSensitiveAuditField,
+  logAuditEvent,
+  parseAuditRequestBody,
+  sanitizeAuditDetails,
+  sanitizeError,
+  sanitizeRequestBody,
+} from "../services/audit.ts";
 import {
   getActorFromRefreshToken,
   getActorFromSessionId,
@@ -43,37 +51,42 @@ function mapMethodToAction(method: string): string {
 function extractDetails(request: IncomingMessage): Record<string, unknown> | undefined {
   const details: Record<string, unknown> = {};
 
-  // Add query parameters if present
   const url = new URL(request.url || "/", `http://${request.headers.host}`);
   if (url.search) {
     const params: Record<string, string> = {};
     url.searchParams.forEach((value, key) => {
-      // Don't include sensitive params
-      if (!["token", "code", "code_verifier"].includes(key)) {
-        params[key] = value;
-      }
+      params[key] = isSensitiveAuditField(key) ? "[REDACTED]" : value;
     });
     if (Object.keys(params).length > 0) {
       details.queryParams = params;
     }
   }
 
-  // Add content type
   if (request.headers["content-type"]) {
     details.contentType = request.headers["content-type"];
   }
 
-  // Add origin if present
   if (request.headers.origin) {
     details.origin = request.headers.origin;
   }
 
-  // Add referer if present
   if (request.headers.referer) {
     details.referer = request.headers.referer;
   }
 
-  return Object.keys(details).length > 0 ? details : undefined;
+  const sanitized = sanitizeAuditDetails(details);
+  return sanitized && Object.keys(sanitized).length > 0 ? sanitized : undefined;
+}
+
+function sanitizeLoggedError(err: unknown): unknown {
+  if (err instanceof Error) {
+    return {
+      name: err.name,
+      message: sanitizeError(err.message),
+      stack: sanitizeError(err.stack),
+    };
+  }
+  return sanitizeRequestBody({ err }) || { err: "[REDACTED]" };
 }
 
 // Create a wrapper that adds audit logging to any controller
@@ -145,11 +158,7 @@ export function withAudit(config: AuditConfig | string) {
           const body = await getCachedBody(request);
           const reqWithRaw = request as IncomingMessage & { rawBody?: string };
           reqWithRaw.rawBody = body;
-          try {
-            requestBody = body ? JSON.parse(body) : null;
-          } catch {
-            requestBody = { raw: body };
-          }
+          requestBody = body ? parseAuditRequestBody(body) : null;
         }
 
         // Try to get session info from Authorization header
@@ -305,11 +314,11 @@ export function withAudit(config: AuditConfig | string) {
           try {
             await auditCall;
           } catch (err) {
-            context.logger.error({ err }, "Audit log failed");
+            context.logger.error({ err: sanitizeLoggedError(err) }, "Audit log failed");
           }
         } else {
           auditCall.catch((err) => {
-            context.logger.error({ err }, "Audit log failed");
+            context.logger.error({ err: sanitizeLoggedError(err) }, "Audit log failed");
           });
         }
 
