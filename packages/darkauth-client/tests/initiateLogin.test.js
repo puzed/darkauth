@@ -61,7 +61,9 @@ test("initiateLogin adds ZK parameters when zk is true", async () => {
     issuer: "https://issuer.example",
     clientId: "client-id",
     redirectUri: "https://app.example/callback",
+    scope: "openid profile email",
     zk: true,
+    discovery: false,
   });
 
   await initiateLogin();
@@ -69,6 +71,8 @@ test("initiateLogin adds ZK parameters when zk is true", async () => {
   const assignedUrl = getAssignedUrl();
   const url = new URL(assignedUrl);
   assert.equal(url.searchParams.get("response_type"), "code");
+  assert.equal(url.searchParams.get("scope"), "openid profile email");
+  assert.equal(globalThis.sessionStorage.getItem("oauth_state"), url.searchParams.get("state"));
   assert.ok(url.searchParams.get("zk_pub"));
   assert.ok(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"));
 });
@@ -82,6 +86,7 @@ test("initiateLogin omits ZK parameters when zk is false", async () => {
     clientId: "client-id",
     redirectUri: "https://app.example/callback",
     zk: false,
+    discovery: false,
   });
 
   await initiateLogin();
@@ -89,8 +94,37 @@ test("initiateLogin omits ZK parameters when zk is false", async () => {
   const assignedUrl = getAssignedUrl();
   const url = new URL(assignedUrl);
   assert.equal(url.searchParams.get("response_type"), "code");
+  assert.equal(globalThis.sessionStorage.getItem("oauth_state"), url.searchParams.get("state"));
   assert.equal(url.searchParams.get("zk_pub"), null);
   assert.equal(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"), null);
+});
+
+test("initiateLogin uses discovered authorization endpoint", async () => {
+  setupEnvironment();
+  const { location, getAssignedUrl } = createLocation();
+  globalThis.location = location;
+  globalThis.fetch = async (url) => {
+    assert.equal(url, "https://issuer.example/.well-known/openid-configuration");
+    return {
+      ok: true,
+      json: async () => ({
+        authorization_endpoint: "https://issuer.example/api/authorize",
+        token_endpoint: "https://issuer.example/api/token",
+      }),
+    };
+  };
+  setConfig({
+    issuer: "https://issuer.example",
+    clientId: "client-id",
+    redirectUri: "https://app.example/callback",
+    zk: false,
+    discovery: true,
+  });
+
+  await initiateLogin();
+
+  const url = new URL(getAssignedUrl());
+  assert.equal(url.href.startsWith("https://issuer.example/api/authorize?"), true);
 });
 
 test("initiateLogin adds ZK parameters when zk is unset", async () => {
@@ -102,6 +136,7 @@ test("initiateLogin adds ZK parameters when zk is unset", async () => {
     clientId: "client-id",
     redirectUri: "https://app.example/callback",
     zk: undefined,
+    discovery: false,
   });
 
   await initiateLogin();
@@ -109,6 +144,7 @@ test("initiateLogin adds ZK parameters when zk is unset", async () => {
   const assignedUrl = getAssignedUrl();
   const url = new URL(assignedUrl);
   assert.equal(url.searchParams.get("response_type"), "code");
+  assert.equal(globalThis.sessionStorage.getItem("oauth_state"), url.searchParams.get("state"));
   assert.ok(url.searchParams.get("zk_pub"));
   assert.ok(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"));
 });

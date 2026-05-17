@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refreshSession, setConfig } from "../dist/index.js";
+import { logout, refreshSession, setConfig } from "../dist/index.js";
 
 function createStorage() {
   const entries = new Map();
@@ -17,21 +17,31 @@ function createStorage() {
     clear() {
       entries.clear();
     },
+    key(index) {
+      return Array.from(entries.keys())[index] || null;
+    },
+    get length() {
+      return entries.size;
+    },
   };
 }
 
-function setupEnvironment() {
+function setupEnvironment(config = {}) {
   globalThis.sessionStorage = createStorage();
   globalThis.localStorage = createStorage();
+  logout();
   setConfig({
     issuer: "https://issuer.example",
     clientId: "client-id",
     redirectUri: "https://app.example/callback",
     zk: true,
+    discovery: false,
+    firstParty: false,
+    ...config,
   });
 }
 
-test("refreshSession does not clear refresh token on server errors", async () => {
+test("refreshSession does not clear refresh token on server errors in token mode", async () => {
   setupEnvironment();
   globalThis.localStorage.setItem("refresh_token", "rt-1");
   globalThis.fetch = async () => ({ ok: false, status: 500 });
@@ -42,7 +52,7 @@ test("refreshSession does not clear refresh token on server errors", async () =>
   assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-1");
 });
 
-test("refreshSession clears refresh token on 401", async () => {
+test("refreshSession clears refresh token on 401 in token mode", async () => {
   setupEnvironment();
   globalThis.localStorage.setItem("refresh_token", "rt-2");
   globalThis.fetch = async () => ({ ok: false, status: 401 });
@@ -53,7 +63,7 @@ test("refreshSession clears refresh token on 401", async () => {
   assert.equal(globalThis.localStorage.getItem("refresh_token"), null);
 });
 
-test("refreshSession keeps a newer refresh token on 401", async () => {
+test("refreshSession keeps a newer refresh token on 401 in token mode", async () => {
   setupEnvironment();
   globalThis.localStorage.setItem("refresh_token", "rt-3");
   globalThis.fetch = async () => {
