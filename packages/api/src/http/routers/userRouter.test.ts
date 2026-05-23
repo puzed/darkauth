@@ -118,3 +118,50 @@ test("user router wires GET /scope-descriptions validation failures", async () =
     error_description: "Invalid input: expected string, received undefined",
   });
 });
+
+test("user router exposes page background CSS variables for branded user pages", async () => {
+  const values = [
+    {
+      backgroundColor: "#123456",
+      backgroundGradientEnd: "#abcdef",
+      brandColor: "#654321",
+      primaryBackgroundColor: "#fedcba",
+    },
+    {
+      backgroundColor: "#0a0b0c",
+      backgroundGradientEnd: "#101112",
+      brandColor: "#c0ffee",
+      primaryBackgroundColor: "#decade",
+    },
+    undefined,
+    "",
+  ];
+  const context = {
+    db: {
+      query: {
+        settings: {
+          findFirst: mock.fn(() => Promise.resolve({ value: values.shift() })),
+        },
+      },
+    },
+    services: { install: {} },
+    logger: createLogger(),
+  };
+
+  const router = createUserRouter(context as never);
+  const request = createRequest("/branding/custom.css");
+  const response = createMockResponse();
+
+  await router(request as IncomingMessage, response as ServerResponse);
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.getHeader("content-type"), "text/css; charset=utf-8");
+  assert.match(response.body, /:root\{[^}]*--da-page-bg:#123456/);
+  assert.match(response.body, /:root\[data-da-theme='light'\]\{[^}]*--da-page-bg:#123456/);
+  assert.match(response.body, /:root\[data-da-theme='dark'\]\{[^}]*--da-page-bg:#0a0b0c/);
+  assert.match(
+    response.body,
+    /@media \(prefers-color-scheme: dark\)\{:root:not\(\[data-da-theme\]\)\{[^}]*--da-page-bg:#0a0b0c/
+  );
+  assert.match(response.body, /body\{background:linear-gradient\(var\(--da-bg-angle\)/);
+});

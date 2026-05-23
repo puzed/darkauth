@@ -156,6 +156,7 @@ export function createUserRouter(context: Context) {
         const darkBorder = readColor(cd, "borderColor", "#374151", "border");
         const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
         const cssVarsLight: Record<string, string> = {
+          "--da-page-bg": lightBg,
           "--da-bg-gradient-start": lightBg,
           "--da-bg-gradient-end": String(c.backgroundGradientEnd || lightBg),
           "--da-bg-angle": String(c.backgroundAngle || "135deg"),
@@ -195,6 +196,7 @@ export function createUserRouter(context: Context) {
           "--gray-50": lightBg,
         };
         const cssVarsDark: Record<string, string> = {
+          "--da-page-bg": darkBg,
           "--da-bg-gradient-start": darkBg,
           "--da-bg-gradient-end": String(cd.backgroundGradientEnd || darkBg),
           "--da-bg-angle": String(cd.backgroundAngle || "135deg"),
