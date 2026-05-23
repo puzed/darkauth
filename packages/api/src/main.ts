@@ -35,6 +35,8 @@ function printStartupPanel(urls: { installUrl?: string; adminUrl: string; userUr
 async function main() {
   const root = loadRootConfig();
   const inInstallMode = !hasConfigFile();
+  const publicOrigin = root.publicOrigin || `http://localhost:${root.userPort}`;
+  const issuer = root.issuer || `http://localhost:${root.userPort}`;
   const config: Config = {
     dbMode: inInstallMode ? "pglite" : root.dbMode || "remote",
     pgliteDir: root.pgliteDir,
@@ -44,9 +46,9 @@ async function main() {
     proxyUi: root.proxyUi,
     kekPassphrase: root.kekPassphrase || "",
     isDevelopment: false,
-    publicOrigin: `http://localhost:${root.userPort}`,
-    issuer: `http://localhost:${root.userPort}`,
-    rpId: "localhost",
+    publicOrigin,
+    issuer,
+    rpId: root.rpId || "localhost",
     inInstallMode,
     logLevel: process.env.DARKAUTH_LOG_LEVEL ?? process.env.LOG_LEVEL,
   };
