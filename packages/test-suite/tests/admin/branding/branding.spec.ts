@@ -192,4 +192,31 @@ test.describe('Admin - Branding Settings', () => {
 
     await expect(lightColorInput).toHaveValue('#ff69b4');
   });
+
+  test('can upload and save a large logo without corrupting base64 data', async ({ page }) => {
+    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="#123456"/><metadata>${'x'.repeat(200_000)}</metadata></svg>`;
+    const expectedLogo = Buffer.from(svg).toString('base64');
+
+    await page.locator('input[type="file"]').first().setInputFiles({
+      name: 'large-logo.svg',
+      mimeType: 'image/svg+xml',
+      buffer: Buffer.from(svg)
+    });
+
+    const logoPreview = page.getByAltText('Logo preview');
+    await expect(logoPreview).toBeVisible();
+    await expect
+      .poll(async () => await logoPreview.getAttribute('src'), { timeout: 5000 })
+      .toBe(`data:image/svg+xml;base64,${expectedLogo}`);
+
+    await page.locator('button:has-text("Save")').first().click();
+    await expect(page.getByText('Branding saved').first()).toBeVisible({ timeout: 5000 });
+
+    await page.locator('button:has-text("Reload")').first().click();
+    await expect(page.getByAltText('Logo preview')).toHaveAttribute(
+      'src',
+      `data:image/svg+xml;base64,${expectedLogo}`
+    );
+  });
 });
