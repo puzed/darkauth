@@ -84,7 +84,7 @@ export function sendError(response: ServerResponse, error: Error): void {
         JSON.stringify({
           error: error.message,
           code: error.code,
-          ...(error instanceof ValidationError && error.details ? { details: error.details } : {}),
+          ...(error.details ? { details: error.details } : {}),
         })
       );
     }
