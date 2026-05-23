@@ -1086,3 +1086,78 @@ button .loading-spinner {
   border-color: var(--gray-300);
   border-top-color: var(--primary-500);
 }
+
+.authorize-organizations h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--da-text-secondary, var(--gray-600));
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.75rem;
+}
+
+.authorize-organization-summary,
+.authorize-organization-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--da-input-bg, var(--gray-50));
+  border: 1px solid var(--da-border, var(--gray-200));
+  border-radius: var(--radius-md);
+  width: 100%;
+  text-align: left;
+}
+
+.authorize-organization-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.authorize-organization-fieldset legend {
+  margin-bottom: 0.75rem;
+  color: var(--da-text-secondary, var(--gray-600));
+  font-size: 0.95rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.authorize-organization-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.authorize-organization-option {
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.authorize-organization-option:hover,
+.authorize-organization-option:focus-within {
+  border-color: var(--da-primary, var(--primary-500));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--da-primary, var(--primary-500)) 16%, transparent);
+}
+
+.authorize-organization-option input {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--da-primary, var(--primary-500));
+  flex-shrink: 0;
+}
+
+.authorize-organization-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+[data-da-theme="dark"] .authorize-organization-summary,
+[data-da-theme="dark"] .authorize-organization-option {
+  background: var(--da-input-bg, var(--gray-100));
+  border-color: var(--da-border, var(--gray-300));
+}
