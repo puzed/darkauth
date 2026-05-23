@@ -87,6 +87,8 @@ export async function createServer(initialContext: Context): Promise<AppServer> 
     const chosenPostgresUri = context.services.install?.chosenPostgresUri;
     const userPort = context.config.userPort;
     const adminPort = context.config.adminPort;
+    const publicOrigin = root.publicOrigin || `http://localhost:${userPort}`;
+    const issuer = root.issuer || `http://localhost:${userPort}`;
     const nextConfig: Config = {
       dbMode: hasConfig ? root.dbMode || chosenDbMode || "remote" : chosenDbMode || "pglite",
       pgliteDir: root.pgliteDir || chosenPgliteDir,
@@ -96,9 +98,9 @@ export async function createServer(initialContext: Context): Promise<AppServer> 
       proxyUi: root.proxyUi ?? context.config.proxyUi,
       kekPassphrase: (root.kekPassphrase ?? context.config.kekPassphrase) || "",
       isDevelopment: context.config.isDevelopment,
-      publicOrigin: `http://localhost:${userPort}`,
-      issuer: `http://localhost:${userPort}`,
-      rpId: "localhost",
+      publicOrigin,
+      issuer,
+      rpId: root.rpId || "localhost",
       insecureKeys: context.config.insecureKeys,
       logLevel: context.config.logLevel,
       inInstallMode: !hasConfig,
