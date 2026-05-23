@@ -10,6 +10,9 @@ type UpdatableFields = {
   adminPort?: number;
   proxyUi?: boolean;
   kekPassphrase?: string;
+  publicOrigin?: string;
+  issuer?: string;
+  rpId?: string;
 };
 
 function resolveConfigPath(configFile?: string): string {
@@ -48,6 +51,10 @@ export function upsertConfig(updates: UpdatableFields, configFile?: string): voi
   if (typeof updates.proxyUi === "boolean") next.proxyUi = updates.proxyUi;
   if (typeof updates.kekPassphrase === "string" && updates.kekPassphrase.length > 0)
     next.kekPassphrase = updates.kekPassphrase;
+  if (typeof updates.publicOrigin === "string" && updates.publicOrigin.length > 0)
+    next.publicOrigin = updates.publicOrigin;
+  if (typeof updates.issuer === "string" && updates.issuer.length > 0) next.issuer = updates.issuer;
+  if (typeof updates.rpId === "string" && updates.rpId.length > 0) next.rpId = updates.rpId;
   const out = stringify(next);
   // Ensure directory exists before writing
   const dir = path.dirname(p);

@@ -77,6 +77,10 @@ jobs:
         suite: [admin, api, auth, demo, security, user]
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -111,6 +115,10 @@ jobs:
         suite: [admin, api, auth, demo, security, user]
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -141,6 +149,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

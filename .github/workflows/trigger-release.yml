@@ -180,11 +180,13 @@ jobs:
         env:
           IMAGE: ghcr.io/${{ needs.release.outputs.repo }}
           TAG: ${{ needs.release.outputs.tag }}
+          LATEST: latest
           AMD64_DIGEST: ${{ needs.release-image-amd64.outputs.digest }}
           ARM64_DIGEST: ${{ needs.release-image-arm64.outputs.digest }}
         run: |
           docker buildx imagetools create \
             -t "${IMAGE}:${TAG}" \
+            -t "${IMAGE}:${LATEST}" \
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
 
