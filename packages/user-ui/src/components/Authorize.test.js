@@ -25,3 +25,13 @@ test("generateNewKeys copies DRK before clearing it for ZK handoff", () => {
 test("Authorize never posts DRK JWE to finalize", () => {
   assert.equal(source.includes("drkJwe:"), false);
 });
+
+test("multi-organization authorize keeps the organization picker visible", () => {
+  const summaryExpression = source.match(/const showOrganizationSummary = ([^;]+);/);
+
+  assert.ok(summaryExpression);
+  assert.equal(
+    summaryExpression[1],
+    "activeOrganizations.length === 1 || selectedOrganizationLocked"
+  );
+});

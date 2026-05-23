@@ -96,10 +96,7 @@ export default function Authorize({
   );
   const noActiveOrganizations = !organizationsLoading && activeOrganizations.length === 0;
   const selectedOrganizationLocked = !!explicitOrganizationId;
-  const showOrganizationSummary =
-    activeOrganizations.length === 1 ||
-    selectedOrganizationLocked ||
-    (!!sessionOrganizationId && selectedOrganization?.organizationId === sessionOrganizationId);
+  const showOrganizationSummary = activeOrganizations.length === 1 || selectedOrganizationLocked;
 
   const generateZkKeyPair = useCallback(async () => {
     try {
