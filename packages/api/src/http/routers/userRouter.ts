@@ -158,8 +158,8 @@ export function createUserRouter(context: Context) {
         const darkTextMuted = readColor(cd, "textMutedColor", "#9ca3af", "textMuted");
         const darkBorder = readColor(cd, "borderColor", "#374151", "border");
         const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
-        const darkCardBg = String(cd.cardBackground || "#1f2937");
-        const darkInputBg = String(cd.inputBackground || "#111827");
+        const darkCardBg = String(cd.cardBackground || "rgba(255,255,255,0.05)");
+        const darkInputBg = String(cd.inputBackground || "rgba(0,0,0,0.2)");
         const cssVarsLight: Record<string, string> = {
           "--da-page-bg": lightBg,
           "--da-bg-gradient-start": lightBg,
