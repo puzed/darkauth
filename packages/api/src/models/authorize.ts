@@ -1,4 +1,5 @@
 import { pendingAuth } from "../db/schema.ts";
+import { ServerError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
 export async function createPendingAuth(
@@ -19,23 +20,51 @@ export async function createPendingAuth(
     expiresAt: Date;
   }
 ) {
-  await context.db.insert(pendingAuth).values({
-    requestId: data.requestId,
-    clientId: data.clientId,
-    redirectUri: data.redirectUri,
-    scope: data.scope,
-    state: data.state,
-    nonce: data.nonce,
-    codeChallenge: data.codeChallenge,
-    codeChallengeMethod: data.codeChallengeMethod,
-    zkPubKid: data.zkPubKid,
-    userSub: data.userSub,
-    organizationId: data.organizationId,
-    origin: data.origin,
-    createdAt: new Date(),
-    expiresAt: data.expiresAt,
-  });
+  try {
+    await context.db.insert(pendingAuth).values({
+      requestId: data.requestId,
+      clientId: data.clientId,
+      redirectUri: data.redirectUri,
+      scope: data.scope,
+      state: data.state,
+      nonce: data.nonce,
+      codeChallenge: data.codeChallenge,
+      codeChallengeMethod: data.codeChallengeMethod,
+      zkPubKid: data.zkPubKid,
+      userSub: data.userSub,
+      organizationId: data.organizationId,
+      origin: data.origin,
+      createdAt: new Date(),
+      expiresAt: data.expiresAt,
+    });
+  } catch (error) {
+    if (isPendingAuthSchemaDrift(error)) {
+      throw new ServerError("DarkAuth database schema is out of date; run migrations");
+    }
+    throw error;
+  }
   return { requestId: data.requestId } as const;
+}
+
+function isPendingAuthSchemaDrift(error: unknown): boolean {
+  for (let current: unknown = error; current; current = getErrorCause(current)) {
+    const candidate = current as { code?: unknown; message?: unknown };
+    const message = typeof candidate.message === "string" ? candidate.message : "";
+    if (
+      candidate.code === "42703" &&
+      message.includes("scope") &&
+      message.includes("pending_auth")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getErrorCause(error: unknown): unknown {
+  return error && typeof error === "object" && "cause" in error
+    ? (error as { cause?: unknown }).cause
+    : undefined;
 }
 
 export async function getPendingAuth(context: Context, requestId: string) {
