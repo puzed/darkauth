@@ -22,33 +22,33 @@
 }
 
 .primary {
-  background: var(--primary-600);
+  background: var(--da-primary, var(--primary-600));
   color: var(--primary-button-text, white);
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--primary-700);
+  background: var(--da-primary-hover, var(--primary-700));
 }
 
 .secondary {
   background: transparent;
-  border: 1px solid var(--gray-300);
-  color: var(--gray-700);
+  border: 1px solid var(--da-border, var(--gray-300));
+  color: var(--da-text-secondary, var(--gray-700));
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--gray-50);
-  border-color: var(--gray-400);
+  background: var(--da-input-bg, var(--gray-50));
+  border-color: var(--da-primary, var(--gray-400));
 }
 
 .success {
-  background: var(--primary-600);
-  border: 1px solid color-mix(in srgb, var(--primary-600) 90%, black);
+  background: var(--da-primary, var(--primary-600));
+  border: 1px solid color-mix(in srgb, var(--da-primary, var(--primary-600)) 90%, black);
   color: var(--primary-button-text, white);
 }
 
 .success:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary-600) 90%, white);
+  background: var(--da-primary-hover, color-mix(in srgb, var(--primary-600) 90%, white));
 }
 
 .danger {
@@ -66,32 +66,32 @@
 }
 
 [data-da-theme="dark"] .primary {
-  background: var(--primary-600);
+  background: var(--da-primary, var(--primary-600));
   color: var(--primary-button-text, #1f2937);
 }
 
 [data-da-theme="dark"] .primary:hover:not(:disabled) {
-  background: var(--primary-700);
+  background: var(--da-primary-hover, var(--primary-700));
   color: var(--primary-button-text, #1f2937);
 }
 
 [data-da-theme="dark"] .secondary {
-  border-color: #334155;
-  color: #cbd5e1;
+  border-color: var(--da-border, #334155);
+  color: var(--da-text-secondary, #cbd5e1);
 }
 
 [data-da-theme="dark"] .secondary:hover:not(:disabled) {
-  background: #1f2937;
-  border-color: #475569;
+  background: var(--da-input-bg, #1f2937);
+  border-color: var(--da-primary, #475569);
 }
 
 [data-da-theme="dark"] .success {
-  background: var(--primary-600);
-  border-color: color-mix(in srgb, var(--primary-600) 90%, black);
+  background: var(--da-primary, var(--primary-600));
+  border-color: color-mix(in srgb, var(--da-primary, var(--primary-600)) 90%, black);
 }
 
 [data-da-theme="dark"] .success:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--primary-600) 90%, black);
+  background: var(--da-primary-hover, color-mix(in srgb, var(--primary-600) 90%, black));
 }
 
 [data-da-theme="dark"] .danger {
