@@ -79,6 +79,19 @@ function cloneImage(value: BrandingImage): BrandingImage {
   return { data: value.data, mimeType: value.mimeType };
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = bytes.subarray(offset, offset + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+
+  return btoa(binary);
+}
+
 function getDefaultLogoSvg(color: string) {
   return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -275,9 +288,16 @@ export default function Branding() {
       toast({ title: "Image too large (max 2MB)", variant: "destructive" });
       return;
     }
-    const buf = await file.arrayBuffer();
-    const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-    setter({ data: b64, mimeType: file.type });
+    try {
+      const buf = await file.arrayBuffer();
+      setter({ data: arrayBufferToBase64(buf), mimeType: file.type });
+    } catch (e) {
+      toast({
+        title: "Could not load image",
+        description: e instanceof Error ? e.message : "Failed to read selected image",
+        variant: "destructive",
+      });
+    }
   };
 
   const copyCurrentToOther = () => {
