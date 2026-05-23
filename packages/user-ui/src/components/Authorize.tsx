@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
-import apiService from "../services/api";
+import apiService, { type UserOrganization } from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
@@ -48,8 +48,15 @@ interface AuthorizeProps {
     scopes: string[];
     scopeDescriptions?: Record<string, string>;
     hasZk: boolean;
+    organizationId?: string;
   };
-  sessionData: { sub: string; name?: string; email?: string };
+  sessionData: {
+    sub: string;
+    name?: string;
+    email?: string;
+    organizationId?: string;
+    organizationSlug?: string;
+  };
   onRecoverWithOldPassword?: () => void;
 }
 
@@ -65,6 +72,11 @@ export default function Authorize({
   const [currentPassword, setCurrentPassword] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
+  const [organizationsLoading, setOrganizationsLoading] = useState(true);
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(
+    authRequest.organizationId || sessionData.organizationId || ""
+  );
   const [_zkKeyPair, setZkKeyPair] = useState<{
     publicKey: CryptoKey;
     privateKey: CryptoKey;
@@ -72,8 +84,22 @@ export default function Authorize({
   const currentPasswordId = useId();
   const oldPasswordId = useId();
   const appName = authRequest.clientName || "Application";
+  const explicitOrganizationId = authRequest.organizationId || "";
+  const sessionOrganizationId = sessionData.organizationId || "";
   const hasZkDeliveryScope =
     authRequest.hasZk && new URL(window.location.href).searchParams.has("zk_pub");
+  const activeOrganizations = organizations.filter((organization) =>
+    organization.status ? organization.status === "active" : true
+  );
+  const selectedOrganization = activeOrganizations.find(
+    (organization) => organization.organizationId === selectedOrganizationId
+  );
+  const noActiveOrganizations = !organizationsLoading && activeOrganizations.length === 0;
+  const selectedOrganizationLocked = !!explicitOrganizationId;
+  const showOrganizationSummary =
+    activeOrganizations.length === 1 ||
+    selectedOrganizationLocked ||
+    (!!sessionOrganizationId && selectedOrganization?.organizationId === sessionOrganizationId);
 
   const generateZkKeyPair = useCallback(async () => {
     try {
@@ -86,11 +112,52 @@ export default function Authorize({
   }, []);
 
   useEffect(() => {
-    // Generate ZK key pair if this client supports ZK delivery
     if (authRequest.hasZk) {
       generateZkKeyPair();
     }
   }, [authRequest.hasZk, generateZkKeyPair]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOrganizationsLoading(true);
+    apiService
+      .getOrganizations()
+      .then((response) => {
+        if (cancelled) return;
+        const nextOrganizations = response.organizations || [];
+        setOrganizations(nextOrganizations);
+        const nextActiveOrganizations = nextOrganizations.filter((organization) =>
+          organization.status ? organization.status === "active" : true
+        );
+        setSelectedOrganizationId((current) => {
+          if (explicitOrganizationId) return explicitOrganizationId;
+          if (current && nextActiveOrganizations.some((org) => org.organizationId === current)) {
+            return current;
+          }
+          if (
+            sessionOrganizationId &&
+            nextActiveOrganizations.some((org) => org.organizationId === sessionOrganizationId)
+          ) {
+            return sessionOrganizationId;
+          }
+          return nextActiveOrganizations.length === 1
+            ? nextActiveOrganizations[0].organizationId
+            : "";
+        });
+      })
+      .catch((error) => {
+        logger.warn(error, "Failed to load organizations for authorization");
+        if (!cancelled) {
+          setError("Unable to load your organizations. Please try again.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setOrganizationsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [explicitOrganizationId, sessionOrganizationId]);
 
   const getScopeInfo = (scope: string): ScopeInfo => {
     const info = SCOPE_DESCRIPTIONS[scope];
@@ -125,6 +192,15 @@ export default function Authorize({
   const signedInAs = branding.getText("signedInAs", "Signed in as");
 
   const handleAuthorize = async (approve: boolean) => {
+    if (approve && noActiveOrganizations) {
+      setError("Your account is not a member of any active organization.");
+      return;
+    }
+    if (approve && activeOrganizations.length > 1 && !selectedOrganizationId) {
+      setError("Choose which organization to use for this sign-in.");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -161,6 +237,7 @@ export default function Authorize({
               requestId: authRequest.requestId,
               approve,
               drkHash,
+              organizationId: selectedOrganizationId || undefined,
             });
 
             // Add the JWE to the fragment (this is how it gets to the app without server seeing it)
@@ -181,6 +258,7 @@ export default function Authorize({
       const authResponse = await apiService.authorize({
         requestId: authRequest.requestId,
         approve,
+        organizationId: selectedOrganizationId || undefined,
       });
       logger.info({ requestId: authRequest.requestId, approve }, "[Authorize] finalize without ZK");
       window.location.href = authResponse.redirectUrl;
@@ -191,8 +269,17 @@ export default function Authorize({
       if (error instanceof Error) {
         if (error.message.includes("expired")) {
           errorMessage = "Authorization request has expired. Please restart the login process.";
+        } else if (explicitOrganizationId && error.message.toLowerCase().includes("organization")) {
+          errorMessage = "Your account cannot sign in with the selected organization.";
         } else if (error.message.includes("invalid")) {
           errorMessage = "Invalid authorization request. Please restart the login process.";
+        } else if (
+          "code" in error &&
+          (error as Error & { code?: string }).code === "ORG_CONTEXT_REQUIRED"
+        ) {
+          errorMessage = "Choose which organization to use for this sign-in.";
+        } else if (error.message.includes("ORG_CONTEXT_REQUIRED")) {
+          errorMessage = "Choose which organization to use for this sign-in.";
         } else if (error.message.includes("network") || error.message.includes("fetch")) {
           errorMessage = "Network error. Please check your connection and try again.";
         } else {
@@ -278,6 +365,7 @@ export default function Authorize({
             requestId: authRequest.requestId,
             approve: true,
             drkHash,
+            organizationId: selectedOrganizationId || undefined,
           });
           const redirectUrl = new URL(authResponse.redirectUrl);
           redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
@@ -395,6 +483,7 @@ export default function Authorize({
             requestId: authRequest.requestId,
             approve: true,
             drkHash,
+            organizationId: selectedOrganizationId || undefined,
           });
           const redirectUrl = new URL(authResponse.redirectUrl);
           redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
@@ -497,6 +586,66 @@ export default function Authorize({
               )}
             </div>
           </div>
+        </div>
+
+        <div className="authorize-organizations">
+          <h3>Organization</h3>
+          {organizationsLoading ? (
+            <p className="authorize-empty">Loading organizations...</p>
+          ) : noActiveOrganizations ? (
+            <p className="authorize-empty">
+              Your account is not a member of any active organization.
+            </p>
+          ) : showOrganizationSummary ? (
+            <div className="authorize-organization-summary">
+              <span className="authorize-scope-icon">🏢</span>
+              <div className="authorize-scope-text">
+                <span className="authorize-scope-name">
+                  {selectedOrganization?.name || "Selected organization"}
+                </span>
+                <span className="authorize-scope-description">
+                  {selectedOrganizationLocked
+                    ? `${appName} requested this organization for sign-in.`
+                    : "This organization will be used for this sign-in."}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <fieldset className="authorize-organization-fieldset">
+              <legend>Choose which organization to use for this sign-in.</legend>
+              <div className="authorize-organization-list">
+                {activeOrganizations.map((organization) => {
+                  const roles = organization.roles
+                    ?.map((role) => role.name || role.key)
+                    .filter((role): role is string => !!role);
+                  return (
+                    <label
+                      className="authorize-organization-option"
+                      key={organization.organizationId}
+                    >
+                      <input
+                        type="radio"
+                        name="organization_id"
+                        value={organization.organizationId}
+                        checked={selectedOrganizationId === organization.organizationId}
+                        onChange={() => setSelectedOrganizationId(organization.organizationId)}
+                      />
+                      <span className="authorize-organization-option-text">
+                        <span className="authorize-scope-name">{organization.name}</span>
+                        <span className="authorize-scope-description">
+                          {roles && roles.length > 0
+                            ? roles.join(", ")
+                            : organization.slug
+                              ? `Organization: ${organization.slug}`
+                              : "Active organization"}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            </fieldset>
+          )}
         </div>
 
         <div className="authorize-scopes da-authorize-scopes">
@@ -616,7 +765,12 @@ export default function Authorize({
             type="button"
             variant="success"
             onClick={() => handleAuthorize(true)}
-            disabled={loading}
+            disabled={
+              loading ||
+              organizationsLoading ||
+              noActiveOrganizations ||
+              (activeOrganizations.length > 1 && !selectedOrganizationId)
+            }
           >
             {loading ? (
               <>
