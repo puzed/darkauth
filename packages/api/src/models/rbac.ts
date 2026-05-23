@@ -6,7 +6,7 @@ import {
   rolePermissions,
   roles,
 } from "../db/schema.ts";
-import { AppError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
+import { AppError, ForbiddenError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
 export async function getUserOrganizations(context: Context, userSub: string) {
@@ -66,7 +66,7 @@ export async function resolveOrganizationContext(
       .limit(1);
 
     if (!row[0]) {
-      throw new NotFoundError("Organization not found");
+      throw new ForbiddenError("Your account cannot sign in with the selected organization.");
     }
 
     return row[0];
@@ -79,14 +79,50 @@ export async function resolveOrganizationContext(
     .where(and(eq(organizationMembers.userSub, userSub), eq(organizationMembers.status, "active")));
 
   if (rows.length === 0) {
-    throw new ForbiddenError("No active organization membership");
+    throw new ForbiddenError("Your account is not a member of any active organization.");
   }
 
   if (rows.length > 1) {
-    throw new AppError("Organization context required", "ORG_CONTEXT_REQUIRED", 400);
+    throw new AppError("Organization context required", "ORG_CONTEXT_REQUIRED", 400, {
+      reason: "multiple_active_organizations",
+    });
   }
 
   return rows[0] as { organizationId: string; organizationSlug: string | null };
+}
+
+export async function resolveAuthorizationOrganizationContext(
+  context: Context,
+  userSub: string,
+  options: {
+    explicitOrganizationId?: string;
+    pendingOrganizationId?: string | null;
+    sessionOrganizationId?: string;
+  }
+): Promise<{ organizationId: string; organizationSlug: string | null }> {
+  const preferredOrganizationId = options.explicitOrganizationId || options.pendingOrganizationId;
+  if (preferredOrganizationId) {
+    return resolveOrganizationContext(context, userSub, preferredOrganizationId);
+  }
+
+  if (options.sessionOrganizationId) {
+    const row = await context.db
+      .select({ organizationId: organizations.id, organizationSlug: organizations.slug })
+      .from(organizationMembers)
+      .innerJoin(organizations, eq(organizationMembers.organizationId, organizations.id))
+      .where(
+        and(
+          eq(organizationMembers.userSub, userSub),
+          eq(organizationMembers.organizationId, options.sessionOrganizationId),
+          eq(organizationMembers.status, "active")
+        )
+      )
+      .limit(1);
+
+    if (row[0]) return row[0];
+  }
+
+  return resolveOrganizationContext(context, userSub);
 }
 
 export async function getUserOrgAccess(context: Context, userSub: string, organizationId: string) {
