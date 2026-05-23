@@ -4,6 +4,7 @@ import { sessions } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { sanitizeLoggedError } from "./audit.ts";
 import { getSetting } from "./settings.ts";
 
 export const USER_AUTH_COOKIE_NAME = "__Host-DarkAuth-User";
@@ -290,7 +291,7 @@ export async function deleteSession(context: Context, sessionId: string): Promis
 
     await context.db.delete(sessions).where(eq(sessions.id, sessionId));
   } catch (error) {
-    context.logger.error(error);
+    context.logger.error({ err: sanitizeLoggedError(error) });
   }
 }
 

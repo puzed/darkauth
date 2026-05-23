@@ -111,6 +111,55 @@ export function buildUserIdTokenClaims(data: {
   };
 }
 
+export function buildUserAccessTokenClaims(data: {
+  issuer: string;
+  subject: string;
+  audience: string;
+  authorizedParty: string;
+  expiresAtSeconds: number;
+  issuedAtSeconds: number;
+  scope: string;
+  grantType: "authorization_code" | "refresh_token";
+  orgId?: string;
+  orgSlug?: string | null;
+  roles?: string[];
+  permissions?: string[];
+}): IdTokenClaims {
+  return {
+    iss: data.issuer,
+    sub: data.subject,
+    aud: data.audience,
+    azp: data.authorizedParty,
+    exp: data.expiresAtSeconds,
+    iat: data.issuedAtSeconds,
+    scope: data.scope,
+    org_id: data.orgId || undefined,
+    org_slug: data.orgSlug || undefined,
+    roles: data.roles && data.roles.length > 0 ? data.roles : undefined,
+    permissions: data.permissions && data.permissions.length > 0 ? data.permissions : undefined,
+    grant_type: data.grantType,
+    token_use: "access",
+  } as IdTokenClaims;
+}
+
+function resolveAccessTokenLifetimeSeconds(client: { accessTokenLifetimeSeconds?: number | null }) {
+  return client.accessTokenLifetimeSeconds && client.accessTokenLifetimeSeconds > 0
+    ? client.accessTokenLifetimeSeconds
+    : 600;
+}
+
+function parseScopeString(scope: string): string[] {
+  return scope
+    .trim()
+    .split(/\s+/)
+    .filter((scopePart) => scopePart.length > 0);
+}
+
+function resolveDelegatedPermissions(permissions: string[], grantedScopes: string[]): string[] {
+  const grantedScopeSet = new Set(grantedScopes);
+  return permissions.filter((permission) => grantedScopeSet.has(permission));
+}
+
 export function resolveSessionClientId(sessionData: unknown): string | null {
   if (!sessionData || typeof sessionData !== "object") return null;
   const maybeClientId = (sessionData as { clientId?: unknown }).clientId;
@@ -298,6 +347,12 @@ export const postToken = withRateLimit("token")(
         let amr: string[] | undefined = ["pwd"];
         const data = sessionData as Record<string, unknown>;
         if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+        const grantedScope =
+          typeof data.scope === "string" && data.scope.length > 0
+            ? data.scope
+            : resolveGrantedScopes(resolveClientScopeKeys(client.scopes)).join(" ");
+        const grantedScopes = parseScopeString(grantedScope);
+        const delegatedPermissions = resolveDelegatedPermissions(uniquePermissions, grantedScopes);
         const issuer = await resolveIssuer(context);
         const idTokenClaims = buildUserIdTokenClaims({
           issuer,
@@ -318,10 +373,32 @@ export const postToken = withRateLimit("token")(
           idTokenClaims as import("jose").JWTPayload,
           `${idTokenTtl}s`
         );
+        const accessTokenTtl = resolveAccessTokenLifetimeSeconds(client);
+        const accessTokenClaims = buildUserAccessTokenClaims({
+          issuer,
+          subject: user.sub,
+          audience: providedClientId,
+          authorizedParty: providedClientId,
+          expiresAtSeconds: now + accessTokenTtl,
+          issuedAtSeconds: now,
+          scope: grantedScope,
+          grantType: "refresh_token",
+          orgId: organizationId,
+          orgSlug: organizationSlug,
+          roles: roleKeys,
+          permissions: delegatedPermissions,
+        });
+        const accessToken = await signJWT(
+          context,
+          accessTokenClaims as import("jose").JWTPayload,
+          `${accessTokenTtl}s`
+        );
         const tokenResponse: TokenResponse = {
+          access_token: accessToken,
           id_token: idToken,
           token_type: "Bearer",
-          expires_in: idTokenTtl,
+          expires_in: accessTokenTtl,
+          scope: grantedScope,
         };
         if (tokenRequest.refresh_token) {
           tokenResponse.refresh_token = rotated.refreshToken;
@@ -581,12 +658,41 @@ export const postToken = withRateLimit("token")(
         idTokenClaims as import("jose").JWTPayload,
         `${idTokenTtl}s`
       );
+      const accessTokenTtl = resolveAccessTokenLifetimeSeconds(client);
+      const grantedScope =
+        typeof authCode.scope === "string" && authCode.scope.length > 0
+          ? authCode.scope
+          : resolveGrantedScopes(resolveClientScopeKeys(client.scopes), tokenRequest.scope).join(
+              " "
+            );
+      const grantedScopes = parseScopeString(grantedScope);
+      const delegatedPermissions = resolveDelegatedPermissions(uniquePermissions, grantedScopes);
+      const accessTokenClaims = buildUserAccessTokenClaims({
+        issuer,
+        subject: user.sub,
+        audience: authenticatedClientId,
+        authorizedParty: authenticatedClientId,
+        expiresAtSeconds: now + accessTokenTtl,
+        issuedAtSeconds: now,
+        scope: grantedScope,
+        grantType: "authorization_code",
+        orgId: organizationId,
+        orgSlug: organizationSlug,
+        roles: roleKeys,
+        permissions: delegatedPermissions,
+      });
+      const accessToken = await signJWT(
+        context,
+        accessTokenClaims as import("jose").JWTPayload,
+        `${accessTokenTtl}s`
+      );
 
-      // Prepare token response
       const tokenResponse: TokenResponse = {
+        access_token: accessToken,
         id_token: idToken,
         token_type: "Bearer",
-        expires_in: idTokenTtl,
+        expires_in: accessTokenTtl,
+        scope: grantedScope,
       };
 
       // Handle ZK delivery (include zk_drk_hash if applicable)
@@ -606,6 +712,7 @@ export const postToken = withRateLimit("token")(
           organizationId,
           organizationSlug: organizationSlug || undefined,
           clientId: authenticatedClientId,
+          scope: grantedScope,
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;

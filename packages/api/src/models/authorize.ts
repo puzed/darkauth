@@ -7,6 +7,7 @@ export async function createPendingAuth(
     requestId: string;
     clientId: string;
     redirectUri: string;
+    scope: string;
     state?: string;
     nonce?: string;
     codeChallenge?: string;
@@ -22,6 +23,7 @@ export async function createPendingAuth(
     requestId: data.requestId,
     clientId: data.clientId,
     redirectUri: data.redirectUri,
+    scope: data.scope,
     state: data.state,
     nonce: data.nonce,
     codeChallenge: data.codeChallenge,

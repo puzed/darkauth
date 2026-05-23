@@ -1,4 +1,4 @@
-import { refreshSession } from "@DarkAuth/client";
+import { getStoredSession, refreshSession } from "@DarkAuth/client";
 import { z } from "zod";
 import { logger } from "./logger";
 
@@ -20,7 +20,7 @@ export interface Note {
 export interface NoteChange {
   seq: number;
   ciphertext_b64: string;
-  aad: unknown;
+  aad: Record<string, unknown>;
 }
 
 export interface UserProfile {
@@ -31,14 +31,24 @@ export interface UserProfile {
   wrapped_private_key?: string;
 }
 
+function getBearerToken(): string | null {
+  const session = getStoredSession();
+  return (
+    session?.accessToken ||
+    session?.idToken ||
+    localStorage.getItem("access_token") ||
+    localStorage.getItem("id_token")
+  );
+}
+
 class ApiClient {
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const idToken = localStorage.getItem("id_token");
-    if (!idToken) throw new Error("No authentication token");
+    const bearerToken = getBearerToken();
+    if (!bearerToken) throw new Error("No authentication token");
 
     const headers = {
       ...options.headers,
-      Authorization: `Bearer ${idToken}`,
+      Authorization: `Bearer ${bearerToken}`,
       "Content-Type": "application/json",
     };
 
@@ -51,7 +61,7 @@ class ApiClient {
       // Try to refresh token
       const newSession = await refreshSession();
       if (newSession) {
-        headers.Authorization = `Bearer ${newSession.idToken}`;
+        headers.Authorization = `Bearer ${newSession.accessToken || newSession.idToken}`;
         response = await fetch(`${demoApiBaseUrl}${path}`, {
           ...options,
           headers,
@@ -74,7 +84,6 @@ class ApiClient {
             path,
             method: options.method || "GET",
             status: response.status,
-            body: parsed || errText || null,
           },
           "[demo-api] request failed"
         );
@@ -85,7 +94,6 @@ class ApiClient {
             path,
             method: options.method || "GET",
             status: response.status,
-            body: errText || null,
           },
           "[demo-api] request failed"
         );
@@ -111,10 +119,10 @@ class ApiClient {
   }
 
   async searchUsers(query: string): Promise<UserProfile[]> {
-    const idToken = localStorage.getItem("id_token");
+    const bearerToken = getBearerToken();
     const url = `${darkauthApiBaseUrl}/users?q=${encodeURIComponent(query)}`;
     const response = await fetch(url, {
-      headers: idToken ? { Authorization: `Bearer ${idToken}` } : undefined,
+      headers: bearerToken ? { Authorization: `Bearer ${bearerToken}` } : undefined,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const UsersResp = z.object({
@@ -171,7 +179,11 @@ class ApiClient {
   }
 
   async getNoteChanges(noteId: string, since = 0): Promise<NoteChange[]> {
-    const Change = z.object({ seq: z.number(), ciphertext_b64: z.string(), aad: z.unknown() });
+    const Change = z.object({
+      seq: z.number(),
+      ciphertext_b64: z.string(),
+      aad: z.record(z.string(), z.unknown()),
+    });
     const Resp = z.object({ changes: z.array(Change) });
     const response = await this.request<unknown>(`/demo/notes/${noteId}/changes?since=${since}`);
     return Resp.parse(response).changes as NoteChange[];
@@ -180,7 +192,7 @@ class ApiClient {
   async appendNoteChange(
     noteId: string,
     ciphertextBase64: string,
-    additionalAuthenticatedData: unknown
+    additionalAuthenticatedData: Record<string, unknown>
   ): Promise<void> {
     await this.request(`/demo/notes/${noteId}/changes`, {
       method: "POST",
@@ -238,11 +250,11 @@ class ApiClient {
   }
 
   async getWrappedEncPrivateJwk(): Promise<string> {
-    const idToken = sessionStorage.getItem("id_token");
-    if (!idToken) throw new Error("No authentication token");
+    const bearerToken = getBearerToken();
+    if (!bearerToken) throw new Error("No authentication token");
     const url = `${darkauthApiBaseUrl}/crypto/wrapped-enc-priv`;
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${idToken}` },
+      headers: { Authorization: `Bearer ${bearerToken}` },
     });
     if (!response.ok) {
       const txt = await response.text().catch(() => "");

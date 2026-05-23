@@ -1,7 +1,7 @@
 import { decryptNote, decryptNoteWithDek, resolveDek } from "@DarkAuth/client";
 import { Plus } from "lucide-react";
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "../../services/api";
 import { logger } from "../../services/logger";
 import { useAuthStore } from "../../stores/authStore";
@@ -14,6 +14,7 @@ export function Dashboard() {
   const { notes, setNotes, removeNote, selectedTag, isLoading, setLoading, setError } =
     useNotesStore();
   const location = useLocation();
+  const navigate = useNavigate();
   const { session, user } = useAuthStore();
   const [decryptedNotes, setDecryptedNotes] = React.useState<
     Map<string, { title: string; preview: string; tags: string[] }>
@@ -85,7 +86,7 @@ export function Dashboard() {
     try {
       const noteId = await api.createNote();
       await loadNotes();
-      window.location.href = `/notes/${noteId}`;
+      navigate(`/notes/${noteId}`);
     } catch (error) {
       setError(error instanceof Error ? error.message : "Failed to create note");
     }

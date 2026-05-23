@@ -22,6 +22,7 @@ test("createPendingAuth stores nonce in pending auth record", async () => {
     requestId: "request-id",
     clientId: "client-id",
     redirectUri: "https://client.example/callback",
+    scope: "openid profile",
     state: "state-value",
     nonce: "nonce-value",
     codeChallenge: "challenge",
@@ -32,6 +33,7 @@ test("createPendingAuth stores nonce in pending auth record", async () => {
 
   assert.equal(result.requestId, "request-id");
   assert.equal(insertedValues?.nonce, "nonce-value");
+  assert.equal(insertedValues?.scope, "openid profile");
 });
 
 test("createAuthCode stores nonce in auth code record", async () => {
@@ -53,6 +55,7 @@ test("createAuthCode stores nonce in auth code record", async () => {
     clientId: "client-id",
     userSub: "user-sub",
     redirectUri: "https://client.example/callback",
+    scope: "openid profile",
     nonce: "nonce-value",
     codeChallenge: "challenge",
     codeChallengeMethod: "S256",
@@ -60,4 +63,5 @@ test("createAuthCode stores nonce in auth code record", async () => {
   });
 
   assert.equal(insertedValues?.nonce, "nonce-value");
+  assert.equal(insertedValues?.scope, "openid profile");
 });

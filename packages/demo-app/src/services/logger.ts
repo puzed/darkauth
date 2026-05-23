@@ -1,12 +1,12 @@
-const levelMethod: Record<string, keyof Console> = {
-  error: "error",
-  warn: "warn",
-  info: "info",
-  debug: "debug",
-};
-
-type LogLevel = keyof typeof levelMethod;
+type LogLevel = "error" | "warn" | "info" | "debug";
 type LogDetails = unknown;
+
+const levelMethod: Record<LogLevel, (...data: unknown[]) => void> = {
+  error: console.error.bind(console),
+  warn: console.warn.bind(console),
+  info: console.info.bind(console),
+  debug: console.debug.bind(console),
+};
 
 function serialize(details: LogDetails) {
   if (details == null) return undefined;
@@ -26,7 +26,6 @@ function serialize(details: LogDetails) {
 }
 
 function emit(level: LogLevel, details?: LogDetails, message?: string) {
-  const method = levelMethod[level] || "log";
   const payload: Record<string, unknown> = {
     level,
     timestamp: new Date().toISOString(),
@@ -34,7 +33,7 @@ function emit(level: LogLevel, details?: LogDetails, message?: string) {
   if (message) payload.message = message;
   const extra = serialize(details);
   if (extra && typeof extra === "object") Object.assign(payload, extra);
-  (console[method] || console.log).call(console, JSON.stringify(payload));
+  levelMethod[level](JSON.stringify(payload));
 }
 
 export const logger = {

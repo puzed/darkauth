@@ -1,8 +1,7 @@
 import { useId, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
-import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto";
-import { saveDrk } from "../services/drkStorage";
+import cryptoService, { toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
@@ -147,11 +146,9 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         keys.wrapKey,
         registrationFinishResponse.sub
       );
-      const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
 
       try {
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-        saveDrk(registrationFinishResponse.sub, drk, wrappedDrkHash);
       } catch (error) {
         logger.warn(error, "Failed to store wrapped DRK");
         // Continue with registration even if DRK storage fails

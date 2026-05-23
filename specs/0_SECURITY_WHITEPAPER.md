@@ -4,7 +4,7 @@ Date: 2025-09-11
 
 Abstract
 
-DarkAuth is an OpenID Connect (OIDC) provider that integrates a zero‑knowledge (ZK) extension for client‑side key delivery. Users authenticate with OPAQUE (RFC 9380), so passwords never leave the device. A per‑user Data Root Key (DRK) is wrapped under a device‑derived key and persisted server‑side only as ciphertext. ZK‑enabled relying parties (clients) receive the DRK via a compact JWE placed solely in the URL fragment; the authorization server never stores or returns that JWE, only its hash for verification. This document explains primitives, flows, state, properties, threats, and verification guidance strictly for the current v1 implementation.
+DarkAuth is an OpenID Connect (OIDC) provider that integrates a zero‑knowledge (ZK) extension for client‑side key delivery. Users authenticate with OPAQUE (RFC 9380), so passwords are not sent to the server in the OPAQUE flow. A per‑user Data Root Key (DRK) is wrapped under a device‑derived key and persisted server‑side only as ciphertext. ZK‑enabled relying parties (clients) receive the DRK via a compact JWE placed in the URL fragment; the authorization server stores and returns only its hash for verification in the designed flow. This document explains primitives, flows, state, properties, threats, and verification guidance strictly for the current v1 implementation and hosted-web trust boundary.
 
 Table of Contents
 
@@ -25,16 +25,16 @@ Table of Contents
 
 ## 1) Executive Summary
 
-DarkAuth provides OIDC with a zero‑knowledge security posture:
-- Password secrecy: OPAQUE ensures the server never learns user passwords.
+DarkAuth provides OIDC with a hosted-web zero‑knowledge security posture during honest frontend operation:
+- Password secrecy: OPAQUE keeps passwords out of server requests.
 - Client‑side key control: A deterministic device‑derived key wraps a per‑user DRK; only wrapped DRK is stored.
-- Fragment‑only key delivery: ZK clients receive DRK via a compact JWE in the URL fragment, never through server responses. The token response includes a hash of that JWE for client‑side integrity binding.
+- Fragment‑only key delivery: ZK clients receive DRK via a compact JWE in the URL fragment rather than AS token responses. The token response includes a hash of that JWE for client‑side integrity binding.
 
 ELI5
 - You prove your password without revealing it.
 - Your device makes a secret key and uses it to lock your data key.
 - The server keeps only the locked box, not the key inside.
-- Apps get the key in a sealed envelope that the server never sees.
+- Apps get the key in a sealed envelope that is not routed through the authorization server in the designed flow.
 
 ## 2) System Overview
 
@@ -54,7 +54,7 @@ Tenant model
 ## 3) Cryptographic Primitives and Key Schedule
 
 OPAQUE (RFC 9380)
-- Password‑authenticated key exchange. Server stores an opaque verifier; cannot recover the password.
+- Password‑authenticated key exchange. Server stores an opaque verifier and cannot recover the password from that verifier alone.
 - Client obtains an `export_key` deterministically per (user, password).
 - Implementation uses the P‑256 OPAQUE ciphersuite as configured by the OPAQUE library.
 
@@ -66,7 +66,7 @@ Key schedule (client)
 Data Root Key (DRK)
 - 32‑byte random, generated client‑side on first login.
 - Server only stores WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub).
-- On each session, client derives KW from export_key and unwraps the DRK locally.
+- On each session, client derives KW from export_key and unwraps the DRK locally. Hosted web deployments still require trust in the JavaScript executing on the Auth UI and RP origins while DRK is usable.
 
 JWE for DRK handoff (ZK delivery)
 - ECDH‑ES (P‑256) with A256GCM, compact serialization.
@@ -116,7 +116,7 @@ Implementation note
 - The normative encoding for `zk_pub` is `base64url(JSON.stringify(JWK))` and `zk_pub_kid = SHA‑256(zk_pub)` computed over the exact base64url string. The server implementation is being aligned to this; clients already use the base64url format.
 
 Sequence notes
-- The server NEVER stores or returns the DRK JWE; only the hash is stored/returned. The fragment is visible only to the browser/app.
+- In the designed flow, the server stores and returns only the DRK JWE hash, not the JWE. The fragment is available to browser/app code on the redirect origin.
 - Code TTL is ≤ 60s and codes are single‑use. Code redemption is consumed atomically at the token endpoint using a compare-and-set update, so concurrent redemption attempts cannot both succeed.
 
 Standard authorization code flow (Mermaid)
@@ -167,7 +167,7 @@ Server stores
 - Refresh tokens are stored hashed at rest and rotated with single-use atomic consume semantics.
 - Audit logs (admin actions).
 
-Server never stores
+Server-side state excludes
 - Plaintext passwords or export_key.
 - Plaintext DRK or DRK JWE ciphertext.
 - Derived keys MK/KW/KDerive.
@@ -209,13 +209,20 @@ Constraints
 ## 7) Security Properties and Assurances
 
 Password secrecy (OPAQUE)
-- Server never receives passwords; verifiers do not allow offline recovery. Login finish binds the authenticated account to server‑tracked identity; enumeration resistance and rate limits are applied.
+- Passwords are not sent to the server in the OPAQUE flow; verifiers do not allow offline recovery by themselves. Login finish binds the authenticated account to server‑tracked identity; enumeration resistance and rate limits are applied.
 
 DRK secrecy
-- Only wrapped DRK is stored. Without KW (derived from export_key on the device), the server cannot decrypt DRK.
+- Only wrapped DRK is stored. Without KW (derived from export_key on the device), the server cannot decrypt DRK from stored state during honest frontend operation.
+- Default hosted-web DRK custody is memory-only in the RP app after callback handling. Reload without DRK triggers a fresh authorization request with a new `zk_pub`; if the Auth UI lacks a session-scoped `export_key`, OPAQUE step-up is required before a new DRK JWE can be produced.
+- Persistent DRK storage, including XOR-obfuscated `localStorage`, is not the default security profile and must be treated as a lower-security convenience mode, not a cryptographic boundary.
 
 Fragment‑only DRK delivery
-- Server never stores or returns the DRK JWE. The token includes `zk_drk_hash` for integrity binding to the fragment.
+- The AS stores and returns `zk_drk_hash` for integrity binding to the fragment; it does not return the DRK JWE in the token response.
+
+Hosted-web trust boundary
+- Security claims assume trusted user devices and browsers, trusted Auth UI and RP frontend origins, and no XSS or malicious same-origin JavaScript while keys/plaintext are usable.
+- During honest operation, DarkAuth and app backends cannot decrypt app data from server-side state alone.
+- Malicious frontend code, XSS, compromised browser extensions, device malware, compromised browsers, supply-chain compromise, or an authorized RP app that intentionally exfiltrates secrets can access DRK or plaintext in the browser.
 
 Public key validation (zk_pub)
 - `base64url(JSON.stringify(JWK))` for P‑256; validate JWK structure and that `x` and `y` decode to 32‑byte values.
@@ -234,7 +241,8 @@ ID token integrity
 Assumptions
 - TLS for all transports.
 - RP applications correctly handle fragments and verify `zk_drk_hash`.
-- User devices are not fully compromised.
+- User devices and browsers are not fully compromised.
+- The Auth UI and RP frontend origins are trusted and do not execute malicious same-origin JavaScript.
 
 Attacks and mitigations
 - Database exfiltration: OPAQUE verifiers and wrapped DRK do not reveal passwords or DRK.
@@ -244,7 +252,9 @@ Attacks and mitigations
 - Token endpoint abuse: PKCE S256 for public clients; codes are short‑lived and single‑use with atomic consume semantics at redemption time.
 
 Out of scope
-- Compromised user devices or RP apps mishandling decrypted DRK.
+- Malicious Auth UI or RP frontend code served from trusted origins.
+- XSS in the Auth UI or RP app.
+- Compromised user devices, browsers, browser extensions, or RP apps mishandling or exfiltrating decrypted DRK.
 - Broken TLS.
 
 ## 9) Password Change Without Key Loss
@@ -268,6 +278,7 @@ Rate limiting
 
 Logging policy
 - Prohibit logging of zk_pub, export_key, MK/KW/KDerive, DRK, DRK JWE, wrapped private keys, and token secrets.
+- Retain only metadata needed for security operations and compliance; define a retention period and encrypt audit logs at rest.
 
 Key management
 - JWKS rotation available via admin API; private JWKs encrypted with KEK at rest when available.
@@ -277,12 +288,14 @@ Install and KEK
 
 Deployment guidance
 - Enforce HTTPS; set secure cookies when used (Secure, HttpOnly, SameSite=Lax or stricter). Store settings in DB; serve `/config.js` to UIs.
+- Configure trusted frontend origins explicitly. Production ZK clients should use HTTPS redirect URIs and `allowed_zk_origins`; avoid wildcard origins and avoid hosting user-controlled script surfaces on trusted Auth UI or RP origins.
+- If frontend compromise is suspected, disable affected ZK clients or ZK delivery, revoke sessions and refresh tokens, redeploy clean assets, review authorization/finalize/token audit metadata, notify affected users, and require OPAQUE step-up before resuming DRK delivery.
 - DarkAuth is open source (AGPL). Auditing is community‑driven: read the code and specs in this repository.
 
 ## 11) Privacy and Compliance Posture
 
 Data minimization
-- Server avoids plaintext secrets: no passwords, no plaintext DRK, no DRK JWE.
+- Server-side protocol state avoids plaintext secrets: no passwords, no plaintext DRK, no DRK JWE. Hosted-web frontend code can still access keys while performing client-side cryptography.
 
 Claims
 - This document describes technical design and alignment to security best practices; it does not assert formal certifications.
@@ -292,6 +305,7 @@ Claims
 - v1 is single‑tenant; multi‑tenant key separation is future work.
 - Additional grants and token types may be added.
 - Hardware‑backed key storage on clients is outside current scope.
+- Release-note warning: switching hosted-web DRK custody from persistent storage to memory-only changes reload behavior. Operators and app developers must warn users that page reloads may require a fresh ZK authorization and, if `export_key` is not session-cached, OPAQUE step-up.
 
 ## 13) Auditor Verification Checklist
 
@@ -301,11 +315,11 @@ Discovery and authorization
 
 - Provide a valid P‑256 `zk_pub` (base64url(JSON.stringify(JWK))) in `GET /api/authorize`.
 - After login, confirm the browser constructs `drk_jwe` client‑side and calls finalize with `drk_hash`.
-- Inspect network: server never returns the JWE; only the hash appears in token response as `zk_drk_hash`.
+- Inspect network: the token response does not include the JWE; only the hash appears as `zk_drk_hash`.
 - Verify client computes `base64url(sha256(fragment drk_jwe)) === zk_drk_hash` before use.
 
 DRK storage
-- With a valid session, `GET /crypto/wrapped-drk` returns only ciphertext; plaintext DRK is never exposed.
+- With a valid session, `GET /crypto/wrapped-drk` returns only ciphertext; plaintext DRK is not exposed by this endpoint.
 
 Password change without key loss
 - Use verify endpoints, re‑register, then confirm wrapped DRK is reuploaded without rotating the underlying DRK.
@@ -319,7 +333,7 @@ Logging
 ## 14) Glossary and References
 
 Glossary
-- OPAQUE: Asymmetric password‑authenticated key exchange where the server stores an opaque record and never learns the password.
+- OPAQUE: Asymmetric password‑authenticated key exchange where the server stores an opaque record and the password is not sent to the server in the OPAQUE flow.
 - DRK: Data Root Key, a per‑user symmetric key for application encryption.
 - JWE: JSON Web Encryption; here, compact form with ECDH‑ES (P‑256) and A256GCM.
 - PKCE: Proof Key for Code Exchange; S256 is the required code challenge method for public clients.
