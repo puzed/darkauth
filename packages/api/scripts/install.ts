@@ -66,6 +66,19 @@ async function install() {
 		adminPort: typeof root?.adminPort === "number" ? root.adminPort : 9081,
 		proxyUi: typeof root?.proxyUi === "boolean" ? root.proxyUi : true,
 	};
+	const defaultOrigin = `http://localhost:${(nextConfig.userPort as number) || 9080}`;
+	nextConfig.publicOrigin =
+		typeof nextConfig.publicOrigin === "string" && nextConfig.publicOrigin.trim().length > 0
+			? nextConfig.publicOrigin
+			: defaultOrigin;
+	nextConfig.issuer =
+		typeof nextConfig.issuer === "string" && nextConfig.issuer.trim().length > 0
+			? nextConfig.issuer
+			: defaultOrigin;
+	nextConfig.rpId =
+		typeof nextConfig.rpId === "string" && nextConfig.rpId.trim().length > 0
+			? nextConfig.rpId
+			: "localhost";
 
 	if (!root || !root.kekPassphrase) {
 		const p = createPrompt();
@@ -100,9 +113,9 @@ async function install() {
 		proxyUi: Boolean(nextConfig.proxyUi),
 		kekPassphrase: (nextConfig.kekPassphrase as string) || "",
 		isDevelopment: process.env.NODE_ENV !== "production",
-		publicOrigin: `http://localhost:${(nextConfig.userPort as number) || 9080}`,
-		issuer: `http://localhost:${(nextConfig.userPort as number) || 9080}`,
-		rpId: "localhost",
+		publicOrigin: (nextConfig.publicOrigin as string) || `http://localhost:${(nextConfig.userPort as number) || 9080}`,
+		issuer: (nextConfig.issuer as string) || `http://localhost:${(nextConfig.userPort as number) || 9080}`,
+		rpId: (nextConfig.rpId as string) || "localhost",
 	};
 
 	const context = await createContext(config);

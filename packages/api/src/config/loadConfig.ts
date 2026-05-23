@@ -10,7 +10,18 @@ export type RootConfig = {
   adminPort: number;
   proxyUi: boolean;
   kekPassphrase?: string;
+  publicOrigin?: string;
+  issuer?: string;
+  rpId?: string;
 };
+
+function parseOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+function defaultPublicOrigin(userPort: number): string {
+  return `http://localhost:${userPort}`;
+}
 
 function findConfigPath(configFile?: string): string | null {
   // If a specific config file is provided, use it
@@ -44,6 +55,9 @@ export function loadRootConfig(configFile?: string): RootConfig {
       userPort: 9080,
       adminPort: 9081,
       proxyUi: false,
+      publicOrigin: defaultPublicOrigin(9080),
+      issuer: defaultPublicOrigin(9080),
+      rpId: "localhost",
     } as RootConfig;
   }
   const raw = fs.readFileSync(p, "utf8");
@@ -55,8 +69,13 @@ export function loadRootConfig(configFile?: string): RootConfig {
       userPort: 9080,
       adminPort: 9081,
       proxyUi: false,
+      publicOrigin: defaultPublicOrigin(9080),
+      issuer: defaultPublicOrigin(9080),
+      rpId: "localhost",
     } as RootConfig;
   }
+  const userPort = typeof parsed.userPort === "number" ? parsed.userPort : 9080;
+  const adminPort = typeof parsed.adminPort === "number" ? parsed.adminPort : 9081;
   return {
     dbMode: parsed.dbMode === "pglite" ? "pglite" : "remote",
     pgliteDir: typeof parsed.pgliteDir === "string" ? parsed.pgliteDir : undefined,
@@ -64,12 +83,15 @@ export function loadRootConfig(configFile?: string): RootConfig {
       typeof parsed.postgresUri === "string" && parsed.postgresUri.length > 0
         ? parsed.postgresUri
         : "postgresql://DarkAuth:DarkAuth_password@localhost:5432/DarkAuth",
-    userPort: typeof parsed.userPort === "number" ? parsed.userPort : 9080,
-    adminPort: typeof parsed.adminPort === "number" ? parsed.adminPort : 9081,
+    userPort,
+    adminPort,
     proxyUi: typeof parsed.proxyUi === "boolean" ? parsed.proxyUi : false,
     kekPassphrase:
       typeof parsed.kekPassphrase === "string" && parsed.kekPassphrase.length > 0
         ? parsed.kekPassphrase
         : undefined,
+    publicOrigin: parseOptionalString(parsed.publicOrigin) || defaultPublicOrigin(userPort),
+    issuer: parseOptionalString(parsed.issuer) || defaultPublicOrigin(userPort),
+    rpId: parseOptionalString(parsed.rpId) || "localhost",
   } as RootConfig;
 }
