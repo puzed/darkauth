@@ -95,9 +95,12 @@ Roles and role-permission mapping:
 - `POST /admin/roles`
 - `GET /admin/roles/{roleId}`
 - `PUT /admin/roles/{roleId}`
+  - Updates custom and system role metadata.
 - `DELETE /admin/roles/{roleId}`
+  - System roles cannot be deleted.
 - `PUT /admin/roles/{roleId}/permissions`
   - Replaces role permission set with `permissionKeys`.
+  - Supports custom and system roles, including the default member role.
 
 ## Token claim behavior
 
