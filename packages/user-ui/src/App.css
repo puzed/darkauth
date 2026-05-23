@@ -596,7 +596,7 @@ body {
 .authorize-app-icon {
   width: 3rem;
   height: 3rem;
-  background: var(--primary-100);
+  background: var(--da-primary-light, var(--primary-100));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -608,12 +608,12 @@ body {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--gray-900);
+  color: var(--da-text, var(--gray-900));
 }
 
 .authorize-description {
   margin: 0.25rem 0 0;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   font-size: 0.95rem;
   line-height: 1.4;
   text-align: left;
@@ -624,8 +624,8 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
+  background: var(--da-input-bg, var(--gray-50));
+  border: 1px solid var(--da-border, var(--gray-200));
   border-radius: var(--radius-md);
   width: 100%;
   text-align: left;
@@ -634,7 +634,7 @@ body {
 .authorize-avatar {
   width: 2.25rem;
   height: 2.25rem;
-  background: var(--gray-100);
+  background: var(--da-primary-light, var(--gray-100));
   border-radius: 999px;
   display: flex;
   align-items: center;
@@ -655,28 +655,28 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--gray-500);
+  color: var(--da-text-muted, var(--gray-500));
   text-align: left;
 }
 
 .authorize-account-name {
   margin: 0;
   font-weight: 600;
-  color: var(--gray-900);
+  color: var(--da-text, var(--gray-900));
   text-align: left;
 }
 
 .authorize-account-email {
   margin: 0.1rem 0 0;
   font-size: 0.9rem;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   text-align: left;
 }
 
 .authorize-scopes h3 {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 0.75rem;
@@ -697,8 +697,8 @@ body {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  background: var(--gray-50);
-  border: 1px solid var(--gray-200);
+  background: var(--da-input-bg, var(--gray-50));
+  border: 1px solid var(--da-border, var(--gray-200));
   border-radius: var(--radius-md);
   width: 100%;
   text-align: left;
@@ -707,7 +707,7 @@ body {
 .authorize-scope-icon {
   width: 2rem;
   height: 2rem;
-  background: var(--primary-100);
+  background: var(--da-primary-light, var(--primary-100));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -729,7 +729,7 @@ body {
 .authorize-scope-name {
   display: block;
   font-weight: 600;
-  color: var(--gray-900);
+  color: var(--da-text, var(--gray-900));
   font-size: 0.95rem;
   text-align: left;
 }
@@ -737,22 +737,22 @@ body {
 .authorize-scope-description {
   display: block;
   font-size: 0.9rem;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   line-height: 1.4;
   text-align: left;
 }
 
 .authorize-empty {
   margin: 0;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   font-size: 0.95rem;
 }
 
 .authorize-recovery {
   padding: 1rem;
-  border: 1px solid var(--gray-200);
+  border: 1px solid var(--da-border, var(--gray-200));
   border-radius: var(--radius-md);
-  background: var(--gray-50);
+  background: var(--da-input-bg, var(--gray-50));
 }
 
 .authorize-recovery h3 {
@@ -762,7 +762,7 @@ body {
 
 .authorize-recovery p {
   margin: 0 0 0.75rem;
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
   font-size: 0.95rem;
   line-height: 1.5;
 }
@@ -773,7 +773,7 @@ body {
 
 .authorize-footnote {
   font-size: 0.85rem;
-  color: var(--gray-500);
+  color: var(--da-text-muted, var(--gray-500));
   line-height: 1.4;
 }
 
@@ -1033,8 +1033,8 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .header {
-  background: var(--gray-200);
-  border-bottom-color: var(--gray-300);
+  background: var(--da-card-bg);
+  border-bottom-color: var(--da-border, var(--gray-300));
 }
 
 [data-da-theme="dark"] .user-details {
@@ -1052,34 +1052,34 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .authorize-app-icon {
-  background: rgba(96, 165, 250, 0.2);
+  background: var(--da-primary-light, var(--primary-100));
 }
 
 [data-da-theme="dark"] .authorize-account {
-  background: var(--gray-100);
-  border-color: var(--gray-300);
+  background: var(--da-input-bg, var(--gray-100));
+  border-color: var(--da-border, var(--gray-300));
 }
 
 [data-da-theme="dark"] .authorize-avatar {
-  background: var(--gray-200);
+  background: var(--da-primary-light, var(--gray-200));
 }
 
 [data-da-theme="dark"] .authorize-scope-item {
-  background: var(--gray-100);
-  border-color: var(--gray-300);
+  background: var(--da-input-bg, var(--gray-100));
+  border-color: var(--da-border, var(--gray-300));
 }
 
 [data-da-theme="dark"] .authorize-scope-icon {
-  background: rgba(96, 165, 250, 0.2);
+  background: var(--da-primary-light, var(--primary-100));
 }
 
 [data-da-theme="dark"] .authorize-recovery {
-  background: var(--gray-100);
-  border-color: var(--gray-300);
+  background: var(--da-input-bg, var(--gray-100));
+  border-color: var(--da-border, var(--gray-300));
 }
 
 [data-da-theme="dark"] .authorize-footnote {
-  color: var(--gray-600);
+  color: var(--da-text-secondary, var(--gray-600));
 }
 
 [data-da-theme="dark"] .loading-spinner {

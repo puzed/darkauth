@@ -147,6 +147,8 @@ export function createUserRouter(context: Context) {
         const lightTextMuted = readColor(c, "textMutedColor", "#9ca3af", "textMuted");
         const lightBorder = readColor(c, "borderColor", "#e5e7eb", "border");
         const lightBg = readColor(c, "backgroundColor", "#f3f4f6", "backgroundGradientStart");
+        const lightCardBg = String(c.cardBackground || "#ffffff");
+        const lightInputBg = String(c.inputBackground || "#ffffff");
         const darkBrand = readColor(cd, "brandColor", "#aec1e0", "primary");
         const darkPrimaryBg = readColor(cd, "primaryBackgroundColor", darkBrand);
         const darkPrimaryHover = readColor(cd, "primaryHoverColor", darkBrand, "primaryHover");
@@ -156,6 +158,8 @@ export function createUserRouter(context: Context) {
         const darkTextMuted = readColor(cd, "textMutedColor", "#9ca3af", "textMuted");
         const darkBorder = readColor(cd, "borderColor", "#374151", "border");
         const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
+        const darkCardBg = String(cd.cardBackground || "#1f2937");
+        const darkInputBg = String(cd.inputBackground || "#111827");
         const cssVarsLight: Record<string, string> = {
           "--da-page-bg": lightBg,
           "--da-bg-gradient-start": lightBg,
@@ -176,9 +180,9 @@ export function createUserRouter(context: Context) {
           "--da-text-secondary": lightTextSecondary,
           "--da-text-muted": lightTextMuted,
           "--da-border": lightBorder,
-          "--da-card-bg": String(c.cardBackground || "#ffffff"),
+          "--da-card-bg": lightCardBg,
           "--da-card-shadow": String(c.cardShadow || "rgba(0,0,0,0.1)"),
-          "--da-input-bg": String(c.inputBackground || "#ffffff"),
+          "--da-input-bg": lightInputBg,
           "--da-input-border": String(c.inputBorder || lightBorder),
           "--da-input-focus": String(c.inputFocus || lightBrand),
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
@@ -190,10 +194,15 @@ export function createUserRouter(context: Context) {
           "--primary-600": lightPrimaryBg,
           "--primary-700": lightPrimaryHover,
           "--primary-100": lightPrimaryLight,
+          "--primary-button-text": String(c.primaryForegroundColor || "#ffffff"),
           "--gray-900": lightText,
           "--gray-700": lightTextSecondary,
           "--gray-600": lightTextSecondary,
+          "--gray-500": lightTextMuted,
+          "--gray-400": lightBorder,
           "--gray-300": lightBorder,
+          "--gray-200": lightBorder,
+          "--gray-100": lightInputBg,
           "--gray-50": lightBg,
         };
         const cssVarsDark: Record<string, string> = {
@@ -209,9 +218,9 @@ export function createUserRouter(context: Context) {
           "--da-text-secondary": darkTextSecondary,
           "--da-text-muted": darkTextMuted,
           "--da-border": darkBorder,
-          "--da-card-bg": String(cd.cardBackground || "#1f2937"),
+          "--da-card-bg": darkCardBg,
           "--da-card-shadow": String(cd.cardShadow || "rgba(0,0,0,0.3)"),
-          "--da-input-bg": String(cd.inputBackground || "#111827"),
+          "--da-input-bg": darkInputBg,
           "--da-input-border": String(cd.inputBorder || darkBorder),
           "--da-input-focus": String(cd.inputFocus || darkBrand),
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
@@ -223,10 +232,15 @@ export function createUserRouter(context: Context) {
           "--primary-600": darkPrimaryBg,
           "--primary-700": darkPrimaryHover,
           "--primary-100": darkPrimaryLight,
+          "--primary-button-text": String(cd.primaryForegroundColor || "#1f2937"),
           "--gray-900": darkText,
           "--gray-700": darkTextSecondary,
           "--gray-600": darkTextSecondary,
+          "--gray-500": darkTextMuted,
+          "--gray-400": darkBorder,
           "--gray-300": darkBorder,
+          "--gray-200": darkBorder,
+          "--gray-100": darkInputBg,
           "--gray-50": darkBg,
         };
         const varBlock = `:root{${Object.entries(cssVarsLight)
