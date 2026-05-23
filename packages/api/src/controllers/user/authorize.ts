@@ -8,10 +8,14 @@ import { getClient } from "../../models/clients.ts";
 import { getSession, getSessionId } from "../../services/sessions.ts";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.ts";
 import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.ts";
-import { resolveClientScopeDescriptions } from "../../utils/clientScopes.ts";
+import {
+  resolveClientScopeDescriptions,
+  resolveClientScopeKeys,
+} from "../../utils/clientScopes.ts";
 import { generateRandomString } from "../../utils/crypto.ts";
 import { parseQueryParams } from "../../utils/http.ts";
 import { validateCodeChallenge } from "../../utils/pkce.ts";
+import { resolveGrantedScopes } from "./token.ts";
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1, { message: "client_id is required" }),
@@ -57,6 +61,10 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (!client.redirectUris.includes(authRequest.redirect_uri)) {
     throw new InvalidRequestError("Invalid redirect_uri");
   }
+
+  const allowedScopes = resolveClientScopeKeys(client.scopes);
+  const grantedScopes = resolveGrantedScopes(allowedScopes, authRequest.scope);
+  const grantedScope = grantedScopes.join(" ");
 
   context.logger.info(
     {
@@ -110,6 +118,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     requestId,
     clientId: authRequest.client_id,
     redirectUri: authRequest.redirect_uri,
+    scope: grantedScope,
     state: authRequest.state,
     nonce: authRequest.nonce,
     codeChallenge: authRequest.code_challenge,
@@ -124,8 +133,8 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   const qs = new URLSearchParams();
   qs.set("request_id", requestId);
   qs.set("client_name", client.name);
-  qs.set("scopes", authRequest.scope);
-  const requestedScopeKeys = authRequest.scope.split(/\s+/).filter(Boolean);
+  qs.set("scopes", grantedScope);
+  const requestedScopeKeys = grantedScopes;
   const scopeDescriptions = resolveClientScopeDescriptions(client.scopes, requestedScopeKeys);
   if (Object.keys(scopeDescriptions).length > 0) {
     qs.set(

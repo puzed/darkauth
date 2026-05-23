@@ -7,6 +7,7 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clients } from "../db/schema.ts";
+import { sanitizeLoggedError } from "../services/audit.ts";
 import { getBrandingConfig, sanitizeCSS } from "../services/branding.ts";
 import { getSetting, isSystemInitialized } from "../services/settings.ts";
 import type { Context } from "../types.ts";
@@ -85,6 +86,11 @@ function isUserCorsOriginAllowed(
   policy: UserCorsPolicy
 ): boolean {
   if (policy.firstPartyOrigins.has(origin)) return true;
+  if (
+    pathname === "/.well-known/openid-configuration" ||
+    pathname === "/api/.well-known/openid-configuration"
+  )
+    return true;
   if (pathname === "/token" || pathname === "/api/token") {
     return policy.publicSpaOrigins.has(origin);
   }
@@ -280,7 +286,7 @@ export async function createUserServer(context: Context) {
         await serveStaticFiles(request, response, resolveStaticBase(userCandidates));
       }
     } catch (error) {
-      context.logger.error(error);
+      context.logger.error({ err: sanitizeLoggedError(error) });
       sendError(response, error as Error);
     }
   });
@@ -468,7 +474,7 @@ export async function createAdminServer(context: Context) {
         await serveStaticFiles(request, response, resolveStaticBase(adminCandidates));
       }
     } catch (error) {
-      context.logger.error(error);
+      context.logger.error({ err: sanitizeLoggedError(error) });
       sendError(response, error as Error);
     }
   });

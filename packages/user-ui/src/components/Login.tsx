@@ -1,8 +1,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
-import cryptoService, { sha256Base64Url, toBase64Url } from "../services/crypto";
-import { saveDrk } from "../services/drkStorage";
+import cryptoService, { toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
@@ -177,7 +176,7 @@ export default function Login({
         email: formData.email,
         request: loginStart.request,
       });
-      logger.debug({ response: loginStartResponse }, "[user-ui] login start response");
+      logger.debug(undefined, "[user-ui] login start response received");
 
       // Finish OPAQUE login
       const loginFinish = await opaqueService.finishLogin(
@@ -191,7 +190,13 @@ export default function Login({
         finish: loginFinish.request,
         sessionId: loginStartResponse.sessionId,
       });
-      logger.debug({ response: loginFinishResponse }, "[user-ui] login finish response");
+      logger.debug(
+        {
+          otpRequired: !!loginFinishResponse.otpRequired,
+          unverified: !!loginFinishResponse.unverified,
+        },
+        "[user-ui] login finish response received"
+      );
 
       if (loginFinishResponse.otpRequired) {
         opaqueService.clearState(loginStart.state);
@@ -235,8 +240,6 @@ export default function Login({
               loginFinishResponse.sub
             );
             await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-            const wrappedDrkHash = await sha256Base64Url(wrappedDrk);
-            saveDrk(loginFinishResponse.sub, drk, wrappedDrkHash);
             cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
           } catch (e) {
             logger.warn(

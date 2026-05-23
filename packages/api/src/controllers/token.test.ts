@@ -4,6 +4,7 @@ import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from 
 import {
   assertClientSecretMatches,
   assertRefreshTokenClientBinding,
+  buildUserAccessTokenClaims,
   buildUserIdTokenClaims,
   resolveGrantedScopes,
   resolveSessionClientId,
@@ -99,6 +100,30 @@ test("buildUserIdTokenClaims omits nonce when not provided", () => {
   });
 
   assert.equal(claims.nonce, undefined);
+});
+
+test("buildUserAccessTokenClaims separates API authorization from ID token claims", () => {
+  const claims = buildUserAccessTokenClaims({
+    issuer: "https://issuer.example",
+    subject: "user-sub",
+    audience: "client-id",
+    authorizedParty: "client-id",
+    expiresAtSeconds: 200,
+    issuedAtSeconds: 100,
+    scope: "openid profile darkauth.users:read",
+    grantType: "authorization_code",
+    orgId: "8d1285e7-44f3-4d33-9f5c-36b7ec1ee804",
+    orgSlug: "default",
+    roles: ["member"],
+    permissions: ["darkauth.users:read"],
+  });
+
+  assert.equal(claims.token_use, "access");
+  assert.equal(claims.grant_type, "authorization_code");
+  assert.equal(claims.scope, "openid profile darkauth.users:read");
+  assert.equal(claims.aud, "client-id");
+  assert.equal(claims.azp, "client-id");
+  assert.deepEqual(claims.permissions, ["darkauth.users:read"]);
 });
 
 test("resolveSessionClientId returns client id for valid session data", () => {

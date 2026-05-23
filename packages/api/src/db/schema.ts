@@ -175,6 +175,7 @@ export const authCodes = pgTable("auth_codes", {
     onDelete: "set null",
   }),
   redirectUri: text("redirect_uri").notNull(),
+  scope: text("scope").default("").notNull(),
   nonce: text("nonce"),
   codeChallenge: text("code_challenge"),
   codeChallengeMethod: text("code_challenge_method"),
@@ -218,6 +219,7 @@ export const pendingAuth = pgTable("pending_auth", {
     .notNull()
     .references(() => clients.clientId, { onDelete: "cascade" }),
   redirectUri: text("redirect_uri").notNull(),
+  scope: text("scope").default("").notNull(),
   state: text("state"),
   nonce: text("nonce"),
   codeChallenge: text("code_challenge"),

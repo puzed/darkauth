@@ -3,13 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import DocsCallout from "@/pages/docs/components/DocsCallout";
 import { ListChecks, ShieldCheck, UserRoundSearch } from "lucide-react";
 
-const bearerExample = `const idToken = sessionStorage.getItem("id_token");
+const bearerExample = `const accessToken = localStorage.getItem("access_token");
 
 const response = await fetch(
   "http://localhost:9080/api/users?q=mark",
   {
     headers: {
-      Authorization: \`Bearer \${idToken}\`,
+      Authorization: \`Bearer \${accessToken}\`,
     },
   }
 );
