@@ -5,9 +5,11 @@ import { Building2, KeyRound, ShieldCheck, UsersRound } from "lucide-react";
 
 const orgList = `GET /api/organizations\nAuthorization: Bearer <token>`;
 
-const roleAssign = `POST /api/organizations/{organizationId}/members/{memberId}/roles\nAuthorization: Bearer <admin_token>\n\n{\"roleIds\":[\"role_uuid\"]}`;
+const roleAssign = `POST /api/organizations/{organizationId}/members/{memberId}/roles\nAuthorization: Bearer <admin_token>\n\n{"roleIds":["role_uuid"]}`;
 
-const orgCreate = `POST /api/organizations\nAuthorization: Bearer <admin_token>\n\n{\"name\":\"Acme\",\"slug\":\"acme\"}`;
+const orgCreate = `POST /api/organizations\nAuthorization: Bearer <admin_token>\n\n{"name":"Acme","slug":"acme"}`;
+
+const switchOrg = `GET /switch-org?client_id=demo-public-client&return_to=https%3A%2F%2Fapp.example.com%2Fdashboard`;
 
 const OrganizationsRbacPage = () => {
   return (
@@ -36,6 +38,7 @@ const OrganizationsRbacPage = () => {
             </div>
             <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
               <li>User sessions may include a resolved `organizationId` and `organizationSlug`.</li>
+              <li>`/api/authorize` accepts optional `organization_id` for explicit org-bound sign-in.</li>
               <li>Role resolution is performed at session creation and during token issue.</li>
               <li>Role/permission changes can trigger re-auth or token refresh expectations.</li>
             </ul>
@@ -50,6 +53,7 @@ const OrganizationsRbacPage = () => {
             </div>
             <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
               <li>Tokens can include `roles` and `permissions` claims for org context.</li>
+              <li>Claims are scoped to the selected org and do not include roles from other orgs.</li>
               <li>Directory and admin endpoints evaluate claims and active membership.</li>
               <li>OTP-required role/group can enforce step-up checks.</li>
             </ul>
@@ -84,6 +88,22 @@ const OrganizationsRbacPage = () => {
           <li>Use admin endpoints for policy governance in production toolchains.</li>
         </ul>
       </DocsCallout>
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">Org selection and tenant switching</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-4 text-xs">
+            <code>{switchOrg}</code>
+          </pre>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-base text-muted-foreground">
+            <li>If no org is supplied at authorize time, DarkAuth uses the current session org, selects the only active org, or prompts multi-org users.</li>
+            <li>Redirect users to `/switch-org` when your app offers a tenant switch control.</li>
+            <li>`return_to` must be relative or valid for the supplied `client_id`.</li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6 space-y-3">

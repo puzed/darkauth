@@ -6,7 +6,10 @@ import { ArrowRight, KeyRound, RefreshCw, Shield, UserRoundSearch } from "lucide
 const authorizeSnippet = `GET /api/authorize?client_id=demo-public-client&\
   response_type=code&\
   redirect_uri=https://app.example.com/callback&\
-  scope=openid%20profile%20email`;
+  scope=openid%20profile%20email&\
+  organization_id=org_uuid`;
+
+const switchOrgSnippet = `GET /switch-org?client_id=demo-public-client&return_to=https%3A%2F%2Fapp.example.com%2Fsettings`;
 
 const finalizeSnippet = `POST /api/authorize/finalize\nContent-Type: application/x-www-form-urlencoded\n\nrequest_id=<uuid>&user_email=<email>`;
 
@@ -46,6 +49,10 @@ const AuthPage = () => {
             </pre>
             <p className="mt-3 text-sm text-muted-foreground">
               Public client and PKCE enforcement are performed at this stage.
+            </p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              `organization_id` is optional. Send it only when your client already knows the org the
+              user is trying to enter; DarkAuth validates active membership before issuing a code.
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
               Finalization can be processed using `/api/authorize/finalize` when your UI returns the
@@ -94,8 +101,25 @@ const AuthPage = () => {
           <li>For public clients, token endpoint uses PKCE and non-secret client handling.</li>
           <li>Confidential clients validate via Basic and verify client type/grant support.</li>
           <li>Refresh tokens are rotated and bound to original client ID.</li>
+          <li>When `organization_id` is omitted, DarkAuth uses the current session org, selects the only active org, or prompts multi-org users before code issue.</li>
         </ul>
       </DocsCallout>
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">User-driven tenant switching</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-4 text-xs">
+            <code>{switchOrgSnippet}</code>
+          </pre>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-base text-muted-foreground">
+            <li>Redirect users to `/switch-org` when they choose a different tenant in your app.</li>
+            <li>Pass `client_id` so DarkAuth can validate an absolute `return_to` against registered client redirects.</li>
+            <li>Use relative `return_to` paths when no `client_id` is supplied.</li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="border-border/60 shadow-sm">
