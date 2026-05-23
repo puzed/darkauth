@@ -4,8 +4,10 @@ import { InvalidRequestError, NotFoundError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createAuthCode } from "../../models/authCodes.ts";
-import { consumePendingAuth } from "../../models/authorize.ts";
-import { requireSession } from "../../services/sessions.ts";
+import { consumePendingAuth, getPendingAuth } from "../../models/authorize.ts";
+import { resolveAuthorizationOrganizationContext } from "../../models/rbac.ts";
+import { getClientIp, logAuditEvent } from "../../services/audit.ts";
+import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { generateRandomString } from "../../utils/crypto.ts";
@@ -27,6 +29,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       ..._params: unknown[]
     ): Promise<void> => {
       const sessionData = await requireSession(context, request);
+      const sessionId = getSessionId(request);
 
       if (!sessionData.sub) {
         throw new InvalidRequestError("User session required");
@@ -46,9 +49,12 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const requestId = parsed.request_id;
       const isApproved = parsed.approve !== "false";
 
-      const pendingRequest = await consumePendingAuth(context, requestId, sessionData.sub);
+      const pendingRequest = await getPendingAuth(context, requestId);
 
-      if (!pendingRequest) {
+      if (
+        !pendingRequest ||
+        (pendingRequest.userSub && pendingRequest.userSub !== sessionData.sub)
+      ) {
         throw new NotFoundError("Authorization request not found or expired");
       }
 
@@ -68,6 +74,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       }
 
       if (!isApproved) {
+        await consumePendingAuth(context, requestId, sessionData.sub);
         sendJson(response, 200, {
           error: "access_denied",
           error_description: "The resource owner denied the authorization request",
@@ -87,22 +94,82 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         throw new InvalidRequestError("drk_hash is required for ZK authorization requests");
       }
 
-      // Store authorization code with PKCE support
+      if (
+        pendingRequest.organizationId &&
+        parsed.organization_id &&
+        parsed.organization_id !== pendingRequest.organizationId
+      ) {
+        throw new InvalidRequestError(
+          "Organization cannot be changed for this authorization request"
+        );
+      }
+
+      const sessionOrganizationId =
+        typeof sessionData.organizationId === "string" ? sessionData.organizationId : undefined;
+      const resolvedOrganization = await resolveAuthorizationOrganizationContext(
+        context,
+        sessionData.sub,
+        {
+          explicitOrganizationId: parsed.organization_id,
+          pendingOrganizationId: pendingRequest.organizationId,
+          sessionOrganizationId,
+        }
+      );
+
+      const consumedPendingRequest = await consumePendingAuth(context, requestId, sessionData.sub);
+      if (!consumedPendingRequest) {
+        throw new NotFoundError("Authorization request not found or expired");
+      }
+
       await createAuthCode(context, {
         code,
-        clientId: pendingRequest.clientId,
+        clientId: consumedPendingRequest.clientId,
         userSub: sessionData.sub,
-        organizationId: parsed.organization_id || pendingRequest.organizationId || undefined,
-        redirectUri: pendingRequest.redirectUri,
-        scope: pendingRequest.scope,
-        nonce: pendingRequest.nonce,
-        codeChallenge: pendingRequest.codeChallenge,
-        codeChallengeMethod: pendingRequest.codeChallengeMethod || undefined,
+        organizationId: resolvedOrganization.organizationId,
+        redirectUri: consumedPendingRequest.redirectUri,
+        scope: consumedPendingRequest.scope,
+        nonce: consumedPendingRequest.nonce,
+        codeChallenge: consumedPendingRequest.codeChallenge,
+        codeChallengeMethod: consumedPendingRequest.codeChallengeMethod || undefined,
         expiresAt: codeExpiresAt,
         hasZk,
-        zkPubKid: pendingRequest.zkPubKid,
+        zkPubKid: consumedPendingRequest.zkPubKid,
         drkHash: hasZk ? drkHashFromClient : undefined,
       });
+
+      if (sessionId) {
+        await updateSession(context, sessionId, {
+          ...sessionData,
+          organizationId: resolvedOrganization.organizationId,
+          organizationSlug: resolvedOrganization.organizationSlug || undefined,
+        });
+      }
+
+      if (sessionOrganizationId !== resolvedOrganization.organizationId) {
+        await logAuditEvent(context, {
+          eventType: "ORGANIZATION_SWITCHED",
+          method: request.method || "POST",
+          path: request.url || "/authorize/finalize",
+          cohort: "user",
+          userId: sessionData.sub,
+          clientId: pendingRequest.clientId,
+          ipAddress: getClientIp(request),
+          userAgent: Array.isArray(request.headers["user-agent"])
+            ? request.headers["user-agent"][0]
+            : request.headers["user-agent"],
+          success: true,
+          statusCode: 200,
+          resourceType: "organization",
+          resourceId: resolvedOrganization.organizationId,
+          action: "switch",
+          details: {
+            previousOrganizationId: sessionOrganizationId || null,
+            organizationId: resolvedOrganization.organizationId,
+            organizationSlug: resolvedOrganization.organizationSlug,
+            requestId,
+          },
+        });
+      }
 
       // Return JSON with code and state as specified in CORE.md
       // Client-side JavaScript will handle the redirect with fragment

@@ -33,7 +33,7 @@ import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/pas
 import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.ts";
 import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
-import { getSession } from "../../controllers/user/session.ts";
+import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
 import { postToken } from "../../controllers/user/token.ts";
 import {
   getUserDirectoryEntry,
@@ -362,6 +362,10 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/session") {
         return await getSession(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/session/organization") {
+        return await postSessionOrganization(context, request, response);
       }
 
       if (method === "GET" && pathname === "/scope-descriptions") {

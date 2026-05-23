@@ -8,8 +8,11 @@ const authorizationUrl = `https://auth.example.com/api/authorize?\
   redirect_uri=https://app.example.com/callback&\
   response_type=code&\
   scope=openid%20profile%20email&\
+  organization_id=org_uuid&\
   code_challenge_method=S256&\
   code_challenge=7xv6k...`;
+
+const switchOrgUrl = `https://auth.example.com/switch-org?client_id=demo-public-client&return_to=https%3A%2F%2Fapp.example.com%2Faccount`;
 
 const tokenExchange = `POST /api/token\nContent-Type: application/x-www-form-urlencoded\n\nclient_id=demo-public-client&grant_type=authorization_code&code=<code>&code_verifier=<verifier>&redirect_uri=https://app.example.com/callback`;
 
@@ -96,6 +99,10 @@ const PublicClientFlowPage = () => {
             You normally build this URL server-side in your app router and redirect users to it.
             DarkAuth validates client, redirect URI, grant type, and code challenge.
           </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            `organization_id` is optional. Include it only when the app has an explicit tenant target;
+            omit it to let DarkAuth resolve the current session org or ask multi-org users to choose.
+          </p>
         </CardContent>
       </Card>
 
@@ -122,8 +129,25 @@ const PublicClientFlowPage = () => {
           <li>DarkAuth user-facing APIs use bearer tokens on `Authorization: Bearer`.</li>
           <li>Use `/api/session` for quick session introspection.</li>
           <li>Use `/api/token` with `grant_type=refresh_token` when renewals are required.</li>
+          <li>Tokens contain claims for the selected org only: `org_id`, `org_slug`, `roles`, and `permissions`.</li>
         </ul>
       </DocsCallout>
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <h3 className="text-lg font-semibold tracking-tight">Tenant switch links</h3>
+        </CardHeader>
+        <CardContent>
+          <pre className="w-full overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-4 text-xs">
+            <code>{switchOrgUrl}</code>
+          </pre>
+          <ul className="mt-3 list-disc space-y-2 pl-5 text-base text-muted-foreground">
+            <li>Use `/switch-org` for user-driven tenant switching instead of forcing logout.</li>
+            <li>`return_to` sends the browser back after selection when it is valid for `client_id`.</li>
+            <li>`organization_id` may be added to preselect an org, but the user must still have active membership.</li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60 shadow-sm">
         <CardContent className="p-6">

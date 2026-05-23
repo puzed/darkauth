@@ -306,17 +306,17 @@ export const postToken = withRateLimit("token")(
         );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
-        const { getUserOrgAccess, resolveOrganizationContext } = await import(
+        const { getUserOrgAccess, resolveAuthorizationOrganizationContext } = await import(
           "../../models/rbac.ts"
         );
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
             : undefined;
-        const { organizationId, organizationSlug } = await resolveOrganizationContext(
+        const { organizationId, organizationSlug } = await resolveAuthorizationOrganizationContext(
           context,
           user.sub,
-          sessionOrganizationId
+          { sessionOrganizationId }
         );
         const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
           context,
