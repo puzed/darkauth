@@ -99,3 +99,37 @@ test("createAuthCode stores nonce in auth code record", async () => {
   assert.equal(insertedValues?.nonce, "nonce-value");
   assert.equal(insertedValues?.scope, "openid profile");
 });
+
+test("createAuthCode explains auth code schema drift", async () => {
+  const context = {
+    db: {
+      insert: () => ({
+        values: () =>
+          Promise.reject({
+            code: "42703",
+            message: 'column "scope" of relation "auth_codes" does not exist',
+          }),
+      }),
+    },
+  } as unknown as Context;
+
+  await assert.rejects(
+    () =>
+      createAuthCode(context, {
+        code: "auth-code",
+        clientId: "client-id",
+        userSub: "user-sub",
+        redirectUri: "https://client.example/callback",
+        scope: "openid profile",
+        codeChallenge: "challenge",
+        codeChallengeMethod: "S256",
+        expiresAt: new Date("2026-02-15T00:00:00.000Z"),
+      }),
+    {
+      name: "AppError",
+      error: "server_error",
+      error_description: "DarkAuth database schema is out of date; run migrations",
+      statusCode: 500,
+    }
+  );
+});
