@@ -258,49 +258,49 @@ When explicit org is invalid:
 
 ## Phase 1: Backend Session Org API
 
-1. Extend user session response with current organization.
-2. Add session organization update endpoint.
-3. Validate membership before session updates.
-4. Audit organization switch events.
+- [x] Extend user session response with current organization.
+- [x] Add session organization update endpoint.
+- [x] Validate membership before session updates.
+- [x] Audit organization switch events.
 
 ## Phase 2: Authorize Org Selection
 
-1. Include active organizations in authorize UI state.
-2. If multiple orgs and no pending org, render org selection before consent.
-3. Submit selected `organization_id` to authorize finalize.
-4. Persist selected org to the session after successful finalize.
-5. Keep explicit `organization_id` requests locked to the requested org.
+- [x] Include active organizations in authorize UI state.
+- [x] If multiple orgs and no pending org, render org selection before consent.
+- [x] Submit selected `organization_id` to authorize finalize.
+- [x] Persist selected org to the session after successful finalize.
+- [x] Keep explicit `organization_id` requests locked to the requested org.
 
 ## Phase 3: Switch Org Screen
 
-1. Add `/switch-org` route.
-2. Reuse organization list and session update endpoint.
-3. Validate `return_to`.
-4. Redirect after selection.
+- [x] Add `/switch-org` route.
+- [x] Reuse organization list and session update endpoint.
+- [x] Validate `return_to`.
+- [x] Redirect after selection.
 
 ## Phase 4: Client Guidance
 
-1. Document optional `organization_id` on `/authorize`.
-2. Document `/switch-org?client_id=...&return_to=...`.
-3. Recommend apps redirect to `/switch-org` for user-driven tenant switching.
+- [x] Document optional `organization_id` on `/authorize`.
+- [x] Document `/switch-org?client_id=...&return_to=...`.
+- [x] Recommend apps redirect to `/switch-org` for user-driven tenant switching.
 
 ## Testing
 
-- authorize with explicit valid org.
-- authorize with explicit invalid org.
-- authorize with one active org and no explicit org.
-- authorize with multiple active orgs and no explicit org shows selector.
-- selected org is bound to auth code.
-- token claims contain only selected org roles and permissions.
-- session org updates after selection.
-- switch-org rejects invalid `return_to`.
-- switch-org rejects organization without active membership.
-- raw `ORG_CONTEXT_REQUIRED` is not shown in the UI.
+- [x] authorize with explicit valid org.
+- [x] authorize with explicit invalid org.
+- [x] authorize with one active org and no explicit org.
+- [x] authorize with multiple active orgs and no explicit org shows selector.
+- [x] selected org is bound to auth code.
+- [x] token claims contain only selected org roles and permissions.
+- [x] session org updates after selection.
+- [x] switch-org rejects invalid `return_to`.
+- [x] switch-org rejects organization without active membership.
+- [x] raw `ORG_CONTEXT_REQUIRED` is not shown in the UI.
 
 ## Acceptance Criteria
 
-- A multi-org user can sign in to an OIDC client without the client supplying `organization_id`.
-- DarkAuth asks the user to pick an org before issuing the authorization code.
-- Atlas-style clients receive tokens with the expected selected-org permissions.
-- Apps can redirect to `/switch-org` and get the user back with a new session org.
-- If something is misconfigured, the user sees an actionable message instead of `server_error` or `ORG_CONTEXT_REQUIRED`.
+- [x] A multi-org user can sign in to an OIDC client without the client supplying `organization_id`.
+- [x] DarkAuth asks the user to pick an org before issuing the authorization code.
+- [x] Atlas-style clients receive tokens with the expected selected-org permissions.
+- [x] Apps can redirect to `/switch-org` and get the user back with a new session org.
+- [x] If something is misconfigured, the user sees an actionable message instead of `server_error` or `ORG_CONTEXT_REQUIRED`.
