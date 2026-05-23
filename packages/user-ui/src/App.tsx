@@ -15,6 +15,7 @@ import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
 import RegisterView from "./components/RegisterView";
 import SettingsSecurityView from "./components/SettingsSecurityView";
+import SwitchOrg from "./components/SwitchOrg";
 import VerifyEmailView from "./components/VerifyEmailView";
 import apiService from "./services/api";
 import { clearAllDrk } from "./services/drkStorage";
@@ -29,6 +30,8 @@ interface SessionData {
   name?: string;
   email?: string;
   passwordResetRequired?: boolean;
+  organizationId?: string;
+  organizationSlug?: string;
 }
 
 interface AuthRequest {
@@ -41,6 +44,7 @@ interface AuthRequest {
   redirectUri?: string;
   state?: string;
   zkPub?: string;
+  organizationId?: string;
 }
 
 function decodeBase64Url(value: string): string {
@@ -86,6 +90,8 @@ function AppContent() {
           name: session.name,
           email: session.email,
           passwordResetRequired: !!session.passwordResetRequired,
+          organizationId: session.organizationId,
+          organizationSlug: session.organizationSlug,
         });
         try {
           await apiService.getOtpStatus();
@@ -135,6 +141,7 @@ function AppContent() {
     const redirectUri = params.get("redirect_uri") || undefined;
     const state = params.get("state") || undefined;
     const zkPub = params.get("zk_pub") || undefined;
+    const organizationId = params.get("organization_id") || undefined;
     setAuthRequest((current) => {
       if (
         current &&
@@ -147,6 +154,7 @@ function AppContent() {
         current.redirectUri === redirectUri &&
         current.state === state &&
         current.zkPub === zkPub &&
+        current.organizationId === organizationId &&
         current.scopes.join(" ") === scopes.join(" ")
       ) {
         return current;
@@ -161,6 +169,7 @@ function AppContent() {
         redirectUri,
         state,
         zkPub,
+        organizationId,
       };
     });
     setAuthRequestSearch(search);
@@ -214,6 +223,21 @@ function AppContent() {
       cancelled = true;
     };
   }, [authClientId, authRequestId, authScopesValue]);
+
+  const updateSessionOrganization = (organization: {
+    organizationId: string;
+    organizationSlug?: string;
+  }) => {
+    setSessionData((current) =>
+      current
+        ? {
+            ...current,
+            organizationId: organization.organizationId,
+            organizationSlug: organization.organizationSlug,
+          }
+        : current
+    );
+  };
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
@@ -366,6 +390,45 @@ function AppContent() {
                   </div>
                 </div>
                 <Authorize authRequest={authRequest} sessionData={sessionData} />
+              </div>
+            </div>
+          )
+        }
+      />
+      <Route
+        path="/switch-org"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to={`/login${location.search}`} replace />
+          ) : sessionData.passwordResetRequired ? (
+            <Navigate to="/change-password" replace />
+          ) : (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="header da-header authorize-page-header">
+                  <div className="brand da-brand">
+                    <span className="brand-icon da-brand-icon">
+                      <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
+                    </span>
+                    <h1 className="da-brand-title">{branding.getTitle()}</h1>
+                  </div>
+                  <div className="user-info da-user-info authorize-page-actions">
+                    <ThemeToggle />
+                  </div>
+                </div>
+                <SwitchOrg
+                  sessionData={sessionData}
+                  onOrganizationChanged={updateSessionOrganization}
+                />
               </div>
             </div>
           )

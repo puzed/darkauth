@@ -71,6 +71,7 @@ export interface AuthorizeRequest {
   approve: boolean;
   drkHash?: string;
   drkJwe?: string;
+  organizationId?: string;
 }
 
 export interface AuthorizeResponse {
@@ -85,6 +86,27 @@ export interface SessionResponse {
   passwordResetRequired?: boolean;
   otpRequired?: boolean;
   otpVerified?: boolean;
+  organizationId?: string;
+  organizationSlug?: string;
+}
+
+export interface UserOrganization {
+  organizationId: string;
+  slug: string;
+  name: string;
+  forceOtp?: boolean;
+  membershipId?: string;
+  status?: string;
+  roles?: Array<{ id?: string; key?: string; name?: string }>;
+}
+
+export interface SessionOrganizationResponse {
+  organizationId: string;
+  organizationSlug?: string;
+  returnTo?: string;
+  return_to?: string;
+  redirectUrl?: string;
+  redirect_url?: string;
 }
 
 export interface WrappedDrkResponse {
@@ -301,6 +323,24 @@ class ApiService {
     return this.request("/session");
   }
 
+  async getOrganizations(): Promise<{ organizations: UserOrganization[] }> {
+    return this.request("/organizations");
+  }
+
+  async setSessionOrganization(
+    organizationId: string,
+    options: { returnTo?: string; clientId?: string } = {}
+  ): Promise<SessionOrganizationResponse> {
+    return this.request("/session/organization", {
+      method: "POST",
+      body: JSON.stringify({
+        organization_id: organizationId,
+        return_to: options.returnTo,
+        client_id: options.clientId,
+      }),
+    });
+  }
+
   async getClientScopeDescriptions(
     clientId: string,
     scopes: string[]
@@ -416,6 +456,9 @@ class ApiService {
     params.set("approve", request.approve ? "true" : "false");
     if (request.drkHash) {
       params.set("drk_hash", request.drkHash);
+    }
+    if (request.organizationId) {
+      params.set("organization_id", request.organizationId);
     }
 
     const data = await this.request<
