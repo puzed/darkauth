@@ -75,6 +75,42 @@ test.describe('Admin - Permissions Management', () => {
     expect(testPerm).toBeTruthy();
   });
 
+  test('Can assign permissions to the default member role via API', async () => {
+    const adminSession = await getAdminSession(servers, adminCred);
+
+    const rolesRes = await fetch(`${servers.adminUrl}/admin/roles`, {
+      headers: {
+        Cookie: adminSession.cookieHeader,
+        'Origin': servers.adminUrl
+      }
+    });
+
+    expect(rolesRes.ok).toBeTruthy();
+    const rolesJson = await rolesRes.json() as {
+      roles: Array<{ id: string; key: string; permissionKeys: string[]; system: boolean }>;
+    };
+    const memberRole = rolesJson.roles.find(role => role.key === 'member');
+    expect(memberRole).toBeTruthy();
+    expect(memberRole?.system).toBeTruthy();
+
+    const permissionKeys = Array.from(new Set([...(memberRole?.permissionKeys || []), 'api:test:read']));
+    const updateRes = await fetch(`${servers.adminUrl}/admin/roles/${memberRole?.id}/permissions`, {
+      method: 'PUT',
+      headers: {
+        Cookie: adminSession.cookieHeader,
+        'Origin': servers.adminUrl,
+        'Content-Type': 'application/json',
+        'x-csrf-token': adminSession.csrfToken,
+      },
+      body: JSON.stringify({ permissionKeys })
+    });
+
+    expect(updateRes.ok).toBeTruthy();
+    const updated = await updateRes.json() as { roleId: string; permissionKeys: string[] };
+    expect(updated.roleId).toBe(memberRole?.id);
+    expect(updated.permissionKeys.includes('api:test:read')).toBeTruthy();
+  });
+
   test('Cannot create duplicate permission', async () => {
     const adminSession = await getAdminSession(servers, adminCred);
 

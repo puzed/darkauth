@@ -621,7 +621,6 @@ export async function updateRoleAdmin(
 ) {
   const existing = await context.db.query.roles.findFirst({ where: eq(roles.id, roleId) });
   if (!existing) throw new NotFoundError("Role not found");
-  if (existing.system) throw new ValidationError("System roles cannot be updated");
 
   const updates: { name?: string; description?: string | null; updatedAt: Date } = {
     updatedAt: new Date(),
@@ -661,7 +660,6 @@ export async function setRolePermissionsAdmin(
 ) {
   const existingRole = await context.db.query.roles.findFirst({ where: eq(roles.id, roleId) });
   if (!existingRole) throw new NotFoundError("Role not found");
-  if (existingRole.system) throw new ValidationError("System roles cannot be updated");
 
   const deduped = Array.from(new Set(permissionKeys));
 

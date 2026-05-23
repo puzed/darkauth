@@ -6,9 +6,17 @@ import {
   addOrganizationMemberRolesAdmin,
   removeOrganizationMemberRoleAdmin,
   setRolePermissionsAdmin,
+  updateRoleAdmin,
 } from "./rbacAdmin.ts";
 
-test("setRolePermissionsAdmin rejects system roles", async () => {
+test("updateRoleAdmin allows system roles", async () => {
+  const updatedRole = {
+    id: "role-1",
+    key: "member",
+    name: "Default Member",
+    description: "Default role",
+    system: true,
+  };
   const context = {
     db: {
       query: {
@@ -16,17 +24,46 @@ test("setRolePermissionsAdmin rejects system roles", async () => {
           findFirst: async () => ({ id: "role-1", system: true }),
         },
       },
+      update: () => ({
+        set: () => ({
+          where: () => ({
+            returning: async () => [updatedRole],
+          }),
+        }),
+      }),
     },
   } as unknown as Context;
 
-  await assert.rejects(
-    () => setRolePermissionsAdmin(context, "role-1", []),
-    (error: unknown) => {
-      assert.ok(error instanceof ValidationError);
-      assert.equal(error.message, "System roles cannot be updated");
-      return true;
-    }
-  );
+  const result = await updateRoleAdmin(context, "role-1", { name: "Default Member" });
+
+  assert.equal(result, updatedRole);
+});
+
+test("setRolePermissionsAdmin allows system roles", async () => {
+  let deleteCalled = false;
+  const context = {
+    db: {
+      query: {
+        roles: {
+          findFirst: async () => ({ id: "role-1", system: true }),
+        },
+      },
+      transaction: async (callback: (trx: unknown) => Promise<void>) => {
+        await callback({
+          delete: () => ({
+            where: () => {
+              deleteCalled = true;
+            },
+          }),
+        });
+      },
+    },
+  } as unknown as Context;
+
+  const result = await setRolePermissionsAdmin(context, "role-1", []);
+
+  assert.equal(deleteCalled, true);
+  assert.deepEqual(result, { roleId: "role-1", permissionKeys: [] });
 });
 
 test("addOrganizationMemberRolesAdmin rejects empty role ids", async () => {
