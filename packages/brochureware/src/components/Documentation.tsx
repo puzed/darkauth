@@ -3,12 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   BookOpen, 
-  Code, 
   Zap, 
-  Settings, 
-  Shield,
-  ArrowRight,
-  ExternalLink,
   Copy
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -129,41 +124,6 @@ spec:
       lang: "yaml",
       description: "Kubernetes manifests for config, deployment, and services"
     }
-  ];
-
-  const resources = [
-    {
-      icon: BookOpen,
-      title: "API Documentation",
-      description: "Complete REST API reference with examples",
-      link: "/docs/api",
-      badge: "Interactive"
-    },
-    {
-      icon: Code,
-      title: "Integration Guides",
-      description: "Step-by-step guides for popular frameworks",
-      link: "/docs/guides/public-client-flow",
-      badge: "Code Examples"
-    },
-    {
-      icon: Shield,
-      title: "Security Model",
-      description: "Deep dive into OPAQUE protocol implementation",
-      link: "/docs/concepts/security-model",
-      badge: "Technical"
-    },
-    {
-      icon: Settings,
-      title: "Deployment Guide", 
-      description: "Production deployment and configuration",
-      link: "/docs/operations/deployment",
-      badge: "DevOps"
-    }
-  ];
-
-  const sdks = [
-    { name: "TypeScript/JavaScript", status: "Stable", version: "v0.1.0" }
   ];
 
   const [tab, setTab] = useState("compose");
@@ -297,9 +257,9 @@ spec:
             <Button variant="hero" size="lg">
               Launch Interactive Demo
             </Button>
-            <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
+            <a href="https://docs.darkauth.com" target="_blank" rel="noreferrer">
               <Button variant="outline" size="lg">
-                View Source Code
+                Read the Docs
               </Button>
             </a>
           </div>
