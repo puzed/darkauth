@@ -26,6 +26,7 @@ declare global {
 }
 
 type ThemeMode = "light" | "dark";
+type BrandingTab = ThemeMode | "language";
 type BrandingImage = { data: string | null; mimeType: string | null };
 type BrandingIdentity = { title: string; tagline: string };
 
@@ -53,6 +54,23 @@ const defaultDarkColors: Record<string, string> = {
   textColor: "#f8fafc",
 };
 
+const wordingFields = [
+  { key: "welcomeBack", label: "Welcome title", fallback: "Welcome back" },
+  { key: "email", label: "Email label", fallback: "Email" },
+  { key: "emailPlaceholder", label: "Email placeholder", fallback: "Enter your email" },
+  { key: "password", label: "Password label", fallback: "Password" },
+  {
+    key: "passwordPlaceholder",
+    label: "Password placeholder",
+    fallback: "Enter your password",
+  },
+  { key: "signin", label: "Submit button", fallback: "Continue" },
+  { key: "signingIn", label: "Loading button", fallback: "Signing in..." },
+  { key: "forgotPassword", label: "Forgot password link", fallback: "Forgot your password?" },
+  { key: "noAccount", label: "No account prompt", fallback: "Don't have an account?" },
+  { key: "signup", label: "Sign up link", fallback: "Sign up" },
+] as const;
+
 function normalizeColors(colors: Record<string, string> | undefined, mode: ThemeMode) {
   const defaults = mode === "dark" ? defaultDarkColors : defaultLightColors;
   const c = colors || {};
@@ -63,6 +81,14 @@ function normalizeColors(colors: Record<string, string> | undefined, mode: Theme
     backgroundColor: c.backgroundColor || defaults.backgroundColor,
     textColor: c.textColor || defaults.textColor,
   };
+}
+
+function normalizeWording(wording: Record<string, string> | undefined) {
+  const normalized: Record<string, string> = { ...(wording || {}) };
+  for (const field of wordingFields) {
+    normalized[field.key] = normalized[field.key] || field.fallback;
+  }
+  return normalized;
 }
 
 function buildPreviewUrl(issuer: string, cacheBust: string) {
@@ -118,6 +144,10 @@ export default function Branding() {
     const mode = new URL(window.location.href).searchParams.get("mode");
     return mode === "dark" ? "dark" : "light";
   });
+  const [activeTab, setActiveTab] = useState<BrandingTab>(() => {
+    const mode = new URL(window.location.href).searchParams.get("mode");
+    return mode === "dark" ? "dark" : "light";
+  });
   const [identity, setIdentity] = useState<BrandingIdentity>({ title: "", tagline: "" });
   const [colorsLight, setColorsLight] = useState<Record<string, string>>(defaultLightColors);
   const [colorsDark, setColorsDark] = useState<Record<string, string>>(defaultDarkColors);
@@ -167,7 +197,7 @@ export default function Branding() {
       setFaviconLight(normalizeImage(branding.get("branding.favicon")));
       setFaviconDark(normalizeImage(branding.get("branding.favicon_dark")));
       setCustomCss((branding.get("branding.custom_css") as string) || "");
-      setWording((branding.get("branding.wording") as Record<string, string>) || {});
+      setWording(normalizeWording(branding.get("branding.wording") as Record<string, string>));
       setFont(
         (branding.get("branding.font") as {
           family: string;
@@ -195,6 +225,10 @@ export default function Branding() {
     url.searchParams.set("mode", activeMode);
     window.history.replaceState(window.history.state, "", url.toString());
   }, [activeMode]);
+
+  useEffect(() => {
+    if (activeTab !== "language") setActiveTab(activeMode);
+  }, [activeMode, activeTab]);
 
   const previewPayload = useMemo(() => {
     const lightFallbackLogo = toDataSvg(getDefaultLogoSvg(colorsLight.brandColor || "#6600cc"));
@@ -351,6 +385,9 @@ export default function Branding() {
   const darkLogo = logoDark;
   const lightFavicon = faviconLight;
   const darkFavicon = faviconDark;
+  const updateWording = (key: string, value: string) => {
+    setWording((prev) => ({ ...prev, [key]: value }));
+  };
 
   const renderThemeFields = (
     mode: ThemeMode,
@@ -458,6 +495,21 @@ export default function Branding() {
     </div>
   );
 
+  const renderLanguageFields = () => (
+    <div style={{ display: "grid", gap: 16 }}>
+      {wordingFields.map((field) => (
+        <div key={field.key}>
+          <Label>{field.label}</Label>
+          <Input
+            value={wording[field.key] || ""}
+            onChange={(e) => updateWording(field.key, e.target.value)}
+            style={{ marginTop: 8 }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <div>
       <PageHeader
@@ -494,10 +546,18 @@ export default function Branding() {
                 <CardTitle>Branding Area</CardTitle>
               </CardHeader>
               <CardContent style={{ display: "grid", gap: 16 }}>
-                <Tabs value={activeMode} onValueChange={(v) => setActiveMode(v as ThemeMode)}>
+                <Tabs
+                  value={activeTab}
+                  onValueChange={(v) => {
+                    const next = v as BrandingTab;
+                    setActiveTab(next);
+                    if (next === "light" || next === "dark") setActiveMode(next);
+                  }}
+                >
                   <TabsList>
                     <TabsTrigger value="light">Light</TabsTrigger>
                     <TabsTrigger value="dark">Dark</TabsTrigger>
+                    <TabsTrigger value="language">Language</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="light">
@@ -523,13 +583,17 @@ export default function Branding() {
                       setFaviconDark
                     )}
                   </TabsContent>
+
+                  <TabsContent value="language">{renderLanguageFields()}</TabsContent>
                 </Tabs>
 
-                <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                  <Button variant="outline" onClick={copyCurrentToOther}>
-                    {activeMode === "light" ? "Copy Light To Dark" : "Copy Dark To Light"}
-                  </Button>
-                </div>
+                {activeTab === "language" ? null : (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Button variant="outline" onClick={copyCurrentToOther}>
+                      {activeMode === "light" ? "Copy Light To Dark" : "Copy Dark To Light"}
+                    </Button>
+                  </div>
+                )}
 
                 <div>
                   <Label>Title</Label>

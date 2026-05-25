@@ -1,4 +1,4 @@
-import { Loader2, Lock, Shield } from "lucide-react";
+import { Loader2, Lock } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import AuthFrame from "@/components/auth/AuthFrame";
 import { Button } from "@/components/ui/button";
@@ -196,21 +196,7 @@ export default function AdminLogin({ onLogin }: AdminLoginProps) {
   };
 
   return (
-    <AuthFrame
-      title="DarkAuth Admin"
-      description="Secure Administration Panel"
-      footer={
-        <>
-          <div>
-            <Shield size={16} style={{ marginRight: 6, verticalAlign: "text-bottom" }} />
-            Protected with zero-knowledge OPAQUE authentication
-          </div>
-          <p className={styles.footerSmall}>
-            Sessions last 15 minutes and will refresh automatically while active
-          </p>
-        </>
-      }
-    >
+    <AuthFrame title="DarkAuth Admin" description="Secure Administration Panel">
       <form onSubmit={handleSubmit} noValidate>
         <div className={styles.formGroup}>
           <label className={styles.label} htmlFor={emailId}>
