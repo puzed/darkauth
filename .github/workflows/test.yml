@@ -161,3 +161,22 @@ jobs:
       - run: |
           cd packages/brochureware
           npm run build
+
+  test-docs:
+    name: Docs Build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: |
+          cd packages/docs
+          npm run build
