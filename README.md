@@ -245,6 +245,9 @@ rpId: "localhost"         # Relying party identifier
 - `GET /api/authorize` - OAuth authorization endpoint
 - `POST /api/authorize/finalize` - Complete authorization (internal)
 - `POST /api/token` - Token exchange endpoint
+- `GET/POST /api/userinfo` - OIDC UserInfo endpoint for bearer access tokens
+- `POST /api/introspect` - OAuth token introspection for confidential clients
+- `POST /api/revoke` - OAuth refresh token revocation
 
 Authorization codes are short-lived and single-use. Redemption at the token endpoint is enforced atomically so concurrent redemption attempts cannot both succeed.
 

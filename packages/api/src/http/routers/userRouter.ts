@@ -6,6 +6,7 @@ import { postEmailVerificationVerify } from "../../controllers/user/emailVerific
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
 import { getUserApps } from "../../controllers/user/getUserApps.ts";
+import { postIntrospect } from "../../controllers/user/introspect.ts";
 import { postLogout } from "../../controllers/user/logout.ts";
 import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.ts";
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.ts";
@@ -36,9 +37,11 @@ import { postPasswordResetRequest } from "../../controllers/user/passwordResetRe
 import { postPasswordResetStart } from "../../controllers/user/passwordResetStart.ts";
 import { getPasswordResetToken } from "../../controllers/user/passwordResetToken.ts";
 import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
+import { postRevoke } from "../../controllers/user/revoke.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
 import { postToken } from "../../controllers/user/token.ts";
+import { handleUserinfo } from "../../controllers/user/userinfo.ts";
 import {
   getUserDirectoryEntry,
   searchUserDirectory,
@@ -84,8 +87,10 @@ export function createUserRouter(context: Context) {
           "/password/reset/start",
           "/password/reset/finish",
         ].includes(pathname);
+      const isOAuthPost =
+        method === "POST" && ["/token", "/userinfo", "/introspect", "/revoke"].includes(pathname);
       const needsCsrf =
-        !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token" && !isPublicAuthPost;
+        !["GET", "HEAD", "OPTIONS"].includes(method) && !isOAuthPost && !isPublicAuthPost;
       if (isPublicAuthPost) assertSameOrigin(request);
       if (needsCsrf) assertCsrf(request, false);
       if (method === "GET" && pathname === "/branding/logo") {
@@ -300,6 +305,18 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/token") {
         return await postToken(context, request, response);
+      }
+
+      if ((method === "GET" || method === "POST") && pathname === "/userinfo") {
+        return await handleUserinfo(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/introspect") {
+        return await postIntrospect(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/revoke") {
+        return await postRevoke(context, request, response);
       }
 
       if (method === "POST" && pathname === "/opaque/register/start") {

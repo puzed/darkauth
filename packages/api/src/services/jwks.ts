@@ -11,6 +11,7 @@ import {
 import { jwks } from "../db/schema.ts";
 import type { Context, JWK, JWTPayload } from "../types.ts";
 import { generateRandomString } from "../utils/crypto.ts";
+import { getSetting } from "./settings.ts";
 
 export async function generateEdDSAKeyPair(): Promise<{
   publicJwk: JWK;
@@ -142,12 +143,17 @@ export async function verifyJWT(
   expectedAudience?: string | string[]
 ): Promise<JWTPayload> {
   const publicKeys = await getPublicKeys(context);
+  const issuerSetting = await getSetting(context, "issuer");
+  const issuer =
+    typeof issuerSetting === "string" && issuerSetting.length > 0
+      ? issuerSetting
+      : context.config.issuer;
 
   for (const jwk of publicKeys) {
     try {
       const publicKey = await importJWK(jwk, "EdDSA");
       const { payload } = await jwtVerify(token, publicKey, {
-        issuer: context.config.issuer,
+        issuer,
         audience: expectedAudience,
       });
       return payload;
