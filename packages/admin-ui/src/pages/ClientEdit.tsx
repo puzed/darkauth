@@ -2,6 +2,7 @@ import { CircleHelp } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
+import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -122,6 +123,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
     showOnUserDashboard: false,
+    dashboardAutoLogin: false,
     dashboardPosition: "0",
     appUrl: "",
     dashboardIconMode: "letter" as "letter" | "emoji" | "upload",
@@ -173,6 +175,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         clientId: c.clientId,
         name: c.name,
         showOnUserDashboard: !!c.showOnUserDashboard,
+        dashboardAutoLogin: !!c.dashboardAutoLogin,
         dashboardPosition: String(c.dashboardPosition ?? 0),
         appUrl: c.appUrl || "",
         dashboardIconMode: c.dashboardIconMode || "letter",
@@ -230,6 +233,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
         showOnUserDashboard: form.showOnUserDashboard,
+        dashboardAutoLogin: form.dashboardAutoLogin,
         dashboardPosition: Number(form.dashboardPosition || "0"),
         appUrl: form.appUrl.trim(),
         dashboardIconMode: form.dashboardIconMode,
@@ -720,6 +724,27 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     <FieldHint>
                       Sort index used for user dashboard ordering. <code>0</code> appears before{" "}
                       <code>10</code>.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Dashboard Launch"
+                        tooltip="When enabled, dashboard clicks tell compatible apps to begin their OAuth login flow immediately."
+                      />
+                    }
+                  >
+                    <CheckboxRow
+                      id="dashboard-auto-login"
+                      checked={form.dashboardAutoLogin}
+                      onCheckedChange={(checked) =>
+                        setForm((f) => ({ ...f, dashboardAutoLogin: checked }))
+                      }
+                      label="Start OAuth login when opened from dashboard"
+                    />
+                    <FieldHint>
+                      Adds <code>darkauth_login=1</code> to the app URL for dashboard launches.
                     </FieldHint>
                   </FormField>
 
