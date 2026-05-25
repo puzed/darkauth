@@ -1,13 +1,13 @@
 ---
 title: Auth and OIDC API
-description: Authorize, token, session, refresh, logout, discovery, and JWKS endpoints.
+description: Authorize, token, userinfo, introspection, revocation, session, logout, discovery, and JWKS endpoints.
 ---
 
 The Auth and OIDC endpoints are the main integration surface for applications.
 
 ## Discovery
 
-`GET /.well-known/openid-configuration` returns issuer metadata, authorization endpoint, token endpoint, JWKS URI, supported response types, supported grant types, supported scopes, and supported PKCE methods.
+`GET /.well-known/openid-configuration` returns issuer metadata, authorization endpoint, token endpoint, UserInfo endpoint, introspection endpoint, revocation endpoint, JWKS URI, supported response types, supported grant types, supported scopes, and supported PKCE methods.
 
 `GET /.well-known/jwks.json` returns public signing keys. Applications should use this endpoint to validate token signatures and should respect `kid` values for rotation.
 
@@ -22,6 +22,24 @@ The Auth and OIDC endpoints are the main integration surface for applications.
 `POST /token` handles authorization code, refresh token, and client credentials grants depending on client configuration. For code grants, DarkAuth verifies redirect URI and PKCE before issuing tokens.
 
 For ZK code grants, the token response includes `zk_drk_hash`, not the JWE. The app verifies that hash against the fragment before decrypting.
+
+## UserInfo
+
+`GET /userinfo` and `POST /userinfo` return claims for a bearer access token. DarkAuth validates the JWT signature, issuer, expiration, and access-token use before returning claims.
+
+The response always includes `sub`. `profile` allows `name`, and `email` allows `email` and `email_verified`. DarkAuth organization and authorization claims already present in the access token can also be returned, including `org_id`, `org_slug`, `roles`, and `permissions`.
+
+## Introspection
+
+`POST /introspect` lets confidential clients validate tokens. The caller authenticates with `client_secret_basic` and sends `token` plus optional `token_type_hint`.
+
+Active access tokens return metadata only to the client named by the token audience or authorized party. Active refresh tokens return metadata only to the client they were issued for. Inactive, expired, malformed, unsupported, or wrong-client tokens return `{ "active": false }`.
+
+## Revocation
+
+`POST /revoke` revokes refresh tokens. Confidential clients authenticate with `client_secret_basic`; public clients send `client_id`.
+
+Access and ID tokens are stateless and short-lived in v1, so revoking them is accepted as a successful no-op. Refresh tokens are removed from server-side session storage when the caller matches the token's bound client.
 
 ## Sessions and logout
 

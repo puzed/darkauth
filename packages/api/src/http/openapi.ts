@@ -77,6 +77,7 @@ import { schema as userEmailVerificationVerifySchema } from "../controllers/user
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
 import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
 import { schema as userAppsSchema } from "../controllers/user/getUserApps.ts";
+import { schema as userIntrospectSchema } from "../controllers/user/introspect.ts";
 import { schema as userLogoutSchema } from "../controllers/user/logout.ts";
 import { schema as userOpaqueLoginFinishSchema } from "../controllers/user/opaqueLoginFinish.ts";
 import { schema as userOpaqueLoginStartSchema } from "../controllers/user/opaqueLoginStart.ts";
@@ -105,8 +106,13 @@ import { schema as userPasswordResetRequestSchema } from "../controllers/user/pa
 import { schema as userPasswordResetStartSchema } from "../controllers/user/passwordResetStart.ts";
 import { schema as userPasswordResetTokenSchema } from "../controllers/user/passwordResetToken.ts";
 import { schema as userProfileEmailSchema } from "../controllers/user/profileEmailUpdate.ts";
+import { schema as userRevokeSchema } from "../controllers/user/revoke.ts";
 import { schema as userSessionSchema } from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
+import {
+  postSchema as userUserinfoPostSchema,
+  schema as userUserinfoSchema,
+} from "../controllers/user/userinfo.ts";
 import {
   getUserSchema as userDirectoryGetSchema,
   schema as userDirectorySearchSchema,
@@ -193,6 +199,10 @@ const documentedSchemas: ControllerSchema[] = [
   userSessionSchema,
   userLogoutSchema,
   userTokenSchema,
+  userUserinfoSchema,
+  userUserinfoPostSchema,
+  userIntrospectSchema,
+  userRevokeSchema,
   userOtpStatusSchema,
   userOtpVerifySchema,
   userOtpReauthSchema,

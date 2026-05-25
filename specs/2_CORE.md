@@ -188,7 +188,7 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
 
 ### 5.1 Discovery
 
-* `GET /.well-known/openid-configuration` → standard fields (issuer, authorization\_endpoint, token\_endpoint, jwks\_uri, response\_types\_supported, grant\_types\_supported, code\_challenge\_methods\_supported, scopes\_supported).
+* `GET /.well-known/openid-configuration` → standard fields (issuer, authorization\_endpoint, token\_endpoint, userinfo\_endpoint, introspection\_endpoint, revocation\_endpoint, jwks\_uri, response\_types\_supported, grant\_types\_supported, code\_challenge\_methods\_supported, scopes\_supported).
 * `GET /.well-known/jwks.json` → `{ keys: [public JWKs] }`.
 
 ### 5.2 Authorization (two modes)
@@ -233,6 +233,17 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - **SECURITY**: If the code had `has_zk=true`, include only `zk_drk_hash` for verification. The token endpoint MUST NOT return `zk_drk_jwe`.
 - Atomically consume the code so concurrent redemption attempts cannot both succeed.
 
+### 5.3.1 UserInfo, Introspection, and Revocation
+
+* `GET /userinfo` and `POST /userinfo` accept a bearer access token. The endpoint validates the JWT signature, issuer, expiration, and `token_use="access"`, then returns claims allowed by the token scopes:
+  - Always: `sub`.
+  - `profile`: `name`.
+  - `email`: `email`, `email_verified`.
+  - DarkAuth organization/access claims already present in the access token MAY be returned for first-party API clients: `org_id`, `org_slug`, `roles`, `permissions`.
+* `POST /introspect` accepts `token` and optional `token_type_hint`. The caller MUST authenticate as a confidential client using `client_secret_basic`. Active JWT access tokens return selected claims only when the authenticated client is the token audience or authorized party. Active refresh tokens return metadata only when the authenticated client matches the refresh token's bound `client_id`.
+* `POST /revoke` accepts `token` and optional `token_type_hint`. Confidential clients authenticate with `client_secret_basic`; public clients identify with `client_id`. Refresh token revocation deletes the matching active refresh-token session when the caller matches the bound `client_id`. Access and ID tokens are stateless and short-lived in v1, so revocation is a successful no-op for those token types.
+* Dynamic Client Registration and Device Authorization Grant are deferred. DCR requires explicit registration policy, initial access token handling, and client lifecycle controls. Device Authorization requires a new user-code verification UX and pending device state.
+
 ### 5.4 App behavior (ZK vs Standard)
 
 * **ZK client**:
@@ -276,7 +287,7 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
 ### 7.1 Discovery
 
 * **GET `/.well-known/openid-configuration`**
-  Returns JSON with: `issuer`, `authorization_endpoint`, `token_endpoint`, `jwks_uri`, `scopes_supported`, `response_types_supported`, `grant_types_supported`, `code_challenge_methods_supported`.
+  Returns JSON with: `issuer`, `authorization_endpoint`, `token_endpoint`, `userinfo_endpoint`, `introspection_endpoint`, `revocation_endpoint`, `jwks_uri`, `scopes_supported`, `response_types_supported`, `grant_types_supported`, `code_challenge_methods_supported`.
 
 * **GET `/.well-known/jwks.json`**
   `{ "keys": [ {kty, crv/kid/x/y/..., alg, use} ] }`
@@ -306,6 +317,33 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
     "zk_drk_hash": "..."       // only when code.has_zk = true
   }
   ```
+
+* **GET/POST `/userinfo`**
+  Auth: `Authorization: Bearer <access_token>`
+  **Response**:
+
+  ```json
+  {
+    "sub": "user-sub",
+    "name": "User Name",
+    "email": "user@example.com",
+    "email_verified": true,
+    "org_id": "...",
+    "org_slug": "default",
+    "roles": ["member"],
+    "permissions": ["darkauth.users:read"]
+  }
+  ```
+
+* **POST `/introspect`**
+  Auth: confidential client `client_secret_basic`.
+  Body: `token`, optional `token_type_hint`.
+  **Response**: `{ "active": false }` for inactive, expired, malformed, wrong-client, or unsupported tokens. Active access and refresh tokens return `active: true` plus standard metadata such as `client_id`, `sub`, `scope`, `exp`, `iat`, `iss`, `aud`, `token_type`, and DarkAuth organization/access claims when present.
+
+* **POST `/revoke`**
+  Auth: confidential client `client_secret_basic` or public client `client_id`.
+  Body: `token`, optional `token_type_hint`.
+  **Response**: `200 OK` with an empty JSON object. Refresh tokens bound to the authenticated client are revoked. Stateless access and ID tokens are accepted but are not server-side revoked in v1.
 
 ### 7.3 OPAQUE (Rate-Limited)
 

@@ -23,6 +23,12 @@ Confidential clients can also use client credentials for service-to-service work
 
 Keep this separate from user authorization. A client credentials token represents the client, not a person.
 
+## Introspection and revocation
+
+Confidential clients can call `POST /introspect` with `client_secret_basic` to validate access or refresh tokens issued to that same client. Tokens for other clients return inactive metadata.
+
+Confidential clients can call `POST /revoke` with `client_secret_basic` to revoke refresh tokens issued to that client. Access and ID tokens are stateless in v1, so revocation accepts them as a successful no-op.
+
 ## Secret rotation
 
 Plan for client secret rotation. Store the secret in a secret manager, deploy a new value safely, verify token exchange, then remove the old value. Avoid copying secrets into logs, issue trackers, or local scripts.
