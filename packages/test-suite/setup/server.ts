@@ -15,6 +15,7 @@ export interface TestServers {
   adminServer: ReturnType<typeof createServer>;
   userServer: ReturnType<typeof createServer>;
   context: Context;
+  getContext: () => Context;
   adminPort: number;
   userPort: number;
   adminUrl: string;
@@ -71,6 +72,7 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
     adminServer,
     userServer,
     context,
+    getContext: app.getContext,
     adminPort,
     userPort,
     adminUrl: `http://localhost:${adminPort}`,
