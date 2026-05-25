@@ -1,0 +1,24 @@
+---
+title: Users Directory
+description: Integrate user search and public user profile lookup.
+---
+
+The users directory lets applications find and display user records when policy allows it. Common use cases include people pickers, sharing dialogs, audit displays, member management, and profile enrichment.
+
+## What it is for
+
+The directory is not a user administration API for applications. Admin lifecycle work belongs in the admin API and admin portal. The directory is for application-facing lookup of user identities.
+
+## Access control
+
+Directory visibility should be treated as identity data exposure. Applications should request only the scopes and permissions they need, and DarkAuth should enforce whether the caller is allowed to search or read a user.
+
+For organization-aware apps, avoid showing users outside the active organization unless your product explicitly supports that.
+
+## Data shape
+
+Directory entries usually include stable identifiers and display fields such as `sub`, `email`, and `name`. Applications should use `sub` as the durable identity key. Emails can change and may be absent or unverified depending on policy.
+
+## UI guidance
+
+When building people pickers, search by clear fields, show enough context to disambiguate users, and avoid leaking more profile data than the task needs.

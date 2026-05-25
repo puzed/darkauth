@@ -1,0 +1,27 @@
+---
+title: Naming
+description: File, variable, API, and database naming conventions.
+---
+
+DarkAuth names should be boring, explicit, and consistent. This is an auth system; clever names make review harder.
+
+## General rules
+
+- Use full words internally.
+- Avoid abbreviations unless they are protocol terms such as OIDC, JWKS, PKCE, OTP, or DRK.
+- Preserve external protocol field names at API boundaries.
+- Keep database, model, controller, and UI language aligned.
+
+## Files and functions
+
+Controller files should describe the action, such as `userCreate.ts` or `clientSecret.ts`. Functions should use verb-noun names that explain what they do.
+
+Avoid generic names like `process`, `handleThing`, or `doAuth` when the code has a specific responsibility.
+
+## Database names
+
+Database tables and columns use PostgreSQL-style snake case. TypeScript uses camelCase. The mapping should be obvious and consistent.
+
+## Error codes
+
+Error codes should be stable `SCREAMING_SNAKE_CASE` values. A client should be able to rely on them for behavior without parsing human-readable messages.

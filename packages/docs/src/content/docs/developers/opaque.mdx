@@ -1,0 +1,33 @@
+---
+title: OPAQUE
+description: OPAQUE registration, login, export key, and DarkAuth password flows.
+---
+
+OPAQUE is the password protocol DarkAuth uses for regular users, admin users, and install bootstrap registration. It lets the client and server authenticate using a password without sending that password to the server.
+
+## Registration
+
+Registration creates the OPAQUE record that the server will store for future logins. The client performs the password work locally, and the server stores verifier material rather than the password.
+
+DarkAuth has registration flows for:
+
+- New regular users.
+- Admin bootstrap during installation.
+- Admin-managed password setup.
+- Password reset flows.
+
+## Login
+
+Login is split into start and finish messages. The server creates server-side OPAQUE login session state during start. During finish, DarkAuth binds the authenticated account to the identity stored in that server-side state rather than trusting client-supplied identity fields.
+
+That binding is important. It prevents a client from authenticating one OPAQUE session and asking the server to mint a session for another account.
+
+## Export key
+
+After successful OPAQUE authentication, the client receives an export key. DarkAuth uses this client-only value as part of the key schedule for wrapping and unwrapping the Data Root Key.
+
+The server does not receive the export key. If an app depends on zero-knowledge data, losing the password or changing it without a recovery flow can affect access to old encrypted material.
+
+## Developer guidance
+
+Most application developers do not need to implement OPAQUE directly. Use the hosted user portal and the TypeScript SDK unless you are working on DarkAuth itself or building a deeply custom client.

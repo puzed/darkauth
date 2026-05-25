@@ -1,0 +1,38 @@
+---
+title: Ports and Routing
+description: User/admin ports, route prefixes, and deployment routing.
+---
+
+DarkAuth separates user traffic from admin traffic by port.
+
+## Defaults
+
+- User port: `9080`
+- Admin port: `9081`
+
+## User port
+
+The user port serves:
+
+- User portal pages.
+- OIDC discovery and JWKS.
+- Authorization and token endpoints.
+- User session, OTP, password, email, organization, crypto, and directory APIs.
+- Runtime user UI config and branding assets.
+
+This is usually the public auth origin.
+
+## Admin port
+
+The admin port serves:
+
+- Install UI and install APIs before initialization.
+- Admin portal after initialization.
+- Admin APIs.
+- Admin branding preview routes.
+
+This should usually be private or restricted.
+
+## Development proxying
+
+When `proxyUi` is enabled, the API can proxy to Vite dev servers for local UI development. Disable this in production.

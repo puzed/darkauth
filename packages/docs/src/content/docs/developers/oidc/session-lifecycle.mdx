@@ -1,0 +1,38 @@
+---
+title: Session Lifecycle
+description: Authorization codes, tokens, refresh rotation, cookies, and logout.
+---
+
+DarkAuth has two related but different concepts: the DarkAuth session and the tokens issued to clients. A user can be signed into DarkAuth and still need a new authorization grant for a specific application.
+
+## Authorization codes
+
+Authorization codes are short-lived, single-use credentials. They bind together the client, redirect URI, user, PKCE challenge, scopes, and optional organization or ZK state.
+
+Applications should exchange codes immediately and treat code reuse as a failure. DarkAuth consumes codes atomically to avoid double redemption.
+
+## Tokens
+
+The token endpoint can return ID tokens and access tokens depending on client configuration and scopes. ID tokens identify the user to the client. Access tokens authorize API calls.
+
+Applications should validate:
+
+- Signature using JWKS.
+- Issuer.
+- Audience.
+- Expiration.
+- Required scopes.
+- Organization claims when the app is organization-scoped.
+- Roles or permissions when the app uses RBAC.
+
+## Refresh
+
+DarkAuth rotates refresh credentials. A refresh token should be single use. Reuse of an already-consumed refresh token is suspicious and should fail.
+
+In the default first-party browser profile used by the TypeScript SDK, refresh can rely on HttpOnly cookies instead of JavaScript-readable refresh tokens. That reduces browser storage exposure.
+
+## Logout
+
+Logout should clear application state and end the DarkAuth session where appropriate. Clients can also use registered post-logout redirect URIs.
+
+For zero-knowledge apps, logout should clear token state, the DRK, derived keys, callback state, PKCE verifier, and any ephemeral private key material.

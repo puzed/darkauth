@@ -1,0 +1,32 @@
+---
+title: Scopes and Permissions
+description: OAuth scopes and DarkAuth permission keys.
+---
+
+Scopes and permissions answer different questions.
+
+Scopes answer: "What did this client request and receive?" Permissions answer: "What is this user allowed to do in this organization or product context?"
+
+## Common scopes
+
+- `openid` requests OIDC identity.
+- `profile` requests profile claims such as name.
+- `email` requests email-related claims.
+- Custom scopes can represent application-specific access.
+
+Scopes should be described clearly so consent screens explain the request in human language.
+
+## Permission keys
+
+Permission keys should map to real actions. Good examples look like:
+
+- `notes:read`
+- `notes:write`
+- `billing:manage`
+- `members:invite`
+
+Avoid permission keys based on temporary UI labels or broad names like `admin` unless the application truly has a broad admin concept.
+
+## Enforcement
+
+The application backend must enforce permissions. Hiding a button in the UI is helpful, but it is not authorization.

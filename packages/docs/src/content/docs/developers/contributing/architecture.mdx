@@ -1,0 +1,29 @@
+---
+title: Architecture
+description: Context, models, controllers, routers, services, and frontend packages.
+---
+
+The API package is organized around clear responsibilities. Controllers handle HTTP boundaries, models handle database behavior, services handle cross-cutting domain logic, and routers bind paths to controllers.
+
+## API structure
+
+- `context` creates shared runtime state such as config, database, logger, settings, and services.
+- `controllers` parse requests, call models or services, and write responses.
+- `models` own database queries and transactions.
+- `services` own behavior that crosses endpoint boundaries, such as sessions, email, OPAQUE, JWKS, settings, branding, and audit logging.
+- `http/routers` route incoming requests to controllers.
+- `utils` contains shared helpers for security, CSRF, PKCE, pagination, crypto, and HTTP behavior.
+
+Keep business rules out of routers. Keep database details out of UI services. Make the ownership easy to follow.
+
+## Frontend packages
+
+- `user-ui` hosts login, registration, consent, OTP, password reset, dashboard, organization switching, and account settings.
+- `admin-ui` hosts operational management pages.
+- `darkauth-client` provides application integration helpers.
+- `demo-app` demonstrates app integration.
+- `docs` is the Astro documentation site.
+
+## Data flow
+
+Most changes follow this path: schema, controller, model or service, router, UI service, UI page, tests, docs. Simple changes may skip pieces, but every touched boundary should stay consistent.

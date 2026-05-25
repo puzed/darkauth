@@ -1,0 +1,27 @@
+---
+title: Schemas
+description: Zod schema conventions for API controllers.
+---
+
+DarkAuth uses Zod for runtime validation and for generated API documentation. Schemas are part of the contract, not incidental implementation detail.
+
+## Principles
+
+- Validate input at the HTTP boundary.
+- Keep request and response schemas close to the controller.
+- Preserve OAuth and OIDC field names at protocol boundaries.
+- Use explicit unions and enums for constrained values.
+- Keep pagination and error shapes consistent.
+- Infer TypeScript types from schemas where useful.
+
+## Protocol fields
+
+OAuth fields such as `client_id`, `redirect_uri`, `response_type`, `code_challenge`, and `grant_type` should keep their protocol names. Internal TypeScript code can use camelCase where it is no longer representing the external protocol shape.
+
+## Response schemas
+
+Response schemas should describe what clients actually receive. Avoid broad `unknown` or loose objects when a stable shape exists. A precise schema makes OpenAPI more useful and tests more meaningful.
+
+## Transformations
+
+Normalize data deliberately. Email addresses may be trimmed and lowercased. Query parameters may be parsed from strings into numbers. Do this in schema or controller code where reviewers can see it.

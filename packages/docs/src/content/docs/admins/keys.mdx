@@ -1,0 +1,28 @@
+---
+title: Keys
+description: JWKS, signing keys, client secrets, and KEK-protected storage.
+---
+
+DarkAuth signs tokens with Ed25519 keys and publishes public keys through JWKS. Applications use the JWKS endpoint to verify ID tokens and access tokens.
+
+## Signing keys
+
+Signing keys are one of the most sensitive parts of an identity system. If a private signing key is compromised, an attacker may be able to mint tokens that applications trust.
+
+DarkAuth stores private key material encrypted at rest using a KEK derived from the configured passphrase. The public JWK is published so clients can verify signatures.
+
+## Rotation
+
+Key rotation lets DarkAuth move to a new signing key while clients continue to validate existing tokens for their lifetime. Plan rotations during low-risk windows and understand how long issued tokens remain valid.
+
+Applications should fetch JWKS dynamically and respect key IDs instead of hard-coding a single key.
+
+## Client secrets
+
+Confidential client secrets are also encrypted at rest. The admin portal may show or rotate secrets through controlled flows, but applications are responsible for protecting the copy they use.
+
+Treat client secret rotation like credential rotation. Update the application, verify token exchange, and remove old values from logs or deployment systems.
+
+## KEK custody
+
+The KEK passphrase is required to decrypt protected material. Store it in a secret manager or equivalent system. Do not rely on the database backup alone as a full recovery story.

@@ -1,0 +1,31 @@
+---
+title: Settings
+description: Runtime settings, SMTP, policy, and system behavior.
+---
+
+Settings control the runtime behavior stored in the database. Unlike `config.yaml`, these settings describe how the identity system behaves rather than where the process runs.
+
+## Common setting areas
+
+- Issuer and public origin.
+- User registration.
+- Email and SMTP.
+- Password reset.
+- Email verification.
+- OTP policy.
+- Token lifetimes.
+- Security headers and rate limits.
+- Branding and user UI runtime configuration.
+- Client dashboard behavior.
+
+## SMTP settings
+
+SMTP is required for email password reset and email verification. After changing SMTP settings, use the test action before enabling flows that depend on outbound mail.
+
+If SMTP fails, user-facing flows should avoid leaking account details, but admins should still be able to diagnose failures through settings, logs, and audit events.
+
+## Policy settings
+
+Policy settings should be reviewed together. For example, enabling self-registration without email verification may be fine for an internal demo, but not for a production customer identity system. Enabling password reset without working SMTP creates a poor recovery experience.
+
+Document the intended policy for your deployment so future admins understand why a setting has its current value.

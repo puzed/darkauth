@@ -1,0 +1,47 @@
+---
+title: ZK DRK Delivery
+description: Fragment JWE delivery, hash binding, and app-side decryption.
+---
+
+ZK DRK delivery is DarkAuth's extension for applications that need a user-held Data Root Key in the browser. It is optional and configured per client. Standard OIDC clients can ignore it completely.
+
+## Problem it solves
+
+Some applications encrypt user data client-side and need a root key after login. A normal token endpoint response is not a good place for that key because the authorization server backend would have to store or return it. DarkAuth's ZK flow keeps the JWE ciphertext in browser memory and the URL fragment instead.
+
+## End-to-end flow
+
+1. The app generates an ephemeral P-256 ECDH key pair.
+2. The app encodes the public JWK as `zk_pub` and includes it in the authorization request.
+3. DarkAuth accepts `zk_pub` only if the client is configured for `fragment-jwe`.
+4. The user authenticates with OPAQUE in the DarkAuth user UI.
+5. Browser code derives the key material needed to unwrap or create the DRK.
+6. Browser code encrypts the DRK to `zk_pub` as compact JWE.
+7. Browser code sends only `drk_hash` to `/authorize/finalize`.
+8. DarkAuth issues an authorization code and stores the hash binding.
+9. The browser redirects to the app with `#drk_jwe=...` in the fragment.
+10. The app exchanges the authorization code at `/token`.
+11. The app verifies `base64url(SHA-256(drk_jwe)) === zk_drk_hash`.
+12. The app decrypts the JWE with its ephemeral private key.
+
+## What the server sees
+
+The server sees the authorization request, `zk_pub`, `zk_pub_kid`, and `drk_hash`. It does not receive the plaintext DRK or the fragment JWE in the designed flow. The token endpoint returns the hash so the client can verify the fragment.
+
+## Application responsibilities
+
+A ZK-enabled app must:
+
+- Generate a new ephemeral key pair for each authorization request.
+- Keep the private key in memory only until callback handling completes.
+- Preserve the URL fragment long enough to read `drk_jwe`.
+- Verify the `zk_drk_hash` before decrypting.
+- Remove `drk_jwe` from the URL after processing.
+- Clear the private key and DRK on logout.
+- Decide whether reloads should trigger a fresh authorization request.
+
+## Security boundary
+
+This flow is designed for honest hosted-web operation. It reduces what the DarkAuth backend and database can learn. It does not protect against malicious JavaScript running in the DarkAuth origin or app origin, compromised browsers, compromised devices, or an application that intentionally exfiltrates the DRK.
+
+Use it when your app has a real client-side encryption model and users benefit from avoiding backend key custody.

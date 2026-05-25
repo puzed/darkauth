@@ -1,0 +1,34 @@
+---
+title: MFA
+description: User guide for TOTP setup, verification, backup codes, and re-authentication.
+---
+
+DarkAuth supports TOTP MFA for user accounts. TOTP is the six-digit code flow used by authenticator apps such as 1Password, Bitwarden, Google Authenticator, Microsoft Authenticator, and many hardware-backed password managers.
+
+## When MFA is required
+
+MFA can be required by policy. For regular users, DarkAuth can require OTP when any active organization membership has an OTP requirement. Admins can also configure and manage OTP state for users who need help.
+
+If MFA is required and the user has not finished setup, DarkAuth sends them through setup before allowing the protected action to continue. If MFA is already configured, DarkAuth asks for a code.
+
+## Setup flow
+
+The setup flow creates a new TOTP secret, shows an authenticator provisioning URI as a QR code, and asks the user to enter the first code from their authenticator app. The secret is only considered active after a successful verification.
+
+After setup, DarkAuth shows backup codes. Users should store these somewhere safe. A backup code can help recover access when the authenticator app is unavailable.
+
+## Verification flow
+
+When OTP is required, the user enters either a current authenticator code or an unused backup code. DarkAuth protects this flow with failure counting, lockouts, rate limits, and replay prevention so the same TOTP timestep cannot be reused.
+
+Successful verification marks the session as MFA verified. Tokens can then reflect stronger authentication through authentication method and context claims.
+
+## Backup codes
+
+Backup codes are one-time use. When a backup code is used, it is consumed and cannot be used again. DarkAuth stores backup codes as one-way hashes, so an administrator cannot recover or view them later.
+
+Users should regenerate or reset MFA if backup codes are lost.
+
+## Getting help
+
+If a user is locked out, an admin with write access can inspect OTP status, clear a lockout, or remove the OTP configuration so the user can set it up again. Admin intervention is audited.

@@ -1,0 +1,34 @@
+---
+title: Troubleshooting
+description: Common setup, runtime, and integration issues.
+---
+
+Troubleshooting DarkAuth is usually about locating which boundary is failing: database, configuration, email, OIDC client setup, browser session, organization context, or cryptographic handoff.
+
+## Installer cannot connect to the database
+
+Check `dbMode`, `postgresUri`, network reachability, credentials, TLS requirements, and database permissions. For PGLite, check that the runtime can create and write to `pgliteDir`.
+
+## KEK passphrase issues
+
+If DarkAuth cannot decrypt protected material after restart, the configured KEK passphrase may not match the one used when sensitive values were encrypted. Verify secret injection and deployment configuration before rotating anything.
+
+## Redirect URI mismatch
+
+OAuth redirect URIs must match the registered client configuration exactly. Check scheme, host, port, path, and trailing slashes. Localhost and production URLs should usually be separate redirect entries or separate clients.
+
+## PKCE verification fails
+
+For public clients, make sure the app stores the code verifier generated before redirect and sends the matching verifier to the token endpoint. The method should be `S256`.
+
+## SMTP test fails
+
+Check host, port, TLS mode, username, password, sender address, firewall rules, and provider restrictions. Do not enable password reset or email verification until test delivery works.
+
+## OTP blocks a user
+
+Check whether OTP is required by organization policy, whether setup is pending, whether the account is locked, and whether backup codes remain. A write admin can unlock or reset OTP state when appropriate.
+
+## ZK DRK verification fails
+
+The application should compare the fragment JWE hash with `zk_drk_hash` from the token response before decrypting. If the values differ, check callback URL handling, fragment preservation, ephemeral key state, and whether the client is configured for `fragment-jwe`.

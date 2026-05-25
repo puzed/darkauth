@@ -1,0 +1,48 @@
+---
+title: Endpoint Index
+description: High-level index of DarkAuth API endpoints.
+---
+
+This page is a map of the API surface. Use the generated OpenAPI document for exact shapes and these docs for behavior.
+
+## OIDC
+
+- `GET /.well-known/openid-configuration`
+- `GET /.well-known/jwks.json`
+- `GET /authorize`
+- `POST /authorize/finalize`
+- `POST /token`
+
+## User account
+
+- Session and logout.
+- OPAQUE login and registration.
+- OTP setup, verify, re-auth, and status.
+- Password change, reset, token validation, and recovery verification.
+- Email verification and resend.
+- Profile email update.
+- App dashboard data.
+- Organization membership and member role operations.
+- Users directory search and lookup.
+
+## Crypto
+
+- Wrapped DRK get and put.
+- User public encryption key put and lookup.
+- Wrapped private encryption key get and put.
+
+## Admin
+
+- Admin session, login, logout, OTP, and password change.
+- Users and user password/OTP operations.
+- Admin users and admin password/OTP operations.
+- Clients, client secrets, and client icons.
+- Organizations, members, roles, and permissions.
+- Settings, SMTP test, and email templates.
+- JWKS listing and rotation.
+- Audit log list, detail, and export.
+
+## Install
+
+- Install status and completion.
+- Install-time OPAQUE registration for the first admin.

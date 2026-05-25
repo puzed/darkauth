@@ -1,0 +1,25 @@
+---
+title: Users API
+description: User directory and profile endpoints.
+---
+
+User APIs cover the current session, profile email changes, password flows, email verification, and directory lookups.
+
+## Directory endpoints
+
+- `GET /users`
+- `GET /users/{sub}`
+
+Use directory endpoints for application-facing people lookup, not administrative lifecycle management.
+
+## Profile and email
+
+User profile email updates should account for verification state. Applications should not assume email is verified unless the token or API response says so.
+
+## Password endpoints
+
+Password endpoints include signed-in change, email reset request, reset token validation, reset start, reset finish, and recovery verification flows. Public reset responses avoid account enumeration.
+
+## Email verification endpoints
+
+Email verification endpoints let users verify a token or request a new verification message when policy allows it.

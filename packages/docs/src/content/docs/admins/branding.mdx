@@ -1,0 +1,31 @@
+---
+title: Branding
+description: Logos, favicons, colors, wording, fonts, and custom CSS.
+---
+
+Branding controls how the user-facing authentication experience looks and reads. This matters because users are often redirected from an application into DarkAuth. Good branding reassures them that they are still in the right trust relationship.
+
+## What can be customized
+
+DarkAuth supports database-backed branding settings for:
+
+- Product title and tagline.
+- Logo and favicon.
+- Light and dark theme colors.
+- Button and text wording.
+- Font settings.
+- Custom CSS.
+
+The user UI receives branding through runtime configuration, so a branding change does not require rebuilding the frontend.
+
+## Good branding guidance
+
+Keep authentication screens quiet and recognizable. Users need to understand where they are, what app is requesting access, and what action is expected. Heavy marketing copy, decorative visuals, or unclear buttons make auth flows feel less trustworthy.
+
+Use clear wording for high-stakes actions. "Authorize" and "Deny" are better than clever phrases. Password reset and MFA screens should be plain and direct.
+
+## Custom CSS
+
+Custom CSS is powerful and should be used carefully. It can fix integration-specific visual needs, but it can also make screens harder to use or harder to audit. Prefer first-class branding fields for colors, logo, favicon, and wording before reaching for CSS.
+
+After changing branding, test login, registration, consent, MFA, password reset, and email verification in both light and dark modes.

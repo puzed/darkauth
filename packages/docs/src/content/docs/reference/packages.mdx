@@ -1,0 +1,25 @@
+---
+title: Package Map
+description: DarkAuth monorepo packages and responsibilities.
+---
+
+DarkAuth is organized as an npm workspace monorepo.
+
+## Product packages
+
+- `packages/api`: server, controllers, routers, models, database, install flow, OpenAPI, and services.
+- `packages/user-ui`: user portal for login, registration, consent, OTP, password reset, dashboard, account settings, and organization switching.
+- `packages/admin-ui`: admin portal for operating the instance.
+- `packages/darkauth-client`: TypeScript SDK for application integrations.
+- `packages/opaque-ts`: local OPAQUE implementation package.
+
+## Supporting packages
+
+- `packages/demo-app`: example app that demonstrates DarkAuth login and protected application state.
+- `packages/test-suite`: end-to-end tests.
+- `packages/brochureware`: existing public marketing site.
+- `packages/docs`: Astro/Starlight documentation site for `docs.darkauth.com`.
+
+## Root scripts
+
+The root workspace provides shared scripts for dev, build, tidy, tests, database operations, demo app operations, and docs development.

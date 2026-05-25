@@ -1,0 +1,44 @@
+---
+title: Sign In
+description: How users sign in through the DarkAuth portal.
+---
+
+DarkAuth sign-in looks like a normal hosted login screen, but the password exchange is different. The user portal uses OPAQUE, a password-authenticated key exchange, so the password is not posted to the server as a plaintext form value.
+
+## Standard sign-in flow
+
+When an application needs a user to authenticate, it redirects the browser to DarkAuth. If the user is not already signed in, DarkAuth shows the login screen. After OPAQUE authentication succeeds, DarkAuth creates or updates the user session and continues the authorization flow.
+
+The flow normally looks like this:
+
+1. The application redirects to DarkAuth.
+2. The user enters email and password.
+3. The browser and server complete the OPAQUE login messages.
+4. DarkAuth checks whether password reset or MFA is required.
+5. DarkAuth asks for consent if an application authorization request is pending.
+6. The user returns to the application with an authorization code.
+
+If there is no pending application request, the user lands on the dashboard instead.
+
+## Registration
+
+Self-registration is controlled by administrators. If it is enabled, users can create an account from the sign-in screen. If it is disabled, the sign-up route sends users back to login and accounts must be created or invited through an administrative flow.
+
+Registration also uses OPAQUE. The server stores the OPAQUE record for future authentication, not the user password.
+
+## Organization context
+
+Some users belong to more than one organization. When an application needs an organization-specific session, DarkAuth may ask the user to choose an organization. If the user belongs to exactly one active organization, DarkAuth can select it automatically. If multiple active memberships exist and no organization was provided, the flow may require an explicit choice.
+
+The selected organization can appear in tokens as `org_id`, `org_slug`, roles, and permissions.
+
+## What can interrupt sign-in
+
+Several security checks can pause a normal login:
+
+- The account may require a password change before continuing.
+- OTP may be required by user, admin, or organization policy.
+- Email verification may be required for the requested flow.
+- The authorization request may be invalid, expired, or not allowed for the client.
+
+These interruptions are intentional. They keep the application integration simple while allowing the identity system to enforce security policy centrally.

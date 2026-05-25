@@ -1,0 +1,36 @@
+---
+title: Deployment
+description: Production runtime, dual-port model, HTTPS, and reverse proxy notes.
+---
+
+Deploying DarkAuth is mostly about making trust boundaries explicit. The user/OIDC surface must be reachable by browsers and applications. The admin surface should be reachable only by operators. The database and KEK passphrase must be protected as sensitive infrastructure.
+
+## Production checklist
+
+- Serve the user origin over HTTPS.
+- Restrict access to the admin origin.
+- Set the public origin and issuer to the external URL.
+- Register exact redirect URIs for every client.
+- Keep `config.yaml` readable only by the runtime user.
+- Store the KEK passphrase in your secret-management system.
+- Back up the database and test restores.
+- Monitor audit logs, failed login bursts, OTP lockouts, and SMTP failures.
+- Review CORS, cookie, and proxy behavior before exposing the service.
+
+## Reverse proxies
+
+Most production deployments will put DarkAuth behind a reverse proxy or load balancer. Make sure the proxy preserves the scheme and host expected by your configured public origin. If the public origin says `https://auth.example.com`, discovery metadata, redirect URIs, cookies, and email links should all agree with that.
+
+Avoid wildcard routing for auth origins. Authentication systems are easiest to reason about when each public origin has a clear owner and purpose.
+
+## Admin exposure
+
+The admin portal controls identity state. Do not treat it like a public dashboard. Limit it with network rules, VPN, private ingress, SSO at the edge, or another control appropriate to your environment.
+
+Admin MFA should be enabled. Admin users should be individual accounts, not shared credentials.
+
+## Logs and audit data
+
+Application logs are useful for operations, but audit logs are the durable record of identity events. Make sure audit log retention, export, and review practices match the risk of the deployment.
+
+DarkAuth redacts sensitive values before writing audit paths. Operators should still avoid shipping logs to systems that are not approved for identity metadata.

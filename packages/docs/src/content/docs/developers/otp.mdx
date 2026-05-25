@@ -1,0 +1,24 @@
+---
+title: OTP
+description: OTP setup, verification, and re-authentication API integration.
+---
+
+Most applications do not need to implement OTP screens because the hosted DarkAuth user portal handles setup and verification during authentication. Developers still need to understand OTP because it affects redirects, sessions, token claims, and sensitive app actions.
+
+## Portal-handled OTP
+
+If a user must complete OTP before authorization continues, DarkAuth sends them through setup or verification. After success, the authorization flow resumes. This keeps application login flows simple.
+
+## Step-up and re-authentication
+
+Some sensitive actions may require fresh authentication or OTP re-authentication. DarkAuth exposes OTP status and re-authentication endpoints so first-party UI flows can verify stronger authentication before continuing.
+
+Applications should be clear about what requires step-up and should handle "OTP required" states as recoverable, not fatal.
+
+## Claims
+
+Tokens can include authentication method and context information that indicates MFA. Applications with high-risk actions can check those claims or require a fresh flow.
+
+## Lockouts
+
+Repeated OTP failures can lock an account temporarily. Application UX should tell users what happened without exposing unnecessary security detail. Admins can unlock or reset OTP state through the admin portal.

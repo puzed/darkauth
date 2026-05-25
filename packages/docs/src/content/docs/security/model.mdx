@@ -1,0 +1,40 @@
+---
+title: Security Model
+description: Trust boundaries, custody model, and core controls.
+---
+
+DarkAuth is designed to reduce what the server must know and store. It still depends on the same practical trust boundaries as any hosted web application: trusted origins, safe deployments, secure browsers, protected devices, and careful operators.
+
+## What DarkAuth tries to avoid
+
+DarkAuth tries to avoid server-side access to:
+
+- Plaintext passwords.
+- OPAQUE export keys.
+- Plaintext Data Root Keys.
+- Plaintext app data protected by DRK-derived keys.
+- Plaintext reset tokens.
+- Plaintext private signing keys at rest.
+
+Avoiding custody is useful because database compromise and backend compromise become less immediately catastrophic for some classes of data.
+
+## What DarkAuth must still trust
+
+DarkAuth must still trust:
+
+- JavaScript served by the DarkAuth origin.
+- JavaScript served by the relying party application origin.
+- The user's browser and device.
+- The operator-controlled deployment pipeline.
+- The configured redirect URI and origin allowlists.
+- Admin users with write access.
+
+If trusted frontend code is malicious, it can read secrets while they are in use. If an app receives the DRK, that app can misuse it. These are explicit parts of the hosted-web trust boundary.
+
+## Operational controls
+
+Security depends on operation as much as protocol. Protect the admin port, require admin MFA, keep the KEK passphrase in a secret manager, back up the database securely, rotate client secrets when needed, monitor audit logs, and keep redirect URIs strict.
+
+## Incident response
+
+If a trusted frontend origin is compromised, disable affected clients or ZK delivery, revoke sessions and refresh tokens, redeploy clean assets, review audit metadata, notify affected users if needed, and require fresh authentication before resuming key handoff.

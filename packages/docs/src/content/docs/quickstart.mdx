@@ -1,0 +1,76 @@
+---
+title: Quickstart
+description: Run DarkAuth locally and complete the first admin setup.
+---
+
+This quickstart gets a DarkAuth instance running so you can see the admin portal, user portal, OIDC discovery document, and default clients. It is the fastest way to understand the product shape before you wire in a real application.
+
+## Run with Docker
+
+The published image starts DarkAuth with the default user and admin ports exposed:
+
+```bash
+docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
+```
+
+Open `http://localhost:9081` to complete the first-run installer. During installation, the admin port serves the installer instead of the normal admin portal. After setup is complete, the same port serves the admin UI.
+
+## What the installer creates
+
+The installer turns a fresh runtime into a usable identity server. It creates or validates the database, writes instance configuration, derives KEK settings, creates the first admin account, generates signing keys, stores initial runtime settings, and seeds default OAuth clients.
+
+The installer is intentionally separate from normal login. It is a bootstrap flow, not an admin backdoor. Once DarkAuth is initialized, install endpoints are disabled.
+
+## Local development
+
+For local development from the repository:
+
+1. Install Node.js 24 or newer.
+2. Install dependencies with `npm install`.
+3. Choose PostgreSQL or embedded PGLite.
+4. Create `config.yaml`.
+5. Run migrations with `npm run db:push`.
+6. Start the API with `npm start`, or run the full dev stack with `npm run dev`.
+
+A minimal remote PostgreSQL config looks like this:
+
+```yaml
+dbMode: remote
+postgresUri: postgresql://username:password@localhost:5432/darkauth
+userPort: 9080
+adminPort: 9081
+proxyUi: false
+kekPassphrase: "replace-with-a-strong-passphrase"
+```
+
+For embedded PGLite, use:
+
+```yaml
+dbMode: pglite
+pgliteDir: ./data/pglite
+userPort: 9080
+adminPort: 9081
+proxyUi: false
+kekPassphrase: "replace-with-a-strong-passphrase"
+```
+
+## Default surfaces
+
+- User portal and OIDC endpoints: `http://localhost:9080`
+- Admin portal and admin API: `http://localhost:9081`
+- OIDC discovery: `http://localhost:9080/api/.well-known/openid-configuration`
+- JWKS: `http://localhost:9080/api/.well-known/jwks.json`
+
+The user port is the public-facing authentication surface. The admin port is the operational surface and should be restricted in production.
+
+## First things to try
+
+After installation:
+
+1. Open the admin portal and inspect the default clients.
+2. Check the signing keys page to see the JWKS state.
+3. Review settings, especially public origin, SMTP, registration, and password reset.
+4. Open the user portal and sign in with a test user.
+5. Try OIDC discovery from your browser or with `curl`.
+
+When you are ready to integrate an app, use [Public Clients](/developers/oidc/public-clients/) for browser apps or [Confidential Clients](/developers/oidc/confidential-clients/) for server-side apps.
