@@ -7,6 +7,7 @@ import {
   Database, 
   Settings, 
   Lock,
+  MailCheck,
   RefreshCw,
   Users,
   Globe
@@ -62,6 +63,13 @@ const Features = () => {
       description: "Separate admin (9081) and user (9080) interfaces with different access controls",
       badge: "Secure by Design",
       color: "text-primary"
+    },
+    {
+      icon: MailCheck,
+      title: "Safe Email Recovery",
+      description: "Forgot-password links use generic responses, hashed one-time tokens, audit logs, and session revocation",
+      badge: "Account Recovery",
+      color: "text-accent"
     },
     {
       icon: Zap,

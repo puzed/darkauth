@@ -67,6 +67,14 @@ kekPassphrase: "replace-with-strong-pass"`}</code>
         </ol>
       </DocsCallout>
 
+      <DocsCallout title="Optional email recovery setup" icon={CheckCircle2}>
+        <ol className="list-decimal space-y-2 pl-5 text-base">
+          <li>Configure SMTP settings in the admin UI.</li>
+          <li>Enable `Users / Password Reset` once SMTP is complete.</li>
+          <li>Customize the `password_recovery` email template before inviting real users.</li>
+        </ol>
+      </DocsCallout>
+
       <Card className="border-border/60 shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">3) Recommended local dev setup</CardTitle>

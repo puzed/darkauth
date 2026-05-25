@@ -1,7 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import DocsCallout from "@/pages/docs/components/DocsCallout";
-import { Lock, ShieldCheck, ServerCog, Users } from "lucide-react";
+import { KeyRound, Lock, ShieldCheck, ServerCog, Users } from "lucide-react";
 
 const IntroductionPage = () => {
   return (
@@ -84,15 +84,16 @@ const IntroductionPage = () => {
         <Card className="border-border/60 shadow-sm">
           <CardContent className="p-6 space-y-3">
             <div className="mb-1 flex items-center gap-2 text-foreground">
-              <Lock className="h-5 w-5 text-primary" />
-              <h3 className="font-semibold">Integrator-First Surface</h3>
+              <KeyRound className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Account Recovery Boundaries</h3>
             </div>
             <p className="text-base text-muted-foreground">
-              Use guide flows for frontend OAuth integration, confidential backend clients, SDK usage,
-              and endpoint-level reference for API contracts.
+              Email password reset restores account access through OPAQUE reset, while encrypted data
+              recovery remains a separate old-password or key-regeneration path.
             </p>
             <p className="text-sm text-muted-foreground">
-              Each page maps to concrete routes in `packages/api` and is tested through Playwright flows.
+              SMTP, generic responses, hashed reset tokens, and session revocation are covered in the
+              dedicated guide.
             </p>
           </CardContent>
         </Card>

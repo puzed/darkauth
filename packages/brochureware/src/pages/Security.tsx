@@ -3,7 +3,7 @@ import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, Lock, KeySquare, EyeOff, Hash, Network, BookCheck, TriangleAlert, ListChecks } from "lucide-react";
+import { ShieldCheck, Lock, KeySquare, EyeOff, Hash, Network, BookCheck, TriangleAlert, ListChecks, MailCheck } from "lucide-react";
 
 const Section = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
   <section className={`py-16 ${className}`}>
@@ -62,6 +62,7 @@ const SecurityPage = () => {
           <KeyPoint icon={EyeOff} title="No Sensitive Logging" text="zk_pub, DRK, JWE ciphertext, export_key, and derived keys are never logged." />
           <KeyPoint icon={Network} title="OIDC Compatibility" text="Standard discovery, authorization, and token endpoints; ZK is opt-in per client." />
           <KeyPoint icon={ShieldCheck} title="MFA via TOTP" text="Time-based OTP with backup codes, cohort and group enforcement, rate limits, and AMR/ACR signals in tokens." />
+          <KeyPoint icon={MailCheck} title="Email Reset Without Enumeration" text="Reset requests return generic responses, tokens are HMAC-hashed at rest, and successful reset revokes active sessions." />
         </div>
       </Section>
 
@@ -80,6 +81,7 @@ const SecurityPage = () => {
                 <li>Token endpoint key exfiltration: server never stores or returns DRK JWE.</li>
                 <li>Redirect tampering: clients verify zk_drk_hash before using DRK.</li>
                 <li>Weak ECDH keys: public keys are validated for P-256 format and length.</li>
+                <li>Reset token table theft: email reset stores only keyed hashes, not plaintext links.</li>
               </ul>
             </CardContent>
           </Card>
@@ -184,6 +186,12 @@ const SecurityPage = () => {
             <CardContent className="p-6">
               <h3 className="font-semibold mb-2">Does changing my password break apps?</h3>
               <p className="text-sm text-muted-foreground">No. You rewrap the same DRK under a new device-derived key. Apps keep decrypting the same data.</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-card border-border/50">
+            <CardContent className="p-6">
+              <h3 className="font-semibold mb-2">Does email reset recover encrypted data?</h3>
+              <p className="text-sm text-muted-foreground">No. It restores sign-in access. Old encrypted data may still need old-password recovery or fresh key generation.</p>
             </CardContent>
           </Card>
           <Card className="bg-card border-border/50">

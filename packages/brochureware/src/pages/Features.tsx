@@ -2,7 +2,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Shield, Lock, KeyRound, Hash, RefreshCcw, Users, Settings, BookOpenCheck, ServerCog } from "lucide-react";
+import { Check, Shield, Lock, KeyRound, Hash, RefreshCcw, Users, Settings, BookOpenCheck, ServerCog, MailCheck } from "lucide-react";
 
 type Feature = {
   icon: React.ComponentType<{ className?: string }>;
@@ -41,6 +41,16 @@ const features: Feature[] = [
       "AMR includes otp; ACR indicates MFA",
     ],
     tags: ["OTP", "TOTP", "MFA"],
+  },
+  {
+    icon: MailCheck,
+    title: "Email Password Reset",
+    bullets: [
+      "SMTP-gated forgot-password flow",
+      "HMAC-hashed one-time reset tokens",
+      "Session and pending grant revocation after reset",
+    ],
+    tags: ["Recovery", "SMTP", "OPAQUE"],
   },
   {
     icon: Lock,

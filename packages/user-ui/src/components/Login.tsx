@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
@@ -54,6 +55,11 @@ export default function Login({
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [clientCheckLoading, setClientCheckLoading] = useState(!skipClientCheck);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
+  const showForgotPasswordLink = !!(
+    window.__APP_CONFIG__?.features?.passwordResetEnabled ||
+    window.__APP_CONFIG__?.features?.passwordResetLoginLinkVisible ||
+    window.__APP_CONFIG__?.features?.passwordResetLoginLinkEnabled
+  );
   const isPreviewMode = useMemo(() => {
     const url = new URL(window.location.href);
     return (
@@ -409,6 +415,13 @@ export default function Login({
               )}
             </Button>
           </div>
+          {showForgotPasswordLink ? (
+            <div className={styles.inlineAction}>
+              <Link className={styles.linkButton} to="/forgot-password">
+                {branding.getText("forgotPassword", "Forgot your password?")}
+              </Link>
+            </div>
+          ) : null}
         </form>
       ) : null}
 

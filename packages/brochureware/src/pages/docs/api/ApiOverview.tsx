@@ -30,6 +30,7 @@ const ApiOverviewPage = () => {
             <ul className="list-disc space-y-2 pl-5 text-base text-muted-foreground">
               <li>Auth flows: `/api/authorize`, `/api/token`, `/api/session`, `/api/logout`.</li>
               <li>Identity: OPAQUE start/finish for register and login.</li>
+              <li>Account recovery: email reset request, token validation, and OPAQUE reset.</li>
               <li>Directory and org endpoints for consuming apps and user surfaces.</li>
               <li>Public/Opaque crypto endpoints for wrapped key operations.</li>
             </ul>

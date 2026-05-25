@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShieldAlert, RefreshCcw, KeyRound } from "lucide-react";
+import { ShieldAlert, RefreshCcw, KeyRound, MailCheck } from "lucide-react";
 import DocsCallout from "@/pages/docs/components/DocsCallout";
 
 const SecurityModelPage = () => {
@@ -56,6 +56,20 @@ const SecurityModelPage = () => {
             <p className="text-base text-muted-foreground">
               Middleware applies origin checks on non-idempotent requests, CSP-style headers, and token
               checks before business logic. OTP policies can force re-auth at sensitive operations.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 md:col-span-2">
+          <CardContent className="p-6">
+            <div className="mb-3 flex items-center gap-2 text-foreground">
+              <MailCheck className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Email reset is account recovery</h3>
+            </div>
+            <p className="text-base text-muted-foreground">
+              Forgot-password links are SMTP-gated, generic-response, and one-time. They create a new
+              OPAQUE password record and revoke sessions, but they do not decrypt data wrapped under
+              the previous password-derived key.
             </p>
           </CardContent>
         </Card>

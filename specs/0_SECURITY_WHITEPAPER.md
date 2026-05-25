@@ -188,6 +188,7 @@ User/OIDC (port 9080)
 - `POST /api/token` (form): authorization_code; returns `zk_drk_hash` when applicable
 - `POST /opaque/login/start`, `POST /opaque/login/finish`
 - `POST /opaque/register/start`, `POST /opaque/register/finish`
+- `POST /password/reset/request`, `GET /password/reset/token`, `POST /password/reset/start`, `POST /password/reset/finish`
 - `POST /password/change/verify/start`, `POST /password/change/verify/finish`
 - `POST /password/change/start`, `POST /password/change/finish`
 - `GET /crypto/wrapped-drk`, `PUT /crypto/wrapped-drk`
@@ -210,6 +211,10 @@ Constraints
 
 Password secrecy (OPAQUE)
 - Passwords are not sent to the server in the OPAQUE flow; verifiers do not allow offline recovery by themselves. Login finish binds the authenticated account to server‑tracked identity; enumeration resistance and rate limits are applied.
+
+Email reset safety
+- Self-service email reset is SMTP-gated and returns generic request responses to avoid account enumeration. Reset tokens are high-entropy, single-use, short-lived, and stored only as keyed hashes. Successful reset replaces the OPAQUE record and revokes active sessions and pending grants.
+- Email reset restores account access, not encrypted data. If DRK-wrapped material was derived from the previous password export key, users must use old-password recovery or generate new keys after signing in with the new password.
 
 DRK secrecy
 - Only wrapped DRK is stored. Without KW (derived from export_key on the device), the server cannot decrypt DRK from stored state during honest frontend operation.

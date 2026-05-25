@@ -26,6 +26,8 @@ export default function UserEdit() {
     created_at?: string | null;
     last_used_at?: string | null;
   } | null>(null);
+  const [resetEmailSending, setResetEmailSending] = useState(false);
+  const [resetEmailMessage, setResetEmailMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +72,21 @@ export default function UserEdit() {
     }
   };
 
+  const sendPasswordResetEmail = async () => {
+    if (!user) return;
+    try {
+      setResetEmailSending(true);
+      setError(null);
+      setResetEmailMessage(null);
+      await adminApiService.sendUserPasswordResetEmail(user.sub);
+      setResetEmailMessage("Password reset email sent");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send password reset email");
+    } finally {
+      setResetEmailSending(false);
+    }
+  };
+
   if (loading) return <div>Loading user...</div>;
 
   if (error)
@@ -110,6 +127,11 @@ export default function UserEdit() {
               </AlertDescription>
             </Alert>
           )}
+          {resetEmailMessage && (
+            <Alert style={{ marginBottom: 16 }}>
+              <AlertTitle>{resetEmailMessage}</AlertTitle>
+            </Alert>
+          )}
           <FormGrid columns={2}>
             <FormField label={<Label>Subject ID</Label>}>
               <Input value={user.sub} readOnly />
@@ -131,6 +153,13 @@ export default function UserEdit() {
           <FormActions withMargin>
             {user && (
               <>
+                <Button
+                  variant="outline"
+                  disabled={resetEmailSending}
+                  onClick={sendPasswordResetEmail}
+                >
+                  {resetEmailSending ? "Sending..." : "Send Reset Email"}
+                </Button>
                 <Button
                   variant="outline"
                   onClick={async () => {
