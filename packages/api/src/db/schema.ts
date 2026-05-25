@@ -137,6 +137,32 @@ export const emailVerificationTokens = pgTable(
   })
 );
 
+export const passwordResetTokens = pgTable(
+  "password_reset_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    requestedIpHash: text("requested_ip_hash"),
+    userAgentHash: text("user_agent_hash"),
+  },
+  (table) => ({
+    userSubIdx: index("password_reset_tokens_user_sub_idx").on(table.userSub),
+    emailIdx: index("password_reset_tokens_email_idx").on(table.email),
+    expiresAtIdx: index("password_reset_tokens_expires_at_idx").on(table.expiresAt),
+    activeUserIdx: index("password_reset_tokens_active_user_idx").on(
+      table.userSub,
+      table.consumedAt
+    ),
+  })
+);
+
 export const opaqueRecords = pgTable("opaque_records", {
   sub: text("sub")
     .primaryKey()
@@ -445,11 +471,19 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   organizations: many(organizationMembers),
   permissions: many(userPermissions),
   emailVerificationTokens: many(emailVerificationTokens),
+  passwordResetTokens: many(passwordResetTokens),
 }));
 
 export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
   user: one(users, {
     fields: [emailVerificationTokens.userSub],
+    references: [users.sub],
+  }),
+}));
+
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userSub],
     references: [users.sub],
   }),
 }));

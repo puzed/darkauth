@@ -74,6 +74,8 @@ export const DEFAULT_RATE_LIMITS = {
   otp_disable: { windowMs: 60 * 60 * 1000, maxRequests: 5, enabled: true },
   otp_regenerate: { windowMs: 60 * 60 * 1000, maxRequests: 5, enabled: true },
 
+  password_reset: { windowMs: 60 * 60 * 1000, maxRequests: 10, enabled: true },
+
   // Install endpoint
   install: { windowMs: 60 * 60 * 1000, maxRequests: 3, enabled: true },
 };
@@ -116,6 +118,7 @@ export async function getRateLimitConfig(
         "otp_verify",
         "otp_disable",
         "otp_regenerate",
+        "password_reset",
       ];
       for (const t of types) {
         const w = (await getSetting(context, `rate_limits.${t}.window_minutes`)) as

@@ -9,6 +9,7 @@ import {
 import type { Context } from "../types.ts";
 import { logAuditEvent } from "./audit.ts";
 import { isEmailSendingAvailable, sendTemplatedEmail } from "./email.ts";
+import { isPasswordResetEmailEnabled } from "./passwordReset.ts";
 import { getSetting } from "./settings.ts";
 
 function getVerificationLink(context: Context, token: string): string {
@@ -91,12 +92,15 @@ export async function sendSignupExistingAccountNotice(
   context: Context,
   params: { email: string; name: string }
 ): Promise<void> {
+  const recoveryLink = (await isPasswordResetEmailEnabled(context))
+    ? `${context.config.publicOrigin}/forgot-password`
+    : `${context.config.publicOrigin}/login`;
   await sendTemplatedEmail(context, {
     to: params.email,
     template: "signup_existing_account_notice",
     variables: {
       name: params.name || params.email,
-      recovery_link: `${context.config.publicOrigin}/login`,
+      recovery_link: recoveryLink,
     },
   });
 }
