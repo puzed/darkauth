@@ -1,0 +1,26 @@
+---
+title: Organizations API
+description: User-side organization endpoints and member role operations.
+---
+
+Organization APIs let authenticated users inspect active organizations, create organizations when allowed, view members, and manage member roles when they have organization management permission.
+
+## Common endpoints
+
+- `GET /organizations`
+- `POST /organizations`
+- `GET /organizations/{organizationId}`
+- `GET /organizations/{organizationId}/members`
+- `GET /organizations/{organizationId}/invites`
+- `POST /organizations/{organizationId}/members/{memberId}/roles`
+- `DELETE /organizations/{organizationId}/members/{memberId}/roles/{roleId}`
+
+## Permission behavior
+
+Basic membership is enough to see some organization context. Managing members or roles requires organization management permission, such as `darkauth.org:manage`.
+
+Member responses may include less profile detail when the caller does not have management permission.
+
+## Token context
+
+Organization API behavior should match token context. Applications should avoid mixing resources across organizations unless the user has explicit permission for both.

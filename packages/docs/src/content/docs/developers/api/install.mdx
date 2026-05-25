@@ -1,0 +1,23 @@
+---
+title: Install API
+description: First-run install and bootstrap endpoints.
+---
+
+Install APIs exist only for first-run bootstrap. They are served on the admin port before DarkAuth is initialized.
+
+## Endpoints
+
+- `GET /install`
+- `POST /install`
+- `POST /install/opaque/start`
+- `POST /install/opaque/finish`
+
+The exact request shapes are intended for the installer UI and CLI installer rather than general application use.
+
+## Bootstrap responsibilities
+
+The install flow configures database mode, writes instance config, derives KEK settings, applies schema, creates the first admin account through OPAQUE, generates signing keys, and seeds initial settings and clients.
+
+## Security expectations
+
+The install token is one-time bootstrap state. Do not expose the installer to the public internet. After initialization, install endpoints should not continue accepting requests.

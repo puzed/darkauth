@@ -1,0 +1,27 @@
+---
+title: Developer Overview
+description: Integrate applications and contribute to DarkAuth.
+---
+
+Developers can integrate DarkAuth as a normal OIDC provider, as a zero-knowledge key delivery service for trusted apps, or as both. The right starting point depends on the kind of application you are building.
+
+If your app just needs login, use standard OIDC. If your browser app needs a user-held Data Root Key, use the ZK DRK delivery flow. If you are contributing to DarkAuth itself, start with the architecture and schema docs so your changes fit the existing controller, model, service, and OpenAPI patterns.
+
+## Integration paths
+
+- Browser or SPA: [Public Clients](/developers/oidc/public-clients/).
+- Server-rendered web app: [Confidential Clients](/developers/oidc/confidential-clients/).
+- Service integration: [Confidential Clients](/developers/oidc/confidential-clients/) and client credentials.
+- Encrypted browser app: [ZK DRK Delivery](/developers/zk-drk-delivery/).
+- SDK-based app: [TypeScript SDK](/developers/sdk/typescript/).
+- Org-aware app: [Organizations and RBAC](/developers/organizations-rbac/).
+
+## What DarkAuth expects from applications
+
+DarkAuth can authenticate users and issue tokens, but applications still own their authorization checks. Your backend should verify token issuer, audience, expiry, signature, scopes, organization context, and permissions before allowing protected actions.
+
+For zero-knowledge apps, your frontend must also verify the DRK hash binding, decrypt the JWE with the ephemeral private key, remove sensitive fragments from the URL, and avoid persisting the DRK unless you intentionally accept that tradeoff.
+
+## Local development
+
+Use the default public client for local browser integration, or create a new client for your app. Keep redirect URIs exact. If you need separate local, staging, and production environments, create separate client records so a mistake in one environment does not weaken another.

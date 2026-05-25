@@ -1,0 +1,36 @@
+---
+title: Configuration
+description: Instance configuration, ports, origins, and KEK passphrase.
+---
+
+DarkAuth has two layers of configuration. Instance-specific boot settings live in `config.yaml`. Shared runtime settings live in the database and are managed through the admin portal.
+
+This split is deliberate. Things that are tied to where the process runs, such as database connection mode and local ports, belong in the file. Product behavior that should travel with the instance, such as issuer settings, email policy, registration, token lifetimes, and branding, belongs in the database.
+
+## `config.yaml`
+
+Common fields:
+
+| Field | Purpose |
+| --- | --- |
+| `dbMode` | Selects `remote` PostgreSQL or `pglite`. |
+| `postgresUri` | Connection string for remote PostgreSQL. |
+| `pgliteDir` | Data directory for embedded PGLite. |
+| `userPort` | Port for user portal, OIDC, and user APIs. |
+| `adminPort` | Port for install UI, admin portal, and admin APIs. |
+| `proxyUi` | Development mode flag for Vite UI proxying. |
+| `kekPassphrase` | Passphrase used to derive the KEK at boot. |
+
+Keep this file out of public repositories. Even though most shared settings are in the database, `kekPassphrase` is sensitive.
+
+## Runtime settings
+
+The admin portal controls runtime settings stored in the `settings` table. Examples include public origin, issuer, SMTP, password reset policy, email verification, self-registration, token lifetimes, security headers, rate limits, and branding.
+
+Changing runtime settings should be treated like changing infrastructure. Review the effect on existing clients, login flows, email delivery, and tokens before applying changes in production.
+
+## Origins and redirects
+
+The issuer and public origin must match how applications reach DarkAuth. If a reverse proxy terminates TLS or rewrites hosts, make sure public URLs in discovery documents, emails, and redirects match the external address users and applications see.
+
+Misconfigured origins often show up as failed redirects, invalid issuer checks, broken email links, or clients rejecting tokens.

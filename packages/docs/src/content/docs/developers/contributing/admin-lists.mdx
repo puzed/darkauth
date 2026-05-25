@@ -1,0 +1,37 @@
+---
+title: Admin Lists
+description: Admin table, pagination, sorting, and list UX conventions.
+---
+
+Admin list pages should be dense, predictable, and fast to scan. They are tools for repeated operational work, not marketing pages.
+
+## UI conventions
+
+Use shared table primitives, compact row heights, no-wrap cells, sortable table headers where supported, and row-action menus for secondary actions. The primary column should usually link to the default detail action.
+
+Keep horizontal overflow inside the table wrapper so the dashboard layout remains stable.
+
+## Query contract
+
+Standard list endpoints use:
+
+- `page`
+- `limit`
+- `search`
+- `sortBy`
+- `sortOrder`
+
+Sort fields are endpoint-specific. `limit` should be bounded, and search strings should have a reasonable maximum length.
+
+## Pagination response
+
+Admin list responses should include:
+
+- `pagination.page`
+- `pagination.limit`
+- `pagination.total`
+- `pagination.totalPages`
+- `pagination.hasNext`
+- `pagination.hasPrev`
+
+Using the same shape across lists keeps UI code reusable and makes API behavior easier to document.

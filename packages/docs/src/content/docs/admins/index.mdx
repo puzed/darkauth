@@ -1,0 +1,32 @@
+---
+title: Admin Overview
+description: Operate and configure a DarkAuth instance.
+---
+
+The admin portal is where DarkAuth becomes an operating system for identity. It is not just a list of users. Admins manage OAuth clients, organizations, roles, permissions, signing keys, email behavior, branding, runtime settings, audit logs, and admin accounts.
+
+Admin users are separate from regular users. They sign in through the admin portal, authenticate with OPAQUE, and have a coarse admin role of `read` or `write`. Read admins can inspect the system. Write admins can make changes.
+
+## Main admin responsibilities
+
+- Install and initialize the instance.
+- Configure database, ports, origins, and KEK passphrase.
+- Create and manage users.
+- Create and manage admin users.
+- Register OAuth/OIDC clients.
+- Configure organizations, roles, and permissions.
+- Manage SMTP, password reset, and email verification.
+- Customize user-facing branding.
+- Rotate signing keys and protect secrets.
+- Review and export audit logs.
+- Troubleshoot login, token, email, and deployment issues.
+
+## Operational model
+
+DarkAuth uses a two-port model by default. The user port serves the public authentication and OIDC surface. The admin port serves the installer before initialization and the admin portal afterward.
+
+In production, treat the admin port as sensitive infrastructure. It should be reachable only by trusted operators, protected by HTTPS, monitored, and included in incident response plans.
+
+## Where to start
+
+If you are installing a new instance, start with [Install](/admins/install/) and [Configuration](/admins/configuration/). If you already have a running instance, review [Clients](/admins/clients/), [Users](/admins/users/), [Organizations and RBAC](/admins/organizations-rbac/), and [Audit Logs](/admins/audit-logs/).

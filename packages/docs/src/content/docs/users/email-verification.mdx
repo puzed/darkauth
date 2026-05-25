@@ -1,0 +1,26 @@
+---
+title: Email Verification
+description: Email verification and profile email update flows.
+---
+
+Email verification lets DarkAuth confirm that a user can receive mail at the address on the account. This is useful for password reset, account recovery, audit clarity, and applications that rely on email as a stable contact channel.
+
+## Verification links
+
+When verification is required or requested, DarkAuth sends a verification email through the configured SMTP provider. The link contains a one-time token. Opening the link validates the token, marks the email as verified, and returns the user to the appropriate account flow.
+
+Verification tokens are not meant to be long-lived credentials. They expire, can be consumed once, and should not be shared.
+
+## Updating an email address
+
+Users can update their profile email when allowed by policy and UI flow. DarkAuth treats email changes carefully because the email address is used for login, reset, and audit context. A new address may need to be verified before it is trusted.
+
+Applications should not assume that every user has a verified email unless they check the relevant claim or API field.
+
+## Admin dependencies
+
+Email verification depends on working SMTP configuration and email templates. If SMTP is disabled or failing, verification messages cannot be delivered. Admins should use the SMTP test action after changing mail settings and should review templates before enabling verification-heavy flows.
+
+## Privacy and enumeration
+
+DarkAuth avoids exposing unnecessary account state through public email flows. Where possible, user-facing responses should not reveal whether an email is registered, verified, disabled, or temporarily blocked. Detailed state belongs in the admin portal and audit logs, not public screens.

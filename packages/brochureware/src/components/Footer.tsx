@@ -13,9 +13,9 @@ const Footer = () => {
       { name: "Changelog", href: "/changelog" }
     ],
     developers: [
-      { name: "Documentation", href: "/docs/introduction" },
-      { name: "API Reference", href: "/docs/api" },
-      { name: "SDKs", href: "/docs/sdks" },
+      { name: "Documentation", href: "https://docs.darkauth.com" },
+      { name: "API Reference", href: "https://docs.darkauth.com/developers/api/" },
+      { name: "SDKs", href: "https://docs.darkauth.com/developers/sdk/typescript/" },
       { name: "GitHub", href: "https://github.com/puzed/" }
     ],
     company: [

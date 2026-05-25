@@ -1,0 +1,57 @@
+---
+title: Public Clients
+description: Authorization Code with PKCE for browser and native-style clients.
+---
+
+Public clients are applications that cannot keep a client secret. Browser apps are the common example. DarkAuth supports public clients through the Authorization Code flow with PKCE.
+
+## Why PKCE matters
+
+In a public client, anyone who can inspect the app can see the client ID. PKCE adds a one-time verifier that the app generates before redirecting to DarkAuth. The authorization code is only useful to whoever still has that verifier.
+
+DarkAuth supports the `S256` PKCE method. Public clients should always use it.
+
+## Authorization request
+
+A typical request includes:
+
+- `client_id`
+- `redirect_uri`
+- `response_type=code`
+- `scope=openid profile email`
+- `state`
+- `code_challenge`
+- `code_challenge_method=S256`
+- optional `organization_id`
+- optional `zk_pub` for ZK-enabled clients
+
+The app redirects the browser to DarkAuth. DarkAuth validates the client, redirect URI, response type, scopes, and PKCE challenge before continuing.
+
+## Callback handling
+
+After the user signs in and consents, DarkAuth redirects to the registered `redirect_uri` with `code` and `state`. The app must verify `state` before exchanging the code.
+
+The token request sends:
+
+- `grant_type=authorization_code`
+- `client_id`
+- `redirect_uri`
+- `code`
+- `code_verifier`
+
+The app should validate the returned ID token, store only what it needs, and use refresh behavior appropriate for the deployment.
+
+## Public clients with ZK delivery
+
+If the client is configured for `fragment-jwe`, the authorization request can include `zk_pub`. The app must generate a fresh ephemeral P-256 key pair for the request and keep the private key in memory until the callback is handled.
+
+The returned URL fragment contains the encrypted DRK. The token response contains `zk_drk_hash`. The app must verify that the fragment hash matches before decrypting.
+
+## Common mistakes
+
+- Reusing a PKCE verifier across requests.
+- Not validating `state`.
+- Registering overly broad redirect URIs.
+- Losing the code verifier on page reload.
+- Treating a public client as if it can protect a secret.
+- Enabling ZK delivery before the app has implemented hash verification and memory-only key custody.

@@ -1,0 +1,30 @@
+---
+title: Auth and OIDC API
+description: Authorize, token, session, refresh, logout, discovery, and JWKS endpoints.
+---
+
+The Auth and OIDC endpoints are the main integration surface for applications.
+
+## Discovery
+
+`GET /.well-known/openid-configuration` returns issuer metadata, authorization endpoint, token endpoint, JWKS URI, supported response types, supported grant types, supported scopes, and supported PKCE methods.
+
+`GET /.well-known/jwks.json` returns public signing keys. Applications should use this endpoint to validate token signatures and should respect `kid` values for rotation.
+
+## Authorization
+
+`GET /authorize` starts an authorization request. DarkAuth validates the client, redirect URI, response type, scopes, PKCE challenge, organization hint, and optional ZK public key. If the user must authenticate, it creates pending authorization state and sends the browser through the hosted user UI.
+
+`POST /authorize/finalize` completes a pending authorization request after the user has authenticated and consented. For ZK requests, the caller must include `drk_hash`; the server stores the hash and returns redirect details so browser code can attach the fragment JWE.
+
+## Token exchange
+
+`POST /token` handles authorization code, refresh token, and client credentials grants depending on client configuration. For code grants, DarkAuth verifies redirect URI and PKCE before issuing tokens.
+
+For ZK code grants, the token response includes `zk_drk_hash`, not the JWE. The app verifies that hash against the fragment before decrypting.
+
+## Sessions and logout
+
+`GET /session` returns the current first-party user session state. `POST /logout` clears the user session and can participate in post-logout redirects.
+
+Applications should still clear their own local state on logout.

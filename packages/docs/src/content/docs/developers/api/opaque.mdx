@@ -1,0 +1,27 @@
+---
+title: OPAQUE API
+description: Registration and login message endpoints.
+---
+
+OPAQUE endpoints are used by DarkAuth's hosted UIs and internal flows. Application developers normally do not call these endpoints directly unless they are building a custom DarkAuth-compatible UI.
+
+## User endpoints
+
+- `POST /opaque/register/start`
+- `POST /opaque/register/finish`
+- `POST /opaque/login/start`
+- `POST /opaque/login/finish`
+
+Registration creates or replaces the OPAQUE record. Login authenticates against that record and creates session state.
+
+## Admin endpoints
+
+Admin login uses separate OPAQUE endpoints under the admin API. Admin accounts are a different cohort from regular users, so their OPAQUE records are stored separately.
+
+## Install endpoints
+
+The first admin account is registered through install OPAQUE endpoints. These are only active before initialization.
+
+## Security behavior
+
+DarkAuth binds login finish to the server-side OPAQUE login session created during login start. Client-supplied identity fields are not trusted for session minting.

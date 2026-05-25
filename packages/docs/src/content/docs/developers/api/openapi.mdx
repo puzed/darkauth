@@ -1,0 +1,27 @@
+---
+title: OpenAPI
+description: Generated API contract from controller schema metadata.
+---
+
+DarkAuth generates OpenAPI output from controller metadata and Zod schemas. The goal is to keep runtime validation, TypeScript types, and API documentation aligned.
+
+## How it works
+
+Controllers export schema metadata that describes method, path, tags, parameters, query fields, request body, and responses. The OpenAPI builder aggregates those schemas and converts Zod definitions to JSON Schema.
+
+This means endpoint documentation should change in the same pull request as endpoint behavior.
+
+## When adding an endpoint
+
+Add:
+
+- A precise request schema.
+- A precise response schema.
+- Error responses where relevant.
+- OpenAPI metadata.
+- Router registration.
+- Tests for validation and behavior.
+
+## Using the spec
+
+Use the generated OpenAPI document when you need exact field shapes. Use the written docs when you need behavior, policy, security boundaries, and examples.

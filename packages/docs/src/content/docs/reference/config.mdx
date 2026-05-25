@@ -1,0 +1,30 @@
+---
+title: Configuration Reference
+description: config.yaml fields and database-backed runtime settings.
+---
+
+DarkAuth uses `config.yaml` for instance-specific startup settings and the database `settings` table for shared runtime behavior.
+
+## `config.yaml`
+
+| Field | Purpose |
+| --- | --- |
+| `dbMode` | Selects `remote` PostgreSQL or `pglite`. |
+| `postgresUri` | Remote PostgreSQL connection string. Required when `dbMode` is `remote`. |
+| `pgliteDir` | Embedded PGLite data directory. Used when `dbMode` is `pglite`. |
+| `userPort` | Port for user portal, OIDC endpoints, and user APIs. Default is `9080`. |
+| `adminPort` | Port for install UI, admin portal, and admin APIs. Default is `9081`. |
+| `proxyUi` | Development flag for proxying Vite user and admin UIs. |
+| `kekPassphrase` | Passphrase used to derive the key-encryption key at boot. |
+
+## Runtime settings
+
+Runtime settings include issuer, public origin, token lifetimes, registration behavior, SMTP, password reset, email verification, OTP policy, rate limits, security headers, branding, and client dashboard behavior.
+
+These values belong in the database because they are part of the identity system's state. They should move with backups and should be visible to admins.
+
+## Secret handling
+
+The KEK passphrase is the most important file-backed secret. It is not stored in the database. Store it in a secret manager and inject it into `config.yaml` or the runtime environment using your deployment tooling.
+
+Changing the KEK passphrase without rotating or re-encrypting protected values can make encrypted material unavailable.

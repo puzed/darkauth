@@ -1,0 +1,34 @@
+---
+title: Example Todos App
+description: Demo application walkthrough for DarkAuth login and protected data.
+---
+
+The demo app is a practical reference for integrating a browser application with DarkAuth. It is intentionally small enough to understand, but it still shows the pieces a real app needs: login, callback handling, authenticated routing, session refresh, and protected data loading.
+
+## What the example demonstrates
+
+- Redirecting to DarkAuth for login.
+- Handling the OAuth callback.
+- Reading the authenticated session.
+- Protecting app routes.
+- Showing user-facing denial or error states.
+- Calling an app backend with authenticated context.
+- Organizing authenticated UI around a sidebar and dashboard.
+
+## How to use it
+
+Start DarkAuth, then run the demo app and its server from the monorepo:
+
+```bash
+npm run demo:dev
+```
+
+Use the default demo public client or register a new one with callback URLs that match your local ports.
+
+## What to copy
+
+Copy the flow shape, not the product UI. A real app should have its own data model, authorization checks, error handling, and recovery story. The useful parts are how callback state is handled, how authenticated routes are guarded, and how the app reacts when the user is not signed in.
+
+## What to add for production
+
+Before using the same pattern in production, add backend token validation, clear permission checks, production redirect URIs, logging, logout behavior, and a decision about whether your app needs ZK DRK delivery.

@@ -1,0 +1,36 @@
+---
+title: Database
+description: PostgreSQL and embedded PGLite database modes.
+---
+
+DarkAuth stores nearly all durable state in the database. That includes users, admin users, clients, sessions, authorization codes, OPAQUE records, settings, signing keys, organizations, memberships, roles, permissions, OTP state, audit logs, password reset tokens, email verification tokens, and user encryption-key metadata.
+
+## Remote PostgreSQL
+
+Use remote PostgreSQL when DarkAuth is production infrastructure. It gives you a mature operations model for backups, replication, monitoring, access control, and restore drills.
+
+Production PostgreSQL should be protected like the identity system itself. It contains encrypted secrets and hashed tokens rather than plaintext passwords, but it is still highly sensitive operational data.
+
+## Embedded PGLite
+
+PGLite is useful when you want DarkAuth to run with fewer moving parts. It is a good fit for local development, demos, tests, and small self-hosted installs.
+
+The tradeoff is operational. You still need backups, disk durability, upgrade planning, and a clear recovery story. Embedded does not mean disposable if the instance is serving real users.
+
+## Migrations
+
+DarkAuth uses Drizzle migrations. Run migrations before starting a new version in environments where schema changes are expected.
+
+Useful commands:
+
+```bash
+npm run db:push
+npm run db:migrate
+npm run db:generate
+```
+
+Check release notes before upgrading production, especially when changes affect sessions, clients, organizations, OTP, or key storage.
+
+## Backups and KEK
+
+Database backups and the KEK passphrase are related. A backup without the correct KEK passphrase may not be enough to restore sensitive encrypted material. Store both with appropriate access controls, but do not store them together in a way that turns one compromise into a full compromise.

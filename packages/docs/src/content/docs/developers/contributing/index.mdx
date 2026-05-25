@@ -1,0 +1,25 @@
+---
+title: Contributing
+description: Development workflow and codebase guide for DarkAuth contributors.
+---
+
+DarkAuth is an npm workspace monorepo. The main packages are the API server, user UI, admin UI, TypeScript client SDK, OPAQUE package, demo app, test suite, brochureware site, and docs site.
+
+## Contribution mindset
+
+DarkAuth is security-sensitive software. Changes should be small, explicit, and easy to review. Prefer removing accidental complexity over adding new layers. Keep behavior close to the code that owns it.
+
+When changing an API, update validation, OpenAPI metadata, tests, UI behavior, and docs together.
+
+## Useful starting points
+
+- [Architecture](/developers/contributing/architecture/)
+- [Schemas](/developers/contributing/schemas/)
+- [OpenAPI patterns](/developers/contributing/openapi/)
+- [Naming](/developers/contributing/naming/)
+- [Admin lists](/developers/contributing/admin-lists/)
+- [Tests](/developers/contributing/tests/)
+
+## Verification
+
+Run package-level tests when your change is local. Run `npm run tidy` and `npm run build` before handing off broad changes.

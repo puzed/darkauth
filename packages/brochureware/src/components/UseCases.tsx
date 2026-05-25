@@ -196,7 +196,7 @@ const UseCases = () => {
               <a href="#docs" className="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-white/90 transition-smooth text-center">
                 Run with Docker
               </a>
-              <a href="#docs" className="border-2 border-white/20 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-smooth text-center">
+              <a href="https://docs.darkauth.com" className="border-2 border-white/20 text-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10 transition-smooth text-center">
                 Read Docs
               </a>
             </div>

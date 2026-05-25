@@ -1,0 +1,26 @@
+---
+title: Crypto API
+description: Wrapped DRK and user encryption key endpoints.
+---
+
+Crypto endpoints support zero-knowledge storage and user encryption-key discovery. They require an authenticated user session.
+
+## Wrapped DRK
+
+`GET /crypto/wrapped-drk` returns the caller's wrapped Data Root Key if one exists. `PUT /crypto/wrapped-drk` stores a wrapped DRK.
+
+The wrapped DRK is encrypted client-side under a key derived from the OPAQUE export key. The server stores ciphertext and cannot unwrap it during honest operation.
+
+## Public encryption keys
+
+`PUT /crypto/enc-pub` stores the caller's public encryption JWK. `GET /crypto/user-enc-pub` retrieves a user's public key when policy allows it.
+
+This can support user-to-user sharing, messaging, or app-specific encrypted collaboration flows.
+
+## Wrapped private keys
+
+`PUT /crypto/wrapped-enc-priv` stores the caller's private encryption JWK wrapped under DRK-derived material. `GET /crypto/wrapped-enc-priv` retrieves it for recovery on a new session or device.
+
+## Payload handling
+
+Clients should keep payloads bounded, validate JWK shape before use, and avoid logging wrapped key material.
