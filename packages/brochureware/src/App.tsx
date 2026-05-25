@@ -25,6 +25,7 @@ import ConfidentialClientFlowPage from "./pages/docs/guides/ConfidentialClientFl
 import UsersDirectoryGuidePage from "./pages/docs/guides/UsersDirectory";
 import OrganizationsRbacPage from "./pages/docs/guides/OrganizationsRbac";
 import OtpPolicyPage from "./pages/docs/guides/OtpPolicy";
+import PasswordResetPage from "./pages/docs/guides/PasswordReset";
 import ApiOverviewPage from "./pages/docs/api/ApiOverview";
 import ApiAuthPage from "./pages/docs/api/Auth";
 import ApiOpaquePage from "./pages/docs/api/Opaque";
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="guides/users-directory" element={<UsersDirectoryGuidePage />} />
             <Route path="guides/organizations-rbac" element={<OrganizationsRbacPage />} />
             <Route path="guides/otp-policy" element={<OtpPolicyPage />} />
+            <Route path="guides/password-reset" element={<PasswordResetPage />} />
             <Route path="api" element={<ApiOverviewPage />} />
             <Route path="api/overview" element={<ApiOverviewPage />} />
             <Route path="api/auth" element={<ApiAuthPage />} />

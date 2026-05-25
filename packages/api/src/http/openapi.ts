@@ -63,6 +63,7 @@ import { schema as adminUserOtpSchema } from "../controllers/admin/userOtp.ts";
 import { schema as adminUserOtpDeleteSchema } from "../controllers/admin/userOtpDelete.ts";
 import { schema as adminUserOtpUnlockSchema } from "../controllers/admin/userOtpUnlock.ts";
 import { schema as adminUserPasswordResetSchema } from "../controllers/admin/userPasswordReset.ts";
+import { schema as adminUserPasswordResetEmailSchema } from "../controllers/admin/userPasswordResetEmail.ts";
 import { schema as adminUserPasswordSetFinishSchema } from "../controllers/admin/userPasswordSetFinish.ts";
 import { schema as adminUserPasswordSetStartSchema } from "../controllers/admin/userPasswordSetStart.ts";
 import { schema as adminUserPermissionsSchema } from "../controllers/admin/userPermissions.ts";
@@ -99,6 +100,10 @@ import { schema as userPasswordChangeFinishSchema } from "../controllers/user/pa
 import { schema as userPasswordChangeStartSchema } from "../controllers/user/passwordChangeStart.ts";
 import { schema as userPasswordChangeVerifyFinishSchema } from "../controllers/user/passwordChangeVerifyFinish.ts";
 import { schema as userPasswordChangeVerifyStartSchema } from "../controllers/user/passwordChangeVerifyStart.ts";
+import { schema as userPasswordResetFinishSchema } from "../controllers/user/passwordResetFinish.ts";
+import { schema as userPasswordResetRequestSchema } from "../controllers/user/passwordResetRequest.ts";
+import { schema as userPasswordResetStartSchema } from "../controllers/user/passwordResetStart.ts";
+import { schema as userPasswordResetTokenSchema } from "../controllers/user/passwordResetToken.ts";
 import { schema as userProfileEmailSchema } from "../controllers/user/profileEmailUpdate.ts";
 import { schema as userSessionSchema } from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
@@ -179,6 +184,7 @@ const documentedSchemas: ControllerSchema[] = [
   adminUserPasswordSetStartSchema,
   adminUserPasswordSetFinishSchema,
   adminUserPasswordResetSchema,
+  adminUserPasswordResetEmailSchema,
   adminPasswordChangeFinishSchema,
   adminJwksSchema,
   adminJwksRotateSchema,
@@ -210,6 +216,10 @@ const documentedSchemas: ControllerSchema[] = [
   userPasswordChangeFinishSchema,
   userPasswordChangeVerifyStartSchema,
   userPasswordChangeVerifyFinishSchema,
+  userPasswordResetRequestSchema,
+  userPasswordResetTokenSchema,
+  userPasswordResetStartSchema,
+  userPasswordResetFinishSchema,
   userProfileEmailSchema,
   userEncPublicGetSchema,
   userEncPublicPutSchema,

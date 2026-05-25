@@ -44,9 +44,17 @@ const TEMPLATE_DEFINITIONS: TemplateDefinition[] = [
   },
   {
     key: "password_recovery",
-    label: "Password recovery",
-    description: "Sent when a user requests account recovery.",
-    variables: ["name", "recovery_link"],
+    label: "Password reset",
+    description: "Sent when a user requests a password reset.",
+    variables: [
+      "name",
+      "email",
+      "reset_link",
+      "recovery_link",
+      "expires_minutes",
+      "requested_at",
+      "ip_hint",
+    ],
   },
   {
     key: "admin_test_email",

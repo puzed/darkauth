@@ -113,6 +113,22 @@ export interface WrappedDrkResponse {
   wrapped_drk: string;
 }
 
+export interface PasswordResetRequestResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface PasswordResetTokenResponse {
+  valid: boolean;
+  email?: string;
+}
+
+export interface PasswordResetStartResponse {
+  message: string;
+  serverPublicKey: string;
+  identityU: string;
+}
+
 class ApiService {
   private baseUrl: string;
   private onSessionExpired?: () => void;
@@ -446,6 +462,43 @@ class ApiService {
     return this.request("/password/recovery/verify/finish", {
       method: "POST",
       body: JSON.stringify({ finish: finishB64Url, sessionId }),
+    });
+  }
+
+  async requestPasswordReset(email: string): Promise<PasswordResetRequestResponse> {
+    return this.request("/password/reset/request", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async getPasswordResetToken(token: string): Promise<PasswordResetTokenResponse> {
+    const query = new URLSearchParams({ token });
+    return this.request(`/password/reset/token?${query.toString()}`);
+  }
+
+  async passwordResetStart(
+    token: string,
+    requestB64Url: string
+  ): Promise<PasswordResetStartResponse> {
+    return this.request("/password/reset/start", {
+      method: "POST",
+      body: JSON.stringify({ token, request: requestB64Url }),
+    });
+  }
+
+  async passwordResetFinish(
+    token: string,
+    recordB64Url: string,
+    exportKeyHashB64Url: string
+  ): Promise<{ success: boolean }> {
+    return this.request("/password/reset/finish", {
+      method: "POST",
+      body: JSON.stringify({
+        token,
+        record: recordB64Url,
+        export_key_hash: exportKeyHashB64Url,
+      }),
     });
   }
 

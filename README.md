@@ -12,6 +12,7 @@ DarkAuth is open source and self-hosted. There is no paid plan, subscription, or
 - **OIDC Compatible**: Standard OAuth 2.0/OpenID Connect for universal compatibility
 - **Zero-Knowledge DRK Delivery**: Optional fragment-based JWE delivery for trusted clients
 - **TOTP MFA**: Time-based one-time passwords for users and admins with backup codes, rate limits, and per-organization enforcement
+- **Email Password Reset**: SMTP-gated self-service reset links with hashed one-time tokens and session invalidation
 - **Database-Backed Configuration**: Most settings stored in PostgreSQL; minimal `config.yaml` for bootstrap
 - **Two-Port Architecture**: Separate ports for user (9080) and admin (9081). First-run installer is served on the admin port until setup completes.
 - **Secure Key Storage**: Optional encryption of private keys at rest using Argon2id-derived KEK
@@ -171,6 +172,7 @@ All configuration and state stored in PostgreSQL:
 - **wrapped_root_keys**: Encrypted DRK storage
 - **auth_codes**: Authorization codes
 - **sessions**: Active sessions
+- **password_reset_tokens**: HMAC-hashed, single-use email password reset tokens
 - **otp_configs / otp_backup_codes**: OTP configuration and backup codes
 - **pending_auth**: In-progress auth requests
 - **admin_users**: Admin accounts (separate cohort)
@@ -252,6 +254,12 @@ Authorization codes are short-lived and single-use. Redemption at the token endp
 - `POST /api/opaque/login/start`
 - `POST /api/opaque/login/finish`
 
+### Email Password Reset
+- `POST /api/password/reset/request` - Request reset email with generic anti-enumeration response
+- `GET /api/password/reset/token?token=...` - Validate reset link and return only masked email
+- `POST /api/password/reset/start` - Start OPAQUE reset registration with reset token
+- `POST /api/password/reset/finish` - Finish reset, consume token, replace password record, and revoke sessions
+
 ### OTP (TOTP) — User
 - `POST /api/otp/setup/init`
 - `POST /api/otp/setup/verify`
@@ -305,6 +313,12 @@ When OTP is enabled and required by the user organization policy (`organizations
 5. JWE delivered via URL fragment (never hits server)
 6. App verifies hash binding and decrypts DRK
 
+### Email Password Reset and Encrypted Data
+
+Email reset restores account access by creating a new OPAQUE password record. It does not decrypt
+DRK-wrapped data that depends on the old password-derived export key. After reset, users may need to
+use the existing old-password recovery flow or generate new keys.
+
 ## Building for Production
 
 ```bash
@@ -355,6 +369,7 @@ npm run test:debug
 6. **Rate limiting** - Configurable per endpoint
 7. **Session security** - Short-lived sessions with CSRF protection
 8. **OTP hardening** - Secrets encrypted with KEK, backup codes hashed with Argon2, anti-replay via timestep tracking, cohort/organization enforcement, AMR/ACR reflect MFA
+9. **Password reset** - Enable only with working SMTP; reset requests use generic responses, HMAC-hashed one-time tokens, rate limits, audit events, and post-reset session revocation
 
 ## Support
 

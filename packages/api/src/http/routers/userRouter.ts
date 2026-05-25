@@ -31,6 +31,10 @@ import { postUserPasswordVerifyFinish } from "../../controllers/user/passwordCha
 import { postUserPasswordVerifyStart } from "../../controllers/user/passwordChangeVerifyStart.ts";
 import { postUserPasswordRecoveryVerifyFinish } from "../../controllers/user/passwordRecoveryVerifyFinish.ts";
 import { postUserPasswordRecoveryVerifyStart } from "../../controllers/user/passwordRecoveryVerifyStart.ts";
+import { postPasswordResetFinish } from "../../controllers/user/passwordResetFinish.ts";
+import { postPasswordResetRequest } from "../../controllers/user/passwordResetRequest.ts";
+import { postPasswordResetStart } from "../../controllers/user/passwordResetStart.ts";
+import { getPasswordResetToken } from "../../controllers/user/passwordResetToken.ts";
 import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
@@ -51,7 +55,7 @@ import { sanitizeAuditPath, sanitizeLoggedError } from "../../services/audit.ts"
 import { sanitizeCSS } from "../../services/branding.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context } from "../../types.ts";
-import { assertCsrf } from "../../utils/csrf.ts";
+import { assertCsrf, assertSameOrigin } from "../../utils/csrf.ts";
 import { sendError } from "../../utils/http.ts";
 
 function readColor(
@@ -71,7 +75,18 @@ export function createUserRouter(context: Context) {
     const pathname = url.pathname;
 
     try {
-      const needsCsrf = !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token";
+      const isPublicAuthPost =
+        method === "POST" &&
+        [
+          "/opaque/login/start",
+          "/opaque/login/finish",
+          "/password/reset/request",
+          "/password/reset/start",
+          "/password/reset/finish",
+        ].includes(pathname);
+      const needsCsrf =
+        !["GET", "HEAD", "OPTIONS"].includes(method) && pathname !== "/token" && !isPublicAuthPost;
+      if (isPublicAuthPost) assertSameOrigin(request);
       if (needsCsrf) assertCsrf(request, false);
       if (method === "GET" && pathname === "/branding/logo") {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
@@ -326,6 +341,22 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/password/recovery/verify/finish") {
         return await postUserPasswordRecoveryVerifyFinish(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/password/reset/request") {
+        return await postPasswordResetRequest(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/password/reset/token") {
+        return await getPasswordResetToken(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/password/reset/start") {
+        return await postPasswordResetStart(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/password/reset/finish") {
+        return await postPasswordResetFinish(context, request, response);
       }
 
       if (method === "POST" && pathname === "/opaque/login/start") {

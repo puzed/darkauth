@@ -19,6 +19,7 @@ const tokenRefreshSnippet = `POST /api/token\nContent-Type: application/x-www-fo
 
 const sessionSnippet = `GET /api/session\nAuthorization: Bearer <access_token>`;
 const logoutSnippet = `POST /api/logout\nAuthorization: Bearer <access_token>`;
+const passwordResetSnippet = `POST /api/password/reset/request\nContent-Type: application/json\n\n{"email":"alice@example.com"}`;
 
 const AuthPage = () => {
   return (
@@ -104,6 +105,22 @@ const AuthPage = () => {
           <li>When `organization_id` is omitted, DarkAuth uses the current session org, selects the only active org, or prompts multi-org users before code issue.</li>
         </ul>
       </DocsCallout>
+
+      <Card className="border-border/60 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg">Email password reset</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre className="overflow-x-auto rounded-md border border-border/60 bg-muted/50 p-4 text-xs">
+            <code>{passwordResetSnippet}</code>
+          </pre>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Reset requests always return a generic response. The reset page uses `/api/password/reset/token`,
+            `/api/password/reset/start`, and `/api/password/reset/finish` to validate and replace the
+            OPAQUE password record.
+          </p>
+        </CardContent>
+      </Card>
 
       <Card className="border-border/60 shadow-sm">
         <CardHeader>

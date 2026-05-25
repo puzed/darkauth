@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { clients } from "../db/schema.ts";
 import { sanitizeLoggedError } from "../services/audit.ts";
 import { getBrandingConfig, sanitizeCSS } from "../services/branding.ts";
+import { shouldShowPasswordResetLink } from "../services/passwordReset.ts";
 import { getSetting, isSystemInitialized } from "../services/settings.ts";
 import type { Context } from "../types.ts";
 import { sendError } from "../utils/http.ts";
@@ -148,12 +149,14 @@ export async function createUserServer(context: Context) {
           | boolean
           | null
           | undefined;
+        const passwordResetEnabled = await shouldShowPasswordResetLink(context);
         const payload = {
           issuer,
           clientId: ui.clientId || "user",
           redirectUri: ui.redirectUri || `${publicOrigin}/callback`,
           features: {
             selfRegistrationEnabled: !!selfReg,
+            passwordResetEnabled,
           },
           branding: {
             identity: branding?.identity || {

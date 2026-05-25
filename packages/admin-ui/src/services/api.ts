@@ -520,6 +520,10 @@ class AdminApiService {
     return this.request(`/users/${userSub}/password/reset`, { method: "POST" });
   }
 
+  async sendUserPasswordResetEmail(userSub: string): Promise<{ success: boolean }> {
+    return this.request(`/users/${userSub}/password/reset-email`, { method: "POST" });
+  }
+
   async requireAdminPasswordReset(adminId: string): Promise<{ success: boolean }> {
     return this.request(`/admin-users/${adminId}/password/reset`, { method: "POST" });
   }
