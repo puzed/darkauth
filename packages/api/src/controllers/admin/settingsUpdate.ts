@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { isEmailSendingAvailable } from "../../services/email.ts";
 import { requireSession } from "../../services/sessions.ts";
 import { getSetting, setSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -75,6 +76,14 @@ async function updateSettingsHandler(
     validateSmtpPort(data.value);
   } else if (data.key === "email.verification.token_ttl_minutes") {
     validateVerificationTtl(data.value);
+  } else if (data.key === "users.password_reset_token_ttl_minutes") {
+    validatePasswordResetTtl(data.value);
+  } else if (data.key === "users.password_reset_request_cooldown_minutes") {
+    validatePasswordResetCooldown(data.value);
+  } else if (data.key === "users.password_reset_max_requests_per_hour") {
+    validatePasswordResetHourlyMax(data.value);
+  } else if (data.key === "users.password_reset_email_enabled") {
+    await validatePasswordResetEnable(context, data.value);
   } else if (data.key === "email.smtp.enabled") {
     await validateSmtpEnable(context, data.value);
   }
@@ -113,6 +122,36 @@ function validateSmtpPort(value: unknown): void {
 function validateVerificationTtl(value: unknown): void {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 5 || value > 10080) {
     throw new ValidationError("Verification token TTL must be between 5 and 10080 minutes");
+  }
+}
+
+function validatePasswordResetTtl(value: unknown): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 5 || value > 1440) {
+    throw new ValidationError("Password reset token TTL must be between 5 and 1440 minutes");
+  }
+}
+
+function validatePasswordResetCooldown(value: unknown): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 60) {
+    throw new ValidationError("Password reset cooldown must be between 1 and 60 minutes");
+  }
+}
+
+function validatePasswordResetHourlyMax(value: unknown): void {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1 || value > 20) {
+    throw new ValidationError("Password reset max requests per hour must be between 1 and 20");
+  }
+}
+
+async function validatePasswordResetEnable(context: Context, value: unknown): Promise<void> {
+  if (typeof value !== "boolean") {
+    throw new ValidationError("Password reset enabled must be a boolean");
+  }
+  if (!value) return;
+  if (!(await isEmailSendingAvailable(context))) {
+    throw new ValidationError(
+      "Password reset cannot be enabled until SMTP is configured and enabled"
+    );
   }
 }
 
@@ -162,7 +201,20 @@ function validateRateLimitsSettings(value: unknown): void {
     throw new ValidationError("Rate limits must be an object");
   }
 
-  const validTypes = ["general", "auth", "opaque", "token", "admin", "install"];
+  const validTypes = [
+    "general",
+    "auth",
+    "opaque",
+    "token",
+    "admin",
+    "install",
+    "otp",
+    "otp_setup",
+    "otp_verify",
+    "otp_disable",
+    "otp_regenerate",
+    "password_reset",
+  ];
 
   for (const [type, config] of Object.entries(value as Record<string, unknown>)) {
     if (!validTypes.includes(type)) {

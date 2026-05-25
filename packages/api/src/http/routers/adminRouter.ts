@@ -64,6 +64,7 @@ import { getUserOtp } from "../../controllers/admin/userOtp.ts";
 import { deleteUserOtp } from "../../controllers/admin/userOtpDelete.ts";
 import { postUserOtpUnlock } from "../../controllers/admin/userOtpUnlock.ts";
 import { postUserPasswordReset } from "../../controllers/admin/userPasswordReset.ts";
+import { postUserPasswordResetEmail } from "../../controllers/admin/userPasswordResetEmail.ts";
 import { postUserPasswordSetFinish } from "../../controllers/admin/userPasswordSetFinish.ts";
 import { postUserPasswordSetStart } from "../../controllers/admin/userPasswordSetStart.ts";
 import { getUserPermissions } from "../../controllers/admin/userPermissions.ts";
@@ -154,6 +155,15 @@ export function createAdminRouter(context: Context) {
         const userSub = userResetMatch[1];
         if (method === "POST")
           return await postUserPasswordReset(context, request, response, userSub as string);
+      }
+
+      const userResetEmailMatch = pathname.match(
+        /^\/admin\/users\/([^/]+)\/password\/reset-email$/
+      );
+      if (userResetEmailMatch) {
+        const userSub = userResetEmailMatch[1];
+        if (method === "POST")
+          return await postUserPasswordResetEmail(context, request, response, userSub as string);
       }
 
       const userSetStartMatch = pathname.match(/^\/admin\/users\/([^/]+)\/password\/set\/start$/);

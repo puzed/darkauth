@@ -37,9 +37,9 @@ const DEFAULT_TEMPLATES: Record<EmailTemplateKey, EmailTemplate> = {
     html: '<p>Hello {{name}},</p><p>Please verify your new email address by opening this link:</p><p><a href="{{verification_link}}">Verify new email</a></p><p>Your current email remains active until verification completes.</p>',
   },
   password_recovery: {
-    subject: "Password recovery",
-    text: "Hello {{name}},\n\nUse this link to recover access to your account:\n{{recovery_link}}",
-    html: '<p>Hello {{name}},</p><p>Use this link to recover access to your account:</p><p><a href="{{recovery_link}}">Recover account</a></p>',
+    subject: "Reset your password",
+    text: "Hello {{name}},\n\nUse this link to reset your password:\n{{reset_link}}\n\nThis link expires in {{expires_minutes}} minutes.",
+    html: '<p>Hello {{name}},</p><p>Use this link to reset your password:</p><p><a href="{{reset_link}}">Reset password</a></p><p>This link expires in {{expires_minutes}} minutes.</p>',
   },
   admin_test_email: {
     subject: "DarkAuth SMTP test",
