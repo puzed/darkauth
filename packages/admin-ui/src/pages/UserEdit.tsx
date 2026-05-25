@@ -149,6 +149,14 @@ export default function UserEdit() {
             <FormField label={<Label>Created</Label>}>
               <Input value={new Date(user.createdAt).toLocaleString()} readOnly />
             </FormField>
+            <FormField label={<Label>Last Activity</Label>}>
+              <Input
+                value={
+                  user.lastActivityAt ? new Date(user.lastActivityAt).toLocaleString() : "Never"
+                }
+                readOnly
+              />
+            </FormField>
           </FormGrid>
           <FormActions withMargin>
             {user && (

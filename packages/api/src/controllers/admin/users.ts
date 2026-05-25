@@ -14,6 +14,7 @@ const UserSchema = z.object({
   email: z.string().email().nullable().optional(),
   name: z.string().nullable().optional(),
   createdAt: z.date().or(z.string()),
+  lastActivityAt: z.date().or(z.string()).nullable().optional(),
   passwordResetRequired: z.boolean().optional(),
   organizationRoles: z
     .array(
@@ -58,7 +59,7 @@ export async function getUsers(
     page: listPageQuerySchema.default(1),
     limit: z.coerce.number().int().positive().max(100).default(20),
     search: listSearchQuerySchema,
-    sortBy: z.enum(["createdAt", "email", "name", "sub"]).optional(),
+    sortBy: z.enum(["createdAt", "email", "name", "sub", "lastActivityAt"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).default("desc"),
   });
   const parsed = Query.parse(Object.fromEntries(url.searchParams));
@@ -76,7 +77,7 @@ export const schema = {
     page: listPageOpenApiQuerySchema,
     limit: z.number().int().positive().optional(),
     search: listSearchQuerySchema,
-    sortBy: z.enum(["createdAt", "email", "name", "sub"]).optional(),
+    sortBy: z.enum(["createdAt", "email", "name", "sub", "lastActivityAt"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
   responses: {

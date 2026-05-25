@@ -53,6 +53,23 @@ test("createSession stores a hashed refresh token", async () => {
   }
 });
 
+test("createSession updates user last activity", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-sessions-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values({ sub: "user-1", email: "user-1@example.com", name: "User One" });
+    await createSession(context, "user", { sub: "user-1" });
+    const user = await db.query.users.findFirst({ where: eq(users.sub, "user-1") });
+
+    assert.ok(user?.lastActivityAt);
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test("refreshSessionWithToken allows only one success for concurrent refresh", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-sessions-test-"));
   const { db, close } = await createPglite(directory);
@@ -73,6 +90,32 @@ test("refreshSessionWithToken allows only one success for concurrent refresh", a
     const activeSession = await getSession(context, successful[0].sessionId);
     assert.ok(activeSession);
     assert.equal(activeSession.sub, "user-1");
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("refreshSessionWithToken updates user last activity", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-sessions-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    const oldActivity = new Date("2026-01-01T00:00:00.000Z");
+    await db.insert(users).values({
+      sub: "user-1",
+      email: "user-1@example.com",
+      name: "User One",
+      lastActivityAt: oldActivity,
+    });
+    const created = await createSession(context, "user", { sub: "user-1" });
+    await db.update(users).set({ lastActivityAt: oldActivity }).where(eq(users.sub, "user-1"));
+    await refreshSessionWithToken(context, created.refreshToken);
+    const user = await db.query.users.findFirst({ where: eq(users.sub, "user-1") });
+
+    assert.ok(user?.lastActivityAt);
+    assert.ok(user.lastActivityAt > oldActivity);
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });
