@@ -1,0 +1,67 @@
+---
+title: Core Concepts
+description: OIDC, OPAQUE, DRK, sessions, organizations, and the two-port DarkAuth model.
+---
+
+DarkAuth is easiest to understand as a standards-compatible authorization server with a stronger password and key-custody story than a typical login system. Applications can treat it as an OAuth 2.0 and OpenID Connect provider, but the user portal uses OPAQUE for password authentication and can optionally deliver a user Data Root Key to trusted clients without storing that key in plaintext server-side.
+
+## Three audiences
+
+DarkAuth separates responsibilities across three groups:
+
+- Users authenticate, approve access, manage MFA, recover passwords, switch organizations, and launch apps.
+- Admins configure the instance, clients, users, organizations, roles, permissions, email, branding, keys, and audit logs.
+- Developers integrate applications through OIDC, the SDK, APIs, and token claims.
+
+This separation is reflected in the product. The user portal and admin portal are different applications. Regular users and admin users are different account cohorts. The public authentication surface and management surface run on different ports.
+
+## OIDC compatibility
+
+For applications, DarkAuth speaks familiar OAuth and OpenID Connect. A client redirects the user to `/authorize`, receives an authorization code, exchanges it at `/token`, and validates tokens using the issuer metadata and JWKS.
+
+DarkAuth supports:
+
+- Authorization Code flow.
+- PKCE with `S256`.
+- Public clients with no client secret.
+- Confidential clients with `client_secret_basic`.
+- Refresh tokens with rotation.
+- Client credentials for service-to-service scenarios.
+- Standard discovery and JWKS endpoints.
+
+That means many applications can integrate without knowing about OPAQUE or zero-knowledge delivery at all.
+
+## OPAQUE password authentication
+
+OPAQUE is a password-authenticated key exchange. In DarkAuth, the user and admin portals use OPAQUE so the password is not sent to the server during login. The server stores an OPAQUE record rather than a plaintext password or conventional password hash.
+
+OPAQUE also gives the client an export key after successful authentication. DarkAuth uses that client-side material as part of its zero-knowledge key story. The server does not receive the export key.
+
+## Data Root Key delivery
+
+Some applications need a user-held root key to decrypt application data. DarkAuth calls this the Data Root Key, or DRK. The DRK is generated client-side and wrapped under a key derived from the OPAQUE export key. The server stores only the wrapped DRK.
+
+For clients that opt into zero-knowledge delivery, the application sends an ephemeral public key in the authorization request. After the user authenticates, browser code encrypts the DRK to that key as a compact JWE and delivers it through the URL fragment. The server stores only a hash that lets the application verify that the fragment matches the authorization code.
+
+This is not magic. The model still requires trusted JavaScript, trusted origins, and a safe browser environment. It is designed to keep the backend and database from seeing the password, export key, plaintext DRK, or plaintext app data during honest hosted-web operation.
+
+## Organizations and permissions
+
+DarkAuth supports organization-scoped access. A user can belong to organizations, memberships can carry roles, and roles resolve to permissions. When an organization context is selected, tokens can include organization claims, roles, and effective permissions.
+
+This is useful for SaaS-style applications where the same user may belong to multiple workspaces or customers. It also keeps application authorization logic explicit: the app can check `org_id`, roles, permissions, and scopes instead of guessing from user identity alone.
+
+## Sessions and tokens
+
+DarkAuth has first-party sessions for its own portals and OAuth tokens for clients. The user portal uses HttpOnly cookies for its own session. OAuth clients receive ID tokens and optional access tokens through the token endpoint. Refresh credentials rotate and replay is rejected.
+
+This distinction matters. A DarkAuth session means the user is signed into the authorization server. A token means a specific client has been granted access under a specific flow, scope, and organization context.
+
+## Two-port architecture
+
+By default, DarkAuth uses:
+
+- `9080` for the user portal and OIDC/user APIs.
+- `9081` for the admin portal, install UI, and admin APIs.
+
+This makes production routing easier to reason about. The user origin is the public identity surface. The admin origin is operational infrastructure and should be restricted, monitored, and protected more aggressively.

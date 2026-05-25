@@ -1,0 +1,49 @@
+---
+title: Install
+description: Docker, web installer, and CLI installer setup paths.
+---
+
+Installation is the one-time process that turns an empty DarkAuth runtime into a working identity server. Until installation completes, the admin port serves the installer rather than the normal admin UI.
+
+## Installation paths
+
+Most people should use the web installer. It guides you through database choice, KEK passphrase setup, and the first admin account. For automated environments, the API package also includes a CLI installation script.
+
+Docker is the quickest runtime path:
+
+```bash
+docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
+```
+
+For source installs, run dependencies and migrations from the repository:
+
+```bash
+npm install
+npm run db:push
+npm start
+```
+
+## Database choice
+
+DarkAuth supports remote PostgreSQL and embedded PGLite.
+
+Use PostgreSQL for production, shared environments, and anywhere you need a familiar backup and operations model. Use PGLite for development, demos, or small self-hosted deployments where removing external database setup is more important than operational familiarity.
+
+## KEK passphrase
+
+The KEK passphrase is required at boot. DarkAuth derives a key-encryption key from it using Argon2id parameters stored in the database. That derived key protects sensitive stored material such as private signing keys, client secrets, and OTP secrets.
+
+The passphrase itself is not stored in the database. Losing it can make encrypted material unavailable. Treat it as production secret material.
+
+## Bootstrap admin
+
+The installer creates the first admin user. This account should be a real operator account, not a shared placeholder. After setup, create additional admin users as needed and keep the bootstrap account secured with MFA.
+
+## Default clients
+
+Installation seeds default clients so you can test both common OAuth shapes:
+
+- A public client with PKCE and optional ZK delivery.
+- A confidential client with client secret authentication.
+
+Review these clients before using DarkAuth beyond local development. Redirect URIs, scopes, and secrets should match your real application boundaries.

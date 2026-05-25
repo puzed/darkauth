@@ -1,0 +1,34 @@
+---
+title: Organizations and RBAC
+description: Organization claims, roles, permissions, and app authorization.
+---
+
+DarkAuth can issue tokens with organization context, roles, and permissions. Applications use those claims to enforce authorization in their own domain.
+
+## Organization context
+
+An organization-scoped app should know which organization a request belongs to. DarkAuth can resolve that context during authorization and token exchange. If there is ambiguity, the user may need to choose an organization.
+
+Your backend should reject requests where the token organization does not match the resource organization. For example, a user with `org_id=A` should not be able to update a resource owned by `org_id=B`.
+
+## Roles and permissions
+
+Roles are convenient bundles. Permissions are the authorization facts applications should usually check. A token might include roles for display and permissions for enforcement.
+
+Prefer checks such as "does this token include `notes:write` for this organization?" over checks such as "is this user called admin?".
+
+## Refresh behavior
+
+Organization context can matter during refresh. If membership or permissions change, applications should be prepared for new tokens to carry different claims. Do not cache authorization decisions longer than the token or resource policy allows.
+
+## Designing app permissions
+
+Good permission keys are:
+
+- Stable over time.
+- Named after real actions.
+- Specific enough to enforce.
+- Not tied to temporary UI labels.
+- Documented for admins.
+
+The admin portal can manage roles and permissions, but the application must still enforce them.

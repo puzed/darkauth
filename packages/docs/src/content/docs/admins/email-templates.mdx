@@ -1,0 +1,32 @@
+---
+title: Email Templates
+description: Password reset and verification email template management.
+---
+
+Email templates define what users receive during email-backed flows such as password reset and verification. They are part product copy, part security communication.
+
+## Template goals
+
+Good auth emails should be clear, specific, and calm. A user should understand what triggered the email, what action to take, when the link expires, and what to do if they did not request it.
+
+Avoid vague security language. "Someone requested a password reset for your DarkAuth account" is more useful than "Security notification."
+
+## Password reset variables
+
+Password reset templates can include variables such as:
+
+- `name`
+- `email`
+- `reset_link`
+- `recovery_link`
+- `expires_minutes`
+- `requested_at`
+- `ip_hint`
+
+`recovery_link` is kept as an alias for `reset_link` so older customized templates can continue to work.
+
+## Testing changes
+
+After editing templates, send test emails in the environment where users will receive them. Check mobile rendering, link correctness, sender identity, and spam filtering.
+
+Do not include secrets, tokens, or internal diagnostic details in email copy.

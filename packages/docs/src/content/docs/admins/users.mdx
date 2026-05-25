@@ -1,0 +1,33 @@
+---
+title: Users
+description: User lifecycle management, resets, OTP controls, and permissions.
+---
+
+The Users area manages regular DarkAuth users: the people who sign in to applications. These accounts are separate from admin users.
+
+## User lifecycle
+
+Admins can create, edit, inspect, and delete users. A user record can include email, name, creation metadata, password reset state, OTP state, organization memberships, and permission-related information.
+
+Creating a user does not mean the user has access to every application. App access depends on client configuration, organization membership, roles, permissions, scopes, and any application-specific checks.
+
+## Password actions
+
+Admins can help users regain access in two ways:
+
+- Send a password reset email when SMTP-backed reset is enabled.
+- Start an admin-driven password set or reset flow.
+
+Admins do not see plaintext passwords or reset tokens. Reset email actions use the same token creation and email template system as self-service reset. These actions are audited.
+
+## OTP support
+
+Admins can view a user's OTP status, remove an OTP configuration, or unlock a user after too many failed attempts. Removing OTP should be treated as a sensitive support action because it changes the user's authentication strength.
+
+When an organization requires OTP, a user may be forced through setup or verification before continuing into app flows.
+
+## Permissions and organizations
+
+Modern DarkAuth authorization is organization-scoped. Users get effective permissions from active organization memberships and assigned roles. Applications should check token claims or APIs instead of assuming that account existence equals authorization.
+
+Admins should keep user lifecycle work and organization access work separate in their heads: a user account identifies a person; organization memberships define where that person can act.

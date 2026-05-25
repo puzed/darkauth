@@ -1,0 +1,31 @@
+---
+title: Admin Users
+description: Admin account management and admin security controls.
+---
+
+Admin users operate DarkAuth itself. They are stored separately from regular users and authenticate through the admin portal.
+
+## Roles
+
+DarkAuth admin roles are intentionally coarse:
+
+- `read` can inspect admin data.
+- `write` can make changes.
+
+This model is simple and predictable. For application-level authorization, use organizations, roles, and permissions for regular users instead of trying to turn admin accounts into application roles.
+
+## Creating admin users
+
+Create individual admin accounts for real operators. Avoid shared accounts. Individual accounts make audit logs useful because actions can be tied to a person.
+
+New admin users may be required to set or reset a password before accessing the dashboard. They should also configure MFA as soon as possible.
+
+## Password and MFA actions
+
+Write admins can force password resets or manage OTP state for other admins. These actions are sensitive and should be rare. They should always be traceable in audit logs.
+
+An admin should not remove their own MFA through a backdoor-style support path. If an admin is locked out, another write admin should perform recovery.
+
+## Operational hygiene
+
+Review admin users regularly. Remove accounts that no longer need access, downgrade users that only need inspection rights, and treat dormant write admins as production risk.

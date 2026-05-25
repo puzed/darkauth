@@ -1,0 +1,28 @@
+---
+title: Audit Logs
+description: Audit log search, detail, export, and redaction behavior.
+---
+
+Audit logs are the operational record of security-sensitive activity in DarkAuth. They help admins answer who did what, when it happened, and which part of the system was affected.
+
+## What gets audited
+
+DarkAuth records events for authentication, authorization, admin actions, password reset, email flows, OTP actions, client changes, organization changes, key operations, and other sensitive behavior.
+
+Audit logs are especially important for write admin actions. If an admin creates a client, resets a user's password, changes OTP state, edits settings, rotates keys, or exports data, the action should be traceable.
+
+## Redaction
+
+Audit paths and metadata are sanitized before storage. Sensitive query parameters such as authorization codes, tokens, secrets, and cryptographic payloads should not appear in plaintext audit records.
+
+Redaction reduces risk, but audit logs still contain identity metadata. Treat them as sensitive data.
+
+## Searching and export
+
+The admin UI provides list, detail, and export flows. Use filters and pagination to investigate time windows, actors, event types, and affected resources.
+
+Exports should be handled carefully. They are useful for incident response and compliance review, but they can also spread sensitive metadata outside the primary system.
+
+## Review practice
+
+Audit logs are most useful when someone reviews them. Decide which events should trigger alerts, which should be reviewed periodically, and how long records should be retained.

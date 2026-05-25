@@ -1,0 +1,46 @@
+---
+title: Auditor Checklist
+description: Practical checklist for reviewing a DarkAuth deployment.
+---
+
+Use this checklist when reviewing a DarkAuth deployment or preparing for a security assessment.
+
+## Deployment
+
+- User origin uses HTTPS.
+- Admin origin is restricted.
+- Public origin and issuer match external routing.
+- Reverse proxy preserves expected scheme and host.
+- `config.yaml` is protected.
+- KEK passphrase is stored in a secret manager.
+
+## Identity controls
+
+- Admin MFA is required.
+- Admin users are individual accounts.
+- Dormant write admins are removed.
+- User password reset is enabled only with working SMTP.
+- Email templates do not leak internal details.
+
+## OAuth clients
+
+- Redirect URIs are exact.
+- Public clients require PKCE.
+- Confidential secrets are stored safely.
+- ZK delivery is enabled only for clients that verify hash binding.
+- Client scopes are documented.
+
+## Data and keys
+
+- Database backups are encrypted and tested.
+- KEK custody is documented.
+- JWKS rotation procedure exists.
+- Client secret rotation procedure exists.
+- Audit logs are retained and reviewed.
+
+## Application enforcement
+
+- Applications validate issuer, audience, signature, expiry, and scopes.
+- Organization-scoped apps validate `org_id`.
+- Backends enforce permissions, not only frontend UI.
+- ZK apps clear fragment, private key, and DRK on logout.

@@ -1,0 +1,22 @@
+---
+title: MFA Security
+description: OTP policy, backup codes, replay prevention, and lockout behavior.
+---
+
+DarkAuth TOTP MFA adds a second factor to password authentication for users and admins. It is especially important for admin accounts and organizations with sensitive application data.
+
+## Storage
+
+OTP secrets are encrypted at rest with KEK-protected storage. Backup codes are stored as one-way hashes, so they cannot be recovered and shown later.
+
+## Verification controls
+
+DarkAuth uses rate limits, failure counts, lockout windows, and timestep tracking. Timestep tracking prevents the same TOTP code window from being reused.
+
+## Backup codes
+
+Backup codes are recovery credentials. Users should store them somewhere safe and treat them like passwords. Using a backup code consumes it.
+
+## Admin recovery
+
+Admins can unlock or reset OTP state for users. These actions should be audited and should require write admin access.

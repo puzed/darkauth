@@ -1,0 +1,36 @@
+---
+title: Admin UI
+description: Admin portal access, sessions, OTP, and dashboard navigation.
+---
+
+The admin UI is the operational control plane for DarkAuth. It runs on the admin port and is separate from the user portal. Admin accounts are also separate from regular user accounts, which keeps customer or application users from accidentally becoming operators.
+
+## Authentication
+
+Admins sign in through an OPAQUE flow, just like regular users, but against the admin account cohort. Admin sessions can require password reset and OTP before the dashboard becomes available.
+
+The admin UI has two broad role levels:
+
+- `read` admins can inspect configuration and state.
+- `write` admins can create, update, rotate, delete, and trigger operational actions.
+
+Use read access for support and audit roles that do not need to mutate the system.
+
+## Navigation areas
+
+The main admin navigation is organized around the operational model:
+
+- Dashboard for high-level status.
+- Identity for users, organizations, roles, and permissions.
+- OAuth for clients and signing keys.
+- Settings for admin users, audit logs, branding, email templates, and system settings.
+
+The UI is intentionally dense. Admins often need to compare lists, inspect details, and perform repeated actions. Pages use shared tables, pagination, row actions, and compact layouts to support that work.
+
+## Preview and install states
+
+The admin app also supports special states. Before initialization, the admin port serves the install flow. There is also a preview route used for branding and UI inspection. These states should not be confused with normal authenticated administration.
+
+## Session safety
+
+Admin logout clears the local admin session state and calls the admin logout endpoint. If a session expires or the server returns an authentication failure, the UI clears session state and returns to login.

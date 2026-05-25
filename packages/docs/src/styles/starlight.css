@@ -1,0 +1,64 @@
+:root,
+:root[data-theme="dark"] {
+  --sl-color-accent-low: #29133f;
+  --sl-color-accent: #a78bfa;
+  --sl-color-accent-high: #f1e9ff;
+  --sl-color-white: #f8fafc;
+  --sl-color-gray-1: #e8edf5;
+  --sl-color-gray-2: #c9d1df;
+  --sl-color-gray-3: #939dae;
+  --sl-color-gray-4: #5c6878;
+  --sl-color-gray-5: #303947;
+  --sl-color-gray-6: #1d2530;
+  --sl-color-black: #0d1117;
+  --sl-font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sl-content-width: 48rem;
+  --sl-sidebar-width: 19rem;
+}
+
+:root[data-theme="light"] {
+  --sl-color-accent-low: #ede9fe;
+  --sl-color-accent: #6d28d9;
+  --sl-color-accent-high: #3b0764;
+  --sl-color-white: #101418;
+  --sl-color-gray-1: #1f2937;
+  --sl-color-gray-2: #334155;
+  --sl-color-gray-3: #475569;
+  --sl-color-gray-4: #64748b;
+  --sl-color-gray-5: #cbd5e1;
+  --sl-color-gray-6: #f1f5f9;
+  --sl-color-gray-7: #f8fafc;
+  --sl-color-black: #ffffff;
+}
+
+.hero img {
+  filter: drop-shadow(0 18px 42px rgb(109 40 217 / 22%));
+}
+
+.sl-markdown-content h2 {
+  margin-top: 2.25rem;
+}
+
+.sl-markdown-content .path-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.sl-markdown-content .path-card {
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 8px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--sl-color-gray-6) 16%, transparent);
+}
+
+.sl-markdown-content .path-card strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.sl-markdown-content .path-card p {
+  margin: 0;
+  color: var(--sl-color-gray-2);
+}

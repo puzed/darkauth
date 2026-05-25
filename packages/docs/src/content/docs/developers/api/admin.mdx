@@ -1,0 +1,29 @@
+---
+title: Admin API
+description: Management endpoints for users, clients, organizations, RBAC, settings, keys, and audit logs.
+---
+
+The admin API powers the admin portal and can be used for controlled automation. It is not intended as a public application API.
+
+## Authentication and authorization
+
+Admin endpoints require an admin session. Read endpoints require any admin role. Mutating endpoints require `adminRole = "write"`.
+
+## Domains
+
+- Admin session, logout, OPAQUE login, password change, and admin OTP.
+- Admin users and admin password reset.
+- Regular users, user password reset, user password set, user OTP, and user permissions.
+- OAuth/OIDC clients, client secrets, redirect URIs, scopes, and dashboard metadata.
+- Organizations, members, member roles, roles, and permissions.
+- Settings, SMTP test, email templates, and branding.
+- JWKS listing and rotation.
+- Audit log listing, detail, and export.
+
+## List contracts
+
+Admin list endpoints use a shared query shape with `page`, `limit`, `search`, `sortBy`, and `sortOrder` where supported. Responses include a `pagination` object with page, limit, total, total pages, and previous/next flags.
+
+## Automation guidance
+
+If you automate against the admin API, use a dedicated admin account with the least access practical, log what your automation does, and avoid broad scripts that mutate clients, keys, settings, or users without a dry-run mode.

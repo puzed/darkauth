@@ -1,0 +1,55 @@
+---
+title: TypeScript SDK
+description: The @darkauth/client package for browser and app integrations.
+---
+
+The `@DarkAuth/client` package helps browser applications start OIDC login, handle callbacks, manage token state, refresh sessions, and process ZK DRK delivery.
+
+## Basic setup
+
+Configure the SDK with your issuer, client ID, redirect URI, scopes, and whether the app uses ZK delivery.
+
+```typescript
+import { handleCallback, initiateLogin, setConfig } from "@DarkAuth/client";
+
+setConfig({
+  issuer: "https://auth.example.com",
+  clientId: "app-web",
+  redirectUri: "https://app.example.com/callback",
+  scope: "openid profile email",
+  zk: true,
+});
+
+await initiateLogin();
+```
+
+On the callback page:
+
+```typescript
+const session = await handleCallback();
+```
+
+## Defaults
+
+The SDK defaults are designed for hosted browser apps:
+
+- PKCE for login.
+- OAuth state validation.
+- Cookie-based refresh where appropriate.
+- Memory-only token view.
+- Memory-only DRK custody.
+- ZK validation when ZK artifacts are present.
+
+The SDK can support explicit legacy storage options, but persistent token or DRK storage should be a conscious decision rather than an accidental default.
+
+## Session shape
+
+The callback returns an auth session with an ID token, optional access token, and a `drk` value. In non-ZK flows, the DRK is an empty `Uint8Array`, so application code can handle standard and ZK flows without assuming every login returns a usable encryption root.
+
+## Crypto helpers
+
+The client package also exports helper functions for base64url encoding, SHA-256, HKDF, AES-GCM encryption, note-style DEK derivation, and private-key wrapping. Use these helpers when building apps that need client-side encryption aligned with DarkAuth's custody model.
+
+## When to skip the SDK
+
+Server-side applications can use ordinary OAuth/OIDC libraries instead. Use the SDK when your browser app needs DarkAuth-specific callback handling, ZK delivery, or client-side encryption helpers.
