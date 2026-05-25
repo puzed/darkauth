@@ -58,6 +58,7 @@ test("listVisibleApps returns sorted apps and icon metadata for dashboard render
       dashboardIconMimeType: "image/png",
       dashboardIconData: Buffer.from("beta"),
       appUrl: "https://example.com/app-b",
+      dashboardAutoLogin: true,
     });
     await createClient(context, {
       clientId: "hidden",
@@ -77,7 +78,7 @@ test("listVisibleApps returns sorted apps and icon metadata for dashboard render
     assert.equal(apps[0]?.iconUrl, undefined);
     assert.equal(apps[1]?.iconMode, "upload");
     assert.equal(apps[1]?.iconUrl, "/api/client-icons/app-b");
-    assert.equal(apps[1]?.url, "https://example.com/app-b");
+    assert.equal(apps[1]?.url, "https://example.com/app-b?darkauth_login=1");
     assert.equal(apps[2]?.iconMode, "letter");
     assert.equal(apps[2]?.iconLetter, "Z");
   } finally {

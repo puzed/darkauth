@@ -59,6 +59,7 @@ export async function listClients(
           clientId: clients.clientId,
           name: clients.name,
           showOnUserDashboard: clients.showOnUserDashboard,
+          dashboardAutoLogin: clients.dashboardAutoLogin,
           dashboardPosition: clients.dashboardPosition,
           appUrl: clients.appUrl,
           dashboardIconMode: clients.dashboardIconMode,
@@ -90,6 +91,7 @@ export async function listClients(
           clientId: clients.clientId,
           name: clients.name,
           showOnUserDashboard: clients.showOnUserDashboard,
+          dashboardAutoLogin: clients.dashboardAutoLogin,
           dashboardPosition: clients.dashboardPosition,
           appUrl: clients.appUrl,
           dashboardIconMode: clients.dashboardIconMode,
@@ -142,6 +144,7 @@ export async function createClient(
     type: "public" | "confidential";
     tokenEndpointAuthMethod?: "none" | "client_secret_basic";
     showOnUserDashboard?: boolean;
+    dashboardAutoLogin?: boolean;
     dashboardPosition?: number;
     appUrl?: string;
     dashboardIconMode?: "letter" | "emoji" | "upload";
@@ -183,6 +186,7 @@ export async function createClient(
     type: data.type,
     tokenEndpointAuthMethod,
     showOnUserDashboard: data.showOnUserDashboard ?? false,
+    dashboardAutoLogin: data.dashboardAutoLogin ?? false,
     dashboardPosition: data.dashboardPosition ?? 0,
     appUrl: data.appUrl ?? null,
     dashboardIconMode: data.dashboardIconMode ?? "letter",
@@ -296,6 +300,7 @@ export async function listVisibleApps(context: Context) {
       name: clients.name,
       description: clients.description,
       url: clients.appUrl,
+      dashboardAutoLogin: clients.dashboardAutoLogin,
       logoUrl: clients.logoUrl,
       dashboardPosition: clients.dashboardPosition,
       dashboardIconMode: clients.dashboardIconMode,
@@ -310,7 +315,7 @@ export async function listVisibleApps(context: Context) {
     id: app.id,
     name: app.name,
     description: app.description || undefined,
-    url: app.url || undefined,
+    url: getDashboardLaunchUrl(app.url, app.dashboardAutoLogin),
     logoUrl: app.logoUrl || undefined,
     iconMode: app.dashboardIconMode,
     iconEmoji: app.dashboardIconEmoji || undefined,
@@ -320,6 +325,18 @@ export async function listVisibleApps(context: Context) {
         ? `/api/client-icons/${encodeURIComponent(app.id)}`
         : undefined,
   }));
+}
+
+function getDashboardLaunchUrl(appUrl: string | null, dashboardAutoLogin: boolean) {
+  if (!appUrl) return undefined;
+  if (!dashboardAutoLogin) return appUrl;
+  try {
+    const url = new URL(appUrl);
+    url.searchParams.set("darkauth_login", "1");
+    return url.toString();
+  } catch {
+    return appUrl;
+  }
 }
 
 export async function getClientDashboardIcon(context: Context, clientId: string) {
