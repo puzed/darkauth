@@ -79,6 +79,11 @@ export const docsSections: DocsSection[] = [
         path: "/docs/guides/otp-policy",
         description: "Step-up auth and OTP setup/verification flows.",
       },
+      {
+        title: "Email Password Reset",
+        path: "/docs/guides/password-reset",
+        description: "SMTP-gated reset links, OPAQUE reset, and encrypted-data recovery limits.",
+      },
     ],
   },
   {
