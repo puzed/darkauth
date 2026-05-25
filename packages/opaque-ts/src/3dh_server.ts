@@ -61,6 +61,18 @@ export class AKE3DHServer {
         return auth_response
     }
 
+    exportState(): number[] | Error {
+        if (!this.expected) {
+            return new Error('handshake error')
+        }
+        return this.expected.serialize()
+    }
+
+    importState(bytes: number[]): Error | void {
+        const expected = ExpectedAuthResult.deserialize(this.config, bytes)
+        this.expected = expected
+    }
+
     finish(auth_finish: AuthFinish): { session_key: number[] } | Error {
         if (!this.expected) {
             return new Error('handshake error')
