@@ -19,27 +19,29 @@ import SidebarNavGroup, { type SidebarNavItem } from "@/components/navigation/si
 import { getTheme, setTheme } from "@/lib/theme";
 import styles from "./app-sidebar.module.css";
 
-const mainItems: SidebarNavItem[] = [
-  { title: "Dashboard", url: "/", icon: Home },
+const mainItems: SidebarNavItem[] = [{ title: "Dashboard", url: "/", icon: Home }];
+
+const identityItems: SidebarNavItem[] = [
   { title: "Users", url: "/users", icon: Users },
   { title: "Organizations", url: "/organizations", icon: Shield },
   { title: "Roles", url: "/roles", icon: KeyRound },
-  { title: "Clients", url: "/clients", icon: Lock },
-  { title: "Branding", url: "/branding", icon: Monitor },
-];
-
-const securityItems: SidebarNavItem[] = [
   { title: "Permissions", url: "/permissions", icon: KeyRound },
-  { title: "Keys", url: "/keys", icon: Key },
-  { title: "Audit Logs", url: "/audit", icon: Lock },
 ];
 
-const systemItems: SidebarNavItem[] = [
-  { title: "Changelog", url: "/changelog", icon: FileText },
-  { title: "Settings", url: "/settings", icon: Settings },
-  { title: "Email", url: "/settings/email-templates", icon: FileText },
-  { title: "Admin Users", url: "/settings/admin-users", icon: Users },
+const oauthItems: SidebarNavItem[] = [
+  { title: "Clients", url: "/clients", icon: Lock },
+  { title: "Signing Keys", url: "/keys", icon: Key },
 ];
+
+const settingsItems: SidebarNavItem[] = [
+  { title: "Admin Users", url: "/settings/admin-users", icon: Users },
+  { title: "Audit Logs", url: "/audit", icon: Lock },
+  { title: "Branding", url: "/branding", icon: Monitor },
+  { title: "Email Templates", url: "/settings/email-templates", icon: FileText },
+  { title: "Settings", url: "/settings", icon: Settings },
+];
+
+const currentAppVersion = (import.meta.env.VITE_APP_VERSION || "").trim();
 
 interface AdminSessionData {
   adminId: string;
@@ -96,7 +98,12 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
             </div>
             <h2>DarkAuth</h2>
           </div>
-          <p className={styles.brandSubtitle}>Admin Portal</p>
+          <p className={styles.brandSubtitle}>
+            {currentAppVersion ? (
+              <span className={styles.versionBadge}>v{currentAppVersion.replace(/^v/i, "")}</span>
+            ) : null}
+            <span>Admin Portal</span>
+          </p>
         </div>
       </div>
 
@@ -108,14 +115,20 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
           onNavigate={handleNavClick}
         />
         <SidebarNavGroup
-          label="Security"
-          items={securityItems}
+          label="Identity"
+          items={identityItems}
           isActive={isActive}
           onNavigate={handleNavClick}
         />
         <SidebarNavGroup
-          label="System"
-          items={systemItems}
+          label="OAuth"
+          items={oauthItems}
+          isActive={isActive}
+          onNavigate={handleNavClick}
+        />
+        <SidebarNavGroup
+          label="Settings"
+          items={settingsItems}
           isActive={(path) =>
             path === "/settings" ? location.pathname === "/settings" : isActive(path)
           }

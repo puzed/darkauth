@@ -248,7 +248,7 @@ export default function Dashboard() {
           description="Using ZK delivery"
         />
         <StatsCard
-          title="Active Keys"
+          title="Active Signing Keys"
           icon={<KeyRound size={16} />}
           value={activeSigningKeys}
           description="Current signing keys"
@@ -467,7 +467,7 @@ export default function Dashboard() {
                   }}
                 >
                   {" "}
-                  <KeyRound size={16} /> Manage Keys
+                  <KeyRound size={16} /> Manage Signing Keys
                 </Button>
               </div>
             </CardContent>
