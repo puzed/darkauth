@@ -107,24 +107,24 @@ export default function Keys() {
   return (
     <div>
       <PageHeader
-        title="Cryptographic Keys"
-        subtitle="Manage signing and encryption keys"
+        title="Signing Keys"
+        subtitle="Manage token signing keys"
         actions={
           <Button variant="outline" onClick={rotate} disabled={rotating}>
             <RefreshCw />
-            Rotate Keys
+            Rotate Signing Keys
           </Button>
         }
       />
       <StatsGrid>
         <StatsCard
-          title="Total Keys"
+          title="Total Signing Keys"
           icon={<Key size={16} />}
           value={allKeys.length}
           description="JWKS entries"
         />
         <StatsCard
-          title="Active Keys"
+          title="Active Signing Keys"
           icon={<Shield size={16} />}
           value={activeKeys.length}
           description={`Active kid: ${activeKid}`}
@@ -132,10 +132,10 @@ export default function Keys() {
       </StatsGrid>
 
       <ListCard
-        title="Key Management"
-        description="View and manage cryptographic keys used for signing and encryption"
+        title="Signing Key Management"
+        description="View and manage JWKS entries used for token signing"
         search={{
-          placeholder: "Search keys...",
+          placeholder: "Search signing keys...",
           value: searchQuery,
           onChange: (value) => {
             setCurrentPage(1);
@@ -143,7 +143,7 @@ export default function Keys() {
           },
         }}
         rightActions={
-          <Button variant="outline" size="icon" aria-label="Search keys">
+          <Button variant="outline" size="icon" aria-label="Search signing keys">
             <Search size={16} />
           </Button>
         }
