@@ -452,6 +452,32 @@ export async function getRefreshTokenSessionData(
   return session.data as SessionData;
 }
 
+export async function getActiveRefreshTokenSession(context: Context, refreshToken: string) {
+  const refreshTokenHash = sha256Base64Url(refreshToken);
+  const now = new Date();
+  return await context.db.query.sessions.findFirst({
+    where: and(
+      eq(sessions.refreshToken, refreshTokenHash),
+      isNull(sessions.refreshTokenConsumedAt),
+      gt(sessions.refreshTokenExpiresAt, now)
+    ),
+  });
+}
+
+export async function revokeRefreshToken(
+  context: Context,
+  refreshToken: string,
+  clientId?: string
+): Promise<boolean> {
+  const session = await getActiveRefreshTokenSession(context, refreshToken);
+  if (!session) return false;
+  const data = session.data as SessionData;
+  const issuedClientId = typeof data.clientId === "string" ? data.clientId : null;
+  if (!issuedClientId || issuedClientId !== clientId) return false;
+  await context.db.delete(sessions).where(eq(sessions.id, session.id));
+  return true;
+}
+
 export async function getActorFromSessionId(
   context: Context,
   sessionId: string
