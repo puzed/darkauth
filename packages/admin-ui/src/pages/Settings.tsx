@@ -313,13 +313,6 @@ export default function Settings() {
                 {inner.map(([sub, items]) => (
                   <div key={sub}>
                     {sub !== "General" && <div className={settingsStyles.subHeading}>{sub}</div>}
-                    {items.some((item) => item.key.startsWith("users.password_reset_")) ? (
-                      <SettingRow
-                        label="Password reset by email"
-                        description="Reset emails restore account access only. Encrypted data still requires old-password recovery or key regeneration after sign-in."
-                        right={null}
-                      />
-                    ) : null}
                     <div className={settingsStyles.rows}>
                       {items
                         .slice()
