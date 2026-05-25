@@ -18,6 +18,98 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import adminApiService, { type AdminSetting } from "@/services/api";
 
+const PASSWORD_RESET_SETTINGS: AdminSetting[] = [
+  {
+    key: "users.password_reset_email_enabled",
+    name: "Enable email password reset",
+    type: "boolean",
+    category: "Users / Password Reset",
+    description: "Allow users to request password reset emails when SMTP sending is available.",
+    tags: ["users", "password-reset"],
+    defaultValue: false,
+    value: false,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.password_reset_show_login_link",
+    name: "Show forgot-password link",
+    type: "boolean",
+    category: "Users / Password Reset",
+    description:
+      "Show the forgot-password link on the user sign-in page when password reset is enabled.",
+    tags: ["users", "password-reset"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.password_reset_token_ttl_minutes",
+    name: "Token TTL minutes",
+    type: "number",
+    category: "Users / Password Reset",
+    description: "How long password reset links remain valid, from 5 to 1440 minutes.",
+    tags: ["users", "password-reset"],
+    defaultValue: 30,
+    value: 30,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.password_reset_request_cooldown_minutes",
+    name: "Request cooldown minutes",
+    type: "number",
+    category: "Users / Password Reset",
+    description: "Minimum time between reset emails for the same account, from 1 to 60 minutes.",
+    tags: ["users", "password-reset"],
+    defaultValue: 5,
+    value: 5,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.password_reset_max_requests_per_hour",
+    name: "Max requests per hour",
+    type: "number",
+    category: "Users / Password Reset",
+    description: "Maximum reset email requests per account each hour, from 1 to 20.",
+    tags: ["users", "password-reset"],
+    defaultValue: 3,
+    value: 3,
+    secure: false,
+    updatedAt: "",
+  },
+];
+
+const NUMBER_LIMITS: Record<string, { min: number; max: number }> = {
+  "users.password_reset_token_ttl_minutes": { min: 5, max: 1440 },
+  "users.password_reset_request_cooldown_minutes": { min: 1, max: 60 },
+  "users.password_reset_max_requests_per_hour": { min: 1, max: 20 },
+};
+
+function withPasswordResetSettings(settings: AdminSetting[]): AdminSetting[] {
+  const byKey = new Map(settings.map((setting) => [setting.key, setting]));
+  return [
+    ...settings.map((setting) => {
+      const fallback = PASSWORD_RESET_SETTINGS.find((item) => item.key === setting.key);
+      return fallback
+        ? {
+            ...fallback,
+            ...setting,
+            name: setting.name || fallback.name,
+            type: setting.type || fallback.type,
+            category: setting.category || fallback.category,
+            description: setting.description || fallback.description,
+            tags: setting.tags || fallback.tags,
+            defaultValue: setting.defaultValue ?? fallback.defaultValue,
+          }
+        : setting;
+    }),
+    ...PASSWORD_RESET_SETTINGS.filter((setting) => !byKey.has(setting.key)),
+  ];
+}
+
 function toLabel(key: string, name?: string | null) {
   if (name?.trim()) return name;
   return key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
@@ -59,7 +151,7 @@ export default function Settings() {
         adminApiService.getSettings(),
         adminApiService.getAdminSession(),
       ]);
-      const settings = settingsResponse.settings;
+      const settings = withPasswordResetSettings(settingsResponse.settings);
       setAdminRole(sessionResponse.role || "read");
       setSettings(settings);
       const d: Record<string, unknown> = {};
@@ -136,7 +228,7 @@ export default function Settings() {
     }
   };
 
-  const smtpMissing = useMemo(() => {
+  const smtpUnavailable = useMemo(() => {
     const readString = (key: string) => {
       const v = drafts[key];
       return typeof v === "string" ? v.trim() : "";
@@ -153,8 +245,9 @@ export default function Settings() {
       port,
     };
     return (
+      drafts["email.smtp.enabled"] !== true ||
       !values.from ||
-      !values.transport ||
+      values.transport !== "smtp" ||
       !values.host ||
       !values.user ||
       !values.password ||
@@ -209,7 +302,7 @@ export default function Settings() {
                       right={
                         <Button
                           onClick={sendTestEmail}
-                          disabled={adminRole === "read" || smtpMissing}
+                          disabled={adminRole === "read" || smtpUnavailable}
                         >
                           Send test email
                         </Button>
@@ -220,6 +313,13 @@ export default function Settings() {
                 {inner.map(([sub, items]) => (
                   <div key={sub}>
                     {sub !== "General" && <div className={settingsStyles.subHeading}>{sub}</div>}
+                    {items.some((item) => item.key.startsWith("users.password_reset_")) ? (
+                      <SettingRow
+                        label="Password reset by email"
+                        description="Reset emails restore account access only. Encrypted data still requires old-password recovery or key regeneration after sign-in."
+                        right={null}
+                      />
+                    ) : null}
                     <div className={settingsStyles.rows}>
                       {items
                         .slice()
@@ -229,8 +329,15 @@ export default function Settings() {
                         .map((s) => {
                           const t = inferType(s);
                           const label = toLabel(s.key, s.name);
+                          const enablePasswordResetBlocked =
+                            s.key === "users.password_reset_email_enabled" &&
+                            smtpUnavailable &&
+                            !drafts[s.key];
                           const disabled =
-                            savingKey === s.key || (s.secure && s.value === "[REDACTED]");
+                            adminRole === "read" ||
+                            savingKey === s.key ||
+                            (s.secure && s.value === "[REDACTED]") ||
+                            enablePasswordResetBlocked;
                           const isObject = t === "object";
                           const atDefault = isObject
                             ? JSON.stringify(s.value) === JSON.stringify(s.defaultValue)
@@ -239,7 +346,11 @@ export default function Settings() {
                             <SettingRow
                               key={s.key}
                               label={label}
-                              description={s.description || undefined}
+                              description={
+                                enablePasswordResetBlocked
+                                  ? "Complete and enable SMTP settings before enabling email password reset."
+                                  : s.description || undefined
+                              }
                               className={savingKey === s.key ? settingsStyles.saving : undefined}
                               right={
                                 t === "boolean" ? (
@@ -250,20 +361,23 @@ export default function Settings() {
                                       adminApiService
                                         .updateSetting(s.key, !!v)
                                         .then(() => toast({ title: "Saved", description: s.key }))
-                                        .catch((e) =>
+                                        .catch((e) => {
+                                          setDrafts((d) => ({ ...d, [s.key]: s.value }));
                                           toast({
                                             title: "Error",
                                             description:
                                               e instanceof Error ? e.message : "Failed to save",
                                             variant: "destructive",
-                                          })
-                                        );
+                                          });
+                                        });
                                     }}
                                     disabled={disabled}
                                   />
                                 ) : t === "number" ? (
                                   <Input
                                     type="number"
+                                    min={NUMBER_LIMITS[s.key]?.min}
+                                    max={NUMBER_LIMITS[s.key]?.max}
                                     value={String(drafts[s.key] ?? "")}
                                     onChange={(e) =>
                                       setDrafts((d) => ({ ...d, [s.key]: e.target.value }))

@@ -132,6 +132,11 @@
   margin-right: 0.5rem;
 }
 
+.inlineAction {
+  margin-top: 1rem;
+  text-align: center;
+}
+
 .formFooter {
   text-align: left;
   margin-top: 1.5rem;

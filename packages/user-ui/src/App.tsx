@@ -10,6 +10,8 @@ import {
 import Authorize from "./components/Authorize";
 import ChangePasswordView from "./components/ChangePasswordView";
 import Dashboard from "./components/Dashboard";
+import EmailResetPasswordView from "./components/EmailResetPasswordView";
+import ForgotPasswordView from "./components/ForgotPasswordView";
 import LoginView from "./components/LoginView";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
@@ -311,6 +313,8 @@ function AppContent() {
           )
         }
       />
+      <Route path="/forgot-password" element={<ForgotPasswordView />} />
+      <Route path="/reset-password" element={<EmailResetPasswordView />} />
       <Route
         path="/signup"
         element={
