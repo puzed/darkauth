@@ -74,6 +74,7 @@ export interface User {
   email: string;
   name?: string;
   createdAt: string;
+  lastActivityAt?: string | null;
   passwordResetRequired?: boolean;
   permissions?: string[];
 }

@@ -1,5 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
+import { users } from "../../db/schema.ts";
 import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
@@ -704,7 +706,8 @@ export const postToken = withRateLimit("token")(
         context.logger.info("token zk delivery: drk_hash included");
       }
 
-      if (shouldIssueRefreshTokenForClient(client.grantTypes)) {
+      const issueRefreshToken = shouldIssueRefreshTokenForClient(client.grantTypes);
+      if (issueRefreshToken) {
         const sessionData = {
           sub: user.sub,
           email: user.email || undefined,
@@ -716,6 +719,12 @@ export const postToken = withRateLimit("token")(
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;
+      }
+      if (!issueRefreshToken) {
+        await context.db
+          .update(users)
+          .set({ lastActivityAt: new Date() })
+          .where(eq(users.sub, user.sub));
       }
 
       sendJson(response, 200, tokenResponse);
