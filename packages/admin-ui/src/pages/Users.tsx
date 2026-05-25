@@ -195,6 +195,10 @@ export default function Users() {
     });
   };
 
+  const formatOptionalDate = (dateString?: string | null) => {
+    return dateString ? formatDate(dateString) : "Never";
+  };
+
   const openUser = (user: User) => {
     navigate(`/users/${encodeURIComponent(user.sub)}`);
   };
@@ -259,6 +263,12 @@ export default function Users() {
                   />
                   <TableHead>Security</TableHead>
                   <SortableTableHead
+                    label="Last activity"
+                    isActive={sortBy === "lastActivityAt"}
+                    sortOrder={sortOrder}
+                    onToggle={() => toggleSort("lastActivityAt")}
+                  />
+                  <SortableTableHead
                     label="Created"
                     isActive={sortBy === "createdAt"}
                     sortOrder={sortOrder}
@@ -294,6 +304,7 @@ export default function Users() {
                           <span style={{ color: "hsl(var(--muted-foreground))" }}>None</span>
                         )}
                       </TableCell>
+                      <TableCell>{formatOptionalDate(user.lastActivityAt)}</TableCell>
                       <TableCell>{formatDate(user.createdAt)}</TableCell>
                       <TableCell>
                         <RowActions

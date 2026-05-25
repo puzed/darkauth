@@ -12,10 +12,10 @@ test("users schema supports standard pagination, search and sorting query fields
     page: 1,
     limit: 20,
     search: "term",
-    sortBy: "email",
+    sortBy: "lastActivityAt",
     sortOrder: "asc",
   });
-  assert.equal(parsed.sortBy, "email");
+  assert.equal(parsed.sortBy, "lastActivityAt");
   assert.equal(parsed.sortOrder, "asc");
 });
 

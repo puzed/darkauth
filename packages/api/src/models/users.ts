@@ -113,7 +113,7 @@ export async function listUsers(
     page?: number;
     limit?: number;
     search?: string;
-    sortBy?: "createdAt" | "email" | "name" | "sub";
+    sortBy?: "createdAt" | "email" | "name" | "sub" | "lastActivityAt";
     sortOrder?: "asc" | "desc";
   } = {}
 ) {
@@ -130,7 +130,9 @@ export async function listUsers(
         ? users.name
         : sortBy === "sub"
           ? users.sub
-          : users.createdAt;
+          : sortBy === "lastActivityAt"
+            ? users.lastActivityAt
+            : users.createdAt;
 
   const baseQuery = context.db
     .select({
@@ -138,6 +140,7 @@ export async function listUsers(
       email: users.email,
       name: users.name,
       createdAt: users.createdAt,
+      lastActivityAt: users.lastActivityAt,
       passwordResetRequired: users.passwordResetRequired,
     })
     .from(users);
@@ -217,7 +220,7 @@ export async function createUser(
       }
     }
   });
-  return { sub, email, name, createdAt: new Date().toISOString() };
+  return { sub, email, name, createdAt: new Date().toISOString(), lastActivityAt: null };
 }
 
 export async function deleteUser(context: Context, sub: string) {
@@ -244,6 +247,7 @@ export async function getUsersBySubsWithAccess(context: Context, subs: string[])
       email: users.email,
       name: users.name,
       createdAt: users.createdAt,
+      lastActivityAt: users.lastActivityAt,
     })
     .from(users)
     .where(inArray(users.sub, subs));

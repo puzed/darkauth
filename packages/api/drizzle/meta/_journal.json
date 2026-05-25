@@ -148,6 +148,13 @@
       "when": 1779723134571,
       "tag": "0022_dashboard_auto_login",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779724800000,
+      "tag": "0023_user_last_activity",
+      "breakpoints": true
     }
   ]
 }

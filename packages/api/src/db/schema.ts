@@ -112,6 +112,7 @@ export const users = pgTable("users", {
   pendingEmail: text("pending_email"),
   pendingEmailSetAt: timestamp("pending_email_set_at"),
   passwordResetRequired: boolean("password_reset_required").default(false).notNull(),
+  lastActivityAt: timestamp("last_activity_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

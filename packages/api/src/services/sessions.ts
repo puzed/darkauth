@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
-import { sessions } from "../db/schema.ts";
+import { sessions, users } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
@@ -212,6 +212,7 @@ export async function createSession(
   const refreshToken = generateRandomString(64);
   const refreshTokenHash = sha256Base64Url(refreshToken);
   const { sessionMs, refreshMs } = await getDurations(context, cohort);
+  const now = new Date();
   const expiresAt = new Date(Date.now() + sessionMs);
   const refreshTokenExpiresAt = new Date(Date.now() + refreshMs);
 
@@ -220,12 +221,16 @@ export async function createSession(
     cohort,
     userSub: data.sub,
     adminId: data.adminId,
-    createdAt: new Date(),
+    createdAt: now,
     expiresAt,
     refreshToken: refreshTokenHash,
     refreshTokenExpiresAt,
     data,
   });
+
+  if (cohort === "user" && data.sub) {
+    await context.db.update(users).set({ lastActivityAt: now }).where(eq(users.sub, data.sub));
+  }
 
   try {
     context.logger.info(
@@ -394,12 +399,19 @@ export async function refreshSessionWithToken(
       cohort: session.cohort,
       userSub: session.userSub,
       adminId: session.adminId,
-      createdAt: new Date(),
+      createdAt: now,
       expiresAt,
       refreshToken: newRefreshTokenHash,
       refreshTokenExpiresAt,
       data: session.data,
     });
+
+    if (session.cohort === "user" && session.userSub) {
+      await transaction
+        .update(users)
+        .set({ lastActivityAt: now })
+        .where(eq(users.sub, session.userSub));
+    }
 
     await transaction.delete(sessions).where(eq(sessions.id, session.id));
 
