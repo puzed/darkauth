@@ -19,7 +19,12 @@ declare global {
   interface Window {
     __APP_CONFIG__?: {
       branding?: BrandingConfig;
-      features?: { selfRegistrationEnabled?: boolean };
+      features?: {
+        selfRegistrationEnabled?: boolean;
+        passwordResetEnabled?: boolean;
+        passwordResetLoginLinkEnabled?: boolean;
+        passwordResetLoginLinkVisible?: boolean;
+      };
     };
   }
 }
