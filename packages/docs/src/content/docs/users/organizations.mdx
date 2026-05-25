@@ -1,0 +1,33 @@
+---
+title: Organizations
+description: Organization switching and role context for users.
+---
+
+Organizations represent tenant, customer, workspace, or team boundaries. A user can belong to more than one organization, and the active organization can change what the user is allowed to do in an application.
+
+## Why organization selection matters
+
+When a user authenticates, the application may need to know which organization the user is acting in. DarkAuth resolves that organization context during login, authorization, token exchange, or refresh.
+
+If a user has no active organization membership, DarkAuth cannot resolve an organization-scoped request. If a user has exactly one active membership, DarkAuth can select it automatically. If a user has multiple active memberships and no organization was requested, DarkAuth may ask the user to choose.
+
+## Switching organizations
+
+The switch organization flow lets a signed-in user choose an active organization before continuing. This is especially useful when the same user belongs to several customer workspaces and an application needs a clear `org_id` in the token.
+
+Applications can also send an organization hint in the authorization request. DarkAuth validates that the user actually has an active membership before using it.
+
+## Roles and permissions
+
+Organization memberships can have roles, and roles resolve to permissions. Applications can read token claims or call APIs to decide whether a user can perform an action.
+
+This avoids relying on broad account-level roles. A user can be an owner in one organization and a basic member in another.
+
+## What users see
+
+Users do not usually need to understand the full RBAC model. They need clear explanations when:
+
+- An application asks them to choose an organization.
+- An action is unavailable because of organization role or permission.
+- MFA is required because one of their organizations enforces it.
+- An app is visible or hidden based on organization membership.

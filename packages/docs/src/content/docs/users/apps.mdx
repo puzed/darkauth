@@ -1,0 +1,26 @@
+---
+title: Apps
+description: User dashboard and connected application behavior.
+---
+
+The user dashboard gives signed-in users a place to see applications configured for the DarkAuth instance. For many deployments, users will mostly enter DarkAuth from a specific app, but the dashboard is useful as a home base for account access and app discovery.
+
+## What appears in the dashboard
+
+Applications come from OAuth/OIDC client configuration. Admins can configure names, redirect URIs, scopes, icons, dashboard behavior, and whether a client is public, confidential, or zero-knowledge enabled.
+
+Not every client needs to appear as a user-launchable app. Some clients are backend services, support tools, or machine-to-machine integrations. The dashboard should focus on apps that make sense for users to open directly.
+
+## Launching an app
+
+When a user opens an app from the dashboard, DarkAuth starts the same authorization flow the app would normally start itself. The user may be sent through organization selection, consent, MFA, or password reset before returning to the app.
+
+If the user already has a valid session and no additional policy is required, the flow can feel close to single sign-on.
+
+## Consent and scopes
+
+Apps can request scopes such as `openid`, `profile`, `email`, or custom scopes. The consent screen should explain what the app is asking for in plain language. Admins and developers can improve this experience by providing useful scope descriptions.
+
+## Zero-knowledge apps
+
+Some apps are configured to receive a DRK through the zero-knowledge fragment JWE flow. Users do not need to manage the protocol details, but they should understand that these apps may behave differently on reloads or new devices because key custody is memory-only by default.

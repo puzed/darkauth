@@ -1,0 +1,36 @@
+---
+title: OpenAPI Patterns
+description: Controller metadata and generated API documentation.
+---
+
+Every documented API endpoint should have controller schema metadata. This keeps the generated OpenAPI document close to the code that validates and serves the endpoint.
+
+## Required metadata
+
+Include:
+
+- HTTP method.
+- Route path.
+- Tags.
+- Summary.
+- Path parameters.
+- Query parameters.
+- Request body.
+- Success responses.
+- Expected error responses.
+
+Not every endpoint has every field, but every endpoint should describe the fields it does have.
+
+## Multiple schemas in one module
+
+Some modules expose multiple endpoints, such as a `GET` and `PUT` for the same resource. Export separate schema constants with clear names and register each one in the OpenAPI builder.
+
+## Review checklist
+
+When reviewing API changes, ask:
+
+- Does runtime validation match the OpenAPI schema?
+- Are required fields really required?
+- Are protocol field names preserved?
+- Are sensitive fields omitted from response schemas?
+- Are pagination and errors consistent with similar endpoints?

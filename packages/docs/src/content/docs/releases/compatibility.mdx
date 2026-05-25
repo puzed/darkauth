@@ -1,0 +1,31 @@
+---
+title: Compatibility
+description: Upgrade notes, breaking changes, and client compatibility.
+---
+
+Compatibility notes are for changes that might break an operator's deployment or a developer's integration.
+
+## Areas to track
+
+- Database migrations.
+- Required Node.js version.
+- OIDC discovery or token endpoint behavior.
+- ID token and access token claims.
+- Refresh token behavior.
+- Admin API request or response shapes.
+- User API request or response shapes.
+- Client SDK defaults.
+- ZK DRK delivery behavior.
+- Password reset and email settings.
+
+## Writing upgrade notes
+
+Each note should answer:
+
+1. Who is affected?
+2. What changed?
+3. What should they do before upgrading?
+4. How can they verify the upgrade worked?
+5. Is there a rollback concern?
+
+Compatibility notes should be specific. "Review configuration" is not enough; name the setting or behavior that changed.

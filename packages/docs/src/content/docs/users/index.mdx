@@ -1,0 +1,33 @@
+---
+title: User Overview
+description: User-facing DarkAuth features and account workflows.
+---
+
+The user portal is where people sign in to DarkAuth, approve access for applications, manage account security, and choose an organization context. Most users will only see this surface when an application redirects them to authenticate, but it also includes a small account dashboard for security and app access.
+
+DarkAuth tries to keep user-facing flows familiar. A user signs in with an email and password, may be asked for MFA, reviews the application requesting access, and returns to the app. The difference is mostly under the hood: the password flow uses OPAQUE, and some applications can receive a zero-knowledge key handoff after authentication.
+
+## What users can do
+
+- Sign in through the hosted DarkAuth portal.
+- Register when self-registration is enabled.
+- Approve or deny application authorization requests.
+- Set up and verify TOTP MFA.
+- Use backup codes when an authenticator app is unavailable.
+- Request an email password reset when enabled.
+- Change a password while signed in.
+- Verify or update an email address.
+- Switch active organization context.
+- View available applications from the dashboard.
+
+## When users see DarkAuth
+
+Users usually arrive from an application. The app sends them to DarkAuth with an authorization request, including details such as client ID, redirect URI, scopes, and optional organization context. DarkAuth handles authentication and consent, then sends the user back to the application.
+
+Users can also visit the user portal directly. In that case, DarkAuth shows account and app dashboard flows instead of a specific consent request.
+
+## Security model in plain English
+
+DarkAuth is designed so the password is not sent to the server during login. If a zero-knowledge application is involved, DarkAuth can also help deliver a user-held key to the application without putting the key in a server response.
+
+Users should still understand the trust boundary. Browser code can use secrets while the user is signed in. A compromised browser, device, extension, or trusted application origin can still read what it is allowed to run. DarkAuth reduces server-side custody; it does not make unsafe clients safe.

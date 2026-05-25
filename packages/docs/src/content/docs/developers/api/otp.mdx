@@ -1,0 +1,24 @@
+---
+title: OTP API
+description: TOTP setup, verification, status, and re-authentication endpoints.
+---
+
+OTP endpoints support setup, verification, status checks, and administrative recovery for TOTP MFA.
+
+## User endpoints
+
+- `GET /otp/status` returns whether OTP is enabled, pending, required, or locked.
+- `POST /otp/setup/init` creates a new pending TOTP secret and provisioning URI.
+- `POST /otp/setup/verify` verifies the first code and returns backup codes.
+- `POST /otp/verify` verifies a code or backup code during login.
+- `POST /otp/reauth` verifies OTP for a sensitive action.
+
+## Admin endpoints
+
+Admin users have a parallel OTP flow for the admin portal. Admin management endpoints can inspect, delete, reset, or unlock OTP state for users and admin users.
+
+## Implementation details
+
+OTP secrets are encrypted at rest. Backup codes are stored as one-way hashes. Verification is rate-limited and tracks used timesteps to prevent replay.
+
+Use the hosted UI unless you have a strong reason to build a custom OTP experience.

@@ -1,0 +1,28 @@
+---
+title: API Overview
+description: DarkAuth endpoint groups and authentication requirements.
+---
+
+DarkAuth exposes several API surfaces. They are grouped by purpose rather than by implementation package: public OIDC endpoints, user account endpoints, admin management endpoints, and first-run install endpoints.
+
+## User and OIDC APIs
+
+The user surface includes OIDC discovery, JWKS, authorization, token exchange, sessions, logout, OPAQUE login and registration, OTP, password reset, email verification, user crypto key storage, organizations, apps, and users directory endpoints.
+
+These endpoints are served from the user origin, which is public in most deployments.
+
+## Admin APIs
+
+The admin API manages users, admin users, clients, organizations, roles, permissions, settings, email templates, JWKS, OTP state, audit logs, and exports. Admin APIs require an authenticated admin session. Mutating endpoints require a write admin role.
+
+These endpoints are served from the admin origin, which should be restricted in production.
+
+## Install APIs
+
+Install endpoints are only active before initialization. They support the web installer, database setup, config writing, first admin registration, and default seeding.
+
+Once the instance is initialized, install endpoints should not be available.
+
+## OpenAPI
+
+DarkAuth generates OpenAPI from controller schemas. Use the generated contract for exact request and response shapes, and use these docs for behavior, intent, and integration guidance.

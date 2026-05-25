@@ -1,0 +1,44 @@
+---
+title: Database Schema
+description: Tables and stored state used by DarkAuth.
+---
+
+DarkAuth stores configuration, identity state, protocol state, and audit data in PostgreSQL or embedded PGLite through Drizzle.
+
+## Core state
+
+- `settings` stores database-backed runtime settings.
+- `jwks` stores signing keys and public JWKs.
+- `clients` stores OAuth/OIDC client registrations.
+- `users` stores regular user accounts.
+- `admin_users` stores admin accounts.
+- `sessions` stores first-party session state.
+- `auth_codes` stores authorization codes.
+- `pending_auth` stores in-progress authorization requests.
+
+## Password and key state
+
+- `opaque_records` stores user OPAQUE records.
+- `admin_opaque_records` stores admin OPAQUE records.
+- `wrapped_root_keys` stores wrapped DRKs.
+- `user_encryption_keys` stores public and wrapped private encryption keys.
+
+## Organizations and authorization
+
+- `organizations`
+- `organization_members`
+- `roles`
+- `role_permissions`
+- `permissions`
+
+These tables support organization-scoped roles and effective permissions.
+
+## Security workflows
+
+- `otp_configs`
+- `otp_backup_codes`
+- `password_reset_tokens`
+- `email_verification_tokens`
+- `audit_logs`
+
+Sensitive values are encrypted, hashed, or redacted according to their purpose.

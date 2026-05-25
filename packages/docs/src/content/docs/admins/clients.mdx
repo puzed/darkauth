@@ -1,0 +1,34 @@
+---
+title: Clients
+description: OAuth and OIDC client management.
+---
+
+Clients are applications that use DarkAuth for authentication or authorization. A client controls how an app redirects users, exchanges codes, receives tokens, requests scopes, and optionally participates in zero-knowledge DRK delivery.
+
+## Public clients
+
+Public clients cannot keep a secret. Browser apps, native-style apps, and many frontend-only apps should be configured as public clients. They use Authorization Code with PKCE and `token_endpoint_auth_method` set to `none`.
+
+Require PKCE for public clients. PKCE protects against authorization code interception by binding the code exchange to a verifier generated before the redirect.
+
+## Confidential clients
+
+Confidential clients can protect a client secret server-side. They use `client_secret_basic` at the token endpoint and can support server-side web apps, support tools, or backend services.
+
+Store generated client secrets in a secret manager. DarkAuth encrypts client secrets at rest, but the application still needs to protect its copy.
+
+## Redirect URIs
+
+Redirect URIs should be exact and boring. Avoid broad patterns, wildcard domains, and user-controlled origins. A redirect URI is where DarkAuth sends authorization results, so mistakes here can become account takeover paths.
+
+Register separate clients for materially different apps or environments. A production app, staging app, and local dev app often deserve separate client records.
+
+## Scopes and descriptions
+
+Scopes describe what the client is asking for. Built-in scopes such as `openid`, `profile`, and `email` are common, and clients can also request custom scopes. Provide useful descriptions so the consent screen explains the request in language a user can understand.
+
+## ZK delivery settings
+
+Zero-knowledge DRK delivery is opt-in per client. Only enable `fragment-jwe` for applications that are designed to handle the fragment JWE safely, verify the `zk_drk_hash`, and manage memory-only DRK custody.
+
+Do not enable ZK delivery because it sounds stronger. Enable it because the application has a real client-side encryption model and a clear recovery story.

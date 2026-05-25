@@ -1,4 +1,4 @@
-name: Deploy Brochureware
+name: Deploy Sites
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 concurrency:
-  group: deploy-brochureware
+  group: deploy-sites
   cancel-in-progress: true
 
 jobs:
@@ -34,3 +34,27 @@ jobs:
           node clearCache.js ${{ vars.BROCHUREWARE_DOMAIN }}
         env:
           PURGE_BUNNY_SECRET: ${{ secrets.PURGE_BUNNY_SECRET }}
+  deploy-docs:
+    name: Deploy Docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: |
+          cd packages/docs
+          npm run build
+      - run: |
+          cd packages/docs
+          node deploy.js
+        env:
+          DOCS_DEPLOY_STORAGE_ZONE: ${{ vars.DOCS_DEPLOY_STORAGE_ZONE }}
+          DOCS_DEPLOY_ACCESS_KEY: ${{ secrets.DOCS_DEPLOY_ACCESS_KEY }}
+      - run: |
+          cd packages/docs
+          node clearCache.js ${{ vars.DOCS_DOMAIN }}
+        env:
+          DOCS_PURGE_BUNNY_SECRET: ${{ secrets.DOCS_PURGE_BUNNY_SECRET }}

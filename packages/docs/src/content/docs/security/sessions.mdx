@@ -1,0 +1,26 @@
+---
+title: Sessions
+description: Cookies, CSRF, refresh rotation, token lifetime, and logout.
+---
+
+Session security is about keeping short-lived grants, first-party sessions, and refresh credentials from turning into long-lived compromise.
+
+## First-party sessions
+
+DarkAuth uses first-party session cookies for its own user and admin portals. These cookies should be HttpOnly, Secure in production, and scoped to the correct origin.
+
+CSRF and origin checks protect state-changing first-party requests.
+
+## Authorization codes
+
+Authorization codes are short-lived and single use. The token endpoint consumes them atomically and verifies client, redirect URI, and PKCE state.
+
+Applications should never cache or reuse authorization codes.
+
+## Refresh rotation
+
+Refresh credentials rotate. When a refresh token is used successfully, the previous token should be consumed. Reuse of a consumed token indicates possible replay and must fail.
+
+## Logout
+
+Logout should clear the DarkAuth session and the application's local state. ZK applications should also clear DRK material, derived keys, callback state, and ephemeral private keys.

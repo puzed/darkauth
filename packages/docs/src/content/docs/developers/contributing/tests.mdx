@@ -1,0 +1,31 @@
+---
+title: Tests
+description: Unit, integration, screenshot, and end-to-end testing guidance.
+---
+
+Tests should match the risk of the change. A small UI wording change does not need a full protocol suite. A change to token minting, OPAQUE, OTP, password reset, RBAC, or sessions deserves focused tests at the right layer.
+
+## API tests
+
+Use model and controller tests for validation, database behavior, edge cases, and security-sensitive flows. Test both success and failure paths, especially for account enumeration, token reuse, permission checks, and expired state.
+
+## UI tests
+
+User and admin UI changes should cover routing, loading, empty states, form validation, and error handling. For visual changes, use screenshot workflows where they already exist.
+
+## Security tests
+
+Add tests for:
+
+- PKCE mismatch.
+- Consumed or expired authorization codes.
+- Refresh token replay.
+- OTP lockout and replay prevention.
+- Password reset token reuse.
+- Organization context ambiguity.
+- Permission denial.
+- Audit redaction.
+
+## Final checks
+
+Run the package-level check that matches your change, then run `npm run tidy` and `npm run build` for broad changes.

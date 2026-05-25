@@ -1,0 +1,72 @@
+---
+title: DarkAuth Documentation
+description: Start here for DarkAuth user, admin, and developer documentation.
+template: splash
+hero:
+  title: DarkAuth Documentation
+  tagline: Zero-knowledge authentication, OIDC compatibility, and self-hosted identity operations.
+  image:
+    file: ../../assets/logo.svg
+  actions:
+    - text: Quickstart
+      link: /quickstart/
+      icon: right-arrow
+      variant: primary
+    - text: Developer Guides
+      link: /developers/
+      icon: seti:typescript
+---
+
+DarkAuth is a self-hosted authentication system for teams that want standards-based login without giving up control of password handling, key custody, or deployment. It behaves like a normal OAuth 2.0 and OpenID Connect provider for applications, while adding OPAQUE password authentication and optional zero-knowledge Data Root Key delivery for clients that need it.
+
+The product has three main surfaces. Users sign in, authorize applications, manage MFA, recover accounts, switch organizations, and launch apps from the user portal. Admins install and operate the instance from the admin portal. Developers integrate applications through OIDC, the TypeScript SDK, and the API.
+
+<div class="path-grid">
+  <a class="path-card" href="/users/">
+    <strong>Users</strong>
+    <p>Sign in, MFA, password recovery, organization switching, app access, and zero-knowledge expectations.</p>
+  </a>
+  <a class="path-card" href="/admins/">
+    <strong>Admins</strong>
+    <p>Install, configure, deploy, brand, audit, and operate a DarkAuth instance.</p>
+  </a>
+  <a class="path-card" href="/developers/">
+    <strong>Developers</strong>
+    <p>Integrate OIDC, PKCE, the TypeScript SDK, ZK DRK delivery, user APIs, and org/RBAC claims.</p>
+  </a>
+  <a class="path-card" href="/security/">
+    <strong>Security</strong>
+    <p>Understand OPAQUE, wrapped keys, cookies, CSRF, refresh rotation, MFA, and hosted-web trust boundaries.</p>
+  </a>
+</div>
+
+## What DarkAuth includes
+
+DarkAuth includes the pieces you normally expect from an auth provider:
+
+- OAuth 2.0 Authorization Code flow with PKCE.
+- OpenID Connect discovery, JWKS, ID tokens, and access tokens.
+- Public clients, confidential clients, and client credentials flows.
+- A hosted user portal for login, registration, consent, MFA, and account settings.
+- An admin portal for users, clients, organizations, roles, permissions, settings, branding, keys, email templates, and audit logs.
+- SMTP-backed password reset and email verification.
+- TOTP MFA for users and admins, including backup codes and lockout handling.
+- Organization-aware roles and permissions for applications that need tenant or workspace boundaries.
+
+DarkAuth also includes features that are less common in hosted auth products:
+
+- OPAQUE password authentication, where the password is not sent to the server in the login flow.
+- A zero-knowledge DRK handoff for trusted browser apps using fragment JWE.
+- KEK-protected storage for private signing keys, client secrets, and sensitive OTP material.
+- A two-port deployment model that keeps public user/OIDC traffic separate from the admin surface.
+- Embedded PGLite support for lightweight installs, alongside remote PostgreSQL for production.
+
+## How to read these docs
+
+Start with the section that matches what you are trying to do. If you are evaluating the product, read [Core Concepts](/concepts/) and [Security Model](/security/model/) first. If you are running DarkAuth, start with [Install](/admins/install/) and [Configuration](/admins/configuration/). If you are integrating an application, start with [Public Clients](/developers/oidc/public-clients/) or [Confidential Clients](/developers/oidc/confidential-clients/).
+
+The pages are intentionally audience-first. User docs explain what someone sees and what decisions matter to them. Admin docs explain operational tasks and tradeoffs. Developer docs explain protocol behavior, API contracts, and application responsibilities.
+
+## What these docs are not
+
+This site is not brochureware. It is meant to become the durable product manual for DarkAuth. Marketing claims should live on the public site; these docs should explain how the system behaves, why it behaves that way, and what a reader should do next.

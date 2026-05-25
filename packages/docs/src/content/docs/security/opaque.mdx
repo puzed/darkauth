@@ -1,0 +1,29 @@
+---
+title: OPAQUE Security
+description: Password authentication guarantees and limits.
+---
+
+OPAQUE is the foundation of DarkAuth password authentication. It is a password-authenticated key exchange that lets the client authenticate without sending the password to the server.
+
+## Guarantees
+
+In the DarkAuth model:
+
+- The password is not posted to the server during login.
+- The server stores an OPAQUE record rather than a plaintext password.
+- The client receives an export key after successful authentication.
+- The server-side OPAQUE login session binds the identity used to mint sessions.
+
+This is stronger than a traditional password form plus server-side password hash because the server does not receive the password in the first place.
+
+## Export key custody
+
+The export key belongs on the client side. DarkAuth uses it to derive material for wrapping and unwrapping user keys. The server does not receive it.
+
+That improves custody, but it also affects recovery. If a password changes through a flow that cannot access old password-derived material, old encrypted data may need a separate recovery path.
+
+## Limits
+
+OPAQUE does not protect against every password-related risk. It does not stop phishing, compromised devices, malicious browser extensions, malicious frontend code, weak passwords, or users entering credentials into the wrong origin.
+
+Use OPAQUE alongside MFA, strict origins, safe deployment, clear UI, and monitoring.

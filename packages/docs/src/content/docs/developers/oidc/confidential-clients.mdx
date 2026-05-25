@@ -1,0 +1,32 @@
+---
+title: Confidential Clients
+description: Server-side OAuth clients and client secret authentication.
+---
+
+Confidential clients are applications that can keep a secret away from the browser. Server-rendered web apps and backend services are typical examples.
+
+## Client authentication
+
+DarkAuth supports confidential clients using `client_secret_basic`. The application sends the client ID and secret to the token endpoint using HTTP Basic authentication. This proves the token exchange is coming from a server that has the registered secret.
+
+Do not put a confidential client secret in frontend code. If the browser can see it, the client is not confidential.
+
+## Authorization Code flow
+
+A server-side web app can still use the Authorization Code flow. The browser redirects to DarkAuth, returns to the app callback, and the server exchanges the code for tokens. Because the exchange happens server-side, the client secret can be used safely.
+
+PKCE can still be used for defense in depth. Public clients require it; confidential clients should use it when practical.
+
+## Client credentials
+
+Confidential clients can also use client credentials for service-to-service work. This is useful when no end user is involved, such as a backend job calling an API protected by DarkAuth.
+
+Keep this separate from user authorization. A client credentials token represents the client, not a person.
+
+## Secret rotation
+
+Plan for client secret rotation. Store the secret in a secret manager, deploy a new value safely, verify token exchange, then remove the old value. Avoid copying secrets into logs, issue trackers, or local scripts.
+
+## When not to use a confidential client
+
+Do not choose a confidential client just because it sounds more secure. If token exchange happens in a browser, native app, or other environment where users can inspect the secret, use a public client with PKCE instead.

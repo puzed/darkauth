@@ -1,0 +1,39 @@
+---
+title: Claims
+description: ID token, access token, organization, AMR, ACR, roles, and permissions claims.
+---
+
+Claims are the facts applications read from DarkAuth tokens. Standard OIDC claims identify the user and token. DarkAuth-specific claims can add organization and authorization context.
+
+## Standard identity claims
+
+Common claims include:
+
+- `iss`: issuer.
+- `sub`: user subject.
+- `aud`: audience.
+- `exp`: expiration.
+- `iat`: issued at.
+- `email`: email address when requested and available.
+- `name`: display name when requested and available.
+
+Applications should treat `sub` as the durable user key. Email can change.
+
+## Organization claims
+
+When organization context is resolved, tokens can include:
+
+- `org_id`
+- `org_slug`
+- `roles`
+- `permissions`
+
+Applications should check that the token organization matches the resource organization before authorizing actions.
+
+## Authentication context
+
+Tokens can include authentication method or context information such as whether MFA was used. High-risk applications can require recent or stronger authentication before allowing sensitive operations.
+
+## Scopes vs permissions
+
+Scopes describe what a client requested and was granted. Permissions describe what the user can do, usually within an organization. Applications often need to check both.

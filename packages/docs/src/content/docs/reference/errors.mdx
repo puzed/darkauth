@@ -1,0 +1,26 @@
+---
+title: Errors
+description: Error responses, OAuth errors, validation errors, and status codes.
+---
+
+DarkAuth uses standard OAuth errors where protocol compatibility matters and structured API errors for application endpoints.
+
+## OAuth errors
+
+Common OAuth errors include:
+
+- `invalid_request` for malformed or missing parameters.
+- `unauthorized_client` when the client is not allowed to use the requested flow.
+- `invalid_grant` for expired, consumed, mismatched, or invalid grants.
+- `access_denied` when the user denies or cannot complete authorization.
+- `server_error` for unexpected failures.
+
+## API errors
+
+API errors should be machine-readable and stable. Clients should branch on error codes where possible rather than parsing human-readable messages.
+
+## Privacy
+
+Some flows intentionally return generic messages. Password reset is the clearest example: the public request path should not reveal whether an email address belongs to an account.
+
+When debugging, use admin logs and audit logs rather than changing public error messages to expose more detail.

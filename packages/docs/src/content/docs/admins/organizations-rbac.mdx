@@ -1,0 +1,44 @@
+---
+title: Organizations and RBAC
+description: Organizations, members, roles, groups, permissions, and login policy.
+---
+
+Organizations are DarkAuth's tenant boundary. They can represent customers, workspaces, teams, or any other unit where access should be scoped. RBAC then defines what a user can do inside that organization.
+
+## Core model
+
+The active model is organization-scoped:
+
+- An organization is the boundary.
+- A membership connects a user to an organization.
+- Roles attach to memberships.
+- Permissions attach to roles.
+- Effective permissions are resolved from active memberships and role mappings.
+
+This means authorization is not just "is this user an admin?" A user can have different roles in different organizations.
+
+## Organization context
+
+At runtime, DarkAuth resolves one organization context for organization-scoped authorization. If a request provides `organization_id`, the user must have an active membership in that organization. If no organization is provided and the user has exactly one active membership, DarkAuth can choose it. If multiple active memberships exist, the flow may require a choice.
+
+When context is resolved, tokens can include `org_id`, `org_slug`, roles, and deduplicated permissions.
+
+## Admin tasks
+
+Admins can:
+
+- Create and update organizations.
+- Add and remove members.
+- Assign member roles.
+- Create roles.
+- Map permissions to roles.
+- Configure whether organization policy requires OTP.
+- Inspect membership and permission state through list pages.
+
+Mutating organization and RBAC endpoints require a write admin role.
+
+## Designing permissions
+
+Good permission keys are stable and application-oriented. Prefer names that map to real product actions, such as `notes:read`, `notes:write`, or `billing:manage`. Avoid permissions that encode temporary UI details.
+
+Applications should treat permissions as authorization inputs, not as UI decoration. If the API allows an action, the backend should enforce the same permission the UI used to show the button.
