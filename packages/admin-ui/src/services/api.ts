@@ -165,6 +165,7 @@ export interface Client {
   clientId: string;
   name: string;
   showOnUserDashboard?: boolean;
+  dashboardAutoLogin?: boolean;
   dashboardPosition?: number;
   appUrl?: string | null;
   dashboardIconMode?: "letter" | "emoji" | "upload";
@@ -202,6 +203,7 @@ export interface CreateClientRequest {
   type: "public" | "confidential";
   tokenEndpointAuthMethod: "none" | "client_secret_basic";
   showOnUserDashboard?: boolean;
+  dashboardAutoLogin?: boolean;
   dashboardPosition?: number;
   appUrl?: string;
   dashboardIconMode?: "letter" | "emoji" | "upload";

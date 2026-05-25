@@ -18,6 +18,7 @@ const ClientResponseSchema = z.object({
   clientId: z.string(),
   name: z.string(),
   showOnUserDashboard: z.boolean().optional(),
+  dashboardAutoLogin: z.boolean().optional(),
   dashboardPosition: z.number().int(),
   appUrl: z.string().nullable().optional(),
   dashboardIconMode: z.enum(["letter", "emoji", "upload"]),

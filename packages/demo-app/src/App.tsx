@@ -49,6 +49,9 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
     if (session) {
       setSession(session);
+    } else if (params.get("darkauth_login") === "1") {
+      await initiateLogin();
+      return;
     }
     setIsLoading(false);
   }, [setSession]);

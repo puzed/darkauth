@@ -82,6 +82,7 @@ export const clients = pgTable("clients", {
   dashboardIconData: bytea("dashboard_icon_data"),
   logoUrl: text("logo_url"),
   showOnUserDashboard: boolean("show_on_user_dashboard").default(false).notNull(),
+  dashboardAutoLogin: boolean("dashboard_auto_login").default(false).notNull(),
   type: clientTypeEnum("type").notNull(),
   tokenEndpointAuthMethod: tokenEndpointAuthMethodEnum("token_endpoint_auth_method").notNull(),
   clientSecretEnc: bytea("client_secret_enc"),

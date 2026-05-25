@@ -141,6 +141,13 @@
       "when": 1773673200000,
       "tag": "0021_password_reset_email",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779723134571,
+      "tag": "0022_dashboard_auto_login",
+      "breakpoints": true
     }
   ]
 }
