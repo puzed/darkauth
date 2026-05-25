@@ -110,6 +110,14 @@ export class OpaqueServer implements RegistrationServer, AuthServer {
         return ke2
     }
 
+    exportAuthState(): number[] | Error {
+        return this.ake.exportState()
+    }
+
+    importAuthState(bytes: number[]): Error | void {
+        return this.ake.importState(bytes)
+    }
+
     authFinish(ke3: KE3): { session_key: number[] } | Error {
         return this.ake.finish(ke3.auth_finish)
     }
