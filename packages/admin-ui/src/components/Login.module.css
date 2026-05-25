@@ -176,10 +176,6 @@
   color: hsl(var(--muted-foreground, 220 8% 46%));
 }
 
-.footerSmall {
-  font-size: 12px;
-}
-
 .themeToggle {
   position: absolute;
   top: 10px;
