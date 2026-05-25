@@ -70,13 +70,11 @@ export class OpaqueServer {
   oprfSeed: number[];
   serverKeypair: AKEExportKeyPair | null = null;
   serverIdentity: string;
-  activeSessions: Map<string, CloudflareOpaqueServer>;
   secureLogger: ReturnType<typeof createSecureLogger>;
 
   constructor() {
     this.config = new OpaqueConfig(OpaqueID.OPAQUE_P256);
     this.serverIdentity = "DarkAuth";
-    this.activeSessions = new Map();
     this.oprfSeed = [];
     this.secureLogger = createSecureLogger();
   }
@@ -294,7 +292,6 @@ export class OpaqueServer {
     if (!this.server) {
       throw new Error("Server not initialized. Call initialize() first.");
     }
-    // Create a per-session server instance to avoid concurrency issues
     if (!this.serverKeypair) {
       throw new Error("Server not initialized. Call initialize() first.");
     }
@@ -309,9 +306,12 @@ export class OpaqueServer {
       throw new Error(`Auth init failed: ${ke2.message}`);
     }
 
-    // Generate our own opaque session id and keep mapping
+    const authState = perServer.exportAuthState();
+    if (authState instanceof Error) {
+      throw new Error(`Auth state export failed: ${authState.message}`);
+    }
     const sid = toBase64Url(randomBytes(16));
-    this.activeSessions.set(sid, perServer);
+    const state = Uint8Array.from(authState);
 
     this.secureLogger.logOpaqueOperation("login_start", {
       identityU,
@@ -319,13 +319,11 @@ export class OpaqueServer {
       success: true,
     });
 
-    this.secureLogger.logSessionEvent("created", sid, {
-      count: this.activeSessions.size,
-    });
+    this.secureLogger.logSessionEvent("created", sid);
 
     return {
       response: new Uint8Array(ke2.serialize()),
-      state: new Uint8Array(Buffer.from(sid)),
+      state,
     };
   }
 
@@ -360,14 +358,23 @@ export class OpaqueServer {
       );
     }
 
-    const sid = Buffer.from(_serverState || []).toString();
-    this.secureLogger.logDebugInfo("Looking up session", {
-      hasSession: this.activeSessions.has(sid),
-    });
+    if (!_serverState || _serverState.length === 0) {
+      this.secureLogger.logSecureError("Session state not found");
+      throw new Error("Invalid or expired login session");
+    }
 
-    const perServer = this.activeSessions.get(sid);
-    if (!perServer) {
-      this.secureLogger.logSecureError("Session not found");
+    if (!this.serverKeypair) {
+      throw new Error("Server not initialized. Call initialize() first.");
+    }
+    const perServer = new CloudflareOpaqueServer(
+      this.config,
+      this.oprfSeed,
+      this.serverKeypair,
+      this.serverIdentity
+    );
+    const importResult = perServer.importAuthState(Array.from(_serverState));
+    if (importResult instanceof Error) {
+      this.secureLogger.logSecureError("Session state restore failed");
       throw new Error("Invalid or expired login session");
     }
 
@@ -377,7 +384,6 @@ export class OpaqueServer {
     if (result instanceof Error) {
       this.secureLogger.logOpaqueOperation("login_finish", {
         identityU: _identityU,
-        sessionId: sid,
         success: false,
         error: result.message,
       });
@@ -386,18 +392,14 @@ export class OpaqueServer {
 
     this.secureLogger.logOpaqueOperation("login_finish", {
       identityU: _identityU,
-      sessionId: sid,
       success: true,
     });
 
-    this.secureLogger.logSessionEvent("deleted", sid, {
-      count: this.activeSessions.size - 1,
-    });
+    this.secureLogger.logSessionEvent("deleted", "session");
 
     const out = {
       sessionKey: new Uint8Array(result.session_key),
     };
-    this.activeSessions.delete(sid);
     return out;
   }
 }

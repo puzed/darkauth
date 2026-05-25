@@ -141,7 +141,7 @@ export async function createOpaqueService(context?: Context) {
         context?.logger?.debug({ event: "opaque.startLogin", respLen: result.response.length });
       } catch {}
 
-      const sessionId = Buffer.from(result.state).toString();
+      const sessionId = toBase64Url(randomBytes(16));
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
       if (!context) {
