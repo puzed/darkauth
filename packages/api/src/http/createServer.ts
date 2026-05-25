@@ -92,7 +92,14 @@ function isUserCorsOriginAllowed(
     pathname === "/api/.well-known/openid-configuration"
   )
     return true;
-  if (pathname === "/token" || pathname === "/api/token") {
+  if (
+    pathname === "/token" ||
+    pathname === "/api/token" ||
+    pathname === "/userinfo" ||
+    pathname === "/api/userinfo" ||
+    pathname === "/revoke" ||
+    pathname === "/api/revoke"
+  ) {
     return policy.publicSpaOrigins.has(origin);
   }
   return false;
@@ -244,6 +251,9 @@ export async function createUserServer(context: Context) {
         pathname.startsWith("/api/") ||
         (pathname === "/authorize" && !isAuthorizeUiRequest) ||
         pathname === "/token" ||
+        pathname === "/userinfo" ||
+        pathname === "/introspect" ||
+        pathname === "/revoke" ||
         pathname.startsWith("/.well-known") ||
         pathname.startsWith("/otp/")
       ) {

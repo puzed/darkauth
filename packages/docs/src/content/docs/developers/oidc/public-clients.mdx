@@ -41,6 +41,12 @@ The token request sends:
 
 The app should validate the returned ID token, store only what it needs, and use refresh behavior appropriate for the deployment.
 
+## UserInfo and revocation
+
+Public clients can call `GET /userinfo` or `POST /userinfo` with a bearer access token to retrieve claims allowed by the token scopes.
+
+Public clients can call `POST /revoke` with `client_id` to revoke refresh tokens issued to that client. They cannot call token introspection because introspection requires confidential client authentication.
+
 ## Public clients with ZK delivery
 
 If the client is configured for `fragment-jwe`, the authorization request can include `zk_pub`. The app must generate a fresh ephemeral P-256 key pair for the request and keep the private key in memory until the callback is handled.
