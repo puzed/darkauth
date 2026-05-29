@@ -5,8 +5,6 @@ import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 import { createUserViaAdmin } from '../../setup/helpers/auth.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
-test.setTimeout(60_000);
-
 test.describe('Auth - User OTP setup and verify (UI)', () => {
   let servers: TestServers;
 
