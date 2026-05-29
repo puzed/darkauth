@@ -9,6 +9,14 @@ import api, {
 import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
 import { loadExportKey } from "../services/sessionKey";
+import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
+import {
+  createPasskeyCredential,
+  derivePasskeyPrfWrapKey,
+  getPasskeyPrfResult,
+  passkeyPrfEnabled,
+  serializeRegistrationResponse,
+} from "../services/webauthn";
 import Button from "./Button";
 
 export default function SettingsSecurity({
@@ -38,6 +46,8 @@ export default function SettingsSecurity({
   const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKeyResponse[]>([]);
   const [recoverySecret, setRecoverySecret] = useState<string | null>(null);
   const [recoveryActionLoading, setRecoveryActionLoading] = useState<string | null>(null);
+  const [passkeyActionLoading, setPasskeyActionLoading] = useState(false);
+  const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
   const [passkeyCompatibility, setPasskeyCompatibility] = useState<{
     webauthn: boolean;
     platformAuthenticator: boolean | null;
@@ -155,6 +165,112 @@ export default function SettingsSecurity({
     if (active) return active.key_id;
     const accountKey = await api.createAccountKey({ version: "v2" });
     return accountKey.key_id;
+  };
+
+  const getUnlockedArk = async () => {
+    const existing = loadUnlockedArk(sessionData.sub);
+    if (existing) return existing;
+    const exportKey = await loadExportKey(sessionData.sub);
+    if (!exportKey) return null;
+    try {
+      const wrappedDrk = fromBase64Url(await api.getWrappedDrk());
+      const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
+      try {
+        const ark = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
+        saveUnlockedArk(sessionData.sub, ark);
+        return ark;
+      } finally {
+        cryptoService.clearSensitiveData(keys.masterKey, keys.wrapKey, keys.deriveKey);
+      }
+    } finally {
+      cryptoService.clearSensitiveData(exportKey);
+    }
+  };
+
+  const registerPasskey = async () => {
+    let ark: Uint8Array | null = null;
+    let prfResult: Uint8Array | null = null;
+    let wrapKey: Uint8Array | null = null;
+    let wrappedKey: Uint8Array | null = null;
+    try {
+      setPasskeyActionLoading(true);
+      setPasskeyMessage(null);
+      setError(null);
+      const start = await api.webAuthnRegisterStart();
+      const credential = await createPasskeyCredential(start.public_key);
+      const finish = await api.webAuthnRegisterFinish({
+        challengeId: start.challenge_id,
+        response: serializeRegistrationResponse(credential),
+        label: "Passkey",
+      });
+      prfResult = getPasskeyPrfResult(credential);
+      const credentialId = finish.credential.credential_id;
+      if (finish.credential.prf_supported && passkeyPrfEnabled(credential) && prfResult) {
+        ark = await getUnlockedArk();
+        if (ark) {
+          const keyId = await getOrCreateAccountKeyId();
+          const envelopeId = `env_${crypto.randomUUID()}`;
+          const wrappingAlg = "WebAuthn-PRF-HKDF-SHA256+A256GCM/v2";
+          const aad = cryptoService.envelopeAad({
+            sub: sessionData.sub,
+            keyId,
+            envelopeId,
+            type: "passkey_prf",
+            wrappingAlg,
+          });
+          wrapKey = await derivePasskeyPrfWrapKey({
+            prfResult,
+            sub: sessionData.sub,
+            credentialId,
+          });
+          wrappedKey = await cryptoService.wrapKeyMaterial(ark, wrapKey, aad);
+          const prfSalt = start.public_key.extensions
+            ? String(
+                (
+                  start.public_key.extensions as {
+                    prf?: { eval?: { first?: string } };
+                  }
+                ).prf?.eval?.first || ""
+              )
+            : "";
+          if (!prfSalt) {
+            throw new Error("Passkey PRF setup did not include a server salt.");
+          }
+          await api.createPasskeyPrfEnvelope({
+            credentialId,
+            keyId,
+            envelopeId,
+            label: "Passkey",
+            wrappingAlg,
+            wrappedKey: toBase64Url(wrappedKey),
+            aad: toBase64Url(aad),
+            prfSalt,
+            prfResultConfirmed: true,
+            metadata: { version: "v2" },
+          });
+          setPasskeyMessage("Passkey registered for sign-in and encryption unlock.");
+        } else {
+          setPasskeyMessage(
+            "Passkey registered for sign-in. Unlock this browser to add key unlock."
+          );
+        }
+      } else {
+        setPasskeyMessage(
+          "Passkey registered for sign-in. This authenticator did not return PRF unlock material."
+        );
+      }
+      setKeybag(await api.getKeybag().catch(() => null));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to register passkey");
+    } finally {
+      const arraysToClear = [ark, prfResult, wrapKey, wrappedKey].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
+      if (arraysToClear.length > 0) {
+        cryptoService.clearSensitiveData(...arraysToClear);
+      }
+      setPasskeyActionLoading(false);
+    }
   };
 
   const createRecoveryKey = async () => {
@@ -649,9 +765,19 @@ export default function SettingsSecurity({
           Auth + unlock passkeys: {passkeyPrfEnvelopes.length}. Auth-only passkeys are sign-in
           methods, not encryption unlock methods.
         </div>
+        {passkeyMessage && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            {passkeyMessage}
+          </div>
+        )}
         <div style={{ display: "flex", marginTop: 12 }}>
-          <Button type="button" variant="secondary" disabled>
-            Passkey setup unavailable
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={registerPasskey}
+            disabled={!passkeyCompatibility?.webauthn || passkeyActionLoading}
+          >
+            {passkeyActionLoading ? "Creating passkey..." : "Create passkey"}
           </Button>
         </div>
       </div>

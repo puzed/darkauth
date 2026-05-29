@@ -1,5 +1,9 @@
 import { and, asc, count, eq, gt, ilike, inArray, isNull, or } from "drizzle-orm";
 import {
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
+  roles,
   scimBearerTokens,
   scimGroupMembers,
   scimGroups,
@@ -12,6 +16,7 @@ import type { Context } from "../types.ts";
 import { constantTimeCompare, generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
 import { deleteAuthCodesForUser } from "./authCodes.ts";
 import { deletePendingAuthForUser } from "./authorize.ts";
+import { getStringSetting } from "./scimPolicy.ts";
 import { createUser as createLocalUser } from "./users.ts";
 
 type ScimUserInput = {
@@ -37,6 +42,18 @@ type ScimGroupInput = {
   externalId?: string | null;
   displayName?: string | null;
   members?: Array<{ value?: string | null }> | null;
+};
+
+type ScimGroupMapping = {
+  scim_group_id?: string;
+  scim_external_id?: string;
+  scim_display_name?: string;
+  group_id?: string;
+  external_id?: string;
+  display_name?: string;
+  organization_id?: string;
+  organization_slug?: string;
+  role_keys?: string[];
 };
 
 function asIso(value: Date | string | null | undefined): string | undefined {
@@ -371,7 +388,7 @@ export async function replaceScimUser(context: Context, userSub: string, input: 
       })
       .where(eq(scimUsers.userSub, userSub));
   });
-  if (!active) await revokeUserAuthorizationState(context, userSub);
+  if (!active) return await deprovisionScimUser(context, userSub);
   return await getScimUser(context, userSub);
 }
 
@@ -415,12 +432,21 @@ export async function patchScimUser(
 }
 
 export async function deactivateScimUser(context: Context, userSub: string) {
-  await getScimUser(context, userSub);
+  return await deprovisionScimUser(context, userSub);
+}
+
+async function deprovisionScimUser(context: Context, userSub: string) {
+  const current = await getScimUser(context, userSub);
   await context.db
     .update(scimUsers)
     .set({ active: false, updatedAt: new Date() })
     .where(eq(scimUsers.userSub, userSub));
   await revokeUserAuthorizationState(context, userSub);
+  const action = await getStringSetting(context, "users.scim.deprovision_action", "suspend");
+  if (action === "delete") {
+    await context.db.delete(users).where(eq(users.sub, userSub));
+    return { ...current, active: false };
+  }
   return await getScimUser(context, userSub);
 }
 
@@ -546,6 +572,7 @@ async function replaceGroupMembers(
     }
     await tx.update(scimGroups).set({ updatedAt: new Date() }).where(eq(scimGroups.id, groupId));
   });
+  await syncScimGroupMapping(context, groupId);
 }
 
 export async function patchScimGroup(
@@ -582,6 +609,7 @@ export async function patchScimGroup(
             .values(userSubs.map((userSub) => ({ groupId, userSub })))
             .onConflictDoNothing();
         }
+        await syncScimGroupMapping(context, groupId);
       } else if (op === "remove") {
         const userSubs = members
           .map((member) => (typeof member.value === "string" ? member.value.trim() : ""))
@@ -597,6 +625,7 @@ export async function patchScimGroup(
               )
             );
         }
+        await syncScimGroupMapping(context, groupId);
       } else throw new ValidationError("Unsupported PATCH op");
       await context.db
         .update(scimGroups)
@@ -611,6 +640,241 @@ export async function patchScimGroup(
 
 export async function deleteScimGroup(context: Context, groupId: string) {
   await getScimGroup(context, groupId);
+  await removeScimGroupMappingRoles(context, groupId);
   await context.db.delete(scimGroups).where(eq(scimGroups.id, groupId));
   return { success: true };
+}
+
+async function syncScimGroupMapping(context: Context, groupId: string) {
+  const group = await context.db.query.scimGroups.findFirst({ where: eq(scimGroups.id, groupId) });
+  if (!group) throw new NotFoundError("SCIM group not found");
+  const mapping = await resolveGroupMapping(context, group);
+  if (!mapping) return;
+  const organization = await resolveMappedOrganization(context, group, mapping);
+  if (!organization) return;
+  const roleIds = await resolveMappedRoleIds(context, mapping);
+  const members = await context.db
+    .select({ userSub: scimGroupMembers.userSub })
+    .from(scimGroupMembers)
+    .where(eq(scimGroupMembers.groupId, groupId));
+  const memberSubs = members.map((member) => member.userSub);
+  const memberships = await upsertMappedMemberships(context, organization.id, memberSubs);
+  if (roleIds.length > 0) {
+    await syncMappedRoles(context, organization.id, memberships, roleIds, memberSubs);
+  }
+}
+
+async function removeScimGroupMappingRoles(context: Context, groupId: string) {
+  const group = await context.db.query.scimGroups.findFirst({ where: eq(scimGroups.id, groupId) });
+  if (!group) return;
+  const mapping = await resolveGroupMapping(context, group);
+  if (!mapping) return;
+  const organization = await resolveMappedOrganization(context, group, mapping);
+  if (!organization) return;
+  const roleIds = await resolveMappedRoleIds(context, mapping);
+  if (roleIds.length === 0) return;
+  const membershipRows = await context.db
+    .select({ id: organizationMembers.id })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.organizationId, organization.id));
+  const membershipIds = membershipRows.map((row) => row.id);
+  if (membershipIds.length === 0) return;
+  await context.db
+    .delete(organizationMemberRoles)
+    .where(
+      and(
+        inArray(organizationMemberRoles.organizationMemberId, membershipIds),
+        inArray(organizationMemberRoles.roleId, roleIds)
+      )
+    );
+}
+
+async function resolveGroupMapping(
+  context: Context,
+  group: typeof scimGroups.$inferSelect
+): Promise<ScimGroupMapping | null> {
+  const setting = await context.db.query.settings.findFirst({
+    where: (table, { eq }) => eq(table.key, "users.scim.group_role_mappings"),
+  });
+  const value =
+    setting?.value && typeof setting.value === "object" && !Array.isArray(setting.value)
+      ? (setting.value as Record<string, unknown>)
+      : {};
+  const mappings = Array.isArray(value.mappings) ? value.mappings : [];
+  const mapping =
+    mappings
+      .map((entry) =>
+        entry && typeof entry === "object" && !Array.isArray(entry)
+          ? (entry as ScimGroupMapping)
+          : null
+      )
+      .find((entry) => entry && mappingMatchesGroup(entry, group)) || null;
+  if (mapping) return mapping;
+  const policy = await getStringSetting(context, "users.scim.unknown_group_policy", "ignore");
+  if (policy === "reject") throw new ValidationError("SCIM group has no mapping");
+  if (policy === "create") {
+    const organization = await ensureOrganizationForUnknownScimGroup(context, group);
+    return { organization_id: organization.id };
+  }
+  return null;
+}
+
+function mappingMatchesGroup(mapping: ScimGroupMapping, group: typeof scimGroups.$inferSelect) {
+  const groupIds = [mapping.scim_group_id, mapping.group_id]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim());
+  const externalIds = [mapping.scim_external_id, mapping.external_id]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim());
+  const displayNames = [mapping.scim_display_name, mapping.display_name]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim());
+  return (
+    groupIds.includes(group.id) ||
+    (group.externalId ? externalIds.includes(group.externalId) : false) ||
+    displayNames.includes(group.displayName)
+  );
+}
+
+async function resolveMappedOrganization(
+  context: Context,
+  group: typeof scimGroups.$inferSelect,
+  mapping: ScimGroupMapping
+) {
+  if (typeof mapping.organization_id === "string" && mapping.organization_id.trim()) {
+    const organization = await context.db.query.organizations.findFirst({
+      where: eq(organizations.id, mapping.organization_id.trim()),
+    });
+    if (!organization) throw new ValidationError("Mapped organization not found");
+    return organization;
+  }
+  if (typeof mapping.organization_slug === "string" && mapping.organization_slug.trim()) {
+    const organization = await context.db.query.organizations.findFirst({
+      where: eq(organizations.slug, mapping.organization_slug.trim()),
+    });
+    if (!organization) throw new ValidationError("Mapped organization not found");
+    return organization;
+  }
+  return await ensureOrganizationForUnknownScimGroup(context, group);
+}
+
+async function ensureOrganizationForUnknownScimGroup(
+  context: Context,
+  group: typeof scimGroups.$inferSelect
+) {
+  const slug = slugify(group.displayName);
+  const [created] = await context.db
+    .insert(organizations)
+    .values({
+      slug,
+      name: group.displayName,
+      forceOtp: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoNothing({ target: organizations.slug })
+    .returning();
+  if (created) return created;
+  const existing = await context.db.query.organizations.findFirst({
+    where: eq(organizations.slug, slug),
+  });
+  if (!existing) throw new ValidationError("Unable to create mapped organization");
+  return existing;
+}
+
+async function resolveMappedRoleIds(context: Context, mapping: ScimGroupMapping) {
+  const roleKeys = Array.isArray(mapping.role_keys)
+    ? mapping.role_keys
+        .filter((key): key is string => typeof key === "string" && key.trim().length > 0)
+        .map((key) => key.trim())
+    : [];
+  if (roleKeys.length === 0) return [];
+  const uniqueRoleKeys = Array.from(new Set(roleKeys));
+  const rows = await context.db
+    .select({ id: roles.id, key: roles.key })
+    .from(roles)
+    .where(inArray(roles.key, uniqueRoleKeys));
+  if (rows.length !== uniqueRoleKeys.length) throw new ValidationError("Mapped role not found");
+  return rows.map((row) => row.id);
+}
+
+async function upsertMappedMemberships(
+  context: Context,
+  organizationId: string,
+  userSubs: string[]
+) {
+  if (userSubs.length > 0) {
+    await context.db
+      .insert(organizationMembers)
+      .values(
+        userSubs.map((userSub) => ({
+          organizationId,
+          userSub,
+          status: "active" as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }))
+      )
+      .onConflictDoUpdate({
+        target: [organizationMembers.organizationId, organizationMembers.userSub],
+        set: { status: "active", updatedAt: new Date() },
+      });
+  }
+  return await context.db
+    .select({ id: organizationMembers.id, userSub: organizationMembers.userSub })
+    .from(organizationMembers)
+    .where(eq(organizationMembers.organizationId, organizationId));
+}
+
+async function syncMappedRoles(
+  context: Context,
+  organizationId: string,
+  memberships: Array<{ id: string; userSub: string }>,
+  roleIds: string[],
+  memberSubs: string[]
+) {
+  const memberSubSet = new Set(memberSubs);
+  const activeMemberships = memberships.filter((membership) =>
+    memberSubSet.has(membership.userSub)
+  );
+  if (activeMemberships.length > 0) {
+    await context.db
+      .insert(organizationMemberRoles)
+      .values(
+        activeMemberships.flatMap((membership) =>
+          roleIds.map((roleId) => ({ organizationMemberId: membership.id, roleId }))
+        )
+      )
+      .onConflictDoNothing();
+  }
+  const staleMembershipIds = memberships
+    .filter((membership) => !memberSubSet.has(membership.userSub))
+    .map((membership) => membership.id);
+  if (staleMembershipIds.length === 0) return;
+  await context.db
+    .delete(organizationMemberRoles)
+    .where(
+      and(
+        inArray(organizationMemberRoles.organizationMemberId, staleMembershipIds),
+        inArray(organizationMemberRoles.roleId, roleIds)
+      )
+    );
+  await context.db
+    .update(organizationMembers)
+    .set({ status: "suspended", updatedAt: new Date() })
+    .where(
+      and(
+        eq(organizationMembers.organizationId, organizationId),
+        inArray(organizationMembers.id, staleMembershipIds)
+      )
+    );
+}
+
+function slugify(value: string) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || `scim-${generateRandomString(8).toLowerCase()}`;
 }

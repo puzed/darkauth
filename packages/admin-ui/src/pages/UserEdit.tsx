@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import FormActions from "@/components/layout/form-actions";
@@ -9,7 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import adminApiService, { type User } from "@/services/api";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import adminApiService, { type User, type UserKeyStatus } from "@/services/api";
 
 export default function UserEdit() {
   const { sub } = useParams<{ sub: string }>();
@@ -26,6 +34,8 @@ export default function UserEdit() {
     created_at?: string | null;
     last_used_at?: string | null;
   } | null>(null);
+  const [keyStatus, setKeyStatus] = useState<UserKeyStatus | null>(null);
+  const [keyStatusUnavailable, setKeyStatusUnavailable] = useState(false);
   const [resetEmailSending, setResetEmailSending] = useState(false);
   const [resetEmailMessage, setResetEmailMessage] = useState<string | null>(null);
 
@@ -47,6 +57,14 @@ export default function UserEdit() {
         const s = await adminApiService.getUserOtpStatus(u.sub);
         setOtpStatus(s);
       } catch {}
+      try {
+        const status = await adminApiService.getUserKeyStatus(u.sub);
+        setKeyStatus(status);
+        setKeyStatusUnavailable(false);
+      } catch {
+        setKeyStatus(null);
+        setKeyStatusUnavailable(true);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load user");
     } finally {
@@ -84,6 +102,30 @@ export default function UserEdit() {
       setError(e instanceof Error ? e.message : "Failed to send password reset email");
     } finally {
       setResetEmailSending(false);
+    }
+  };
+
+  const revokeEnvelope = async (envelopeId: string) => {
+    if (!user) return;
+    if (!confirm(`Revoke key envelope ${envelopeId}?`)) return;
+    try {
+      setError(null);
+      await adminApiService.revokeUserKeyEnvelope(user.sub, envelopeId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke key envelope");
+    }
+  };
+
+  const revokeTrustedDevice = async (deviceId: string) => {
+    if (!user) return;
+    if (!confirm(`Revoke trusted device ${deviceId}?`)) return;
+    try {
+      setError(null);
+      await adminApiService.revokeUserTrustedDevice(user.sub, deviceId);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke trusted device");
     }
   };
 
@@ -192,6 +234,148 @@ export default function UserEdit() {
               Save
             </Button>
           </FormActions>
+        </CardContent>
+      </Card>
+      <Card style={{ marginTop: 24 }}>
+        <CardHeader>
+          <CardTitle>Key Status</CardTitle>
+          <CardDescription>
+            Account key setup, envelope inventory, and trusted device visibility.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {keyStatusUnavailable ? (
+            <Alert>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
+                <KeyRound size={18} />
+                <AlertTitle>Admin key status API unavailable</AlertTitle>
+              </div>
+              <AlertDescription>
+                This panel will populate when the admin user key-status endpoint is available.
+              </AlertDescription>
+            </Alert>
+          ) : keyStatus ? (
+            <>
+              <FormGrid columns={2}>
+                <FormField label={<Label>Key State</Label>}>
+                  <Input value={keyStatus.keyState} readOnly />
+                </FormField>
+                <FormField label={<Label>Account Keys</Label>}>
+                  <Input value={String(keyStatus.accountKeys.length)} readOnly />
+                </FormField>
+                <FormField label={<Label>Active Envelopes</Label>}>
+                  <Input
+                    value={String(
+                      keyStatus.envelopes.filter((envelope) => !envelope.revokedAt).length
+                    )}
+                    readOnly
+                  />
+                </FormField>
+                <FormField label={<Label>Trusted Devices</Label>}>
+                  <Input
+                    value={String(
+                      keyStatus.trustedDevices.filter((device) => !device.revokedAt).length
+                    )}
+                    readOnly
+                  />
+                </FormField>
+              </FormGrid>
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <KeyRound size={18} />
+                  Key Envelopes
+                </h3>
+                {keyStatus.envelopes.length === 0 ? (
+                  <p style={{ color: "hsl(var(--muted-foreground))" }}>No key envelopes found.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Version</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Last Used</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {keyStatus.envelopes.map((envelope) => (
+                        <TableRow key={envelope.envelopeId}>
+                          <TableCell>{envelope.type}</TableCell>
+                          <TableCell>{envelope.version}</TableCell>
+                          <TableCell>{new Date(envelope.createdAt).toLocaleString()}</TableCell>
+                          <TableCell>
+                            {envelope.lastUsedAt
+                              ? new Date(envelope.lastUsedAt).toLocaleString()
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>{envelope.revokedAt ? "Revoked" : "Active"}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              disabled={!!envelope.revokedAt}
+                              onClick={() => revokeEnvelope(envelope.envelopeId)}
+                            >
+                              <Trash2 size={16} />
+                              Revoke
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+              <div style={{ marginTop: 24 }}>
+                <h3 style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <ShieldCheck size={18} />
+                  Trusted Devices
+                </h3>
+                {keyStatus.trustedDevices.length === 0 ? (
+                  <p style={{ color: "hsl(var(--muted-foreground))" }}>No trusted devices found.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead>Last Used</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {keyStatus.trustedDevices.map((device) => (
+                        <TableRow key={device.deviceId}>
+                          <TableCell>{device.name || device.deviceId}</TableCell>
+                          <TableCell>{new Date(device.createdAt).toLocaleString()}</TableCell>
+                          <TableCell>
+                            {device.lastUsedAt
+                              ? new Date(device.lastUsedAt).toLocaleString()
+                              : "Never"}
+                          </TableCell>
+                          <TableCell>{device.revokedAt ? "Revoked" : "Active"}</TableCell>
+                          <TableCell>
+                            <Button
+                              variant="outline"
+                              disabled={!!device.revokedAt}
+                              onClick={() => revokeTrustedDevice(device.deviceId)}
+                            >
+                              <Trash2 size={16} />
+                              Revoke
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </>
+          ) : (
+            <div>Loading key status...</div>
+          )}
         </CardContent>
       </Card>
     </div>

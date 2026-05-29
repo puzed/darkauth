@@ -7,9 +7,10 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../../db/pglite.ts";
-import { organizationMembers, organizations, sessions, users } from "../../db/schema.ts";
+import { organizationMembers, organizations, scimUsers, sessions, users } from "../../db/schema.ts";
 import { createPendingAuth } from "../../models/authorize.ts";
 import { createClient } from "../../models/clients.ts";
+import { setSetting } from "../../services/settings.ts";
 import type { Context } from "../../types.ts";
 import { postAuthorizeFinalize } from "./authorizeFinalize.ts";
 
@@ -218,6 +219,60 @@ test("authorize finalize rejects ZK delivery when the authenticated session is k
         ),
       /Key unlock is required/
     );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("authorize finalize allows locked SCIM sessions for ZK when policy disables key unlock requirement", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const organizationId = await createUserWithSessionAndOrg(context);
+    await context.db.insert(scimUsers).values({
+      userSub: "user-sub",
+      userName: "user@example.com",
+      active: true,
+    });
+    await setSetting(context, "users.scim.require_key_unlock_for_zk", false);
+    await context.db
+      .update(sessions)
+      .set({
+        data: {
+          sub: "user-sub",
+          email: "user@example.com",
+          otpVerified: true,
+          keyState: "locked",
+        },
+      })
+      .where(eq(sessions.id, "session-id"));
+    await createPendingAuth(context, {
+      requestId: "request-locked-scim",
+      clientId: "client-id",
+      redirectUri: "https://client.example/callback",
+      scope: "openid",
+      state: "state",
+      zkPubKid: "zk-pub-kid",
+      keyDeliveryVersion: "v2",
+      deliveredKeyKind: "client_app_key",
+      origin: "https://auth.example.com",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await postAuthorizeFinalize(
+      context,
+      createRequest(
+        new URLSearchParams({
+          request_id: "request-locked-scim",
+          approve: "true",
+          zk_key_hash: "hash-v2",
+          organization_id: organizationId,
+        })
+      ),
+      createResponse()
+    );
+
+    const code = await context.db.query.authCodes.findFirst();
+    assert.equal(code?.zkKeyHash, "hash-v2");
   } finally {
     await cleanup();
   }

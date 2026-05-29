@@ -771,6 +771,28 @@ body {
   margin-top: 0.5rem;
 }
 
+.authorize-unlock-methods {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.authorize-unlock-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--da-border, var(--gray-200));
+  border-radius: var(--radius-sm);
+  background: var(--da-card-bg, white);
+  color: var(--da-text, var(--gray-900));
+  cursor: pointer;
+}
+
+.authorize-unlock-option input {
+  margin: 0;
+}
+
 .authorize-footnote {
   font-size: 0.85rem;
   color: var(--da-text-muted, var(--gray-500));

@@ -9,6 +9,8 @@ SCIM lets an external identity system create, update, and deactivate DarkAuth us
 
 SCIM tokens are generated for a specific integration and shown once. Store the token in the upstream identity provider immediately. Later reads show token metadata, not the plaintext bearer token.
 
+Use a separate token for each upstream identity-provider application or environment. Token metadata includes the name, prefix, creator, creation time, last-used time, expiry, and revocation state, which makes rotation and audit review easier.
+
 Revoke tokens that are no longer used, belong to a retired integration, or may have been copied into logs or support tickets.
 
 ## Provisioning
@@ -17,8 +19,31 @@ SCIM can create and update user profile data such as user name, email, display n
 
 Use stable external IDs where possible. Email addresses can change, but external IDs should continue to identify the same upstream account.
 
+DarkAuth supports SCIM user and group resources. User endpoints can list, create, read, replace, patch, and deactivate users. Group endpoints can list, create, read, patch membership, and delete groups. Supported filters are deliberately narrow so identity-provider sync jobs remain predictable.
+
+## Policies and mappings
+
+SCIM behavior is controlled by admin settings as well as the token and resource APIs. Review these settings before turning on an upstream sync:
+
+- Whether only SCIM-provisioned users may sign in.
+- Whether zero-knowledge clients require a key-unlocked session.
+- Whether SCIM-managed users may create password envelopes.
+- Whether SCIM-managed users may create passkey PRF unlock envelopes.
+- Whether trusted-device approval is allowed.
+- What happens when a user is deprovisioned.
+- How unknown upstream groups are handled.
+- How upstream groups map to DarkAuth roles.
+
+Keep mappings small at first. Sync one test user and one test group, confirm the local user, active state, groups, and roles, then expand the upstream assignment.
+
 ## Deactivation
 
 When SCIM marks a user inactive, DarkAuth disables the user and invalidates pending authorization requests, authorization codes, and server-side session or refresh state for that user. This prevents a code issued before deactivation from being redeemed after the account has been disabled.
 
 Already issued stateless access and ID tokens remain governed by their expiry. For high-risk offboarding, combine SCIM deactivation with short token lifetimes, downstream authorization checks, and application-side access review.
+
+## Security caveats
+
+SCIM bearer tokens can provision and deactivate users, so store them like production credentials. Do not paste full tokens into tickets, logs, screenshots, or chat.
+
+SCIM does not reveal user passwords, OPAQUE records, recovery keys, account root keys, client app keys, or plaintext key envelopes to the upstream provider. It manages identity lifecycle and mapping state; user key unlock still happens in the user-facing key management flows.

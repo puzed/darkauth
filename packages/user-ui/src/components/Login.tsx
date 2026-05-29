@@ -2,10 +2,18 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
-import cryptoService, { toBase64Url } from "../services/crypto";
+import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
+import { saveUnlockedArk } from "../services/unlockedArk";
+import {
+  browserSupportsWebAuthn,
+  derivePasskeyPrfWrapKey,
+  getPasskeyCredential,
+  getPasskeyPrfResult,
+  serializeAuthenticationResponse,
+} from "../services/webauthn";
 import Button from "./Button";
 import styles from "./Login.module.css";
 import viewStyles from "./LoginView.module.css";
@@ -56,6 +64,12 @@ export default function Login({
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [clientCheckLoading, setClientCheckLoading] = useState(!skipClientCheck);
   const [clientCheckError, setClientCheckError] = useState<string | null>(null);
+  const [federationConnection, setFederationConnection] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [federationLoading, setFederationLoading] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const showForgotPasswordLink = !!(
     window.__APP_CONFIG__?.features?.passwordResetEnabled ||
     window.__APP_CONFIG__?.features?.passwordResetLoginLinkVisible ||
@@ -154,6 +168,91 @@ export default function Login({
     // Clear specific field error when user starts typing
     if (errors[name as keyof FormErrors]) {
       setErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  useEffect(() => {
+    const email = formData.email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFederationConnection(null);
+      return;
+    }
+    let cancelled = false;
+    apiService
+      .getFederationRoute(email)
+      .then((connection) => {
+        if (cancelled) return;
+        setFederationConnection(connection ? { id: connection.id, name: connection.name } : null);
+      })
+      .catch(() => {
+        if (!cancelled) setFederationConnection(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [formData.email]);
+
+  const startFederationLogin = () => {
+    if (!federationConnection) return;
+    setFederationLoading(true);
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    const params = new URLSearchParams({
+      connection_id: federationConnection.id,
+      return_to: returnTo,
+      client_id: activeClientId,
+    });
+    window.location.href = `/api/user/federation/oidc/start?${params.toString()}`;
+  };
+
+  const handlePasskeyLogin = async () => {
+    if (!browserSupportsWebAuthn()) {
+      setErrors({ general: "This browser does not support passkey sign-in." });
+      return;
+    }
+    setPasskeyLoading(true);
+    setErrors({});
+    try {
+      const start = await apiService.webAuthnLoginStart();
+      const credential = await getPasskeyCredential(start.public_key);
+      const prfResult = getPasskeyPrfResult(credential);
+      const finish = await apiService.webAuthnLoginFinish({
+        challengeId: start.challenge_id,
+        response: serializeAuthenticationResponse(credential),
+        prfResultConfirmed: !!prfResult,
+      });
+      if (prfResult && finish.unlock?.envelope) {
+        const wrapKey = await derivePasskeyPrfWrapKey({
+          prfResult,
+          sub: finish.sub,
+          credentialId: finish.credential.credential_id,
+        });
+        const ark = await cryptoService.unwrapKeyMaterial(
+          fromBase64Url(finish.unlock.envelope.wrapped_key),
+          wrapKey,
+          fromBase64Url(finish.unlock.envelope.aad)
+        );
+        saveUnlockedArk(finish.sub, ark);
+        cryptoService.clearSensitiveData(prfResult, wrapKey, ark);
+      }
+      const session = await apiService.getSession();
+      if (session.otpRequired && !session.otpVerified) {
+        window.location.replace("/otp/verify");
+        return;
+      }
+      onLogin({
+        sub: finish.sub,
+        name: session.name,
+        email: session.email,
+        passwordResetRequired: !!session.passwordResetRequired,
+        keyState: finish.unlock ? "unlocked" : session.keyState || finish.key_state || "locked",
+      });
+    } catch (error) {
+      logger.error(error, "Passkey login failed");
+      setErrors({
+        general: error instanceof Error ? error.message : "Passkey sign-in failed.",
+      });
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -424,6 +523,36 @@ export default function Login({
             >
               <span className={viewStyles.infoText}>{resendMessage}</span>
             </output>
+          ) : null}
+
+          {federationConnection ? (
+            <div style={{ marginTop: "1rem" }}>
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                disabled={loading || federationLoading}
+                onClick={startFederationLogin}
+              >
+                {federationLoading
+                  ? "Redirecting..."
+                  : `Continue with ${federationConnection.name}`}
+              </Button>
+            </div>
+          ) : null}
+
+          {browserSupportsWebAuthn() ? (
+            <div style={{ marginTop: "1rem" }}>
+              <Button
+                type="button"
+                variant="secondary"
+                fullWidth
+                disabled={loading || passkeyLoading}
+                onClick={handlePasskeyLogin}
+              >
+                {passkeyLoading ? "Checking passkey..." : "Sign in with passkey"}
+              </Button>
+            </div>
           ) : null}
 
           <div style={{ marginTop: "1.5rem" }}>

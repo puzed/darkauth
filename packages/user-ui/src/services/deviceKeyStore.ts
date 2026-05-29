@@ -19,6 +19,18 @@ class DeviceKeyStore {
     return { handle, key };
   }
 
+  async getKey(handle: string): Promise<CryptoKey | null> {
+    const db = await this.open();
+    const value = await new Promise<{ key?: CryptoKey } | undefined>((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const request = tx.objectStore(storeName).get(handle);
+      request.onsuccess = () => resolve(request.result as { key?: CryptoKey } | undefined);
+      request.onerror = () => reject(request.error ?? new Error("Failed to load device key"));
+    });
+    db.close();
+    return value?.key ?? null;
+  }
+
   async deleteKey(handle: string): Promise<void> {
     const db = await this.open();
     await new Promise<void>((resolve, reject) => {

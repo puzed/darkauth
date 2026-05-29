@@ -1,7 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
-import { scimUsers, sessions, users } from "../db/schema.ts";
+import { sessions, users } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
+import { assertScimSignInPolicy } from "../models/scimPolicy.ts";
 import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
 import { sanitizeLoggedError } from "./audit.ts";
@@ -369,12 +370,7 @@ export async function requireSession(
 }
 
 async function assertUserMayHoldSession(context: Context, sub: string): Promise<void> {
-  const scimUser = await context.db.query.scimUsers.findFirst({
-    where: eq(scimUsers.userSub, sub),
-  });
-  if (scimUser && !scimUser.active) {
-    throw new UnauthorizedError("User is deprovisioned");
-  }
+  await assertScimSignInPolicy(context, sub);
 }
 
 export async function refreshSessionWithToken(
@@ -383,6 +379,10 @@ export async function refreshSessionWithToken(
 ): Promise<{ sessionId: string; refreshToken: string } | null> {
   const refreshTokenHash = sha256Base64Url(refreshToken);
   const now = new Date();
+  const existingSession = await getActiveRefreshTokenSession(context, refreshToken);
+  if (existingSession?.cohort === "user" && existingSession.userSub) {
+    await assertUserMayHoldSession(context, existingSession.userSub);
+  }
 
   return context.db.transaction(async (transaction) => {
     const [session] = await transaction

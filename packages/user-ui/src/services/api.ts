@@ -192,6 +192,63 @@ export interface RecoveryKeyResponse {
   revoked_at?: string | null;
 }
 
+export interface WebAuthnCredentialResponse {
+  credential_id: string;
+  sub: string;
+  label?: string | null;
+  transports?: string[];
+  backup_eligible?: boolean;
+  backup_state?: boolean;
+  user_verified?: boolean;
+  prf_supported?: boolean;
+  can_unlock?: boolean;
+  prf_envelope_id?: string | null;
+  created_at?: string | null;
+  last_used_at?: string | null;
+  revoked_at?: string | null;
+}
+
+export interface WebAuthnRegisterStartResponse {
+  challenge_id: string;
+  public_key: Omit<
+    PublicKeyCredentialCreationOptions,
+    "challenge" | "user" | "excludeCredentials"
+  > & {
+    challenge: string;
+    user: Omit<PublicKeyCredentialUserEntity, "id"> & { id: string };
+    excludeCredentials?: Array<Omit<PublicKeyCredentialDescriptor, "id"> & { id: string }>;
+  };
+}
+
+export interface WebAuthnLoginStartResponse {
+  challenge_id: string;
+  public_key: Omit<PublicKeyCredentialRequestOptions, "challenge" | "allowCredentials"> & {
+    challenge: string;
+    allowCredentials?: Array<Omit<PublicKeyCredentialDescriptor, "id"> & { id: string }>;
+  };
+}
+
+export interface WebAuthnLoginFinishResponse {
+  sub: string;
+  key_state?: "locked" | "unlocked" | "setup_required";
+  credential: WebAuthnCredentialResponse;
+  unlock?: {
+    prf_salt: string;
+    envelope: KeyEnvelopeResponse;
+  } | null;
+}
+
+export interface FederationConnectionRoute {
+  id: string;
+  type: "oidc";
+  name: string;
+  issuer: string;
+  clientId: string;
+  authorizationEndpoint: string;
+  scopes: string[];
+  enabled: boolean;
+}
+
 export interface PasswordResetRequestResponse {
   success: boolean;
   message: string;
@@ -841,6 +898,20 @@ class ApiService {
     return Array.isArray(data) ? data : data.recovery_keys;
   }
 
+  async recordRecoveryKeyUse(
+    recoveryKeyId: string,
+    verifier: string
+  ): Promise<RecoveryKeyResponse> {
+    const data = await this.request<{ recovery_key: RecoveryKeyResponse } | RecoveryKeyResponse>(
+      `/crypto/recovery-keys/${encodeURIComponent(recoveryKeyId)}/use`,
+      {
+        method: "POST",
+        body: JSON.stringify({ verifier }),
+      }
+    );
+    return "recovery_key" in data ? data.recovery_key : data;
+  }
+
   async revokeRecoveryKey(recoveryKeyId: string): Promise<void> {
     await this.request(`/crypto/recovery-keys/${encodeURIComponent(recoveryKeyId)}/revoke`, {
       method: "POST",
@@ -859,6 +930,86 @@ class ApiService {
   async putWrappedEncPrivateJwk(wrappedBase64Url: string): Promise<void> {
     const body = JSON.stringify({ wrapped_enc_private_jwk: wrappedBase64Url });
     await this.request("/crypto/wrapped-enc-priv", { method: "PUT", body });
+  }
+
+  async webAuthnRegisterStart(): Promise<WebAuthnRegisterStartResponse> {
+    return this.request<WebAuthnRegisterStartResponse>("/webauthn/register/start", {
+      method: "POST",
+    });
+  }
+
+  async webAuthnRegisterFinish(request: {
+    challengeId: string;
+    response: unknown;
+    label?: string | null;
+  }): Promise<{ credential: WebAuthnCredentialResponse }> {
+    return this.request<{ credential: WebAuthnCredentialResponse }>("/webauthn/register/finish", {
+      method: "POST",
+      body: JSON.stringify({
+        challenge_id: request.challengeId,
+        response: request.response,
+        label: request.label,
+      }),
+    });
+  }
+
+  async webAuthnLoginStart(): Promise<WebAuthnLoginStartResponse> {
+    return this.request<WebAuthnLoginStartResponse>("/webauthn/login/start", {
+      method: "POST",
+    });
+  }
+
+  async webAuthnLoginFinish(request: {
+    challengeId: string;
+    response: unknown;
+    prfResultConfirmed?: boolean;
+  }): Promise<WebAuthnLoginFinishResponse> {
+    return this.request<WebAuthnLoginFinishResponse>("/webauthn/login/finish", {
+      method: "POST",
+      body: JSON.stringify({
+        challenge_id: request.challengeId,
+        response: request.response,
+        prf_result_confirmed: request.prfResultConfirmed,
+      }),
+    });
+  }
+
+  async createPasskeyPrfEnvelope(request: {
+    credentialId: string;
+    keyId: string;
+    envelopeId?: string;
+    label?: string | null;
+    wrappingAlg: string;
+    wrappedKey: string;
+    aad: string;
+    prfSalt: string;
+    prfResultConfirmed: true;
+    metadata?: Record<string, unknown>;
+  }): Promise<KeyEnvelopeResponse> {
+    const data = await this.request<{ envelope: KeyEnvelopeResponse }>("/webauthn/prf-envelope", {
+      method: "POST",
+      body: JSON.stringify({
+        credential_id: request.credentialId,
+        key_id: request.keyId,
+        envelope_id: request.envelopeId,
+        label: request.label,
+        wrapping_alg: request.wrappingAlg,
+        wrapped_key: request.wrappedKey,
+        aad: request.aad,
+        prf_salt: request.prfSalt,
+        prf_result_confirmed: request.prfResultConfirmed,
+        metadata: request.metadata,
+      }),
+    });
+    return data.envelope;
+  }
+
+  async getFederationRoute(email: string): Promise<FederationConnectionRoute | null> {
+    const query = new URLSearchParams({ email });
+    const data = await this.request<{ connection: FederationConnectionRoute | null }>(
+      `/federation/route?${query.toString()}`
+    );
+    return data.connection;
   }
 
   async getUserApps(): Promise<{

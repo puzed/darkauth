@@ -5,6 +5,7 @@ import { opaqueLoginSessions } from "../../db/schema.ts";
 import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { isScimPasswordUnlockAllowed } from "../../models/scimPolicy.ts";
 import { getUserBySubOrEmail } from "../../models/users.ts";
 import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
@@ -144,15 +145,15 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         typeof uiUserSettings?.clientId === "string" && uiUserSettings.clientId.length > 0
           ? uiUserSettings.clientId
           : "user";
+      const passwordUnlockAllowed = await isScimPasswordUnlockAllowed(context, user.sub);
 
-      // Create user session
       const { sessionId: createdSessionId, refreshToken } = await createSession(context, "user", {
         sub: user.sub,
         email: user.email || undefined,
         name: user.name || undefined,
         ...sessionOrganization,
         clientId: userClientId,
-        keyState: "unlocked",
+        keyState: passwordUnlockAllowed ? "unlocked" : "locked",
         otpRequired: otpRequired,
         otpVerified: false,
       });
@@ -188,7 +189,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       const responseData = {
         success: true,
         accessToken,
-        sessionKey: toBase64Url(Buffer.from(loginResult.sessionKey)),
+        sessionKey: passwordUnlockAllowed ? toBase64Url(Buffer.from(loginResult.sessionKey)) : null,
         sub: user.sub,
         user: { sub: user.sub, email: user.email, name: user.name },
         otpRequired,

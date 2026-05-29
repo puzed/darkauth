@@ -69,6 +69,11 @@ import { schema as adminSettingsSchema } from "../controllers/admin/settings.ts"
 import { schema as adminSettingsUpdateSchema } from "../controllers/admin/settingsUpdate.ts";
 import { schema as adminUserCreateSchema } from "../controllers/admin/userCreate.ts";
 import { schema as adminUserDeleteSchema } from "../controllers/admin/userDelete.ts";
+import {
+  deleteUserKeyEnvelopeSchema as adminUserKeyEnvelopeDeleteSchema,
+  getUserKeyStatusSchema as adminUserKeyStatusSchema,
+  deleteUserTrustedDeviceSchema as adminUserTrustedDeviceDeleteSchema,
+} from "../controllers/admin/userKeyStatus.ts";
 import { schema as adminUserOtpSchema } from "../controllers/admin/userOtp.ts";
 import { schema as adminUserOtpDeleteSchema } from "../controllers/admin/userOtpDelete.ts";
 import { schema as adminUserOtpUnlockSchema } from "../controllers/admin/userOtpUnlock.ts";
@@ -86,6 +91,10 @@ import { schema as userEmailVerificationResendSchema } from "../controllers/user
 import { schema as userEmailVerificationVerifySchema } from "../controllers/user/emailVerificationVerify.ts";
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
 import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
+import {
+  callbackSchema as userFederationCallbackSchema,
+  startSchema as userFederationStartSchema,
+} from "../controllers/user/federationOidc.ts";
 import { schema as userFederationRouteSchema } from "../controllers/user/federationRoute.ts";
 import { schema as userAppsSchema } from "../controllers/user/getUserApps.ts";
 import { schema as userIntrospectSchema } from "../controllers/user/introspect.ts";
@@ -222,6 +231,9 @@ const documentedSchemas: ControllerSchema[] = [
   adminUserUpdateSchema,
   adminUserDeleteSchema,
   adminUsersSchema,
+  adminUserKeyStatusSchema,
+  adminUserKeyEnvelopeDeleteSchema,
+  adminUserTrustedDeviceDeleteSchema,
   adminUserOtpSchema,
   adminUserOtpDeleteSchema,
   adminUserOtpUnlockSchema,
@@ -291,6 +303,8 @@ const documentedSchemas: ControllerSchema[] = [
   userEncPublicGetSchema,
   userEncPublicPutSchema,
   userFederationRouteSchema,
+  userFederationStartSchema,
+  userFederationCallbackSchema,
   userWrappedDrkSchema,
   userWrappedDrkPutSchema,
   userWrappedEncPrivGetSchema,

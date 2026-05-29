@@ -22,6 +22,7 @@ import VerifyEmailView from "./components/VerifyEmailView";
 import apiService from "./services/api";
 import { clearAllDrk } from "./services/drkStorage";
 import { clearAllExportKeys } from "./services/sessionKey";
+import { clearAllUnlockedArks } from "./services/unlockedArk";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
 import { useBranding } from "./hooks/useBranding";
@@ -197,6 +198,7 @@ function AppContent() {
       setSessionData(null);
       clearAllExportKeys();
       clearAllDrk();
+      clearAllUnlockedArks();
     };
 
     apiService.setSessionExpiredCallback(handleSessionExpired);
@@ -275,6 +277,7 @@ function AppContent() {
       await apiService.logout();
       clearAllExportKeys();
       clearAllDrk();
+      clearAllUnlockedArks();
       setSessionData(null);
       setAuthRequest(null);
       setAuthRequestSearch(null);

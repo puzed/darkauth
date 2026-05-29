@@ -306,6 +306,43 @@ class CryptoService {
     return wrapped;
   }
 
+  async unwrapKeyMaterial(
+    wrappedKey: Uint8Array,
+    wrapKey: Uint8Array,
+    aad: Uint8Array
+  ): Promise<Uint8Array> {
+    const key = await crypto.subtle.importKey("raw", wrapKey as BufferSource, "AES-GCM", false, [
+      "decrypt",
+    ]);
+    return this.unwrapKeyMaterialWithAesKey(wrappedKey, key, aad);
+  }
+
+  async unwrapKeyMaterialWithAesKey(
+    wrappedKey: Uint8Array,
+    key: CryptoKey,
+    aad: Uint8Array
+  ): Promise<Uint8Array> {
+    if (wrappedKey.length < 28) {
+      throw new Error("Invalid wrapped key format");
+    }
+    const iv = wrappedKey.slice(0, 12);
+    const tag = wrappedKey.slice(12, 28);
+    const ciphertext = wrappedKey.slice(28);
+    const encryptedData = new Uint8Array(ciphertext.length + tag.length);
+    encryptedData.set(ciphertext, 0);
+    encryptedData.set(tag, ciphertext.length);
+    const decrypted = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: iv as BufferSource,
+        additionalData: aad as BufferSource,
+      },
+      key,
+      encryptedData as BufferSource
+    );
+    return new Uint8Array(decrypted);
+  }
+
   envelopeAad(params: {
     sub: string;
     keyId: string;

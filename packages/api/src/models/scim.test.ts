@@ -5,9 +5,21 @@ import path from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { authCodes, pendingAuth, scimGroupMembers, scimUsers, sessions } from "../db/schema.ts";
+import {
+  authCodes,
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
+  pendingAuth,
+  roles,
+  scimGroupMembers,
+  scimUsers,
+  sessions,
+  users,
+} from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import { createSession } from "../services/sessions.ts";
+import { setSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
 import { createAuthCode, getAuthCode } from "./authCodes.ts";
 import { createPendingAuth } from "./authorize.ts";
@@ -261,5 +273,101 @@ test("SCIM groups support membership patching", async () => {
       .from(scimGroupMembers)
       .where(eq(scimGroupMembers.groupId, group.id));
     assert.equal(memberRows.length, 1);
+  });
+});
+
+test("SCIM deprovision action delete removes local user and returns a tombstone response", async () => {
+  await withContext(async (context) => {
+    await setSetting(context, "users.scim.deprovision_action", "delete");
+    const user = await createScimUser(context, {
+      userName: "deleted@example.com",
+      displayName: "Deleted User",
+    });
+
+    const deleted = await deactivateScimUser(context, user.id);
+    const userRows = await context.db.select().from(users).where(eq(users.sub, user.id));
+    const scimRows = await context.db
+      .select()
+      .from(scimUsers)
+      .where(eq(scimUsers.userSub, user.id));
+
+    assert.equal(deleted.id, user.id);
+    assert.equal(deleted.active, false);
+    assert.equal(userRows.length, 0);
+    assert.equal(scimRows.length, 0);
+  });
+});
+
+test("SCIM group mappings synchronize organization membership and roles", async () => {
+  await withContext(async (context) => {
+    const user = await createScimUser(context, {
+      userName: "mapped@example.com",
+      displayName: "Mapped User",
+    });
+    await context.db.insert(organizations).values({
+      id: "11111111-1111-4111-8111-111111111111",
+      slug: "engineering",
+      name: "Engineering",
+    });
+    await context.db.insert(roles).values({
+      id: "22222222-2222-4222-8222-222222222222",
+      key: "engineer",
+      name: "Engineer",
+      system: true,
+    });
+    await setSetting(context, "users.scim.group_role_mappings", {
+      mappings: [
+        {
+          scim_display_name: "Engineers",
+          organization_slug: "engineering",
+          role_keys: ["engineer"],
+        },
+      ],
+    });
+
+    const group = await createScimGroup(context, {
+      displayName: "Engineers",
+      members: [{ value: user.id }],
+    });
+
+    const [membership] = await context.db
+      .select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.organizationId, "11111111-1111-4111-8111-111111111111"));
+    assert.equal(membership?.organizationId, "11111111-1111-4111-8111-111111111111");
+    assert.equal(membership?.status, "active");
+
+    const assignedRoles = await context.db
+      .select()
+      .from(organizationMemberRoles)
+      .where(eq(organizationMemberRoles.organizationMemberId, membership?.id || ""));
+    assert.equal(assignedRoles.length, 1);
+    assert.equal(assignedRoles[0]?.roleId, "22222222-2222-4222-8222-222222222222");
+
+    await patchScimGroup(context, group.id, [{ op: "remove", path: "members", value: [] }]);
+
+    const updatedMembership = await context.db.query.organizationMembers.findFirst({
+      where: eq(organizationMembers.id, membership?.id || ""),
+    });
+    const remainingRoles = await context.db
+      .select()
+      .from(organizationMemberRoles)
+      .where(eq(organizationMemberRoles.organizationMemberId, membership?.id || ""));
+    assert.equal(updatedMembership?.status, "suspended");
+    assert.equal(remainingRoles.length, 0);
+  });
+});
+
+test("SCIM unknown group reject policy rejects unmapped groups", async () => {
+  await withContext(async (context) => {
+    await setSetting(context, "users.scim.unknown_group_policy", "reject");
+
+    await assert.rejects(
+      () =>
+        createScimGroup(context, {
+          displayName: "Unmapped",
+        }),
+      (error: unknown) => error instanceof Error && error.message === "SCIM group has no mapping"
+    );
   });
 });

@@ -112,6 +112,30 @@
     "account";
 }
 
+.keyStateBanner {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #f59e0b;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+}
+
+.keyStateBanner h3 {
+  margin: 0 0 0.25rem;
+  color: #92400e;
+  font-size: 1rem;
+}
+
+.keyStateBanner p {
+  margin: 0;
+  color: #78350f;
+  font-size: 0.875rem;
+}
+
 @media (min-width: 1280px) {
   .mainGrid {
     grid-template-columns: 2fr 1fr;
@@ -398,6 +422,19 @@
   border: 1px solid rgba(51, 65, 85, 0.5);
 }
 
+[data-da-theme="dark"] .keyStateBanner {
+  border-color: #92400e;
+  background: rgba(69, 26, 3, 0.6);
+}
+
+[data-da-theme="dark"] .keyStateBanner h3 {
+  color: #fbbf24;
+}
+
+[data-da-theme="dark"] .keyStateBanner p {
+  color: #fde68a;
+}
+
 [data-da-theme="dark"] .appsSection h3,
 [data-da-theme="dark"] .accountSection h3 {
   color: #f1f5f9;
@@ -508,5 +545,10 @@
 
   .appsGrid {
     grid-template-columns: 1fr;
+  }
+
+  .keyStateBanner {
+    align-items: stretch;
+    flex-direction: column;
   }
 }

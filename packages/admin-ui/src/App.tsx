@@ -22,6 +22,7 @@ import Clients from "./pages/Clients";
 import Dashboard from "./pages/Dashboard";
 import EmailTemplates from "./pages/EmailTemplates";
 import ErrorPage from "./pages/Error";
+import FederationConnections from "./pages/FederationConnections";
 import Install from "./pages/Install";
 import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
@@ -34,6 +35,7 @@ import ResetPassword from "./pages/ResetPassword";
 import RoleCreate from "./pages/RoleCreate";
 import RoleEdit from "./pages/RoleEdit";
 import Roles from "./pages/Roles";
+import ScimTokens from "./pages/ScimTokens";
 import Settings from "./pages/Settings";
 import UserCreate from "./pages/UserCreate";
 import UserEdit from "./pages/UserEdit";
@@ -363,6 +365,22 @@ const App = () => {
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                   <ClientEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/federation"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <FederationConnections />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/scim"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <ScimTokens />
                 </DashboardLayout>
               }
             />

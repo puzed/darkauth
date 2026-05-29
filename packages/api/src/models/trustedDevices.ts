@@ -2,7 +2,8 @@ import { and, eq, gt, isNull } from "drizzle-orm";
 import { deviceApprovalRequests, keyEnvelopes, trustedDevices } from "../db/schema.ts";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
-import { generateRandomBytes, generateRandomString } from "../utils/crypto.ts";
+import { generateRandomBytes, generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { assertScimTrustedDeviceApprovalPolicy } from "./scimPolicy.ts";
 
 const DEVICE_APPROVAL_STATUSES = new Set(["pending", "approved", "consumed", "denied"]);
 
@@ -75,23 +76,33 @@ export async function createDeviceApprovalRequest(
   }
 ) {
   validateIdentifier(data.sub, "sub");
+  await assertScimTrustedDeviceApprovalPolicy(context, data.sub);
   validateJwk(data.newDevicePublicJwk, "newDevicePublicJwk");
   const ttlMs = data.ttlMs ?? 10 * 60 * 1000;
   if (!Number.isSafeInteger(ttlMs) || ttlMs <= 0 || ttlMs > 30 * 60 * 1000) {
     throw new ValidationError("Invalid approval ttl");
   }
+  const requestId = `dap_${generateRandomString(24)}`;
+  const verificationCode = generateVerificationCode();
+  const metadata = normalizeApprovalMetadata(data.metadata, {
+    sub: data.sub,
+    requestId,
+    requesterSessionId: data.requesterSessionId ?? null,
+    verificationCode,
+    newDevicePublicJwk: data.newDevicePublicJwk,
+  });
   const row = {
-    requestId: `dap_${generateRandomString(24)}`,
+    requestId,
     sub: data.sub,
     requesterSessionId: data.requesterSessionId ?? null,
     newDevicePublicJwk: data.newDevicePublicJwk,
     newDeviceLabel: normalizeLabel(data.newDeviceLabel),
-    verificationCode: generateVerificationCode(),
+    verificationCode,
     status: "pending",
     approvedByDeviceId: null,
     encryptedApproval: null,
     approvalAad: null,
-    metadata: data.metadata ?? {},
+    metadata,
     createdAt: new Date(),
     expiresAt: new Date(Date.now() + ttlMs),
     approvedAt: null,
@@ -130,6 +141,7 @@ export async function approveDeviceApprovalRequest(
   }
 ) {
   validateIdentifier(data.sub, "sub");
+  await assertScimTrustedDeviceApprovalPolicy(context, data.sub);
   validateIdentifier(data.requestId, "requestId");
   validateIdentifier(data.approvedByDeviceId, "approvedByDeviceId");
   validateCiphertext(data.encryptedApproval, "encryptedApproval");
@@ -142,6 +154,14 @@ export async function approveDeviceApprovalRequest(
     ),
   });
   if (!device) throw new ForbiddenError("Trusted device cannot approve");
+  const request = await context.db.query.deviceApprovalRequests.findFirst({
+    where: and(
+      eq(deviceApprovalRequests.requestId, data.requestId),
+      eq(deviceApprovalRequests.sub, data.sub)
+    ),
+  });
+  if (!request) throw new ConflictError("Approval request is not pending");
+  assertApprovalAad(data.approvalAad, request);
   const rows = await context.db
     .update(deviceApprovalRequests)
     .set({
@@ -171,8 +191,17 @@ export async function consumeDeviceApprovalRequest(
   data: { sub: string; requestId: string; newDeviceProof: string }
 ) {
   validateIdentifier(data.sub, "sub");
+  await assertScimTrustedDeviceApprovalPolicy(context, data.sub);
   validateIdentifier(data.requestId, "requestId");
   validateIdentifier(data.newDeviceProof, "newDeviceProof");
+  const request = await context.db.query.deviceApprovalRequests.findFirst({
+    where: and(
+      eq(deviceApprovalRequests.requestId, data.requestId),
+      eq(deviceApprovalRequests.sub, data.sub)
+    ),
+  });
+  if (!request) throw new ConflictError("Approval request cannot be consumed");
+  assertNewDeviceProof(data.newDeviceProof, request);
   const rows = await context.db
     .update(deviceApprovalRequests)
     .set({ status: "consumed", consumedAt: new Date() })
@@ -264,4 +293,72 @@ function validateCiphertext(value: Buffer, name: string) {
 function generateVerificationCode() {
   const value = generateRandomBytes(4).readUInt32BE(0) % 1_000_000;
   return value.toString().padStart(6, "0");
+}
+
+function normalizeApprovalMetadata(
+  metadata: Record<string, unknown> | undefined,
+  binding: {
+    sub: string;
+    requestId: string;
+    requesterSessionId: string | null;
+    verificationCode: string;
+    newDevicePublicJwk: unknown;
+  }
+) {
+  const input = metadata ?? {};
+  const clientId = typeof input.client_id === "string" ? input.client_id : null;
+  const stateHash = typeof input.state_hash === "string" ? input.state_hash : null;
+  const verificationCodeHash =
+    typeof input.verification_code_hash === "string"
+      ? input.verification_code_hash
+      : sha256Base64Url(binding.verificationCode);
+  const newDevicePublicJwkHash =
+    typeof input.new_device_public_jwk_hash === "string"
+      ? input.new_device_public_jwk_hash
+      : sha256Base64Url(JSON.stringify(binding.newDevicePublicJwk));
+  return {
+    ...input,
+    client_id: clientId,
+    state_hash: stateHash,
+    verification_code_hash: verificationCodeHash,
+    new_device_public_jwk_hash: newDevicePublicJwkHash,
+    request_binding_hash: sha256Base64Url(
+      JSON.stringify({
+        sub: binding.sub,
+        request_id: binding.requestId,
+        requester_session_id: binding.requesterSessionId,
+        client_id: clientId,
+        state_hash: stateHash,
+        verification_code_hash: verificationCodeHash,
+        new_device_public_jwk_hash: newDevicePublicJwkHash,
+      })
+    ),
+  };
+}
+
+function assertNewDeviceProof(proof: string, request: typeof deviceApprovalRequests.$inferSelect) {
+  const metadata =
+    request.metadata && typeof request.metadata === "object" && !Array.isArray(request.metadata)
+      ? (request.metadata as Record<string, unknown>)
+      : {};
+  const expected =
+    typeof metadata.new_device_public_jwk_hash === "string"
+      ? metadata.new_device_public_jwk_hash
+      : sha256Base64Url(JSON.stringify(request.newDevicePublicJwk));
+  if (proof !== expected) throw new ValidationError("Invalid new device proof");
+}
+
+function assertApprovalAad(aad: Buffer, request: typeof deviceApprovalRequests.$inferSelect) {
+  const metadata =
+    request.metadata && typeof request.metadata === "object" && !Array.isArray(request.metadata)
+      ? (request.metadata as Record<string, unknown>)
+      : {};
+  const publicKeyHash =
+    typeof metadata.new_device_public_jwk_hash === "string"
+      ? metadata.new_device_public_jwk_hash
+      : sha256Base64Url(JSON.stringify(request.newDevicePublicJwk));
+  const expected = Buffer.from(
+    `DarkAuth|device-approval|${request.sub}|${request.requestId}|${publicKeyHash}`
+  );
+  if (!aad.equals(expected)) throw new ValidationError("Invalid approval AAD");
 }

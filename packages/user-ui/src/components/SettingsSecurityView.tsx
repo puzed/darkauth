@@ -7,7 +7,12 @@ export default function SettingsSecurityView({
   sessionData,
   onLogout,
 }: {
-  sessionData: { sub: string; name?: string; email?: string };
+  sessionData: {
+    sub: string;
+    name?: string;
+    email?: string;
+    keyState?: "locked" | "unlocked" | "setup_required";
+  };
   onLogout: () => void;
 }) {
   const navigate = useNavigate();
@@ -22,7 +27,11 @@ export default function SettingsSecurityView({
       <div className={styles.content}>
         <div className={styles.formHeader}>
           <h2>Security Settings</h2>
-          <p className={styles.subtitle}>Manage two-factor authentication and backup codes</p>
+          <p className={styles.subtitle}>
+            {sessionData.keyState && sessionData.keyState !== "unlocked"
+              ? "You are signed in, but encryption keys are locked for zero-knowledge clients."
+              : "Manage two-factor authentication, passkeys, recovery keys, and trusted devices"}
+          </p>
         </div>
         <div className={styles.formWrapper}>
           <SettingsSecurity sessionData={sessionData} />

@@ -11,6 +11,15 @@ DarkAuth uses OPAQUE for password authentication. In the OPAQUE flow, the passwo
 
 For zero-knowledge enabled apps, the browser can derive key material after login, unwrap account key material locally, derive a client app key for the requesting app, encrypt that key to the app's ephemeral public key, and deliver it through the URL fragment. The server stores only encrypted envelope material and a hash binding for the handoff.
 
+The account key can be unlocked by different envelope types depending on what the user has configured:
+
+- Password-derived material from OPAQUE login.
+- A passkey with WebAuthn PRF support.
+- A recovery key saved by the user.
+- A trusted-device approval from another unlocked browser.
+
+Some sign-in methods authenticate the user but do not unlock keys. For example, an external federated login or an authentication-only passkey can create a valid session that is still key locked. A key-locked session must complete an unlock step before a zero-knowledge app can receive a client app key.
+
 ## What this does not protect
 
 Zero-knowledge does not mean the browser never sees the key. The browser code needs the key to decrypt data or hand it to an application. That means users still rely on:
@@ -23,6 +32,8 @@ Zero-knowledge does not mean the browser never sees the key. The browser code ne
 
 If any of those are compromised, a key may be exposed while it is in use.
 
+Admins and the DarkAuth backend can see account metadata, client configuration, encrypted envelopes, key-delivery version, and audit events. They cannot see the user's password, OPAQUE export key, plaintext account root key, plaintext client app key, plaintext recovery key, passkey PRF output, or decrypted application data during the designed flow.
+
 ## Why reloads can matter
 
 The default hosted-web profile keeps delivered key material in memory. Memory-only custody reduces persistent browser storage risk, but a page reload loses the key. A well-designed app should start a fresh authorization request and get a new encrypted handoff when it needs the key again.
@@ -34,3 +45,7 @@ If the DarkAuth session is still valid and the necessary client-side material is
 Email password reset restores account access. It does not magically recover encrypted data that depended on old password-derived key material without another recovery envelope or app recovery path. If an app relies on zero-knowledge protected data, it should explain its recovery model clearly before users need it.
 
 The benefit is that the server is not silently holding the user's decryption key. The tradeoff is that recovery requires explicit design.
+
+## Federated account tradeoff
+
+Federation lets an organization use its existing identity provider for sign-in, but the external provider still does not receive DarkAuth account keys. Users who sign in through federation need at least one DarkAuth-side key unlock method if they use zero-knowledge applications.

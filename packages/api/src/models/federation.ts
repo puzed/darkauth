@@ -10,6 +10,7 @@ import {
 import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { createUser } from "./users.ts";
 
 export type FederationAccountLinkingPolicy = "disabled" | "email_verified" | "email";
 export type FederationClaimMapping = {
@@ -292,6 +293,9 @@ export async function resolveFederatedUserForClaims(
   const connection = await getFederationConnectionSecret(context, connectionId);
   if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
   const mapped = mapFederationClaims(claims, connection.claimMapping as FederationClaimMapping);
+  if (mapped.email && !isEmailAllowedForConnection(mapped.email, connection.domains)) {
+    return { userSub: null, linked: false, created: false };
+  }
   const identity = await context.db.query.federationIdentities.findFirst({
     where: and(
       eq(federationIdentities.connectionId, connection.id),
@@ -313,13 +317,39 @@ export async function resolveFederatedUserForClaims(
   if (connection.accountLinkingPolicy === "disabled")
     return { userSub: null, linked: false, created: false };
   if (!mapped.email) return { userSub: null, linked: false, created: false };
-  if (connection.accountLinkingPolicy === "email_verified" && !mapped.emailVerified) {
+  if (!mapped.emailVerified && !allowsUnverifiedEmailLinking(connection.metadata)) {
     return { userSub: null, linked: false, created: false };
   }
   const user = await context.db.query.users.findFirst({
     where: eq(users.email, mapped.email),
   });
-  if (!user) return { userSub: null, linked: false, created: false };
+  if (!user) {
+    const createdUser = await createUser(context, {
+      email: mapped.email,
+      name: mapped.name || undefined,
+    });
+    if (mapped.emailVerified) {
+      await context.db
+        .update(users)
+        .set({ emailVerifiedAt: new Date() })
+        .where(eq(users.sub, createdUser.sub));
+    }
+    const createdIdentity = await linkFederationIdentity(context, {
+      connectionId: connection.id,
+      userSub: createdUser.sub,
+      issuer: connection.issuer,
+      externalSubject: mapped.externalSubject,
+      email: mapped.email,
+      emailVerified: mapped.emailVerified,
+      claims,
+    });
+    return {
+      userSub: createdUser.sub,
+      identityId: createdIdentity.id,
+      linked: true,
+      created: true,
+    };
+  }
   const created = await linkFederationIdentity(context, {
     connectionId: connection.id,
     userSub: user.sub,
@@ -330,6 +360,14 @@ export async function resolveFederatedUserForClaims(
     claims,
   });
   return { userSub: user.sub, identityId: created.id, linked: true, created: true };
+}
+
+export async function decryptFederationClientSecret(context: Context, encrypted: Buffer | null) {
+  if (!encrypted) return null;
+  if (!context.services.kek?.isAvailable()) {
+    throw new ValidationError("KEK service is required to decrypt federation client secrets");
+  }
+  return (await context.services.kek.decrypt(Buffer.from(encrypted))).toString("utf-8");
 }
 
 export async function linkFederationIdentity(
@@ -672,6 +710,21 @@ function extractDomain(email: string) {
   const at = trimmed.lastIndexOf("@");
   if (at <= 0 || at === trimmed.length - 1) return null;
   return trimmed.slice(at + 1);
+}
+
+function isEmailAllowedForConnection(email: string, domains: string[]) {
+  if (!domains || domains.length === 0) return true;
+  const domain = extractDomain(email);
+  return !!domain && domains.includes(domain);
+}
+
+function allowsUnverifiedEmailLinking(metadata: unknown) {
+  return (
+    !!metadata &&
+    typeof metadata === "object" &&
+    !Array.isArray(metadata) &&
+    (metadata as Record<string, unknown>).allow_unverified_email_linking === true
+  );
 }
 
 function validateText(value: string | undefined | null, name: string) {

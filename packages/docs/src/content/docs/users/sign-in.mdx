@@ -20,6 +20,20 @@ The flow normally looks like this:
 
 If there is no pending application request, the user lands on the dashboard instead.
 
+## Federated sign-in
+
+Some email domains are configured by an administrator to use an external OIDC provider. In that case, DarkAuth may route the browser to the organization's provider instead of asking for the local password first.
+
+The application still redirects to DarkAuth, and DarkAuth still returns the final authorization result to the application. The external provider is only used for the user's sign-in step.
+
+Federated sign-in can authenticate the account, but it does not automatically unlock zero-knowledge account keys. If an application needs encrypted key material, DarkAuth may ask for an unlock method after federated sign-in, such as a recovery key, passkey PRF, trusted-device approval, or any other configured envelope that can unlock the account key locally.
+
+## Passkey sign-in
+
+If passkeys are available for the account and browser, a user may sign in with a passkey. Some passkeys are authentication-only. Others support WebAuthn PRF and can also unlock encrypted account material.
+
+If a passkey signs the user in but cannot unlock keys, the session is key locked. The user can still access ordinary account pages, but zero-knowledge clients need an additional unlock method before DarkAuth can deliver client app keys.
+
 ## Registration
 
 Self-registration is controlled by administrators. If it is enabled, users can create an account from the sign-in screen. If it is disabled, the sign-up route sends users back to login and accounts must be created or invited through an administrative flow.
@@ -39,6 +53,8 @@ Several security checks can pause a normal login:
 - The account may require a password change before continuing.
 - OTP may be required by user, admin, or organization policy.
 - Email verification may be required for the requested flow.
+- A federated domain may redirect the browser to an external provider.
+- A zero-knowledge authorization request may require a key unlock step.
 - The authorization request may be invalid, expired, or not allowed for the client.
 
 These interruptions are intentional. They keep the application integration simple while allowing the identity system to enforce security policy centrally.
