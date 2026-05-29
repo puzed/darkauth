@@ -9,9 +9,9 @@ import {
 } from '../../setup/helpers/rbac.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
-test.describe('Auth - User OTP backup codes (UI)', () => {
-  test.setTimeout(60_000);
+test.setTimeout(60_000);
 
+test.describe('Auth - User OTP backup codes (UI)', () => {
   let servers: TestServers;
 
   test.beforeAll(async () => {
