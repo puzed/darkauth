@@ -79,6 +79,35 @@ export interface User {
   permissions?: string[];
 }
 
+export interface UserKeyStatus {
+  keyState: "none" | "locked" | "unlocked" | "setup_required" | "recovery_required";
+  accountKeys: Array<{
+    keyId: string;
+    version: string;
+    createdAt: string;
+    rotatedAt?: string | null;
+    revokedAt?: string | null;
+  }>;
+  envelopes: Array<{
+    envelopeId: string;
+    keyId: string;
+    type: "password" | "passkey_prf" | "trusted_device" | "recovery" | string;
+    version: string;
+    wrappingAlg?: string | null;
+    createdAt: string;
+    lastUsedAt?: string | null;
+    revokedAt?: string | null;
+  }>;
+  trustedDevices: Array<{
+    deviceId: string;
+    name?: string | null;
+    envelopeId?: string | null;
+    createdAt: string;
+    lastUsedAt?: string | null;
+    revokedAt?: string | null;
+  }>;
+}
+
 // Admin Users Management
 export interface AdminUser {
   id: string;
@@ -177,6 +206,8 @@ export interface Client {
   requirePkce: boolean;
   zkDelivery: "none" | "fragment-jwe";
   zkRequired: boolean;
+  keyDeliveryVersion: "v1-drk" | "v2";
+  deliveredKeyKind: "root_key" | "client_app_key";
   allowedJweAlgs: string[];
   allowedJweEncs: string[];
   redirectUris: string[];
@@ -214,6 +245,8 @@ export interface CreateClientRequest {
   requirePkce?: boolean;
   zkDelivery?: "none" | "fragment-jwe";
   zkRequired?: boolean;
+  keyDeliveryVersion?: "v1-drk" | "v2";
+  deliveredKeyKind?: "root_key" | "client_app_key";
   allowedJweAlgs?: string[];
   allowedJweEncs?: string[];
   redirectUris: string[];
@@ -308,6 +341,74 @@ export interface AdminSetting {
   value: unknown;
   secure: boolean;
   updatedAt: string;
+}
+
+export interface FederationConnection {
+  id: string;
+  type: "oidc";
+  name: string;
+  issuer: string;
+  clientId: string;
+  discoveryUrl: string;
+  authorizationEndpoint: string;
+  tokenEndpoint: string;
+  jwksUri: string;
+  userinfoEndpoint: string | null;
+  scopes: string[];
+  claimMapping: Record<string, unknown>;
+  accountLinkingPolicy: "disabled" | "email_verified" | "email";
+  domains: string[];
+  enabled: boolean;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  hasClientSecret: boolean;
+}
+
+export interface FederationConnectionsResponse {
+  connections: FederationConnection[];
+  pagination: PaginationMeta;
+}
+
+export interface OidcDiscoveryMetadata {
+  issuer: string;
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri: string;
+  userinfo_endpoint?: string;
+  scopes_supported?: string[];
+  claims_supported?: string[];
+  [key: string]: unknown;
+}
+
+export interface FederationConnectionRequest {
+  name: string;
+  issuer: string;
+  clientId: string;
+  clientSecret?: string | null;
+  discoveryUrl?: string;
+  metadata?: OidcDiscoveryMetadata;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  jwksUri?: string;
+  userinfoEndpoint?: string | null;
+  scopes?: string[];
+  claimMapping?: Record<string, string>;
+  accountLinkingPolicy?: "disabled" | "email_verified" | "email";
+  domains?: string[];
+  enabled?: boolean;
+}
+
+export interface ScimBearerToken {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  createdByAdminId?: string | null;
+  createdAt: string;
+  lastUsedAt?: string | null;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  token?: string;
 }
 
 export type EmailTemplateKey =
@@ -610,6 +711,24 @@ class AdminApiService {
     await this.request(`/users/${userSub}`, {
       method: "DELETE",
     });
+  }
+
+  async getUserKeyStatus(userSub: string): Promise<UserKeyStatus> {
+    return this.request(`/users/${encodeURIComponent(userSub)}/key-status`);
+  }
+
+  async revokeUserKeyEnvelope(userSub: string, envelopeId: string): Promise<{ success: boolean }> {
+    return this.request(
+      `/users/${encodeURIComponent(userSub)}/key-envelopes/${encodeURIComponent(envelopeId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async revokeUserTrustedDevice(userSub: string, deviceId: string): Promise<{ success: boolean }> {
+    return this.request(
+      `/users/${encodeURIComponent(userSub)}/trusted-devices/${encodeURIComponent(deviceId)}`,
+      { method: "DELETE" }
+    );
   }
 
   async getUserPermissions(userSub: string): Promise<string[]> {
@@ -992,6 +1111,72 @@ class AdminApiService {
     return this.request(`/clients/${clientId}/secret/rotate`, {
       method: "POST",
     });
+  }
+
+  async getFederationConnections(
+    params?: ListQueryParams & { enabled?: boolean }
+  ): Promise<FederationConnectionsResponse> {
+    const query = this.createListSearchParams(params);
+    if (typeof params?.enabled === "boolean") query.append("enabled", String(params.enabled));
+    const endpoint = query.toString()
+      ? `/federation/connections?${query.toString()}`
+      : "/federation/connections";
+    return this.request(endpoint);
+  }
+
+  async getFederationConnection(id: string): Promise<FederationConnection> {
+    return this.request(`/federation/connections/${encodeURIComponent(id)}`);
+  }
+
+  async createFederationConnection(
+    data: FederationConnectionRequest
+  ): Promise<FederationConnection> {
+    return this.request("/federation/connections", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateFederationConnection(
+    id: string,
+    data: Partial<FederationConnectionRequest>
+  ): Promise<FederationConnection> {
+    return this.request(`/federation/connections/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteFederationConnection(id: string): Promise<void> {
+    await this.request(`/federation/connections/${encodeURIComponent(id)}`, { method: "DELETE" });
+  }
+
+  async discoverFederationOidc(issuer: string): Promise<OidcDiscoveryMetadata> {
+    return this.request(`/federation/oidc/discovery?issuer=${encodeURIComponent(issuer)}`);
+  }
+
+  async previewFederationDomainRoute(email: string): Promise<{
+    connection: FederationConnection | null;
+  }> {
+    return this.request(`/federation/domain-route?email=${encodeURIComponent(email)}`);
+  }
+
+  async getScimTokens(): Promise<{ tokens: ScimBearerToken[] }> {
+    return this.request("/scim/tokens");
+  }
+
+  async createScimToken(data: {
+    name: string;
+    expiresAt?: string | null;
+  }): Promise<ScimBearerToken> {
+    return this.request("/scim/tokens", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeScimToken(id: string): Promise<{ success: boolean }> {
+    return this.request(`/scim/tokens/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
   // System Settings

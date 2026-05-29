@@ -254,6 +254,7 @@ export async function createUserServer(context: Context) {
         pathname === "/userinfo" ||
         pathname === "/introspect" ||
         pathname === "/revoke" ||
+        pathname.startsWith("/federation/") ||
         pathname.startsWith("/.well-known") ||
         pathname.startsWith("/otp/")
       ) {

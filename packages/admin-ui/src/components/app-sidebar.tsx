@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   FileText,
+  GitBranch,
   Home,
   Key,
   KeyRound,
@@ -30,6 +31,8 @@ const identityItems: SidebarNavItem[] = [
 
 const oauthItems: SidebarNavItem[] = [
   { title: "Clients", url: "/clients", icon: Lock },
+  { title: "Federation", url: "/federation", icon: GitBranch },
+  { title: "SCIM Tokens", url: "/scim", icon: KeyRound },
   { title: "Signing Keys", url: "/keys", icon: Key },
 ];
 

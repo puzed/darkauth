@@ -5,18 +5,28 @@ description: Recover encrypted account access with user-held recovery keys.
 
 Recovery keys help restore access to encrypted account material when a normal sign-in method is unavailable. DarkAuth stores verifier hashes and encrypted recovery envelopes, not the plaintext recovery key.
 
+Recovery keys are for key unlock. They are not the same as email password reset and they are not a support backdoor. A recovery key lets the browser prove possession of the user-held secret and unwrap an encrypted envelope locally.
+
 ## Create a recovery key
 
 Create recovery keys from the account security area. The plaintext key is shown only during the creation workflow. Store it somewhere durable and private, such as a password manager.
 
 If you lose a recovery key before storing it, revoke it and create a new one.
 
+Create a recovery key before relying on zero-knowledge applications from multiple browsers or devices. Without a saved recovery path, a lost password-derived key or unavailable trusted device can leave older encrypted application data unavailable.
+
 ## Use a recovery key
 
 During recovery, the browser proves possession of the recovery key and uses it to unwrap the recovery envelope. DarkAuth records that the key was used, but does not learn the plaintext key.
+
+After a successful recovery-key unlock, DarkAuth can mark the current session as key unlocked so zero-knowledge clients can receive the appropriate client app key. The recovery key itself is still user-held material and should not be sent to applications.
 
 ## Revoke a recovery key
 
 Revoke a recovery key if it was copied somewhere unsafe, shared with another person, printed and lost, or replaced by a newer key.
 
 Keep more than one recovery path available if your organization allows it. Recovery keys are most useful before you need them.
+
+## What others can see
+
+Admins and the DarkAuth backend can see recovery-key metadata such as creation, use, and revocation state. They cannot see the plaintext recovery key or use it to decrypt account key material.

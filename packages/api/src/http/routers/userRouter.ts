@@ -7,6 +7,10 @@ import { postEmailVerificationResend } from "../../controllers/user/emailVerific
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
+import {
+  getFederationCallback,
+  getFederationStart,
+} from "../../controllers/user/federationOidc.ts";
 import { getFederationRoute } from "../../controllers/user/federationRoute.ts";
 import { getUserApps } from "../../controllers/user/getUserApps.ts";
 import { postIntrospect } from "../../controllers/user/introspect.ts";
@@ -191,6 +195,20 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/federation/route") {
         return await getFederationRoute(context, request, response);
+      }
+
+      if (
+        method === "GET" &&
+        (pathname === "/federation/start" || pathname === "/federation/oidc/start")
+      ) {
+        return await getFederationStart(context, request, response);
+      }
+
+      if (
+        method === "GET" &&
+        (pathname === "/federation/callback" || pathname === "/federation/oidc/callback")
+      ) {
+        return await getFederationCallback(context, request, response);
       }
 
       if (method === "GET" && pathname === "/branding/custom.css") {

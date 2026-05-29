@@ -11,8 +11,20 @@ Start the device approval flow on the new device, then approve it from an existi
 
 Approvals expire. If a request is old or unexpected, deny it and start again from a device you control.
 
+A trusted device is an unlock path for encrypted account material. It is not just a remember-me checkbox. Only approve a browser or device that you control, and use a name you will recognize later.
+
+## Locked-key state
+
+After signing in on a new browser, the account may be authenticated but key locked. In that state, ordinary account access can work, but zero-knowledge applications cannot receive a client app key yet.
+
+Trusted-device approval moves the new browser from key locked to key unlocked by transferring an encrypted envelope. If no trusted device is available, use another configured unlock method, such as password-derived unlock, passkey PRF, or a recovery key.
+
 ## Manage devices
 
 Review trusted devices from account security. Revoke devices that are lost, shared, retired, or no longer yours.
 
 Revoking a trusted device prevents future use of that device envelope. It does not erase data already copied out of a compromised browser or device, so revoke quickly when access is in doubt.
+
+## What others can see
+
+Admins and the DarkAuth backend can see trusted-device metadata and approval state. They cannot see plaintext account keys, trusted-device envelope keys, recovery keys, or client app keys.

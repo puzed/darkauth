@@ -133,6 +133,11 @@ export default function Clients() {
           value={clients.filter((c) => c.type === "confidential").length}
           description="Confidential clients"
         />
+        <StatsCard
+          title="Legacy Key Delivery"
+          value={clients.filter((c) => c.keyDeliveryVersion === "v1-drk").length}
+          description="v1 root-key delivery"
+        />
       </StatsGrid>
 
       <ListCard
@@ -171,6 +176,7 @@ export default function Clients() {
                     sortOrder={sortOrder}
                     onToggle={() => toggleSort("createdAt")}
                   />
+                  <TableHead>Key Delivery</TableHead>
                   <TableHead className={tableStyles.actionCell}>Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,6 +201,13 @@ export default function Clients() {
                       <Badge>{client.type}</Badge>
                     </TableCell>
                     <TableCell>{new Date(client.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={client.keyDeliveryVersion === "v1-drk" ? "secondary" : "default"}
+                      >
+                        {client.keyDeliveryVersion || "v2"}
+                      </Badge>
+                    </TableCell>
                     <TableCell>
                       <RowActions
                         items={[

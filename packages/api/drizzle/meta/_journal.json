@@ -204,6 +204,13 @@
       "when": 1779850800000,
       "tag": "0030_recovery_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1780088400000,
+      "tag": "0031_scim_policy_settings",
+      "breakpoints": true
     }
   ]
 }

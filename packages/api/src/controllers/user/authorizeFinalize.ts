@@ -6,6 +6,7 @@ import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createAuthCode } from "../../models/authCodes.ts";
 import { consumePendingAuth, getPendingAuth } from "../../models/authorize.ts";
 import { resolveAuthorizationOrganizationContext } from "../../models/rbac.ts";
+import { isZkKeyUnlockRequired } from "../../models/scimPolicy.ts";
 import { getClientIp, logAuditEvent } from "../../services/audit.ts";
 import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -103,7 +104,11 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
             : "zk_key_hash is required for ZK authorization requests"
         );
       }
-      if (hasZk && sessionData.keyState !== "unlocked") {
+      if (
+        hasZk &&
+        sessionData.keyState !== "unlocked" &&
+        (await isZkKeyUnlockRequired(context, sessionData.sub))
+      ) {
         throw new InvalidRequestError("Key unlock is required for ZK authorization requests");
       }
 

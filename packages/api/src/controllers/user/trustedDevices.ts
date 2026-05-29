@@ -14,7 +14,7 @@ import {
   listTrustedDevices,
   revokeTrustedDevice,
 } from "../../models/trustedDevices.ts";
-import { getSessionId, requireSession } from "../../services/sessions.ts";
+import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
@@ -34,6 +34,9 @@ const TrustedDeviceRequest = z.object({
 const ApprovalCreateRequest = z.object({
   new_device_public_jwk: z.record(z.string(), z.unknown()),
   new_device_label: z.string().trim().min(1).max(128).nullable().optional(),
+  client_id: z.string().trim().min(1).max(256).optional(),
+  state_hash: z.string().trim().min(1).max(256).optional(),
+  verification_code_hash: z.string().trim().min(1).max(256).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
@@ -114,7 +117,12 @@ export const postDeviceApprovalRequest = withRateLimit("key_management")(
       requesterSessionId: getSessionId(request, false),
       newDevicePublicJwk: parsed.new_device_public_jwk,
       newDeviceLabel: parsed.new_device_label ?? null,
-      metadata: parsed.metadata ?? {},
+      metadata: {
+        ...(parsed.metadata ?? {}),
+        client_id: parsed.client_id,
+        state_hash: parsed.state_hash,
+        verification_code_hash: parsed.verification_code_hash,
+      },
     });
     sendJson(response, 201, { approval: serializeDeviceApproval(approval, true) });
   })
@@ -157,7 +165,7 @@ export const postDeviceApprovalApprove = withRateLimit("key_management")(
       encryptedApproval: decodeBase64Url(parsed.encrypted_approval, "encrypted_approval"),
       approvalAad: parsed.approval_aad
         ? decodeBase64Url(parsed.approval_aad, "approval_aad")
-        : Buffer.from(`DarkAuth|device-approval|${sub}|${requestId}`),
+        : await resolveApprovalAad(context, sub, requestId),
     });
     sendJson(response, 200, { approval: serializeDeviceApproval(approval, false) });
   })
@@ -170,7 +178,9 @@ export const postDeviceApprovalConsume = withRateLimit("key_management")(
     extractResourceId: (_body, params) => params[0],
     skipBodyCapture: true,
   })(async (context, request, response, requestId): Promise<void> => {
-    const sub = await requireUserSub(context, request);
+    const session = await requireSession(context, request, false);
+    if (!session.sub) throw new UnauthorizedError("User session required");
+    const sub = session.sub;
     if (!requestId) throw new ValidationError("request_id is required");
     const parsed = parseBody(ApprovalConsumeRequest, await getCachedBody(request));
     const approval = await consumeDeviceApprovalRequest(context, {
@@ -178,6 +188,8 @@ export const postDeviceApprovalConsume = withRateLimit("key_management")(
       requestId,
       newDeviceProof: parsed.new_device_proof,
     });
+    const sessionId = getSessionId(request, false);
+    if (sessionId) await updateSession(context, sessionId, { ...session, keyState: "unlocked" });
     sendJson(response, 200, { approval: serializeDeviceApproval(approval, false) });
   })
 );
@@ -355,4 +367,19 @@ function isValidBase64Url(value: string): boolean {
   } catch {
     return false;
   }
+}
+
+async function resolveApprovalAad(context: Context, sub: string, requestId: string) {
+  const approval = await context.db.query.deviceApprovalRequests.findFirst({
+    where: (table, { and, eq }) => and(eq(table.requestId, requestId), eq(table.sub, sub)),
+  });
+  const metadata =
+    approval?.metadata && typeof approval.metadata === "object" && !Array.isArray(approval.metadata)
+      ? (approval.metadata as Record<string, unknown>)
+      : {};
+  const hash =
+    typeof metadata.new_device_public_jwk_hash === "string"
+      ? metadata.new_device_public_jwk_hash
+      : "";
+  return Buffer.from(`DarkAuth|device-approval|${sub}|${requestId}|${hash}`);
 }

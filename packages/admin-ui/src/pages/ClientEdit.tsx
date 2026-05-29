@@ -43,6 +43,10 @@ const DEFAULT_DASHBOARD_LETTER = "D";
 type ScopeRow = { key: string; description: string };
 const CLIENT_EDIT_TABS = ["identity", "dashboard", "security", "token", "oauth", "crypto"];
 
+function deliveredKeyKindFor(version: Client["keyDeliveryVersion"]): Client["deliveredKeyKind"] {
+  return version === "v1-drk" ? "root_key" : "client_app_key";
+}
+
 function isClientEditTab(value: string | null): value is (typeof CLIENT_EDIT_TABS)[number] {
   if (!value) return false;
   return CLIENT_EDIT_TABS.includes(value);
@@ -128,6 +132,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     requirePkce: true,
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
+    keyDeliveryVersion: "v2" as Client["keyDeliveryVersion"],
     showOnUserDashboard: false,
     dashboardAutoLogin: false,
     dashboardPosition: "0",
@@ -210,6 +215,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         requirePkce: c.requirePkce,
         zkDelivery: c.zkDelivery,
         zkRequired: c.zkRequired,
+        keyDeliveryVersion: c.keyDeliveryVersion || "v2",
         redirectUris: joinList(c.redirectUris),
         postLogoutRedirectUris: joinList(c.postLogoutRedirectUris),
         grantTypes: joinList(c.grantTypes),
@@ -249,6 +255,8 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         requirePkce: form.requirePkce,
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
+        keyDeliveryVersion: form.keyDeliveryVersion,
+        deliveredKeyKind: deliveredKeyKindFor(form.keyDeliveryVersion),
         showOnUserDashboard: form.showOnUserDashboard,
         dashboardAutoLogin: form.dashboardAutoLogin,
         dashboardPosition: Number(form.dashboardPosition || "0"),
@@ -898,6 +906,52 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                       </SelectContent>
                     </Select>
                     <FieldHint>Use only for clients that always send ZK data.</FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Key Delivery Version"
+                        tooltip="Controls which account key material this client receives in ZK delivery."
+                      />
+                    }
+                  >
+                    <Select
+                      value={form.keyDeliveryVersion}
+                      onValueChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          keyDeliveryVersion: v as Client["keyDeliveryVersion"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="v2">v2</SelectItem>
+                        <SelectItem value="v1-drk">v1-drk</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldHint>
+                      {form.keyDeliveryVersion === "v1-drk"
+                        ? "Legacy v1 delivery sends root_key material. Migrate compatible clients to v2 before requiring federated unlock."
+                        : "v2 delivery sends client_app_key material and avoids delivering the account root key."}
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Delivered Key Kind"
+                        tooltip="Derived from the selected key delivery version and validated by the API."
+                      />
+                    }
+                  >
+                    <Input value={deliveredKeyKindFor(form.keyDeliveryVersion)} readOnly />
+                    <FieldHint>
+                      v1-drk maps to <code>root_key</code>; v2 maps to <code>client_app_key</code>.
+                    </FieldHint>
                   </FormField>
                 </FormGrid>
               </CardContent>

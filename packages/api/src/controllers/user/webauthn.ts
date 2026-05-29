@@ -256,19 +256,6 @@ export const postWebAuthnLoginFinish = withRateLimit("webauthn")(
             organizationSlug: activeMemberships[0]?.slug,
           }
         : {};
-    const { sessionId, refreshToken } = await createSession(context, "user", {
-      sub: user.sub,
-      email: user.email || undefined,
-      name: user.name || undefined,
-      ...sessionOrganization,
-      keyState: "locked",
-      otpRequired: activeMemberships.some((membership) => membership.forceOtp),
-      otpVerified: false,
-    });
-    const ttlSeconds = await getSessionTtlSeconds(context, "user");
-    const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
-    issueSessionCookies(response, sessionId, ttlSeconds, false);
-    issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
     const updatedCredential = await updateWebAuthnCredentialUsage(context, {
       credentialId: credential.credentialId,
       sub: credential.sub,
@@ -282,6 +269,19 @@ export const postWebAuthnLoginFinish = withRateLimit("webauthn")(
             sub: credential.sub,
           })
         : null;
+    const { sessionId, refreshToken } = await createSession(context, "user", {
+      sub: user.sub,
+      email: user.email || undefined,
+      name: user.name || undefined,
+      ...sessionOrganization,
+      keyState: unlock ? "unlocked" : "locked",
+      otpRequired: activeMemberships.some((membership) => membership.forceOtp),
+      otpVerified: false,
+    });
+    const ttlSeconds = await getSessionTtlSeconds(context, "user");
+    const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+    issueSessionCookies(response, sessionId, ttlSeconds, false);
+    issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
     sendJson(response, 200, {
       sub: user.sub,
       key_state: unlock ? "unlocked" : "locked",

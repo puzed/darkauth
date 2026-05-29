@@ -5,7 +5,8 @@ import path from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { sessions, users } from "../db/schema.ts";
+import { scimUsers, sessions, users } from "../db/schema.ts";
+import { UnauthorizedError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import { sha256Base64Url } from "../utils/crypto.ts";
 import {
@@ -22,6 +23,7 @@ import {
   USER_AUTH_COOKIE_NAME,
   USER_CSRF_COOKIE_NAME,
 } from "./sessions.ts";
+import { setSetting } from "./settings.ts";
 
 function createLogger() {
   return {
@@ -116,6 +118,42 @@ test("refreshSessionWithToken updates user last activity", async () => {
 
     assert.ok(user?.lastActivityAt);
     assert.ok(user.lastActivityAt > oldActivity);
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("SCIM only-provisioned policy blocks user session creation and refresh", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-sessions-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger(), services: {} } as Context;
+
+  try {
+    await db.insert(users).values({
+      sub: "local-user",
+      email: "local-user@example.com",
+      name: "Local User",
+    });
+    await setSetting(context, "users.scim.only_provisioned_sign_in", true);
+
+    await assert.rejects(
+      () => createSession(context, "user", { sub: "local-user" }),
+      (error: unknown) => error instanceof UnauthorizedError
+    );
+
+    await db.insert(scimUsers).values({
+      userSub: "local-user",
+      userName: "local-user@example.com",
+      active: true,
+    });
+    const created = await createSession(context, "user", { sub: "local-user" });
+    await db.delete(scimUsers).where(eq(scimUsers.userSub, "local-user"));
+
+    await assert.rejects(
+      () => refreshSessionWithToken(context, created.refreshToken),
+      (error: unknown) => error instanceof UnauthorizedError
+    );
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });

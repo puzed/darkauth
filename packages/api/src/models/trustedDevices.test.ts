@@ -4,9 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { createPglite } from "../db/pglite.ts";
-import { users } from "../db/schema.ts";
+import { scimUsers, users } from "../db/schema.ts";
 import { ConflictError, ForbiddenError, ValidationError } from "../errors.ts";
+import { setSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
+import { sha256Base64Url } from "../utils/crypto.ts";
 import { createAccountKey, createKeyEnvelope, listKeyEnvelopes } from "./keybag.ts";
 import {
   approveDeviceApprovalRequest,
@@ -163,7 +165,7 @@ test("device approvals are single-use encrypted transfers", async () => {
       requestId: request.requestId,
       approvedByDeviceId: device.deviceId,
       encryptedApproval: Buffer.from("encrypted-ark-to-new-device"),
-      approvalAad: Buffer.from("approval-aad"),
+      approvalAad: approvalAadFor(request),
     });
 
     assert.equal(approved.status, "approved");
@@ -175,7 +177,9 @@ test("device approvals are single-use encrypted transfers", async () => {
     const consumed = await consumeDeviceApprovalRequest(context, {
       sub: "user-sub",
       requestId: request.requestId,
-      newDeviceProof: "proof",
+      newDeviceProof: String(
+        (request.metadata as Record<string, unknown>).new_device_public_jwk_hash
+      ),
     });
 
     assert.equal(consumed.status, "consumed");
@@ -184,7 +188,9 @@ test("device approvals are single-use encrypted transfers", async () => {
         consumeDeviceApprovalRequest(context, {
           sub: "user-sub",
           requestId: request.requestId,
-          newDeviceProof: "proof",
+          newDeviceProof: String(
+            (request.metadata as Record<string, unknown>).new_device_public_jwk_hash
+          ),
         }),
       (error: unknown) => error instanceof ConflictError
     );
@@ -214,7 +220,7 @@ test("revoked devices cannot approve and denied approvals cannot be approved", a
           requestId: request.requestId,
           approvedByDeviceId: device.deviceId,
           encryptedApproval: Buffer.from("encrypted"),
-          approvalAad: Buffer.from("aad"),
+          approvalAad: approvalAadFor(request),
         }),
       (error: unknown) => error instanceof ForbiddenError
     );
@@ -227,3 +233,64 @@ test("revoked devices cannot approve and denied approvals cannot be approved", a
     assert.equal(denied.status, "denied");
   });
 });
+
+test("device approval consume verifies proof against requested public key hash", async () => {
+  await withContext(async (context) => {
+    await createUser(context);
+    await createTrustedDeviceEnvelope(context);
+    const device = await createTrustedDevice(context, {
+      sub: "user-sub",
+      publicJwk: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+      envelopeId: "env_user-sub_device_1",
+    });
+    const request = await createDeviceApprovalRequest(context, {
+      sub: "user-sub",
+      newDevicePublicJwk: { kty: "EC", crv: "P-256", x: "nx", y: "ny" },
+    });
+    await approveDeviceApprovalRequest(context, {
+      sub: "user-sub",
+      requestId: request.requestId,
+      approvedByDeviceId: device.deviceId,
+      encryptedApproval: Buffer.from("encrypted"),
+      approvalAad: approvalAadFor(request),
+    });
+
+    await assert.rejects(
+      () =>
+        consumeDeviceApprovalRequest(context, {
+          sub: "user-sub",
+          requestId: request.requestId,
+          newDeviceProof: sha256Base64Url("different-public-key"),
+        }),
+      (error: unknown) => error instanceof ValidationError
+    );
+  });
+});
+
+test("SCIM policy disables trusted-device approval", async () => {
+  await withContext(async (context) => {
+    await createUser(context);
+    await context.db.insert(scimUsers).values({
+      userSub: "user-sub",
+      userName: "user-sub@example.com",
+      active: true,
+    });
+    await setSetting(context, "users.scim.allow_trusted_device_approval", false);
+
+    await assert.rejects(
+      () =>
+        createDeviceApprovalRequest(context, {
+          sub: "user-sub",
+          newDevicePublicJwk: { kty: "EC", crv: "P-256", x: "nx", y: "ny" },
+        }),
+      (error: unknown) => error instanceof ForbiddenError
+    );
+  });
+});
+
+function approvalAadFor(request: Awaited<ReturnType<typeof createDeviceApprovalRequest>>) {
+  const metadata = request.metadata as Record<string, unknown>;
+  return Buffer.from(
+    `DarkAuth|device-approval|${request.sub}|${request.requestId}|${metadata.new_device_public_jwk_hash}`
+  );
+}

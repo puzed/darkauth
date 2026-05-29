@@ -4,7 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
 import { createPglite } from "../db/pglite.ts";
-import { users } from "../db/schema.ts";
+import { scimUsers, users } from "../db/schema.ts";
+import { ForbiddenError } from "../errors.ts";
+import { setSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
 import {
   createAccountKey,
@@ -136,6 +138,54 @@ test("migrateLegacyWrappedDrkToKeybag creates deterministic legacy account key a
       version: "v1-drk",
       migrated_from: "wrapped_root_keys",
     });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("SCIM-managed users cannot create disabled envelope types", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await context.db.insert(scimUsers).values({
+      userSub: "user-sub",
+      userName: "user-sub@example.com",
+      active: true,
+    });
+    await setSetting(context, "users.scim.allow_password_envelopes", false);
+    await setSetting(context, "users.scim.allow_passkey_prf_envelopes", false);
+    await createAccountKey(context, {
+      keyId: "ark_user-sub_1",
+      sub: "user-sub",
+    });
+
+    await assert.rejects(
+      () =>
+        createKeyEnvelope(context, {
+          envelopeId: "env_user-sub_password_1",
+          keyId: "ark_user-sub_1",
+          sub: "user-sub",
+          type: "password",
+          wrappingAlg: "OPAQUE-HKDF-SHA256+A256GCM",
+          wrappedKey: Buffer.from("wrapped-key"),
+          aad: Buffer.from("aad"),
+        }),
+      (error: unknown) => error instanceof ForbiddenError
+    );
+
+    await assert.rejects(
+      () =>
+        createKeyEnvelope(context, {
+          envelopeId: "env_user-sub_passkey_1",
+          keyId: "ark_user-sub_1",
+          sub: "user-sub",
+          type: "passkey_prf",
+          wrappingAlg: "WebAuthn-PRF+A256GCM",
+          wrappedKey: Buffer.from("wrapped-key"),
+          aad: Buffer.from("aad"),
+        }),
+      (error: unknown) => error instanceof ForbiddenError
+    );
   } finally {
     await cleanup();
   }

@@ -17,12 +17,28 @@ Federation endpoints are split between admin configuration and user sign-in rout
 
 Mutating admin endpoints require a write admin session and CSRF token.
 
+Connection payloads include `name`, `issuer`, `clientId`, optional `clientSecret`, optional `discoveryUrl`, OIDC endpoints, optional `userinfoEndpoint`, `scopes`, `claimMapping`, `accountLinkingPolicy`, `domains`, and `enabled`. Responses include `hasClientSecret` instead of returning the stored plaintext secret.
+
+The supported account-linking policies are `disabled`, `email_verified`, and `email`. Normal admin-created connections still require verified upstream email before linking; unverified-email linking is not exposed in the admin UI. Prefer `email_verified` unless the upstream tenant has strong domain control and reliable lifecycle management.
+
 ## User endpoint
 
 - `GET /federation/route` resolves an email address to the configured federation route for its domain.
+- `GET /federation/oidc/start` starts an upstream OIDC authorization-code flow with PKCE, state, and nonce.
+- `GET /federation/oidc/callback` completes the upstream OIDC callback, validates tokens and userinfo, and creates a locked DarkAuth session.
 
 If no route exists, clients should continue with the local DarkAuth sign-in path.
+
+## SSO flow
+
+The route endpoint is the first step in the user-facing flow. A routed user is sent through `/api/user/federation/oidc/start`, returns to `/api/user/federation/oidc/callback`, and then resumes the original DarkAuth authorization or dashboard flow.
+
+Applications continue to trust DarkAuth as the issuer. They should not exchange tokens directly with the upstream provider unless they have a separate integration with that provider.
 
 ## Discovery safety
 
 Discovery rejects localhost, loopback, private, link-local, and internal hosts. Treat issuer URLs as public identity-provider URLs, not arbitrary fetch targets.
+
+## Key-custody boundary
+
+Federation authenticates the user; it does not unlock zero-knowledge keys by itself. Federated users who authorize a ZK client still need an unlocked DarkAuth keybag through password-derived material, passkey PRF, recovery key, trusted-device approval, or another supported envelope.

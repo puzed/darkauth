@@ -31,6 +31,10 @@ test("Settings security distinguishes passkey authentication from PRF unlock", (
   assert.notEqual(source.indexOf("verified WebAuthn PRF support"), -1);
   assert.notEqual(source.indexOf("Auth + unlock passkeys"), -1);
   assert.notEqual(source.indexOf("Auth-only passkeys"), -1);
+  assert.notEqual(source.indexOf("registerPasskey"), -1);
+  assert.notEqual(source.indexOf("api.webAuthnRegisterStart"), -1);
+  assert.notEqual(source.indexOf("api.createPasskeyPrfEnvelope"), -1);
+  assert.equal(source.indexOf("Passkey setup unavailable"), -1);
 });
 
 test("Settings security creates high entropy recovery key envelopes", () => {

@@ -7,15 +7,45 @@ Federation lets DarkAuth route users to an external OIDC identity provider for s
 
 ## Connections
 
-Create a federation connection for each upstream provider and environment. A connection stores the issuer, authorization endpoint, token endpoint, JWKS URI, client ID, optional encrypted client secret, scopes, and profile claim mapping.
+Create a federation connection for each upstream provider and environment. A connection stores the issuer, authorization endpoint, token endpoint, JWKS URI, optional userinfo endpoint, client ID, optional encrypted client secret, requested scopes, claim mapping, account-linking policy, enabled state, and the domains that should be routed to that provider.
 
 Use separate connections for production and non-production identity providers. Domain routing is exact enough that a staging issuer should not share production domains.
+
+## Admin workflow
+
+Use the admin portal to create, review, update, disable, or delete OIDC connections. A read admin can list connections, inspect non-secret configuration, preview domain routing, and run discovery. A write admin is required to create, update, delete, or replace a client secret.
+
+When creating a connection:
+
+1. Discover or enter the upstream OIDC metadata.
+2. Set the upstream client ID and, for confidential upstream apps, the client secret.
+3. Choose scopes such as `openid`, `profile`, and `email`.
+4. Confirm claim mappings for subject, email, email verification, display name, and groups.
+5. Choose an account-linking policy.
+6. Add the email domains that should use this connection.
+7. Preview routing with a test email address before enabling production traffic.
 
 ## Domain routing
 
 DarkAuth resolves a user's email domain before sign-in and returns the matching connection when federation is configured for that domain. If no connection matches, the user stays on the local OPAQUE sign-in path.
 
 Keep domain ownership clear. Do not route public webmail domains or shared supplier domains unless the provider truly owns every user under that domain.
+
+## OIDC SSO flow
+
+For routed users, DarkAuth sends the browser to the upstream provider's authorization endpoint, stores a short-lived federation state, validates the upstream callback, verifies tokens against the configured issuer and JWKS, maps claims, and links or creates the local DarkAuth user according to the connection policy.
+
+After the upstream login completes, DarkAuth continues the original local authorization flow. Applications still integrate with DarkAuth as their OIDC provider; they do not need to talk to the upstream provider directly.
+
+## Account linking
+
+Use the strictest account-linking policy that works for the identity provider:
+
+- `disabled` prevents automatic linking to existing local users.
+- `email_verified` links only when the upstream provider asserts a verified email address.
+- `email` still requires a verified email in normal admin-created connections; unverified-email linking is not enabled by the admin UI.
+
+Prefer `email_verified` for workforce providers that publish a reliable `email_verified` claim. Do not rely on unverified upstream email alone for account takeover-sensitive linking.
 
 ## Discovery
 
@@ -25,6 +55,14 @@ Admins can use OIDC discovery to prefill a connection from an issuer URL. Discov
 
 Federation client secrets are encrypted at rest and are never returned by list or detail reads. To change a secret, submit a replacement value on the update flow. Leaving the secret field unchanged preserves the existing encrypted secret.
 
+Admins cannot recover a stored plaintext upstream client secret from DarkAuth. Rotate it in the upstream provider and replace it in DarkAuth if the value is lost or may have been exposed.
+
 ## Deactivation
 
 Disabling or deleting a federation connection stops new routed sign-ins for its domains. Review active sessions and issued tokens separately if the upstream provider relationship is being removed for security reasons.
+
+## Security caveats
+
+Federation changes how a user proves identity; it does not give the upstream provider access to plaintext DarkAuth key material. Zero-knowledge key unlock still depends on an available local unlock method, such as password-derived material, passkey PRF, recovery key, or trusted-device approval.
+
+Admins can see connection metadata, domains, routing results, and whether a secret is present. Admins cannot see user passwords, OPAQUE export keys, recovery keys, passkey PRF output, account root keys, client app keys, or plaintext federation client secrets.

@@ -2,9 +2,18 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
 import apiService, { type DeviceApprovalResponse, type UserOrganization } from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
+import deviceKeyStore from "../services/deviceKeyStore";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
 import { loadExportKey, saveExportKey } from "../services/sessionKey";
+import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
+import {
+  browserSupportsWebAuthn,
+  derivePasskeyPrfWrapKey,
+  getPasskeyCredential,
+  getPasskeyPrfResult,
+  serializeAuthenticationResponse,
+} from "../services/webauthn";
 import Button from "./Button";
 
 interface ScopeInfo {
@@ -76,8 +85,11 @@ export default function Authorize({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
+  const [unlockMethod, setUnlockMethod] = useState<
+    "password" | "passkey" | "trusted_device" | "recovery" | "new_key"
+  >("password");
   const [currentPassword, setCurrentPassword] = useState("");
-  const [oldPassword, setOldPassword] = useState("");
+  const [recoverySecret, setRecoverySecret] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [keyUnlocked, setKeyUnlocked] = useState(sessionData.keyState === "unlocked");
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
@@ -96,7 +108,7 @@ export default function Authorize({
     privateKey: CryptoKey;
   } | null>(null);
   const currentPasswordId = useId();
-  const oldPasswordId = useId();
+  const recoverySecretId = useId();
   const appName = authRequest.clientName || "Application";
   const explicitOrganizationId = authRequest.organizationId || "";
   const sessionOrganizationId = sessionData.organizationId || "";
@@ -488,6 +500,12 @@ export default function Authorize({
           let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
           let drk: Uint8Array | null = null;
           try {
+            const unlockedArk = loadUnlockedArk(sessionData.sub);
+            if (unlockedArk) {
+              drk = unlockedArk;
+              await finalizeWithZk(drk);
+              return;
+            }
             const wrappedDrkB64 = await apiService.getWrappedDrk();
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
             exportKey = await loadExportKey(sessionData.sub);
@@ -572,7 +590,6 @@ export default function Authorize({
       }
       const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
 
-      // Clear export key from memory immediately after deriving other keys
       cryptoService.clearSensitiveData(exportKey);
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys keys derived");
       const drk = await cryptoService.generateDRK();
@@ -604,6 +621,7 @@ export default function Authorize({
       setKeyUnlocked(true);
       setRecoveryVisible(false);
       const drkForHandoff = drk.slice();
+      saveUnlockedArk(sessionData.sub, drkForHandoff);
       cryptoService.clearSensitiveData(drk);
       try {
         const url = new URL(window.location.href);
@@ -641,117 +659,135 @@ export default function Authorize({
     }
   };
 
-  const recoverWithOldPassword = async () => {
-    logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword start");
-    if (!sessionData.email) {
-      setError("Email is required for recovery");
-      return;
-    }
-    if (!oldPassword) {
-      setError("Enter your old password");
+  const finishUnlockWithArk = async (ark: Uint8Array) => {
+    saveUnlockedArk(sessionData.sub, ark);
+    setKeyUnlocked(true);
+    setRecoveryVisible(false);
+    await finalizeWithZk(ark);
+  };
+
+  const unlockWithRecoveryKey = async () => {
+    const secret = recoverySecret.trim();
+    if (!secret) {
+      setError("Enter your recovery key");
       return;
     }
     setRecoveryLoading(true);
     setError(null);
-    let currentExportKey: Uint8Array | null = null;
-    let oldExportKey: Uint8Array | null = null;
-    let recoveredDrk: Uint8Array | null = null;
-    let keysOld: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
-    let keysNew: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
+    let secretBytes: Uint8Array | null = null;
+    let verifier: Uint8Array | null = null;
+    let wrapKey: Uint8Array | null = null;
+    let ark: Uint8Array | null = null;
     try {
-      currentExportKey = await loadExportKey(sessionData.sub);
-      if (!currentExportKey) {
-        if (!currentPassword) {
-          throw new Error("Enter your current password to unlock keys.");
-        }
-        const currentStart = await opaqueService.startLogin(sessionData.email, currentPassword);
-        const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
-        const currentFinish = await opaqueService.finishLogin(
-          currentStartResp.message,
-          currentStart.state
-        );
-        opaqueService.clearState(currentStart.state);
-        currentExportKey = currentFinish.exportKey;
-        await saveExportKey(sessionData.sub, currentExportKey);
-        cryptoService.clearSensitiveData(currentFinish.sessionKey);
+      const recoveryKeys = await apiService.getRecoveryKeys();
+      const active = recoveryKeys.find((key) => !key.revoked_at);
+      if (!active?.recovery_key_id) {
+        throw new Error("No recovery key is registered for this account.");
       }
-
-      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE start");
-      const oldStart = await opaqueService.startLogin(sessionData.email, oldPassword);
-      const oldStartResp = await apiService.passwordRecoveryVerifyStart(oldStart.request);
-      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword OPAQUE finish");
-      const oldFinish = await opaqueService.finishLogin(oldStartResp.message, oldStart.state);
-      await apiService.passwordRecoveryVerifyFinish(oldFinish.request, oldStartResp.sessionId);
-      opaqueService.clearState(oldStart.state);
-      oldExportKey = oldFinish.exportKey;
-      cryptoService.clearSensitiveData(oldFinish.sessionKey);
-
-      logger.debug(
-        { sub: sessionData.sub },
-        "[Authorize] recoverWithOldPassword fetch wrapped DRK"
+      secretBytes = fromBase64Url(secret);
+      verifier = await cryptoService.deriveRecoveryVerifier(secretBytes);
+      const used = await apiService.recordRecoveryKeyUse(
+        active.recovery_key_id,
+        toBase64Url(verifier)
       );
-      const wrappedDrkB64 = await apiService.getWrappedDrk();
-      const wrapped = fromBase64Url(wrappedDrkB64);
-      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword unwrap old DRK");
-      keysOld = await cryptoService.deriveKeysFromExportKey(oldExportKey, sessionData.sub);
-      recoveredDrk = await cryptoService.unwrapDRK(wrapped, keysOld.wrapKey, sessionData.sub);
-      logger.debug({ sub: sessionData.sub }, "[Authorize] recoverWithOldPassword rewrap new DRK");
-      keysNew = await cryptoService.deriveKeysFromExportKey(currentExportKey, sessionData.sub);
-      const rewrapped = await cryptoService.wrapDRK(recoveredDrk, keysNew.wrapKey, sessionData.sub);
-      logger.debug(
-        { sub: sessionData.sub },
-        "[Authorize] recoverWithOldPassword store wrapped DRK"
-      );
-      await apiService.putWrappedDrk(toBase64Url(rewrapped));
-      logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
-      setKeyUnlocked(true);
-      setRecoveryVisible(false);
-      setOldPassword("");
-      setCurrentPassword("");
-      try {
-        const url = new URL(window.location.href);
-        const zkPubParam = url.searchParams.get("zk_pub");
-        const clientId = url.searchParams.get("client_id") || "";
-        if (authRequest.hasZk && zkPubParam && clientId) {
-          logger.debug(
-            { requestId: authRequest.requestId },
-            "[Authorize] finalize immediately after recovery"
-          );
-          await finalizeWithZk(recoveredDrk);
-          return;
-        }
-      } catch (e) {
-        logger.warn(
-          e instanceof Error
-            ? { name: e.name, message: e.message, stack: e.stack }
-            : { detail: String(e) },
-          "[Authorize] immediate finalize after recovery failed"
-        );
+      if (!used.envelope) {
+        throw new Error("Recovery key envelope is missing.");
       }
-      queueMicrotask(() => {
-        logger.debug(
-          { requestId: authRequest.requestId },
-          "[Authorize] microtask finalize after recovery"
-        );
-        handleAuthorize(true);
-      });
+      wrapKey = await cryptoService.deriveRecoveryKeyMaterial(secretBytes, sessionData.sub);
+      ark = await cryptoService.unwrapKeyMaterial(
+        fromBase64Url(used.envelope.wrapped_key),
+        wrapKey,
+        fromBase64Url(used.envelope.aad)
+      );
+      setRecoverySecret("");
+      await finishUnlockWithArk(ark);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Recovery failed";
-      setError(
-        msg.includes("auth") || msg.includes("OPAQUE") ? "Old password verification failed" : msg
-      );
+      setError(e instanceof Error ? e.message : "Recovery key unlock failed");
     } finally {
-      const arraysToClear = [
-        currentExportKey,
-        oldExportKey,
-        recoveredDrk,
-        keysOld?.masterKey,
-        keysOld?.wrapKey,
-        keysOld?.deriveKey,
-        keysNew?.masterKey,
-        keysNew?.wrapKey,
-        keysNew?.deriveKey,
-      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      const arraysToClear = [secretBytes, verifier, wrapKey, ark].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
+      if (arraysToClear.length > 0) {
+        cryptoService.clearSensitiveData(...arraysToClear);
+      }
+      setRecoveryLoading(false);
+    }
+  };
+
+  const unlockWithTrustedDevice = async () => {
+    setRecoveryLoading(true);
+    setError(null);
+    let ark: Uint8Array | null = null;
+    try {
+      const keybag = await apiService.getKeybag();
+      for (const envelope of keybag.envelopes) {
+        if (envelope.revoked_at || envelope.type !== "trusted_device") continue;
+        const metadata = envelope.metadata || {};
+        const handle =
+          typeof metadata.key_handle === "string"
+            ? metadata.key_handle
+            : typeof metadata.handle === "string"
+              ? metadata.handle
+              : null;
+        if (!handle) continue;
+        const localKey = await deviceKeyStore.getKey(handle);
+        if (!localKey) continue;
+        ark = await cryptoService.unwrapKeyMaterialWithAesKey(
+          fromBase64Url(envelope.wrapped_key),
+          localKey,
+          fromBase64Url(envelope.aad)
+        );
+        await finishUnlockWithArk(ark);
+        return;
+      }
+      throw new Error("This browser does not have a usable trusted-device key.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Trusted-device unlock failed");
+    } finally {
+      if (ark) cryptoService.clearSensitiveData(ark);
+      setRecoveryLoading(false);
+    }
+  };
+
+  const unlockWithPasskey = async () => {
+    if (!browserSupportsWebAuthn()) {
+      setError("This browser does not support passkey unlock.");
+      return;
+    }
+    setRecoveryLoading(true);
+    setError(null);
+    let prfResult: Uint8Array | null = null;
+    let wrapKey: Uint8Array | null = null;
+    let ark: Uint8Array | null = null;
+    try {
+      const start = await apiService.webAuthnLoginStart();
+      const credential = await getPasskeyCredential(start.public_key);
+      prfResult = getPasskeyPrfResult(credential);
+      const finish = await apiService.webAuthnLoginFinish({
+        challengeId: start.challenge_id,
+        response: serializeAuthenticationResponse(credential),
+        prfResultConfirmed: !!prfResult,
+      });
+      if (!prfResult || !finish.unlock?.envelope) {
+        throw new Error("This passkey signed you in but did not unlock encryption keys.");
+      }
+      wrapKey = await derivePasskeyPrfWrapKey({
+        prfResult,
+        sub: finish.sub,
+        credentialId: finish.credential.credential_id,
+      });
+      ark = await cryptoService.unwrapKeyMaterial(
+        fromBase64Url(finish.unlock.envelope.wrapped_key),
+        wrapKey,
+        fromBase64Url(finish.unlock.envelope.aad)
+      );
+      await finishUnlockWithArk(ark);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Passkey unlock failed");
+    } finally {
+      const arraysToClear = [prfResult, wrapKey, ark].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
       if (arraysToClear.length > 0) {
         cryptoService.clearSensitiveData(...arraysToClear);
       }
@@ -770,6 +806,9 @@ export default function Authorize({
     }
     setRecoveryLoading(true);
     setError(null);
+    let exportKey: Uint8Array | null = null;
+    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
+    let ark: Uint8Array | null = null;
     try {
       const currentStart = await opaqueService.startLogin(sessionData.email, currentPassword);
       const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
@@ -779,19 +818,33 @@ export default function Authorize({
       );
       opaqueService.clearState(currentStart.state);
       await saveExportKey(sessionData.sub, currentFinish.exportKey);
-      cryptoService.clearSensitiveData(currentFinish.sessionKey, currentFinish.exportKey);
+      exportKey = currentFinish.exportKey;
+      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
+      ark = await cryptoService.unwrapDRK(
+        fromBase64Url(await apiService.getWrappedDrk()),
+        keys.wrapKey,
+        sessionData.sub
+      );
+      saveUnlockedArk(sessionData.sub, ark);
+      cryptoService.clearSensitiveData(currentFinish.sessionKey);
       setCurrentPassword("");
-      setKeyUnlocked(true);
-      setRecoveryVisible(false);
-      queueMicrotask(() => {
-        handleAuthorize(true);
-      });
+      await finishUnlockWithArk(ark);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unlock failed";
       setError(
         msg.includes("auth") || msg.includes("OPAQUE") ? "Current password is incorrect" : msg
       );
     } finally {
+      const arraysToClear = [
+        exportKey,
+        keys?.masterKey,
+        keys?.wrapKey,
+        keys?.deriveKey,
+        ark,
+      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      if (arraysToClear.length > 0) {
+        cryptoService.clearSensitiveData(...arraysToClear);
+      }
       setRecoveryLoading(false);
     }
   };
@@ -942,63 +995,98 @@ export default function Authorize({
 
         {recoveryVisible && (
           <div className="authorize-recovery">
-            <h3>Key Recovery</h3>
-            <p>
-              We couldn’t access your encryption keys. Unlock with your current password, or if you
-              recently changed your password, recover with your previous password.
-            </p>
-            <div className="form-group">
-              <label htmlFor={currentPasswordId}>Current Password</label>
-              <input
-                id={currentPasswordId}
-                type="password"
-                placeholder="Enter your current password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                autoComplete="current-password"
-              />
+            <h3>Unlock encryption keys</h3>
+            <p>You are signed in, but this app needs zero-knowledge key delivery.</p>
+            <div className="authorize-unlock-methods">
+              {[
+                ["password", "Password"],
+                ["passkey", "PRF passkey"],
+                ["trusted_device", "This trusted browser"],
+                ["recovery", "Recovery key"],
+                ["new_key", "Create new keys"],
+              ].map(([value, label]) => (
+                <label className="authorize-unlock-option" key={value}>
+                  <input
+                    type="radio"
+                    name="unlock_method"
+                    value={value}
+                    checked={unlockMethod === value}
+                    onChange={() =>
+                      setUnlockMethod(
+                        value as "password" | "passkey" | "trusted_device" | "recovery" | "new_key"
+                      )
+                    }
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
             </div>
-            <div className="form-group">
-              <label htmlFor={oldPasswordId}>Old Password</label>
-              <input
-                id={oldPasswordId}
-                type="password"
-                placeholder="Enter your old password"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                autoComplete="current-password"
-              />
-            </div>
+            {unlockMethod === "password" && (
+              <div className="form-group">
+                <label htmlFor={currentPasswordId}>Password</label>
+                <input
+                  id={currentPasswordId}
+                  type="password"
+                  placeholder="Enter your password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  autoComplete="current-password"
+                />
+              </div>
+            )}
+            {unlockMethod === "recovery" && (
+              <div className="form-group">
+                <label htmlFor={recoverySecretId}>Recovery key</label>
+                <input
+                  id={recoverySecretId}
+                  type="password"
+                  placeholder="Paste your recovery key"
+                  value={recoverySecret}
+                  onChange={(e) => setRecoverySecret(e.target.value)}
+                  autoComplete="off"
+                />
+              </div>
+            )}
+            {unlockMethod === "passkey" && (
+              <p className="help-text">
+                Use a passkey that was registered with encryption unlock support.
+              </p>
+            )}
+            {unlockMethod === "trusted_device" && (
+              <p className="help-text">
+                Use the key stored in this browser when it was marked as trusted.
+              </p>
+            )}
+            {unlockMethod === "new_key" && (
+              <p className="help-text">
+                This creates a new account root key. Existing encrypted app data that depends on the
+                old key may no longer be readable.
+              </p>
+            )}
             <div className="actions da-authorize-actions">
               <Button
                 type="button"
                 variant="primary"
-                onClick={unlockWithCurrentPassword}
-                disabled={recoveryLoading}
-              >
-                Unlock with current password
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={recoverWithOldPassword}
-                disabled={recoveryLoading}
-              >
-                Recover with old password
-              </Button>
-              <Button
-                type="button"
-                variant="success"
-                onClick={generateNewKeys}
+                onClick={
+                  unlockMethod === "password"
+                    ? unlockWithCurrentPassword
+                    : unlockMethod === "passkey"
+                      ? unlockWithPasskey
+                      : unlockMethod === "trusted_device"
+                        ? unlockWithTrustedDevice
+                        : unlockMethod === "recovery"
+                          ? unlockWithRecoveryKey
+                          : generateNewKeys
+                }
                 disabled={recoveryLoading}
               >
                 {recoveryLoading ? (
                   <>
                     <span className="loading-spinner" />
-                    Initializing...
+                    Unlocking...
                   </>
                 ) : (
-                  "Generate New Keys"
+                  "Continue"
                 )}
               </Button>
             </div>

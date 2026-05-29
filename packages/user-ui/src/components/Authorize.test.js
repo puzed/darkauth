@@ -78,6 +78,22 @@ test("Authorize offers trusted device approval before password unlock", () => {
   assert.notEqual(source.indexOf("cryptoService.decryptDeviceApprovalJWE"), -1);
 });
 
+test("Authorize uses distinct unlock methods instead of old-password recovery", () => {
+  assert.notEqual(source.indexOf("Unlock encryption keys"), -1);
+  assert.notEqual(source.indexOf("unlockMethod"), -1);
+  assert.notEqual(source.indexOf("unlockWithRecoveryKey"), -1);
+  assert.notEqual(source.indexOf("unlockWithTrustedDevice"), -1);
+  assert.notEqual(source.indexOf("unlockWithPasskey"), -1);
+  assert.equal(source.indexOf("Recover with old password"), -1);
+});
+
+test("Authorize stores unlocked ARK in memory only for ZK finalization", () => {
+  assert.notEqual(source.indexOf("saveUnlockedArk"), -1);
+  assert.notEqual(source.indexOf("loadUnlockedArk"), -1);
+  assert.notEqual(source.indexOf("apiService.recordRecoveryKeyUse"), -1);
+  assert.notEqual(source.indexOf("deviceKeyStore.getKey"), -1);
+});
+
 test("multi-organization authorize keeps the organization picker visible", () => {
   const summaryExpression = source.match(/const showOrganizationSummary = ([^;]+);/);
 

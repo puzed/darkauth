@@ -2,6 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { accountKeys, keyEnvelopes } from "../db/schema.ts";
 import { NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
+import { assertScimEnvelopePolicy } from "./scimPolicy.ts";
 
 const ALLOWED_KEY_STATUSES = new Set(["active", "rotated", "revoked"]);
 const ALLOWED_ENVELOPE_TYPES = new Set(["password", "passkey_prf", "trusted_device", "recovery"]);
@@ -86,6 +87,7 @@ export async function createKeyEnvelope(
 
   const accountKey = await getAccountKey(context, data.keyId);
   if (accountKey.sub !== data.sub) throw new ValidationError("Envelope subject mismatch");
+  await assertScimEnvelopePolicy(context, data.sub, data.type);
 
   const row = {
     envelopeId: data.envelopeId,

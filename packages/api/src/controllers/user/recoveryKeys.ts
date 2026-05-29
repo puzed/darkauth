@@ -10,7 +10,7 @@ import {
   recordRecoveryKeyUse,
   revokeRecoveryKey,
 } from "../../models/recoveryKeys.ts";
-import { requireSession } from "../../services/sessions.ts";
+import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { fromBase64Url, generateRandomString, toBase64Url } from "../../utils/crypto.ts";
@@ -156,7 +156,9 @@ export const postRecoveryKeyUse = withRateLimit("key_management")(
     skipBodyCapture: true,
     flushAudit: true,
   })(async (context, request, response, recoveryKeyId): Promise<void> => {
-    const sub = await requireUserSub(context, request);
+    const session = await requireSession(context, request, false);
+    if (!session.sub) throw new UnauthorizedError("User session required");
+    const sub = session.sub;
     if (!recoveryKeyId) throw new ValidationError("recovery_key_id is required");
     const parsed = parseBody(RecoveryKeyUseRequest, await getCachedBody(request));
     const recoveryKey = await recordRecoveryKeyUse(context, {
@@ -164,6 +166,8 @@ export const postRecoveryKeyUse = withRateLimit("key_management")(
       recoveryKeyId,
       verifier: decodeRecoveryVerifier(parsed.verifier),
     });
+    const sessionId = getSessionId(request, false);
+    if (sessionId) await updateSession(context, sessionId, { ...session, keyState: "unlocked" });
     sendJsonValidated(
       response,
       200,

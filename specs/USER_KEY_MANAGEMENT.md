@@ -863,138 +863,259 @@ Consume device approval:
 
 Responses MUST avoid returning plaintext keys except to the authenticated browser in encrypted-to-device form.
 
-## 15. Migration Plan
+## 15. Implementation Status And Remaining Plan
 
-### Phase 1: Introduce Keybag Internals
+Last audited: 2026-05-29.
 
-- [x] Add `account_keys`.
-- [x] Add `key_envelopes`.
-- [x] Migrate existing `wrapped_root_keys` to password envelopes.
-- [x] Treat existing DRK as ARK for migrated users.
-- [x] Keep existing ZK delivery behavior for v1 clients.
-- [x] Add key version metadata.
-- [x] Update `specs/2_CORE.md` to make v2 keybag semantics the core target.
-- [x] Update `specs/0_OIDC_ZK_EXTENSION.md` to specify CAK delivery for v2 clients.
+A checked item means the repository contains an implemented, wired code path for that item. An unchecked item means the item is missing, only a backend foundation exists, only UI text exists, or the implementation is not usable end-to-end.
+
+### Phase 1: Keybag Internals
+
+- [x] Add `account_keys` table and schema model.
+- [x] Add `key_envelopes` table and schema model.
+- [x] Migrate existing `wrapped_root_keys` rows into password key envelopes in migration `0024_user_key_management.sql`.
+- [x] Treat existing DRK material as the initial ARK for migrated users.
+- [x] Keep existing v1 DRK delivery behavior for clients migrated to `key_delivery_version = "v1-drk"`.
+- [x] Add key version metadata for account keys and migrated envelopes.
+- [x] Add user keybag APIs for account keys and envelopes.
+- [x] Update `specs/2_CORE.md` to describe v2 keybag semantics.
+- [x] Update `specs/0_OIDC_ZK_EXTENSION.md` to describe CAK delivery for v2 clients.
 - [x] Update hosted-web security review to distinguish root-key custody from per-client-key delivery.
+- [ ] Add an account-key rotation API and implementation for `POST /crypto/keybag/rotate`.
+- [ ] Resolve the spec/API mismatch for recovery creation: either implement `POST /crypto/keybag/recovery` or update the spec to canonically use `/crypto/recovery-keys`.
+- [x] Add admin visibility for account key status and envelope counts without exposing ciphertext or plaintext.
+- [x] Add admin revoke controls for user key envelopes.
 
 ### Phase 2: Per-Client Key Delivery
 
-- [x] Add client setting `key_delivery_version`.
-- [x] Add client setting `delivered_key_kind`.
-- [x] Implement CAK derivation in user UI.
-- [x] Update SDK to expect `client_app_key`.
-- [x] Keep backward compatibility for existing `drk` field through an explicit legacy mode.
+- [x] Add client storage fields `key_delivery_version` and `delivered_key_kind`.
+- [x] Add pending authorization and authorization code storage for v2 key hash metadata.
+- [x] Enforce `v1-drk -> root_key` and `v2 -> client_app_key` in backend client models.
+- [x] Include key delivery metadata in authorization requests sent to the user UI.
+- [x] Implement CAK derivation in the user UI authorization flow.
+- [x] Deliver v2 client keys as `darkauth_key_jwe` fragments.
+- [x] Keep legacy `drk_jwe` delivery for explicitly registered v1 clients.
+- [x] Update the TypeScript SDK to verify and accept `client_app_key` payloads.
 - [x] Add migration docs for app developers.
+- [x] Expose `key_delivery_version` in admin client create/edit UI.
+- [x] Expose `delivered_key_kind` in admin client create/edit UI, or show it as derived read-only state.
+- [x] Add client key migration status in the admin UI.
+- [x] Add client key migration actions or guidance for switching legacy ZK clients from v1 DRK delivery to v2 CAK delivery.
+- [ ] Add explicit client configuration for account-wide versus organization-scoped CAK derivation.
+- [ ] Update SDK public naming so v2 callers can distinguish a client app key from a root DRK instead of only receiving it through the legacy `drk` field.
 
-### Phase 3: Split Login From Unlock
+### Phase 3: Login Versus Key Unlock
 
-- [x] Model authenticated-but-key-locked state.
-- [x] Add unlock method picker.
-- [x] Add password unlock step-up after SSO/passkey login.
-- [x] Add key setup journey for users with no ARK.
-- [x] Add user UI key management pages.
+- [x] Store user session `keyState`.
+- [x] Set password-login sessions to `keyState = "unlocked"`.
+- [x] Set WebAuthn-login sessions to `keyState = "locked"` unless an unlock is completed.
+- [x] Reject ZK authorization finalization when the server-side session key state is locked.
+- [x] Add password step-up unlock during ZK authorization.
+- [x] Add a key setup path that can generate new client-side key material when no usable key exists.
+- [x] Add user security settings for envelopes, recovery keys, trusted devices, and pending device approvals.
+- [x] Add a complete unlock method picker that includes password, recovery key, PRF passkey, trusted-device approval, and new-key setup as separate choices.
+- [x] Add a true offline recovery-key unlock path during authorization.
+- [x] Remove or rework the old-password recovery flow so email/password reset cannot be treated as equivalent to an offline recovery key.
+- [x] Make authenticated-but-key-locked state obvious outside the authorization screen, including the dashboard and settings surfaces.
+- [ ] Enforce SCIM/SSO unlock-method policy in the user UI.
+- [ ] Add user-visible connected identity and enterprise SSO management.
+- [ ] Add user-visible password sign-in method management separate from encryption unlock methods.
 
 ### Phase 4: Trusted Device Approval
 
-- [x] Add trusted device registration.
-- [x] Add device approval requests.
-- [x] Add polling or push-style notification in user UI.
-- [x] Add verification code display.
-- [x] Add single-use encrypted approval consume flow.
-- [x] Add revoke trusted device.
+- [x] Add trusted device storage.
+- [x] Add trusted device registration API.
+- [x] Add trusted device revoke API.
+- [x] Store trusted-device envelopes and local non-extractable key handles for browser trust.
+- [x] Add device approval request, list, approve, consume, and deny APIs.
+- [x] Add user settings UI for trusted devices and pending approvals.
+- [x] Add authorization-screen polling for device approval.
+- [x] Add verification code display in the authorization flow.
+- [x] Add encrypted approval handoff from an existing trusted device.
+- [ ] Bind approval requests to `client_id`, OAuth state, and verification code hash server-side.
+- [x] Verify the `new_device_proof` server-side instead of only requiring a non-empty value.
+- [x] Update the requester session to `keyState = "unlocked"` after successful trusted-device approval, or add a dedicated finalize path that validates the encrypted handoff without relying on stale server key state.
+- [ ] Add replay and mismatch tests for approval proof, state binding, client binding, and verification code binding.
+- [x] Add admin device visibility and revoke controls.
+- [x] Add policy controls for whether trusted-device approval is allowed.
 
 ### Phase 5: Passkeys
 
-- [x] Add WebAuthn registration.
-- [x] Add WebAuthn login.
-- [x] Detect PRF support.
-- [x] Create passkey PRF envelopes only after a real PRF result.
-- [x] Support passkey login without unlock when PRF is unavailable.
-- [x] Add browser/authenticator compatibility messaging.
+- [x] Add WebAuthn credential and challenge tables.
+- [x] Add WebAuthn registration APIs.
+- [x] Add WebAuthn login APIs.
+- [x] Add backend PRF support tracking for credentials.
+- [x] Add backend passkey PRF envelope creation.
+- [x] Return PRF unlock material from passkey login when a credential has a PRF envelope and the client confirms a PRF result.
+- [x] Distinguish auth-only passkeys from PRF unlock passkeys in backend data.
+- [x] Add browser compatibility messaging in user settings.
+- [x] Add passkey registration UI.
+- [x] Add passkey login UI.
+- [ ] Add passkey management UI listing registered credentials.
+- [ ] Add passkey revoke UI and API.
+- [x] Add PRF envelope setup UI that performs the WebAuthn PRF ceremony and wraps the ARK.
+- [x] Replace the disabled `Passkey setup unavailable` settings control with a working setup flow.
+- [x] Update server-side session state to unlocked after successful passkey PRF unlock, or add an authorization finalize path that accepts the verified PRF unlock result.
+- [x] Add browser/authenticator fallback copy for passkeys without PRF during real registration and login flows.
+- [ ] Add end-to-end passkey tests with mocked WebAuthn ceremonies.
 
 ### Phase 6: Federation
 
-- [x] Add upstream OIDC connection model.
-- [x] Add OIDC discovery and callback flow.
-- [x] Add claim mapping.
-- [x] Add account linking policies.
-- [x] Add domain routing.
-- [x] Add admin UI for enterprise connections.
-- [x] Consider SAML after OIDC based on demand.
+- [x] Add upstream OIDC connection data model.
+- [x] Add encrypted storage support for federation client secrets.
+- [x] Add admin API CRUD for federation connections.
+- [x] Add OIDC discovery API with public HTTPS issuer validation.
+- [x] Add claim mapping model helpers.
+- [x] Add federation identity linking model helpers.
+- [x] Add OIDC callback state storage helpers.
+- [x] Add domain routing lookup API.
+- [x] Document that SAML is out of scope for this phase.
+- [x] Add user-facing federation route/start endpoint that redirects to the upstream OIDC provider.
+- [x] Add upstream OIDC callback endpoint.
+- [x] Exchange upstream authorization codes for upstream tokens.
+- [x] Validate upstream ID tokens, issuer, audience, nonce, expiry, and signature.
+- [x] Fetch and validate upstream userinfo when configured.
+- [x] Create or link DarkAuth users from validated upstream claims according to policy.
+- [x] Create DarkAuth sessions from successful upstream federation.
+- [x] Ensure SSO login produces `keyState = "locked"` unless a separate unlock method succeeds.
+- [x] Add SSO login UI and email-domain routing in the user sign-in flow.
+- [ ] Add connected-identity UI for users.
+- [x] Add admin UI pages for enterprise federation connections.
+- [x] Add admin UI for OIDC discovery, domain routing preview, claim mapping, and secret replacement.
+- [ ] Remove or disable email-only account linking because it can trust an unverified upstream email. Default and admin-UI-created paths now reject unverified upstream email, but a metadata escape hatch still exists in the model/API.
+- [ ] Add federation policy controls for pre-provisioning, allowed domains, allowed unlock methods, and non-ZK bypass.
 
 ### Phase 7: SCIM
 
-- [x] Add SCIM bearer token management.
-- [x] Add Users resource.
-- [x] Add Groups resource.
-- [x] Add filtering and pagination.
-- [x] Add PATCH support.
-- [x] Add external ID mapping.
-- [x] Add deprovisioning session revocation.
-- [x] Add admin UI mapping and policy controls.
+- [x] Add SCIM bearer token backend model.
+- [x] Add admin API to create, list, and revoke SCIM bearer tokens.
+- [x] Add SCIM `/Users` resource.
+- [x] Add SCIM `/Groups` resource.
+- [x] Add SCIM service provider metadata endpoints.
+- [x] Add SCIM filtering and pagination.
+- [x] Add SCIM PATCH support for implemented user and group fields.
+- [x] Add SCIM external ID storage.
+- [x] Revoke sessions, pending authorization requests, and authorization codes when SCIM deactivates a user.
+- [x] Block sessions for deactivated SCIM users.
+- [x] Add generic admin settings rows for SCIM provisioning and mapping policy.
+- [x] Add admin UI to create, view, and revoke SCIM bearer tokens.
+- [x] Add admin UI to show SCIM token plaintext exactly once after creation.
+- [x] Enforce `users.scim.only_provisioned_sign_in`.
+- [x] Enforce `users.scim.require_key_unlock_for_zk`.
+- [x] Enforce `users.scim.allow_password_envelopes`.
+- [x] Enforce `users.scim.allow_passkey_prf_envelopes`.
+- [x] Enforce `users.scim.allow_trusted_device_approval`.
+- [x] Enforce `users.scim.deprovision_action`.
+- [x] Implement SCIM group-to-organization and group-to-role mapping.
+- [x] Enforce `users.scim.unknown_group_policy`.
+- [ ] Add SCIM audit details for user/group create, update, patch, deactivate, token create, and token revoke.
+- [ ] Add SCIM conformance tests for common identity-provider payloads.
 
 ## 16. Security Checklist
 
 ### Cryptography
 
-- [x] ARK generated client-side with secure randomness.
-- [x] ARK never sent to OAuth clients.
-- [x] CAK derived with `client_id`, `sub`, `key_id`, and versioned context.
-- [x] Envelopes use AEAD with explicit AAD.
-- [x] Password wrapping keys derived from OPAQUE `export_key`.
-- [x] Passkey wrapping keys created only from verified PRF output.
-- [x] Recovery keys are high entropy and never stored plaintext.
+- [x] Generate ARK/DRK material client-side with secure randomness for local password registration and key setup.
+- [x] Store server-side key records as ciphertext or metadata only.
+- [x] Derive v2 CAKs with `client_id`, `sub`, `key_id`, versioned context, and current organization context when selected.
+- [x] Use AEAD wrapping with explicit AAD for new key envelopes.
+- [x] Derive password wrapping keys from OPAQUE `export_key`.
+- [x] Create high-entropy recovery key material client-side and store only verifier/ciphertext server-side.
+- [x] Complete passkey PRF envelope setup in the browser and verify the result is from a real WebAuthn PRF ceremony.
+- [ ] Add account-key rotation semantics that preserve or intentionally retire old encrypted app data.
+- [ ] Add recovery-key rotation semantics that revoke old recovery envelopes after successful replacement.
+- [x] Ensure v2 clients never receive ARK and add tests proving legacy root-key delivery is impossible unless the client is explicitly registered as `v1-drk`.
 
 ### Delivery
 
-- [x] Fragment JWE contains CAK, not ARK.
-- [x] Fragment JWE is bound to state, request, redirect URI, client, user, and expiry.
-- [x] Token endpoint returns only JWE hash metadata.
-- [x] RP SDK verifies hash and payload metadata before decrypting.
-- [x] RP SDK strips fragment after callback.
+- [x] Deliver v2 CAK payloads in `darkauth_key_jwe`.
+- [x] Bind v2 JWE payloads to state, request, redirect URI, client, subject, key id, and expiry in the user UI.
+- [x] Store only JWE hash metadata on the server-side authorization code.
+- [x] Return only JWE hash metadata from the token endpoint.
+- [x] Have the SDK verify v2 hash, payload metadata, and JWE header before accepting the key.
+- [x] Strip ZK key fragments after callback handling.
+- [ ] Add browser integration tests for wrong state, wrong redirect URI, wrong client, wrong subject, expired JWE, and mismatched hash.
+- [ ] Add tests proving non-ZK clients never see key-unlock controls or key-delivery metadata.
 
 ### Storage
 
-- [x] Plaintext ARK and CAK are memory-only by default.
-- [x] No plaintext keys in localStorage.
-- [x] No plaintext keys in JS-readable cookies.
-- [x] Persistent device trust stores encrypted envelopes and local key handles only.
-- [x] Server-side key records are ciphertext or metadata only.
+- [x] Keep plaintext ARK and CAK memory-only in normal user UI and SDK flows.
+- [x] Avoid plaintext keys in localStorage by default.
+- [x] Avoid plaintext keys in JS-readable cookies.
+- [x] Store persistent trusted-device state as encrypted envelopes plus local key handles.
+- [ ] Review and minimize sessionStorage continuity data for OAuth callback private keys.
+- [ ] Add automated storage assertions for user UI, authorize flow, SDK callback flow, trusted-device flow, and recovery flow.
 
 ### Authentication And Provisioning
 
-- [x] SSO login does not imply key unlock.
-- [x] SCIM provisioning does not imply authentication.
-- [x] SCIM deactivation revokes sessions and refresh tokens.
-- [x] Account linking never trusts unverified email alone.
-- [x] Passkey without PRF is labeled as auth-only.
+- [x] SCIM provisioning does not by itself create a password or complete authentication.
+- [x] SCIM deactivation blocks future session use for SCIM-managed users.
+- [x] SCIM deactivation revokes server-side sessions, pending auth, and auth codes.
+- [x] Passkey data model distinguishes auth-only passkeys from PRF unlock passkeys.
+- [x] Implement actual SSO login; current federation work is model/admin API foundation only.
+- [x] Ensure SSO login to non-ZK clients does not prompt for key unlock.
+- [x] Ensure SSO login to ZK clients prompts for a separate key unlock or setup journey.
+- [ ] Ensure account linking never trusts an unverified upstream email alone. Default and admin-UI-created paths now reject unverified upstream email, but a metadata escape hatch still exists in the model/API.
+- [x] Enforce all SCIM enterprise sign-in and unlock-method policies.
+- [ ] Label actual registered passkeys as auth-only versus auth-and-unlock in user UI.
 
 ### Audit And Abuse Prevention
 
-- [x] No logs include OPAQUE payloads, PRF outputs, wrapped keys, JWE ciphertexts, auth codes, refresh tokens, or private keys.
-- [x] Key envelope creation/revocation is audited.
-- [x] Device approvals are audited.
-- [x] Recovery key use is audited.
-- [x] Rate limits protect auth, unlock, WebAuthn, SCIM, and device approval endpoints.
+- [x] Add logger-safety tests for sensitive auth and key fields.
+- [x] Audit key envelope creation and revocation.
+- [x] Audit trusted device creation, revocation, and device approval actions.
+- [x] Audit recovery key creation, revocation, and use.
+- [x] Rate-limit auth, key-management, WebAuthn, SCIM, and device approval endpoints.
+- [ ] Add federation login, callback, account-link, and failure audit events.
+- [ ] Add SCIM resource create/update/patch/delete audit events with safe details.
+- [ ] Add abuse tests for federation callback replay, bad nonce, bad issuer, bad signature, and denied account-link policy. Bad nonce, bad issuer, bad signature, and denied account-link tests exist; explicit callback replay coverage is still missing.
+- [ ] Add abuse tests for SCIM bearer token expiry, revocation, malformed filters, and excessive pagination.
 
 ## 17. Testing Checklist
 
-- [x] Password login unwraps ARK and derives stable CAK for the same client.
-- [x] Different clients receive different CAKs.
-- [x] Same client in different org context receives intended org-scoped key behavior.
-- [x] SSO login to non-ZK client does not prompt for key unlock.
-- [x] SSO login to ZK client prompts for unlock.
-- [x] Passkey without PRF authenticates but does not unlock.
-- [x] Passkey with PRF authenticates and unlocks when envelope exists.
-- [x] Existing-device approval transfers ARK without server plaintext.
-- [x] Device approval cannot be replayed.
-- [x] Revoked device cannot approve or unwrap.
-- [x] SCIM deactivation blocks login and revokes sessions.
-- [x] Migration preserves access to v1 encrypted app data.
-- [x] Fragment JWE cannot be accepted with wrong state, wrong client, wrong redirect URI, expired `exp`, or mismatched hash.
-- [x] Authenticated-but-key-locked sessions cannot receive CAK.
-- [x] SCIM-provisioned users without key setup can sign in to non-ZK clients but cannot complete ZK authorization until setup/unlock.
-- [x] Email reset cannot decrypt ARK unless another envelope or recovery method is used.
+### Implemented Tests
+
+- [x] Unit tests cover keybag storage and envelope isolation.
+- [x] Unit tests cover v1/v2 client key delivery model validation.
+- [x] Unit tests cover authorization code storage of v2 key hash metadata.
+- [x] Unit tests cover rejection of ZK finalization when the server session is key locked.
+- [x] Unit/source tests cover user UI CAK derivation and `darkauth_key_jwe` construction.
+- [x] SDK tests cover v2 client app key payload verification and hash matching.
+- [x] Unit tests cover WebAuthn backend registration, login, PRF envelope creation, and auth-only versus PRF-capable credentials.
+- [x] Unit tests cover trusted device storage, revocation, and single-use approval consumption.
+- [x] Unit/source tests cover user settings sections for trusted devices, approvals, recovery keys, and passkey status copy.
+- [x] Unit tests cover recovery key server storage without plaintext verifier.
+- [x] Unit tests cover SCIM bearer tokens, users, groups, PATCH, filtering, pagination, and session revocation on deactivation.
+- [x] Unit tests cover federation connection CRUD, domain routing, claim mapping helpers, and OIDC callback state helper behavior.
+- [x] Unit tests cover OIDC federation start/callback, token exchange, ID token validation, userinfo subject matching, account-linking failure, and locked SSO sessions.
+- [x] Unit tests cover SCIM sign-in policy, deprovision delete, group-to-organization/role mapping, unknown-group policy, envelope policy, trusted-device policy, and ZK unlock requirement policy.
+- [x] Unit/source tests cover admin federation connection UI, SCIM token UI, client key delivery controls, and admin user key status/revoke controls.
+- [x] Unit/source tests cover user passkey login, passkey PRF setup UI, recovery unlock, trusted-device unlock, unlock-method picker, and visible key-locked state.
+- [x] Unit tests cover trusted-device public-key proof verification and revoked-device approval rejection.
+
+### Missing Tests
+
+- [ ] End-to-end test for password login to a v2 ZK client receiving a stable CAK.
+- [ ] End-to-end test proving different clients receive different CAKs.
+- [ ] End-to-end test proving organization-scoped CAKs differ when policy requires it.
+- [ ] End-to-end test proving legacy v1 clients still receive root-key delivery only when explicitly configured.
+- [ ] End-to-end test for SSO login to a non-ZK client.
+- [ ] End-to-end test for SSO login to a ZK client requiring unlock.
+- [ ] End-to-end test for SCIM-provisioned first login to a non-ZK client.
+- [ ] End-to-end test for SCIM-provisioned first login to a ZK client requiring setup or unlock.
+- [ ] End-to-end test for recovery-key unlock during authorization.
+- [ ] End-to-end test for trusted-device approval completing ZK authorization.
+- [ ] End-to-end test proving trusted-device approval cannot be replayed.
+- [ ] End-to-end test proving revoked trusted devices cannot approve or unwrap.
+- [ ] End-to-end test for passkey registration.
+- [ ] End-to-end test for passkey login without PRF producing a locked session.
+- [ ] End-to-end test for passkey PRF login unlocking a ZK authorization.
+- [ ] End-to-end test for admin federation connection CRUD UI.
+- [ ] End-to-end test for admin SCIM token management UI.
+- [ ] End-to-end test for admin client key delivery controls.
+- [ ] End-to-end test for admin user key status visibility and revocation controls.
+- [ ] Security test proving email reset cannot decrypt ARK without an existing envelope, old password, trusted device, PRF passkey, or recovery key.
+- [ ] Security test proving no logs include OPAQUE payloads, PRF outputs, wrapped keys, JWE ciphertexts, auth codes, refresh tokens, client secrets, recovery secrets, or private keys across the new federation and SCIM paths.
 
 ## 18. References
 

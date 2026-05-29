@@ -16,11 +16,19 @@ Envelope types are:
 - `trusted_device` for an approved device handoff.
 - `recovery` for user-held recovery keys.
 
+Use the keybag APIs for current integrations. Legacy wrapped-DRK endpoints can exist for older clients, but new work should use key envelopes and v2 client app key delivery.
+
+## Locked and unlocked sessions
+
+Authentication and key unlock are separate state. A password login can authenticate and unlock because OPAQUE export-key material is available in the browser. A federated login or authentication-only passkey can authenticate the user while leaving the session key locked.
+
+Zero-knowledge authorization requests require an unlocked session before the frontend can derive and deliver a client app key. If the session is locked, the user UI should offer an unlock path rather than finalizing key delivery.
+
 ## Passkeys
 
 Passkeys can be registered and used for sign-in. When a credential supports PRF, the client can create a passkey envelope so the account key can be recovered from the authenticator without exposing the passkey secret to the server.
 
-Applications should treat PRF support as capability-dependent. Users may still need password and recovery-key envelopes.
+Applications should treat PRF support as capability-dependent. Auth-only passkeys are still useful for sign-in, but they do not unlock the account key. Users may still need password, trusted-device, or recovery-key envelopes.
 
 ## Trusted devices
 
@@ -33,3 +41,15 @@ Approvals are short-lived and user scoped. Users should revoke devices they no l
 Recovery keys are user-held secrets. DarkAuth stores verifier hashes and encrypted recovery envelopes, not plaintext recovery keys. A recovery key can be marked used, revoked, and replaced.
 
 Recovery keys should be generated, displayed, and stored through a deliberate user flow. Do not silently create recovery keys that users never save.
+
+## Federation and SCIM
+
+Federation and SCIM manage identity lifecycle. They do not give the upstream identity provider access to plaintext DarkAuth key material.
+
+For federated users, the external OIDC provider can satisfy authentication while DarkAuth still requires a local unlock method for zero-knowledge clients. For SCIM-managed users, admin policy decides which envelope types are allowed, whether only provisioned users can sign in, and whether trusted-device approval is available.
+
+## Security boundary
+
+The backend can store encrypted envelopes, metadata, hashes, and audit events. It must not receive OPAQUE export keys, passkey PRF outputs, recovery keys, plaintext account root keys, plaintext client app keys, or decrypted application data in the designed flow.
+
+Frontend code that handles unlocked keys is inside the trust boundary. Keep key material in memory unless the product deliberately accepts persistent local custody, clear it on logout, and never log envelopes, plaintext keys, recovery secrets, or fragment JWE payloads.

@@ -34,3 +34,34 @@ Scopes describe what the client is asking for. Built-in scopes such as `openid`,
 Zero-knowledge key delivery is opt-in per client. Current v2 clients receive a client app key, while explicit legacy v1 clients can still receive the older root-key delivery. Only enable `fragment-jwe` for applications that are designed to handle encrypted key material safely, verify the delivery binding, and manage plaintext key custody deliberately.
 
 Do not enable ZK delivery because it sounds stronger. Enable it because the application has a real client-side encryption model and a clear recovery story.
+
+## Key delivery versions
+
+New ZK clients should use:
+
+- `key_delivery_version: "v2"`
+- `delivered_key_kind: "client_app_key"`
+
+The v2 flow derives a Client App Key, or CAK, for the requesting client and organization context. The application receives only that client-scoped key, not the user's account root key.
+
+Legacy clients that already depend on the older root-key handoff can be kept on:
+
+- `key_delivery_version: "v1-drk"`
+- `delivered_key_kind: "root_key"`
+
+Do not change a production encrypted app from v1 to v2 until the application has shipped migration logic. Existing encrypted data may have been written under keys derived from the legacy delivery model.
+
+## Migration guidance
+
+A safe v1-to-v2 migration usually has four phases:
+
+1. Ship application code that can read legacy data and write new data under a v2 client app key.
+2. Enable v2 key delivery for the DarkAuth client.
+3. Rewrap or re-encrypt existing application data under the v2 key hierarchy.
+4. Remove legacy-read support after active data and users have moved.
+
+During the migration, watch authorization and token errors for hash mismatches, missing fragments, stale callback state, and unexpected legacy clients. Those usually mean the app and DarkAuth client settings are out of sync.
+
+## Admin visibility
+
+Admins can see whether ZK delivery is enabled, which delivery version a client uses, and whether the client receives a root key or client app key. Admins cannot see plaintext delivered keys, user account root keys, OPAQUE export keys, recovery keys, passkey PRF output, or fragment JWE payloads.

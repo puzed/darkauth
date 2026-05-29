@@ -11,6 +11,8 @@ Some applications encrypt user data client-side and need a key after login. A no
 
 Current v2 clients receive a Client App Key, or CAK. The CAK is derived in the DarkAuth user UI from the user's account root material and the requesting client context. The OAuth client does not receive the account root key.
 
+This flow requires authentication and key unlock. A user can be signed in but still key locked after federated OIDC login, auth-only passkey login, or any other login path that does not expose local key-unlock material to the browser.
+
 ## End-to-end flow
 
 1. The app generates an ephemeral P-256 ECDH key pair.
@@ -38,6 +40,8 @@ For v2 clients, the token response includes:
 The fragment parameter is `darkauth_key_jwe`.
 
 The compact JWE payload contains the CAK plus binding metadata: `typ`, `version`, `sub`, `client_id`, `aud`, optional `org_id`, `request_id`, `state_hash`, `redirect_uri_hash`, `key_id`, `key_kind`, `iat`, and `exp`.
+
+The authorization response model also exposes the configured key delivery version and delivered key kind so the user UI can choose the v2 or legacy finalize behavior.
 
 ## Migrating v1 clients
 
@@ -73,7 +77,7 @@ The v1 flow is retained only for explicitly legacy clients:
 
 ## What the server sees
 
-The server sees the authorization request, `zk_pub`, `zk_pub_kid`, and either `zk_key_hash` or legacy `drk_hash`. It does not receive the plaintext account root key, plaintext CAK, or the fragment JWE in the designed flow. The token endpoint returns the hash so the client can verify the fragment.
+The server sees the authorization request, `zk_pub`, `zk_pub_kid`, session key state, client key-delivery configuration, and either `zk_key_hash` or legacy `drk_hash`. It does not receive the plaintext account root key, plaintext CAK, or the fragment JWE in the designed flow. The token endpoint returns the hash so the client can verify the fragment.
 
 ## Application responsibilities
 
@@ -87,6 +91,8 @@ A ZK-enabled app must:
 - Remove key fragments from the URL after processing.
 - Clear the private key and delivered key on logout.
 - Decide whether reloads should trigger a fresh authorization request.
+
+The app must also handle a user returning from DarkAuth without a delivered key when the session could not be unlocked. Treat that as an authentication or recovery problem, not as permission to continue with stale local key material.
 
 ## Security boundary
 

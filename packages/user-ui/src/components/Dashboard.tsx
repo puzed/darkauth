@@ -9,6 +9,7 @@ interface SessionData {
   sub: string;
   name?: string;
   email?: string;
+  keyState?: "locked" | "unlocked" | "setup_required";
 }
 
 interface App {
@@ -58,6 +59,24 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
       onLogout={onLogout}
     >
       <div className={styles.container}>
+        {sessionData.keyState && sessionData.keyState !== "unlocked" ? (
+          <section className={styles.keyStateBanner}>
+            <div>
+              <h3>Encryption keys locked</h3>
+              <p>
+                You are signed in, but zero-knowledge app access needs a password, passkey, recovery
+                key, or trusted-device unlock.
+              </p>
+            </div>
+            <button
+              type="button"
+              className={styles.appsActionButton}
+              onClick={() => navigate("/settings")}
+            >
+              Manage unlock methods
+            </button>
+          </section>
+        ) : null}
         <div className={styles.mainGrid}>
           <section className={styles.appsSection}>
             <h3>Your Applications</h3>

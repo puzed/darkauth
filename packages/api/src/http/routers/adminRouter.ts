@@ -77,6 +77,11 @@ import { getSettings } from "../../controllers/admin/settings.ts";
 import { updateSettings } from "../../controllers/admin/settingsUpdate.ts";
 import { createUser } from "../../controllers/admin/userCreate.ts";
 import { deleteUser } from "../../controllers/admin/userDelete.ts";
+import {
+  deleteUserKeyEnvelope,
+  deleteUserTrustedDevice,
+  getUserKeyStatus,
+} from "../../controllers/admin/userKeyStatus.ts";
 import { getUserOtp } from "../../controllers/admin/userOtp.ts";
 import { deleteUserOtp } from "../../controllers/admin/userOtpDelete.ts";
 import { postUserOtpUnlock } from "../../controllers/admin/userOtpUnlock.ts";
@@ -230,6 +235,42 @@ export function createAdminRouter(context: Context) {
           return await getUserOtp(context, request, response, userSub as string);
         if (method === "DELETE")
           return await deleteUserOtp(context, request, response, userSub as string);
+      }
+
+      const userKeyStatusMatch = pathname.match(/^\/admin\/users\/([^/]+)\/key-status$/);
+      if (userKeyStatusMatch && method === "GET") {
+        return await getUserKeyStatus(
+          context,
+          request,
+          response,
+          decodeURIComponent(userKeyStatusMatch[1] as string)
+        );
+      }
+
+      const userKeyEnvelopeMatch = pathname.match(
+        /^\/admin\/users\/([^/]+)\/key-envelopes\/([^/]+)$/
+      );
+      if (userKeyEnvelopeMatch && method === "DELETE") {
+        return await deleteUserKeyEnvelope(
+          context,
+          request,
+          response,
+          decodeURIComponent(userKeyEnvelopeMatch[1] as string),
+          decodeURIComponent(userKeyEnvelopeMatch[2] as string)
+        );
+      }
+
+      const userTrustedDeviceMatch = pathname.match(
+        /^\/admin\/users\/([^/]+)\/trusted-devices\/([^/]+)$/
+      );
+      if (userTrustedDeviceMatch && method === "DELETE") {
+        return await deleteUserTrustedDevice(
+          context,
+          request,
+          response,
+          decodeURIComponent(userTrustedDeviceMatch[1] as string),
+          decodeURIComponent(userTrustedDeviceMatch[2] as string)
+        );
       }
 
       const userOtpUnlockMatch = pathname.match(/^\/admin\/users\/([^/]+)\/otp\/unlock$/);
