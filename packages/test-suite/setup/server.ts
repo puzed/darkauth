@@ -81,12 +81,37 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
 }
 
 export async function destroyTestServers(servers: TestServers): Promise<void> {
-  await new Promise<void>((resolve) => {
-    servers.adminServer.close(() => resolve());
-  });
+  await closeServer(servers.adminServer);
   delete process.env.DARKAUTH_TEST_MODE;
-  await new Promise<void>((resolve) => {
-    servers.userServer.close(() => resolve());
-  });
+  await closeServer(servers.userServer);
   await servers.context.destroy();
+}
+
+async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
+  if (!server.listening) return;
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      const code = (error as { code?: string } | undefined)?.code;
+      if (error && code !== 'ERR_SERVER_NOT_RUNNING') {
+        reject(error);
+        return;
+      }
+      resolve();
+    };
+    server.close((error) => {
+      finish(error);
+    });
+    try {
+      server.closeAllConnections();
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (!settled && code !== 'ERR_SERVER_NOT_RUNNING') {
+        settled = true;
+        reject(error);
+      }
+    }
+  });
 }
