@@ -12,7 +12,10 @@ import { schema as adminAuditLogExportSchema } from "../controllers/admin/auditL
 import { schema as adminAuditLogsSchema } from "../controllers/admin/auditLogs.ts";
 import { schema as adminClientCreateSchema } from "../controllers/admin/clientCreate.ts";
 import { schema as adminClientDeleteSchema } from "../controllers/admin/clientDelete.ts";
-import { schema as adminClientSecretSchema } from "../controllers/admin/clientSecret.ts";
+import {
+  rotateSchema as adminClientSecretRotateSchema,
+  schema as adminClientSecretSchema,
+} from "../controllers/admin/clientSecret.ts";
 import { schema as adminClientsSchema } from "../controllers/admin/clients.ts";
 import { schema as adminClientUpdateSchema } from "../controllers/admin/clientUpdate.ts";
 import {
@@ -20,6 +23,13 @@ import {
   putSchema as adminEmailTemplatesPutSchema,
 } from "../controllers/admin/emailTemplates.ts";
 import { schema as adminEmailTestSchema } from "../controllers/admin/emailTest.ts";
+import {
+  createSchema as adminFederationConnectionCreateSchema,
+  deleteSchema as adminFederationConnectionDeleteSchema,
+  getSchema as adminFederationConnectionGetSchema,
+  listSchema as adminFederationConnectionsSchema,
+  updateSchema as adminFederationConnectionUpdateSchema,
+} from "../controllers/admin/federationConnections.ts";
 import { schema as adminJwksSchema } from "../controllers/admin/jwks.ts";
 import { schema as adminJwksRotateSchema } from "../controllers/admin/jwksRotate.ts";
 import { schema as adminLogoutSchema } from "../controllers/admin/logout.ts";
@@ -76,6 +86,7 @@ import { schema as userEmailVerificationResendSchema } from "../controllers/user
 import { schema as userEmailVerificationVerifySchema } from "../controllers/user/emailVerificationVerify.ts";
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
 import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
+import { schema as userFederationRouteSchema } from "../controllers/user/federationRoute.ts";
 import { schema as userAppsSchema } from "../controllers/user/getUserApps.ts";
 import { schema as userIntrospectSchema } from "../controllers/user/introspect.ts";
 import { schema as userLogoutSchema } from "../controllers/user/logout.ts";
@@ -106,9 +117,25 @@ import { schema as userPasswordResetRequestSchema } from "../controllers/user/pa
 import { schema as userPasswordResetStartSchema } from "../controllers/user/passwordResetStart.ts";
 import { schema as userPasswordResetTokenSchema } from "../controllers/user/passwordResetToken.ts";
 import { schema as userProfileEmailSchema } from "../controllers/user/profileEmailUpdate.ts";
+import {
+  postRecoveryKeyRevokeSchema as userRecoveryKeyRevokeSchema,
+  postRecoveryKeySchema as userRecoveryKeySchema,
+  getRecoveryKeysSchema as userRecoveryKeysSchema,
+  postRecoveryKeyUseSchema as userRecoveryKeyUseSchema,
+} from "../controllers/user/recoveryKeys.ts";
 import { schema as userRevokeSchema } from "../controllers/user/revoke.ts";
 import { schema as userSessionSchema } from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
+import {
+  postDeviceApprovalApproveSchema as userDeviceApprovalApproveSchema,
+  postDeviceApprovalConsumeSchema as userDeviceApprovalConsumeSchema,
+  postDeviceApprovalDenySchema as userDeviceApprovalDenySchema,
+  postDeviceApprovalRequestSchema as userDeviceApprovalRequestSchema,
+  getDeviceApprovalRequestsSchema as userDeviceApprovalRequestsSchema,
+  postTrustedDeviceRevokeSchema as userTrustedDeviceRevokeSchema,
+  postTrustedDeviceSchema as userTrustedDeviceSchema,
+  getTrustedDevicesSchema as userTrustedDevicesSchema,
+} from "../controllers/user/trustedDevices.ts";
 import {
   postSchema as userUserinfoPostSchema,
   schema as userUserinfoSchema,
@@ -117,6 +144,13 @@ import {
   getUserSchema as userDirectoryGetSchema,
   schema as userDirectorySearchSchema,
 } from "../controllers/user/usersDirectory.ts";
+import {
+  postPasskeyPrfEnvelopeSchema as userPasskeyPrfEnvelopeSchema,
+  postWebAuthnLoginFinishSchema as userWebAuthnLoginFinishSchema,
+  postWebAuthnLoginStartSchema as userWebAuthnLoginStartSchema,
+  postWebAuthnRegisterFinishSchema as userWebAuthnRegisterFinishSchema,
+  postWebAuthnRegisterStartSchema as userWebAuthnRegisterStartSchema,
+} from "../controllers/user/webauthn.ts";
 import { schema as userWellKnownJwksSchema } from "../controllers/user/wellKnownJwks.ts";
 import { schema as userWellKnownOpenidSchema } from "../controllers/user/wellKnownOpenid.ts";
 import { schema as userWrappedDrkSchema } from "../controllers/user/wrappedDrk.ts";
@@ -151,8 +185,14 @@ const documentedSchemas: ControllerSchema[] = [
   adminClientsSchema,
   adminClientCreateSchema,
   adminClientSecretSchema,
+  adminClientSecretRotateSchema,
   adminClientUpdateSchema,
   adminClientDeleteSchema,
+  adminFederationConnectionsSchema,
+  adminFederationConnectionCreateSchema,
+  adminFederationConnectionGetSchema,
+  adminFederationConnectionUpdateSchema,
+  adminFederationConnectionDeleteSchema,
   adminOrganizationsSchema,
   adminOrganizationCreateSchema,
   adminOrganizationGetSchema,
@@ -213,6 +253,23 @@ const documentedSchemas: ControllerSchema[] = [
   userOpaqueLoginFinishSchema,
   userOpaqueRegisterStartSchema,
   userOpaqueRegisterFinishSchema,
+  userWebAuthnRegisterStartSchema,
+  userWebAuthnRegisterFinishSchema,
+  userWebAuthnLoginStartSchema,
+  userWebAuthnLoginFinishSchema,
+  userPasskeyPrfEnvelopeSchema,
+  userRecoveryKeysSchema,
+  userRecoveryKeySchema,
+  userRecoveryKeyRevokeSchema,
+  userRecoveryKeyUseSchema,
+  userTrustedDevicesSchema,
+  userTrustedDeviceSchema,
+  userTrustedDeviceRevokeSchema,
+  userDeviceApprovalRequestSchema,
+  userDeviceApprovalRequestsSchema,
+  userDeviceApprovalApproveSchema,
+  userDeviceApprovalConsumeSchema,
+  userDeviceApprovalDenySchema,
   userEmailVerificationResendSchema,
   userEmailVerificationVerifySchema,
   userOrganizationsSchema,
@@ -233,6 +290,7 @@ const documentedSchemas: ControllerSchema[] = [
   userProfileEmailSchema,
   userEncPublicGetSchema,
   userEncPublicPutSchema,
+  userFederationRouteSchema,
   userWrappedDrkSchema,
   userWrappedDrkPutSchema,
   userWrappedEncPrivGetSchema,
@@ -248,7 +306,7 @@ function isZodType(value: unknown): value is z.ZodTypeAny {
 }
 
 function toJsonSchema(schema: unknown) {
-  if (isZodType(schema)) return toJSONSchema(schema);
+  if (isZodType(schema)) return toJSONSchema(schema, { unrepresentable: "any" });
   return schema;
 }
 

@@ -187,7 +187,7 @@ export interface Client {
   allowedZkOrigins: string[];
   createdAt: string;
   updatedAt: string;
-  clientSecret?: string; // Only returned when creating/updating
+  clientSecret?: string;
   idTokenLifetimeSeconds?: number;
   accessTokenLifetimeSeconds?: number;
   refreshTokenLifetimeSeconds?: number;
@@ -986,6 +986,12 @@ class AdminApiService {
 
   async getClientSecret(clientId: string): Promise<ClientSecretResponse> {
     return this.request(`/clients/${clientId}/secret`);
+  }
+
+  async rotateClientSecret(clientId: string): Promise<ClientSecretResponse> {
+    return this.request(`/clients/${clientId}/secret/rotate`, {
+      method: "POST",
+    });
   }
 
   // System Settings

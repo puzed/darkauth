@@ -7,6 +7,7 @@ import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
 import { parseJsonSafely, readBody, sendJson } from "../../utils/http.ts";
+import { parseDashboardIconUpload } from "./clientCreate.ts";
 
 const ScopeSchema = z.object({
   key: z.string().min(1),
@@ -35,6 +36,8 @@ async function updateClientHandler(
     requirePkce: z.boolean().optional(),
     zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
     zkRequired: z.boolean().optional(),
+    keyDeliveryVersion: z.enum(["v1-drk", "v2"]).optional(),
+    deliveredKeyKind: z.enum(["root_key", "client_app_key"]).optional(),
     showOnUserDashboard: z.boolean().optional(),
     dashboardAutoLogin: z.boolean().optional(),
     dashboardPosition: z.number().int().min(0).optional(),
@@ -90,8 +93,9 @@ async function updateClientHandler(
     | null
     | undefined;
   if (iconUpload) {
-    updates.dashboardIconData = Buffer.from(iconUpload.data, "base64");
-    updates.dashboardIconMimeType = iconUpload.mimeType;
+    const icon = parseDashboardIconUpload(iconUpload);
+    updates.dashboardIconData = icon.data;
+    updates.dashboardIconMimeType = icon.mimeType;
   } else if (iconUpload === null) {
     updates.dashboardIconData = null;
     updates.dashboardIconMimeType = null;
@@ -122,6 +126,8 @@ const Req = z.object({
   requirePkce: z.boolean().optional(),
   zkDelivery: z.enum(["none", "fragment-jwe"]).optional(),
   zkRequired: z.boolean().optional(),
+  keyDeliveryVersion: z.enum(["v1-drk", "v2"]).optional(),
+  deliveredKeyKind: z.enum(["root_key", "client_app_key"]).optional(),
   showOnUserDashboard: z.boolean().optional(),
   dashboardAutoLogin: z.boolean().optional(),
   dashboardPosition: z.number().int().min(0).optional(),

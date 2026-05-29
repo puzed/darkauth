@@ -153,8 +153,17 @@ test("assertRefreshTokenClientBinding rejects mismatched client ids", () => {
   );
 });
 
-test("assertRefreshTokenClientBinding allows legacy unbound tokens", () => {
-  assert.doesNotThrow(() => assertRefreshTokenClientBinding(null, "demo-client"));
+test("assertRefreshTokenClientBinding rejects unbound client-specific tokens", () => {
+  assert.throws(
+    () => assertRefreshTokenClientBinding(null, "demo-client"),
+    (error: unknown) =>
+      error instanceof InvalidGrantError &&
+      error.message === "Refresh token was not issued to this client"
+  );
+});
+
+test("assertRefreshTokenClientBinding allows unbound first-party cookie refresh", () => {
+  assert.doesNotThrow(() => assertRefreshTokenClientBinding(null, "demo-client", false));
 });
 
 test("shouldIssueFirstPartyRefreshCookies returns true for cookie-transport refresh requests", () => {

@@ -3,7 +3,13 @@ import styles from "./LoginView.module.css";
 import Register from "./Register";
 import ThemeToggle from "./ThemeToggle";
 
-type SessionData = { sub: string; name?: string; email?: string; passwordResetRequired?: boolean };
+type SessionData = {
+  sub: string;
+  name?: string;
+  email?: string;
+  passwordResetRequired?: boolean;
+  keyState?: "locked" | "unlocked" | "setup_required";
+};
 
 export default function RegisterView(props?: {
   options?: unknown;

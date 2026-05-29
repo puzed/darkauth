@@ -52,6 +52,27 @@ export default function ResetPassword({ onSuccess, title, description }: ResetPa
         const drk = await cryptoService.generateDRK();
         const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, userSub);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+        const accountKey = await apiService.createAccountKey({ version: "v2" });
+        const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
+        const envelopeId = `env_${crypto.randomUUID()}`;
+        const aad = cryptoService.envelopeAad({
+          sub: userSub,
+          keyId: accountKey.key_id,
+          envelopeId,
+          type: "password",
+          wrappingAlg,
+        });
+        const wrappedEnvelopeDrk = await cryptoService.wrapKeyMaterial(drk, keys.wrapKey, aad);
+        await apiService.createKeyEnvelope({
+          envelopeId,
+          keyId: accountKey.key_id,
+          type: "password",
+          label: "Password",
+          wrappingAlg,
+          wrappedKey: toBase64Url(wrappedEnvelopeDrk),
+          aad: toBase64Url(aad),
+          metadata: { version: "v2" },
+        });
 
         // Clear sensitive data immediately after use
         cryptoService.clearSensitiveData(drk, keys.masterKey, keys.wrapKey, keys.deriveKey);

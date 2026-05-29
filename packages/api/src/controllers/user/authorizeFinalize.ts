@@ -41,6 +41,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         request_id: z.string().min(1),
         approve: z.enum(["true", "false"]).optional(),
         drk_hash: z.string().optional(),
+        zk_key_hash: z.string().optional(),
         organization_id: z.string().uuid().optional(),
       });
       const parsed = Req.parse(
@@ -64,6 +65,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
           clientId: pendingRequest.clientId,
           zkRequested: !!pendingRequest.zkPubKid,
           hasDrkHash: !!parsed.drk_hash,
+          hasZkKeyHash: !!parsed.zk_key_hash,
         },
         "authorize finalize received"
       );
@@ -88,10 +90,21 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       const code = generateRandomString(32);
       const codeExpiresAt = new Date(Date.now() + 60 * 1000); // 60 seconds as per spec
 
-      const drkHashFromClient = parsed.drk_hash;
       const hasZk = !!pendingRequest.zkPubKid;
-      if (hasZk && !drkHashFromClient) {
-        throw new InvalidRequestError("drk_hash is required for ZK authorization requests");
+      const keyDeliveryVersion = pendingRequest.keyDeliveryVersion === "v1-drk" ? "v1-drk" : "v2";
+      const deliveredKeyKind =
+        pendingRequest.deliveredKeyKind === "root_key" ? "root_key" : "client_app_key";
+      const keyHashFromClient =
+        keyDeliveryVersion === "v1-drk" ? parsed.drk_hash : parsed.zk_key_hash;
+      if (hasZk && !keyHashFromClient) {
+        throw new InvalidRequestError(
+          keyDeliveryVersion === "v1-drk"
+            ? "drk_hash is required for ZK authorization requests"
+            : "zk_key_hash is required for ZK authorization requests"
+        );
+      }
+      if (hasZk && sessionData.keyState !== "unlocked") {
+        throw new InvalidRequestError("Key unlock is required for ZK authorization requests");
       }
 
       if (
@@ -134,7 +147,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         expiresAt: codeExpiresAt,
         hasZk,
         zkPubKid: consumedPendingRequest.zkPubKid,
-        drkHash: hasZk ? drkHashFromClient : undefined,
+        drkHash: hasZk && keyDeliveryVersion === "v1-drk" ? keyHashFromClient : undefined,
+        zkKeyHash: hasZk ? keyHashFromClient : undefined,
+        zkKeyKind: hasZk ? deliveredKeyKind : undefined,
+        zkKeyVersion: hasZk ? keyDeliveryVersion : undefined,
       });
 
       if (sessionId) {
@@ -184,7 +200,8 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
           requestId,
           clientId: pendingRequest.clientId,
           hasZk,
-          drkHashStored: !!drkHashFromClient,
+          keyHashStored: !!keyHashFromClient,
+          keyDeliveryVersion: hasZk ? keyDeliveryVersion : undefined,
           redirectUri: pendingRequest.redirectUri,
         },
         "authorize finalize completed"
@@ -197,6 +214,7 @@ const Req = z.object({
   request_id: z.string().min(1),
   approve: z.enum(["true", "false"]).optional(),
   drk_hash: z.string().optional(),
+  zk_key_hash: z.string().optional(),
   organization_id: z.string().uuid().optional(),
 });
 const SuccessResp = z.object({

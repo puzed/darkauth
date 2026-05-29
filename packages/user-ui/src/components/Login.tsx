@@ -16,6 +16,7 @@ interface LoginProps {
     name?: string;
     email?: string;
     passwordResetRequired?: boolean;
+    keyState?: "locked" | "unlocked" | "setup_required";
   }) => void;
   onSwitchToRegister: () => void;
   preloadClientCheckOnly?: boolean;
@@ -228,6 +229,7 @@ export default function Login({
         name: loginFinishResponse.user?.name || undefined,
         email: loginFinishResponse.user?.email || formData.email,
         passwordResetRequired: false,
+        keyState: "unlocked",
       });
 
       try {
@@ -246,6 +248,27 @@ export default function Login({
               loginFinishResponse.sub
             );
             await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+            const accountKey = await apiService.createAccountKey({ version: "v2" });
+            const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
+            const envelopeId = `env_${crypto.randomUUID()}`;
+            const aad = cryptoService.envelopeAad({
+              sub: loginFinishResponse.sub,
+              keyId: accountKey.key_id,
+              envelopeId,
+              type: "password",
+              wrappingAlg,
+            });
+            const wrappedEnvelopeDrk = await cryptoService.wrapKeyMaterial(drk, keys.wrapKey, aad);
+            await apiService.createKeyEnvelope({
+              envelopeId,
+              keyId: accountKey.key_id,
+              type: "password",
+              label: "Password",
+              wrappingAlg,
+              wrappedKey: toBase64Url(wrappedEnvelopeDrk),
+              aad: toBase64Url(aad),
+              metadata: { version: "v2" },
+            });
             cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
           } catch (e) {
             logger.warn(

@@ -24,6 +24,33 @@ export interface ZKDeliveryData {
   jwe: string;
 }
 
+export interface ClientKeyPayload {
+  typ: "DarkAuth-Client-Key";
+  version: "v2";
+  sub: string;
+  client_id: string;
+  aud: string;
+  org_id?: string;
+  request_id: string;
+  state_hash: string;
+  redirect_uri_hash: string;
+  key_id: string;
+  key_kind: "client_app_key";
+  cak: string;
+  iat: number;
+  exp: number;
+}
+
+export interface DeviceApprovalPayload {
+  typ: "DarkAuth-Device-Approval";
+  version: "v2";
+  sub: string;
+  request_id: string;
+  ark: string;
+  iat: number;
+  exp: number;
+}
+
 // Base64url encoding/decoding utilities
 export function toBase64Url(buffer: ArrayBuffer | Uint8Array | number[]): string {
   let bytes: Uint8Array;
@@ -218,12 +245,19 @@ class CryptoService {
 
   // Wrap DRK using AEAD (AES-256-GCM) with KW and AAD=sub as specified in CORE.md
   async wrapDRK(drk: Uint8Array, wrapKey: Uint8Array, sub: string): Promise<Uint8Array> {
+    return await this.wrapKeyMaterial(drk, wrapKey, new TextEncoder().encode(sub));
+  }
+
+  async wrapKeyMaterial(
+    keyMaterial: Uint8Array,
+    wrapKey: Uint8Array,
+    aad: Uint8Array
+  ): Promise<Uint8Array> {
     const iv = crypto.getRandomValues(new Uint8Array(12));
     const key = await crypto.subtle.importKey("raw", wrapKey as BufferSource, "AES-GCM", false, [
       "encrypt",
     ]);
 
-    const aad = new TextEncoder().encode(sub);
     const encrypted = await crypto.subtle.encrypt(
       {
         name: "AES-GCM",
@@ -231,7 +265,7 @@ class CryptoService {
         additionalData: aad as BufferSource,
       },
       key,
-      drk as BufferSource
+      keyMaterial as BufferSource
     );
 
     const encryptedArray = new Uint8Array(encrypted);
@@ -245,6 +279,49 @@ class CryptoService {
     wrapped.set(ciphertext, 28);
 
     return wrapped;
+  }
+
+  async wrapKeyMaterialWithAesKey(
+    keyMaterial: Uint8Array,
+    key: CryptoKey,
+    aad: Uint8Array
+  ): Promise<Uint8Array> {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: iv as BufferSource,
+        additionalData: aad as BufferSource,
+      },
+      key,
+      keyMaterial as BufferSource
+    );
+    const encryptedArray = new Uint8Array(encrypted);
+    const ciphertext = encryptedArray.slice(0, -16);
+    const tag = encryptedArray.slice(-16);
+    const wrapped = new Uint8Array(12 + 16 + ciphertext.length);
+    wrapped.set(iv, 0);
+    wrapped.set(tag, 12);
+    wrapped.set(ciphertext, 28);
+    return wrapped;
+  }
+
+  envelopeAad(params: {
+    sub: string;
+    keyId: string;
+    envelopeId: string;
+    type: string;
+    wrappingAlg: string;
+  }): Uint8Array {
+    return new TextEncoder().encode(
+      JSON.stringify({
+        envelope_id: params.envelopeId,
+        key_id: params.keyId,
+        sub: params.sub,
+        type: params.type,
+        wrapping_alg: params.wrappingAlg,
+      })
+    );
   }
 
   // Unwrap DRK using AEAD (AES-256-GCM) with KW and AAD=sub
@@ -299,6 +376,87 @@ class CryptoService {
     };
     const jwe = await new CompactEncrypt(drk).setProtectedHeader(header).encrypt(key);
     return jwe;
+  }
+
+  async deriveClientAppKey(
+    ark: Uint8Array,
+    params: {
+      sub: string;
+      keyId: string;
+      clientId: string;
+      organizationId?: string;
+      audience?: string;
+    }
+  ): Promise<Uint8Array> {
+    const saltInput = `DarkAuth|v2|client-key|sub=${params.sub}|key_id=${params.keyId}`;
+    const salt = new Uint8Array(
+      await crypto.subtle.digest("SHA-256", new TextEncoder().encode(saltInput))
+    );
+    const orgPart = params.organizationId ? `|org_id=${params.organizationId}` : "|org_id=";
+    const aud = params.audience || params.clientId;
+    const info = new TextEncoder().encode(`client_id=${params.clientId}${orgPart}|aud=${aud}`);
+    return this.hkdf(ark, salt, info, 32);
+  }
+
+  async deriveRecoveryKeyMaterial(secret: Uint8Array, sub: string): Promise<Uint8Array> {
+    const salt = new Uint8Array(
+      await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(`DarkAuth|v2|recovery|sub=${sub}`)
+      )
+    );
+    return this.hkdf(secret, salt, new TextEncoder().encode("wrap-key"), 32);
+  }
+
+  async deriveRecoveryVerifier(secret: Uint8Array): Promise<Uint8Array> {
+    return new Uint8Array(await crypto.subtle.digest("SHA-256", secret as BufferSource));
+  }
+
+  async createClientKeyJWE(
+    payload: ClientKeyPayload,
+    recipientPublicJwk: JsonWebKey
+  ): Promise<string> {
+    const { CompactEncrypt, importJWK } = await import("jose");
+    const pub: JsonWebKey = { ...recipientPublicJwk, alg: undefined };
+    const key = await importJWK(pub, "ECDH-ES");
+    return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
+      .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+      .encrypt(key);
+  }
+
+  async createDeviceApprovalJWE(
+    ark: Uint8Array,
+    recipientPublicJwk: JsonWebKey,
+    params: { sub: string; requestId: string }
+  ): Promise<string> {
+    const { CompactEncrypt, importJWK } = await import("jose");
+    const pub: JsonWebKey = { ...recipientPublicJwk, alg: undefined };
+    const key = await importJWK(pub, "ECDH-ES");
+    const now = Math.floor(Date.now() / 1000);
+    const payload: DeviceApprovalPayload = {
+      typ: "DarkAuth-Device-Approval",
+      version: "v2",
+      sub: params.sub,
+      request_id: params.requestId,
+      ark: toBase64Url(ark),
+      iat: now,
+      exp: now + 120,
+    };
+    return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
+      .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+      .encrypt(key);
+  }
+
+  async decryptDeviceApprovalJWE(jwe: string, privateKey: CryptoKey): Promise<Uint8Array> {
+    const { compactDecrypt } = await import("jose");
+    const result = await compactDecrypt(jwe, privateKey);
+    const payload = JSON.parse(
+      new TextDecoder().decode(result.plaintext)
+    ) as Partial<DeviceApprovalPayload>;
+    if (payload.typ !== "DarkAuth-Device-Approval" || payload.version !== "v2" || !payload.ark) {
+      throw new Error("Invalid device approval payload");
+    }
+    return fromBase64Url(payload.ark);
   }
 
   parseJWEFromFragment(): string | null {

@@ -116,6 +116,13 @@ async function createDrkJwe(publicJwk, drk) {
   return new CompactEncrypt(drk).setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" }).encrypt(key);
 }
 
+async function createClientKeyJwe(publicJwk, payload) {
+  const key = await importJWK({ ...publicJwk, alg: undefined }, "ECDH-ES");
+  return new CompactEncrypt(new TextEncoder().encode(JSON.stringify(payload)))
+    .setProtectedHeader({ alg: "ECDH-ES", enc: "A256GCM" })
+    .encrypt(key);
+}
+
 test("zk callback keeps DRK and tokens memory-only by default", async () => {
   const { location, applyUrl } = setupBrowser();
 
@@ -173,6 +180,193 @@ test("zk callback keeps DRK and tokens memory-only by default", async () => {
     discovery: false,
   });
   assert.equal(freshModule.getStoredSession(), null);
+});
+
+test("v2 zk callback verifies client key metadata and keeps key memory-only", async () => {
+  const { location, applyUrl } = setupBrowser();
+
+  await initiateLogin();
+
+  const authUrl = new URL(location.assignedUrl);
+  const publicJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(authUrl.searchParams.get("zk_pub"))));
+  const state = authUrl.searchParams.get("state");
+  const verifier = sessionStorage.getItem("pkce_verifier");
+  const cak = Uint8Array.from(Array.from({ length: 32 }, (_value, index) => 255 - index));
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    typ: "DarkAuth-Client-Key",
+    version: "v2",
+    sub: "user-1",
+    client_id: "client-id",
+    aud: "client-id",
+    request_id: "request-1",
+    state_hash: await sha256Base64Url(state),
+    redirect_uri_hash: await sha256Base64Url("https://app.example/callback"),
+    key_id: "account-key-1",
+    key_kind: "client_app_key",
+    cak: toBase64Url(cak),
+    iat: now,
+    exp: now + 120,
+  };
+  const jwe = await createClientKeyJwe(publicJwk, payload);
+  const idToken = createIdToken();
+  applyUrl(
+    `https://app.example/callback?code=code-v2&state=${state}#darkauth_key_jwe=${encodeURIComponent(jwe)}`
+  );
+  let tokenBody;
+  globalThis.fetch = async (_url, init) => {
+    tokenBody = init.body;
+    return {
+      ok: true,
+      json: async () => ({
+        id_token: idToken,
+        access_token: "at-v2",
+        zk_key_hash: await sha256Base64Url(jwe),
+        zk_key_kind: "client_app_key",
+        zk_key_version: "v2",
+      }),
+    };
+  };
+
+  const session = await handleCallback();
+
+  assert.ok(session);
+  assert.deepEqual(Array.from(session.drk), Array.from(cak));
+  assert.equal(tokenBody.get("code_verifier"), verifier);
+  assert.equal(globalThis.localStorage.getItem("drk_protected"), null);
+  assert.equal(globalThis.localStorage.getItem("id_token"), null);
+  assert.equal(globalThis.localStorage.getItem("access_token"), null);
+  assert.equal(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"), null);
+  assert.equal(globalThis.sessionStorage.getItem("pkce_verifier"), null);
+  assert.equal(globalThis.sessionStorage.getItem("oauth_state"), null);
+  assert.equal(location.hash.includes("darkauth_key_jwe"), false);
+  assert.equal(getStoredSession(), session);
+});
+
+test("v2 zk callback rejects invalid client key metadata without exposing the key", async () => {
+  const { location, applyUrl } = setupBrowser();
+
+  await initiateLogin();
+
+  const authUrl = new URL(location.assignedUrl);
+  const publicJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(authUrl.searchParams.get("zk_pub"))));
+  const state = authUrl.searchParams.get("state");
+  const cak = Uint8Array.from(Array.from({ length: 32 }, (_value, index) => index + 90));
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    typ: "DarkAuth-Client-Key",
+    version: "v2",
+    sub: "user-1",
+    client_id: "client-id",
+    aud: "client-id",
+    request_id: "request-2",
+    state_hash: await sha256Base64Url("wrong-state"),
+    redirect_uri_hash: await sha256Base64Url("https://app.example/callback"),
+    key_id: "account-key-2",
+    key_kind: "client_app_key",
+    cak: toBase64Url(cak),
+    iat: now,
+    exp: now + 120,
+  };
+  const jwe = await createClientKeyJwe(publicJwk, payload);
+  const idToken = createIdToken();
+  applyUrl(
+    `https://app.example/callback?code=code-v2-bad&state=${state}#darkauth_key_jwe=${encodeURIComponent(jwe)}&keep=1`
+  );
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      id_token: idToken,
+      access_token: "at-v2",
+      zk_key_hash: await sha256Base64Url(jwe),
+      zk_key_kind: "client_app_key",
+      zk_key_version: "v2",
+    }),
+  });
+
+  await assert.rejects(() => handleCallback(), /Invalid client key state/);
+
+  assert.equal(location.hash, "#keep=1");
+  assert.equal(globalThis.localStorage.getItem("drk_protected"), null);
+  assert.equal(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"), null);
+  assert.equal(globalThis.sessionStorage.getItem("pkce_verifier"), null);
+  assert.equal(globalThis.sessionStorage.getItem("oauth_state"), null);
+  assert.equal(getStoredSession(), null);
+});
+
+test("v2 zk callback rejects wrong client, redirect, expiry, and hash", async () => {
+  const cases = [
+    {
+      name: "client",
+      mutate: (payload) => ({ ...payload, client_id: "other-client", aud: "other-client" }),
+      error: /Invalid client key client/,
+    },
+    {
+      name: "redirect",
+      mutate: async (payload) => ({
+        ...payload,
+        redirect_uri_hash: await sha256Base64Url("https://evil.example/callback"),
+      }),
+      error: /Invalid client key redirect URI/,
+    },
+    {
+      name: "expired",
+      mutate: (payload) => ({ ...payload, iat: payload.iat - 700, exp: payload.iat - 1 }),
+      error: /Client key JWE expired/,
+    },
+    {
+      name: "hash",
+      mutate: (payload) => payload,
+      tokenHash: "wrong-hash",
+      error: /Client key hash mismatch/,
+    },
+  ];
+
+  for (const testCase of cases) {
+    const { location, applyUrl } = setupBrowser();
+    await initiateLogin();
+
+    const authUrl = new URL(location.assignedUrl);
+    const publicJwk = JSON.parse(
+      new TextDecoder().decode(fromBase64Url(authUrl.searchParams.get("zk_pub")))
+    );
+    const state = authUrl.searchParams.get("state");
+    const now = Math.floor(Date.now() / 1000);
+    const basePayload = {
+      typ: "DarkAuth-Client-Key",
+      version: "v2",
+      sub: "user-1",
+      client_id: "client-id",
+      aud: "client-id",
+      request_id: `request-${testCase.name}`,
+      state_hash: await sha256Base64Url(state),
+      redirect_uri_hash: await sha256Base64Url("https://app.example/callback"),
+      key_id: "account-key-1",
+      key_kind: "client_app_key",
+      cak: toBase64Url(Uint8Array.from(Array.from({ length: 32 }, (_value, index) => index + 7))),
+      iat: now,
+      exp: now + 120,
+    };
+    const payload = await testCase.mutate(basePayload);
+    const jwe = await createClientKeyJwe(publicJwk, payload);
+    applyUrl(
+      `https://app.example/callback?code=code-${testCase.name}&state=${state}#darkauth_key_jwe=${encodeURIComponent(jwe)}`
+    );
+    globalThis.fetch = async () => ({
+      ok: true,
+      json: async () => ({
+        id_token: createIdToken(),
+        access_token: "at-v2",
+        zk_key_hash: testCase.tokenHash || (await sha256Base64Url(jwe)),
+        zk_key_kind: "client_app_key",
+        zk_key_version: "v2",
+      }),
+    });
+
+    await assert.rejects(() => handleCallback(), testCase.error);
+    assert.equal(globalThis.localStorage.getItem("drk_protected"), null);
+    assert.equal(getStoredSession(), null);
+  }
 });
 
 test("callback strips drk_jwe fragment and clears continuity data on token failure", async () => {

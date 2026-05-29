@@ -1,3 +1,4 @@
+import { and, eq, isNull, or } from "drizzle-orm";
 import { pendingAuth } from "../db/schema.ts";
 import { ServerError } from "../errors.ts";
 import type { Context } from "../types.ts";
@@ -14,6 +15,8 @@ export async function createPendingAuth(
     codeChallenge?: string;
     codeChallengeMethod?: string;
     zkPubKid?: string;
+    keyDeliveryVersion?: string;
+    deliveredKeyKind?: string;
     userSub?: string;
     organizationId?: string;
     origin: string;
@@ -31,6 +34,8 @@ export async function createPendingAuth(
       codeChallenge: data.codeChallenge,
       codeChallengeMethod: data.codeChallengeMethod,
       zkPubKid: data.zkPubKid,
+      keyDeliveryVersion: data.keyDeliveryVersion ?? "v2",
+      deliveredKeyKind: data.deliveredKeyKind ?? "client_app_key",
       userSub: data.userSub,
       organizationId: data.organizationId,
       origin: data.origin,
@@ -68,22 +73,20 @@ function getErrorCause(error: unknown): unknown {
 }
 
 export async function getPendingAuth(context: Context, requestId: string) {
-  const { pendingAuth } = await import("../db/schema.ts");
-  const { eq } = await import("drizzle-orm");
   return await context.db.query.pendingAuth.findFirst({
     where: eq(pendingAuth.requestId, requestId),
   });
 }
 
 export async function deletePendingAuth(context: Context, requestId: string) {
-  const { pendingAuth } = await import("../db/schema.ts");
-  const { eq } = await import("drizzle-orm");
   await context.db.delete(pendingAuth).where(eq(pendingAuth.requestId, requestId));
 }
 
+export async function deletePendingAuthForUser(context: Context, userSub: string) {
+  await context.db.delete(pendingAuth).where(eq(pendingAuth.userSub, userSub));
+}
+
 export async function consumePendingAuth(context: Context, requestId: string, userSub: string) {
-  const { pendingAuth } = await import("../db/schema.ts");
-  const { and, eq, isNull, or } = await import("drizzle-orm");
   const [row] = await context.db
     .delete(pendingAuth)
     .where(

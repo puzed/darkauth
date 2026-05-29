@@ -1,14 +1,24 @@
 import { and, eq } from "drizzle-orm";
-import { authCodes } from "../db/schema.ts";
+import { authCodes, scimUsers } from "../db/schema.ts";
 import { ServerError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
 export async function getAuthCode(context: Context, code: string) {
-  return await context.db.query.authCodes.findFirst({ where: eq(authCodes.code, code) });
+  const authCode = await context.db.query.authCodes.findFirst({ where: eq(authCodes.code, code) });
+  if (!authCode) return null;
+  const scimUser = await context.db.query.scimUsers.findFirst({
+    where: eq(scimUsers.userSub, authCode.userSub),
+  });
+  if (scimUser && !scimUser.active) return null;
+  return authCode;
 }
 
 export async function deleteAuthCode(context: Context, code: string) {
   await context.db.delete(authCodes).where(eq(authCodes.code, code));
+}
+
+export async function deleteAuthCodesForUser(context: Context, userSub: string) {
+  await context.db.delete(authCodes).where(eq(authCodes.userSub, userSub));
 }
 
 export async function createAuthCode(
@@ -27,6 +37,9 @@ export async function createAuthCode(
     hasZk?: boolean;
     zkPubKid?: string | null;
     drkHash?: string | undefined;
+    zkKeyHash?: string | undefined;
+    zkKeyKind?: string | undefined;
+    zkKeyVersion?: string | undefined;
   }
 ) {
   try {
@@ -45,6 +58,9 @@ export async function createAuthCode(
       hasZk: data.hasZk ?? false,
       zkPubKid: data.zkPubKid ?? null,
       drkHash: data.drkHash,
+      zkKeyHash: data.zkKeyHash,
+      zkKeyKind: data.zkKeyKind,
+      zkKeyVersion: data.zkKeyVersion,
       createdAt: new Date(),
     });
   } catch (error) {

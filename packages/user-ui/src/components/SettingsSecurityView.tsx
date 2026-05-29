@@ -25,7 +25,7 @@ export default function SettingsSecurityView({
           <p className={styles.subtitle}>Manage two-factor authentication and backup codes</p>
         </div>
         <div className={styles.formWrapper}>
-          <SettingsSecurity />
+          <SettingsSecurity sessionData={sessionData} />
         </div>
       </div>
     </UserLayout>

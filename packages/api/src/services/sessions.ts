@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { and, eq, gt, isNull, lt } from "drizzle-orm";
-import { sessions, users } from "../db/schema.ts";
+import { scimUsers, sessions, users } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import type { Context, SessionData } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
@@ -216,6 +216,10 @@ export async function createSession(
   const expiresAt = new Date(Date.now() + sessionMs);
   const refreshTokenExpiresAt = new Date(Date.now() + refreshMs);
 
+  if (cohort === "user" && data.sub) {
+    await assertUserMayHoldSession(context, data.sub);
+  }
+
   await context.db.insert(sessions).values({
     id: sessionId,
     cohort,
@@ -236,7 +240,7 @@ export async function createSession(
     context.logger.info(
       {
         event: "session.create",
-        sessionId,
+        sessionHash: sha256Base64Url(sessionId).slice(0, 16),
         cohort,
         userSub: data.sub,
         adminId: data.adminId,
@@ -290,7 +294,7 @@ export async function updateSession(
 export async function deleteSession(context: Context, sessionId: string): Promise<void> {
   try {
     if (!sessionId || typeof sessionId !== "string") {
-      context.logger.error({ sessionId }, "Invalid sessionId for deletion");
+      context.logger.error({ sessionIdType: typeof sessionId }, "Invalid sessionId for deletion");
       return;
     }
 
@@ -339,6 +343,10 @@ export async function requireSession(
   }
 
   if (!isAdmin && sessionData.sub) {
+    await assertUserMayHoldSession(context, sessionData.sub);
+  }
+
+  if (!isAdmin && sessionData.sub) {
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const path = url.pathname || "";
     const otpAllowed = path.startsWith("/otp/") || path === "/logout" || path === "/session";
@@ -358,6 +366,15 @@ export async function requireSession(
   }
 
   return sessionData;
+}
+
+async function assertUserMayHoldSession(context: Context, sub: string): Promise<void> {
+  const scimUser = await context.db.query.scimUsers.findFirst({
+    where: eq(scimUsers.userSub, sub),
+  });
+  if (scimUser && !scimUser.active) {
+    throw new UnauthorizedError("User is deprovisioned");
+  }
 }
 
 export async function refreshSessionWithToken(

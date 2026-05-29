@@ -70,6 +70,8 @@ export async function listClients(
           requirePkce: clients.requirePkce,
           zkDelivery: clients.zkDelivery,
           zkRequired: clients.zkRequired,
+          keyDeliveryVersion: clients.keyDeliveryVersion,
+          deliveredKeyKind: clients.deliveredKeyKind,
           allowedJweAlgs: clients.allowedJweAlgs,
           allowedJweEncs: clients.allowedJweEncs,
           redirectUris: clients.redirectUris,
@@ -102,6 +104,8 @@ export async function listClients(
           requirePkce: clients.requirePkce,
           zkDelivery: clients.zkDelivery,
           zkRequired: clients.zkRequired,
+          keyDeliveryVersion: clients.keyDeliveryVersion,
+          deliveredKeyKind: clients.deliveredKeyKind,
           allowedJweAlgs: clients.allowedJweAlgs,
           allowedJweEncs: clients.allowedJweEncs,
           redirectUris: clients.redirectUris,
@@ -155,6 +159,8 @@ export async function createClient(
     requirePkce?: boolean;
     zkDelivery?: "none" | "fragment-jwe";
     zkRequired?: boolean;
+    keyDeliveryVersion?: "v1-drk" | "v2";
+    deliveredKeyKind?: "root_key" | "client_app_key";
     allowedJweAlgs?: string[];
     allowedJweEncs?: string[];
     redirectUris?: string[];
@@ -170,8 +176,11 @@ export async function createClient(
 ) {
   let clientSecret: string | null = null;
   let clientSecretEnc: Buffer | null = null;
-  const tokenEndpointAuthMethod =
-    data.type === "public" ? "none" : (data.tokenEndpointAuthMethod ?? "none");
+  const tokenEndpointAuthMethod = data.type === "public" ? "none" : "client_secret_basic";
+  const keyDeliveryVersion = data.keyDeliveryVersion ?? "v2";
+  const deliveredKeyKind =
+    data.deliveredKeyKind ?? (keyDeliveryVersion === "v1-drk" ? "root_key" : "client_app_key");
+  validateKeyDelivery(keyDeliveryVersion, deliveredKeyKind);
   if (data.type === "confidential" || tokenEndpointAuthMethod === "client_secret_basic") {
     clientSecret = (await import("node:crypto")).randomBytes(32).toString("base64url");
     if (context.services.kek?.isAvailable()) {
@@ -198,6 +207,8 @@ export async function createClient(
     requirePkce: data.requirePkce ?? true,
     zkDelivery: data.zkDelivery ?? "none",
     zkRequired: data.zkRequired ?? false,
+    keyDeliveryVersion,
+    deliveredKeyKind,
     allowedJweAlgs: data.allowedJweAlgs ?? [],
     allowedJweEncs: data.allowedJweEncs ?? [],
     redirectUris: data.redirectUris ?? [],
@@ -234,12 +245,16 @@ export async function updateClient(
   }
 
   const nextType = updates.type ?? existing.type;
-  const nextAuthMethod =
-    nextType === "public"
-      ? "none"
-      : (updates.tokenEndpointAuthMethod ?? existing.tokenEndpointAuthMethod);
+  const nextAuthMethod = nextType === "public" ? "none" : "client_secret_basic";
   const needsSecret = nextType === "confidential" || nextAuthMethod === "client_secret_basic";
   const { scopes: scopeUpdates, ...baseUpdates } = updates;
+  const nextKeyDeliveryVersion =
+    (updates.keyDeliveryVersion as "v1-drk" | "v2" | undefined) ??
+    (existing.keyDeliveryVersion as "v1-drk" | "v2");
+  const nextDeliveredKeyKind =
+    (updates.deliveredKeyKind as "root_key" | "client_app_key" | undefined) ??
+    (existing.deliveredKeyKind as "root_key" | "client_app_key");
+  validateKeyDelivery(nextKeyDeliveryVersion, nextDeliveredKeyKind);
 
   const patch: Partial<typeof clients.$inferInsert> = {
     ...baseUpdates,
@@ -273,24 +288,6 @@ export async function updateClient(
 export async function getClient(context: Context, clientId: string) {
   const row = await context.db.query.clients.findFirst({ where: eq(clients.clientId, clientId) });
   return row;
-}
-
-export async function getClientSecret(context: Context, clientId: string) {
-  const client = await getClient(context, clientId);
-  if (!client) {
-    throw new NotFoundError("Client not found");
-  }
-
-  if (!client.clientSecretEnc) {
-    return null;
-  }
-
-  if (!context.services.kek?.isAvailable()) {
-    return null;
-  }
-
-  const decrypted = await context.services.kek.decrypt(client.clientSecretEnc);
-  return decrypted.toString("utf-8");
 }
 
 export async function listVisibleApps(context: Context) {
@@ -350,4 +347,16 @@ export async function getClientDashboardIcon(context: Context, clientId: string)
   });
   if (!row) return null;
   return row;
+}
+
+function validateKeyDelivery(
+  keyDeliveryVersion: "v1-drk" | "v2",
+  deliveredKeyKind: "root_key" | "client_app_key"
+) {
+  if (keyDeliveryVersion === "v1-drk" && deliveredKeyKind !== "root_key") {
+    throw new ValidationError("v1-drk clients must deliver root_key");
+  }
+  if (keyDeliveryVersion === "v2" && deliveredKeyKind !== "client_app_key") {
+    throw new ValidationError("v2 clients must deliver client_app_key");
+  }
 }
