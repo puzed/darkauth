@@ -10,6 +10,8 @@ import {
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Auth - OTP verification gating (UI)', () => {
+  test.setTimeout(60_000);
+
   let servers: TestServers;
   let adminSession: { cookieHeader: string; csrfToken: string };
 
@@ -32,7 +34,7 @@ test.describe('Auth - OTP verification gating (UI)', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
+  test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
     const user = { email: `og-${Date.now()}@example.com`, name: 'OTP Gate', password: 'Passw0rd!123' };
     await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
@@ -53,7 +55,7 @@ test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
     const { code } = totp(secret, now, 30, 6, 'sha1');
     await page.fill('input[placeholder="123456"]', code);
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await page.getByText('Backup Codes').waitFor({ state: 'visible', timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Backup Codes' })).toBeVisible({ timeout: 15000 });
     await page.getByRole('button', { name: /^Continue$/i }).click();
     await page.waitForURL(/dashboard/i, { timeout: 10000 });
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);

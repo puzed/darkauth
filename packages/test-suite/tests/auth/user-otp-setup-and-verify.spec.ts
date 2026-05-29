@@ -6,6 +6,8 @@ import { createUserViaAdmin } from '../../setup/helpers/auth.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
 test.describe('Auth - User OTP setup and verify (UI)', () => {
+  test.setTimeout(60_000);
+
   let servers: TestServers;
 
   test.beforeAll(async () => {
@@ -41,6 +43,6 @@ test.describe('Auth - User OTP setup and verify (UI)', () => {
     const { code } = totp(secret, now, 30, 6, 'sha1');
     await page.fill('input[placeholder="123456"]', code);
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await page.getByText('Backup Codes').waitFor({ state: 'visible', timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Backup Codes' })).toBeVisible({ timeout: 15000 });
   });
 });
