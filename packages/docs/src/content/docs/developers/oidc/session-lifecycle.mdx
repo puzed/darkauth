@@ -37,4 +37,4 @@ In the default first-party browser profile used by the TypeScript SDK, refresh c
 
 Logout should clear application state and end the DarkAuth session where appropriate. Clients can also use registered post-logout redirect URIs.
 
-For zero-knowledge apps, logout should clear token state, the DRK, derived keys, callback state, PKCE verifier, and any ephemeral private key material.
+For zero-knowledge apps, logout should clear token state, CAK, legacy DRK material, derived keys, callback state, PKCE verifier, and any ephemeral private key material.

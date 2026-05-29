@@ -90,6 +90,6 @@ A ZK-enabled app must:
 
 ## Security boundary
 
-This flow is designed for honest hosted-web operation. It reduces what the DarkAuth backend and database can learn. It does not protect against malicious JavaScript running in the DarkAuth origin or app origin, compromised browsers, compromised devices, or an application that intentionally exfiltrates the DRK.
+This flow is designed for honest hosted-web operation. It reduces what the DarkAuth backend and database can learn. It does not protect against malicious JavaScript running in the DarkAuth origin or app origin, compromised browsers, compromised devices, or an application that intentionally exfiltrates the delivered CAK or legacy DRK.
 
 Use it when your app has a real client-side encryption model and users benefit from avoiding backend key custody.

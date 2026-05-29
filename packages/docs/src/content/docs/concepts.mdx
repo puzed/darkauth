@@ -1,9 +1,9 @@
 ---
 title: Core Concepts
-description: OIDC, OPAQUE, DRK, sessions, organizations, and the two-port DarkAuth model.
+description: OIDC, OPAQUE, keybags, sessions, organizations, and the two-port DarkAuth model.
 ---
 
-DarkAuth is easiest to understand as a standards-compatible authorization server with a stronger password and key-custody story than a typical login system. Applications can treat it as an OAuth 2.0 and OpenID Connect provider, but the user portal uses OPAQUE for password authentication and can optionally deliver a user Data Root Key to trusted clients without storing that key in plaintext server-side.
+DarkAuth is easiest to understand as a standards-compatible authorization server with a stronger password and key-custody story than a typical login system. Applications can treat it as an OAuth 2.0 and OpenID Connect provider, but the user portal uses OPAQUE for password authentication and can optionally deliver client-scoped key material to trusted clients without storing that plaintext key material server-side.
 
 ## Three audiences
 
@@ -35,15 +35,15 @@ That means many applications can integrate without knowing about OPAQUE or zero-
 
 OPAQUE is a password-authenticated key exchange. In DarkAuth, the user and admin portals use OPAQUE so the password is not sent to the server during login. The server stores an OPAQUE record rather than a plaintext password or conventional password hash.
 
-OPAQUE also gives the client an export key after successful authentication. DarkAuth uses that client-side material as part of its zero-knowledge key story. The server does not receive the export key.
+OPAQUE also gives the client an export key after successful authentication. DarkAuth uses that client-side material to unlock a password envelope in the user's keybag. The server does not receive the export key or the unwrapped account root key.
 
-## Data Root Key delivery
+## Account and app key delivery
 
-Some applications need a user-held root key to decrypt application data. DarkAuth calls this the Data Root Key, or DRK. The DRK is generated client-side and wrapped under a key derived from the OPAQUE export key. The server stores only the wrapped DRK.
+Some applications need user-held key material to decrypt application data. DarkAuth stores an Account Root Key, or ARK, inside a keybag. The keybag contains encrypted envelopes that can unwrap the ARK using password-derived material, passkey PRF output, trusted-device handoff material, or recovery keys.
 
-For clients that opt into zero-knowledge delivery, the application sends an ephemeral public key in the authorization request. After the user authenticates, browser code encrypts the DRK to that key as a compact JWE and delivers it through the URL fragment. The server stores only a hash that lets the application verify that the fragment matches the authorization code.
+For current ZK clients, the application sends an ephemeral public key in the authorization request. After the user authenticates, browser code unwraps the ARK locally, derives a Client App Key, or CAK, for the requesting client and organization context, encrypts that CAK to the ephemeral key as a compact JWE, and delivers it through the URL fragment. The server stores only a hash that lets the application verify that the fragment matches the authorization code.
 
-This is not magic. The model still requires trusted JavaScript, trusted origins, and a safe browser environment. It is designed to keep the backend and database from seeing the password, export key, plaintext DRK, or plaintext app data during honest hosted-web operation.
+Legacy v1 clients can still be configured to receive the older DRK-style root key delivery, but new clients should use v2 CAK delivery. This is not magic. The model still requires trusted JavaScript, trusted origins, and a safe browser environment. It is designed to keep the backend and database from seeing the password, export key, plaintext ARK, plaintext CAK, or plaintext app data during honest hosted-web operation.
 
 ## Organizations and permissions
 

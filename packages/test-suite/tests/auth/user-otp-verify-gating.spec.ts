@@ -53,7 +53,7 @@ test.describe('Auth - OTP verification gating (UI)', () => {
     const { code } = totp(secret, now, 30, 6, 'sha1');
     await page.fill('input[placeholder="123456"]', code);
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Backup Codes' })).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText('Backup Codes', { exact: true })).toBeVisible({ timeout: 15000 });
     await page.getByRole('button', { name: /^Continue$/i }).click();
     await page.waitForURL(/dashboard/i, { timeout: 10000 });
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);

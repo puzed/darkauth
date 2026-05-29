@@ -20,4 +20,6 @@ The install flow configures database mode, writes instance config, derives KEK s
 
 ## Security expectations
 
-The install token is one-time bootstrap state. Do not expose the installer to the public internet. After initialization, install endpoints should not continue accepting requests.
+The install token is one-time bootstrap state. Every install POST must present the current matching token while the token is still fresh. OPAQUE registration start does not refresh an expired install token, and OPAQUE registration finish does not consume the token by itself. Final installation still rejects an invalid or expired token even if admin OPAQUE registration state exists.
+
+Do not expose the installer to the public internet. After initialization, install endpoints should not continue accepting requests.

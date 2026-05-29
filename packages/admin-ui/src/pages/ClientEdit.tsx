@@ -691,7 +691,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <FileInput
-                          accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/webp"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;

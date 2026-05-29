@@ -51,7 +51,9 @@ Public clients can call `POST /revoke` with `client_id` to revoke refresh tokens
 
 If the client is configured for `fragment-jwe`, the authorization request can include `zk_pub`. The app must generate a fresh ephemeral P-256 key pair for the request and keep the private key in memory until the callback is handled.
 
-The returned URL fragment contains the encrypted DRK. The token response contains `zk_drk_hash`. The app must verify that the fragment hash matches before decrypting.
+Current v2 clients receive `darkauth_key_jwe` in the URL fragment. The token response contains `zk_key_hash`, `zk_key_kind`, and `zk_key_version`. The app must verify the fragment hash and payload metadata before decrypting and using the delivered CAK.
+
+Explicit legacy v1 clients receive `drk_jwe` in the fragment and `zk_drk_hash` in the token response. Keep that path only for apps that still depend on the legacy root-key delivery model.
 
 ## Common mistakes
 
