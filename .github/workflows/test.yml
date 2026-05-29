@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:15-alpine
@@ -40,10 +40,11 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
-      - run: npx playwright install
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-
+      - run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 10
       - run: npm run test -w @DarkAuth/api -w @darkauth/client -w @DarkAuth/md-to-pdf -w opaque-ts
       - uses: actions/upload-artifact@v4
         if: always()
@@ -70,7 +71,7 @@ jobs:
   screenshots-light:
     name: Screenshots Light - ${{ matrix.suite }}
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -89,10 +90,11 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
-      - run: npx playwright install
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-
+      - run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 10
       - run: npm --workspace @DarkAuth/test-suite run pretest
       - run: |
           cd packages/test-suite
@@ -108,7 +110,7 @@ jobs:
   screenshots-dark:
     name: Screenshots Dark - ${{ matrix.suite }}
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -127,10 +129,11 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
-      - run: npx playwright install
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-
+      - run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 10
       - run: npm --workspace @DarkAuth/test-suite run pretest
       - run: |
           cd packages/test-suite

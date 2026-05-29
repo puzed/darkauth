@@ -70,7 +70,7 @@ jobs:
           RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
         run: node scripts/deploy-release-changelog.mjs
   release-screenshots:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: release
     if: needs.release.outputs.no_release != 'true'
     steps:
@@ -85,10 +85,11 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
-      - run: npx playwright install
+            ${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-playwright-
+      - run: npx playwright install --with-deps --only-shell chromium
+        timeout-minutes: 10
       - name: Build release screenshots
         run: |
           npm --workspace @DarkAuth/test-suite run pretest
