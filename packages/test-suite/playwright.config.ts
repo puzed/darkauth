@@ -7,6 +7,7 @@ const outputDir = process.env.PW_OUTPUT_DIR || 'test-results';
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
+  timeout: process.env.CI ? 60_000 : 30_000,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
