@@ -66,6 +66,8 @@ test.describe('Demo App Note Flow', () => {
     const demoPage = await openDemoDashboard(context, bundle, user, snapshot);
     const note = await createAndSaveDemoNote(demoPage);
     await verifyNoteAfterRelogin(demoPage, bundle, user, note);
+    await demoPage.close();
+    await userPage.close();
   });
 
   test('deny returns user to logged-out app screen with oauth error message', async ({ context }) => {

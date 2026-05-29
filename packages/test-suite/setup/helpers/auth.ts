@@ -665,7 +665,7 @@ export async function establishAdminSession(
   }
 
   const page = await context.newPage();
-  await page.goto(`${servers.adminUrl}/`);
+  await page.goto(`${servers.adminUrl}/`, { waitUntil: 'domcontentloaded' });
   const emailField = page.locator('input[name="email"], input[type="email"]').first();
   const dashboardHeading = page.getByRole('heading', { name: 'Admin Dashboard', exact: true });
   const dashboardVisible = await dashboardHeading.isVisible({ timeout: 3000 }).catch(() => false);
@@ -743,8 +743,7 @@ export async function establishAdminSession(
     }
   }
 
-  await page.goto(`${servers.adminUrl}/`);
-  await page.waitForURL(/\/dashboard/, { timeout: 8000 }).catch(() => {});
+  await page.goto(`${servers.adminUrl}/`, { waitUntil: 'domcontentloaded' });
   const finalDashboardVisible = await dashboardHeading.isVisible({ timeout: 5000 }).catch(() => false);
   if (!finalDashboardVisible && !/\/dashboard/.test(page.url())) {
     throw new Error(`admin dashboard not reachable after session establish: ${page.url()}`);
