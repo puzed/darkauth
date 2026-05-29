@@ -102,10 +102,6 @@ export async function postInstallOpaqueRegisterFinish(
       if (!install.adminEmail) install.adminEmail = data.email;
       install.adminCreated = true;
     }
-    if (context.services.install) {
-      context.services.install.token = undefined;
-    }
-
     context.logger.info("[install:opaque:finish] Registration complete, sending success response");
     sendJson(response, 201, { success: true });
   } catch (err) {

@@ -14,6 +14,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import adminApiService, { type AdminSetting } from "@/services/api";
@@ -82,17 +89,131 @@ const PASSWORD_RESET_SETTINGS: AdminSetting[] = [
   },
 ];
 
+const SCIM_SETTINGS: AdminSetting[] = [
+  {
+    key: "users.scim.only_provisioned_sign_in",
+    name: "Only SCIM users may sign in",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Allow sign-in only for users provisioned by SCIM.",
+    tags: ["users", "scim", "policy"],
+    defaultValue: false,
+    value: false,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.require_key_unlock_for_zk",
+    name: "Require key unlock for ZK clients",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Require SCIM-managed users to set up an encryption unlock method for ZK clients.",
+    tags: ["users", "scim", "policy"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.allow_password_envelopes",
+    name: "Allow password unlock envelopes",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Let SCIM-managed users create password-based encryption unlock envelopes.",
+    tags: ["users", "scim", "key-management"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.allow_passkey_prf_envelopes",
+    name: "Allow PRF passkey unlock",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Let SCIM-managed users create passkey PRF encryption unlock envelopes.",
+    tags: ["users", "scim", "key-management", "passkeys"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.allow_trusted_device_approval",
+    name: "Allow trusted-device approval",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Let unlocked trusted devices approve encrypted key access on new browsers.",
+    tags: ["users", "scim", "key-management", "devices"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.deprovision_action",
+    name: "Deprovision action",
+    type: "string",
+    category: "Users / SCIM Policy",
+    description: "Choose how SCIM delete or active=false affects DarkAuth users.",
+    tags: ["users", "scim", "deprovisioning"],
+    defaultValue: "suspend",
+    value: "suspend",
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.unknown_group_policy",
+    name: "Unknown group policy",
+    type: "string",
+    category: "Users / SCIM Mapping",
+    description: "Choose what happens when SCIM sends a group without a mapping.",
+    tags: ["users", "scim", "mapping"],
+    defaultValue: "ignore",
+    value: "ignore",
+    secure: false,
+    updatedAt: "",
+  },
+  {
+    key: "users.scim.group_role_mappings",
+    name: "Group and role mappings",
+    type: "object",
+    category: "Users / SCIM Mapping",
+    description:
+      "Map SCIM group display names or external IDs to DarkAuth groups, roles, or organizations.",
+    tags: ["users", "scim", "mapping"],
+    defaultValue: { mappings: [] },
+    value: { mappings: [] },
+    secure: false,
+    updatedAt: "",
+  },
+];
+
+const LOCAL_SETTINGS: AdminSetting[] = [...PASSWORD_RESET_SETTINGS, ...SCIM_SETTINGS];
+
 const NUMBER_LIMITS: Record<string, { min: number; max: number }> = {
   "users.password_reset_token_ttl_minutes": { min: 5, max: 1440 },
   "users.password_reset_request_cooldown_minutes": { min: 1, max: 60 },
   "users.password_reset_max_requests_per_hour": { min: 1, max: 20 },
 };
 
-function withPasswordResetSettings(settings: AdminSetting[]): AdminSetting[] {
+const ENUM_OPTIONS: Record<string, Array<{ value: string; label: string }>> = {
+  "users.scim.deprovision_action": [
+    { value: "suspend", label: "Suspend user" },
+    { value: "delete", label: "Delete user" },
+  ],
+  "users.scim.unknown_group_policy": [
+    { value: "ignore", label: "Ignore group" },
+    { value: "create", label: "Create group" },
+    { value: "reject", label: "Reject update" },
+  ],
+};
+
+function withLocalSettings(settings: AdminSetting[]): AdminSetting[] {
   const byKey = new Map(settings.map((setting) => [setting.key, setting]));
   return [
     ...settings.map((setting) => {
-      const fallback = PASSWORD_RESET_SETTINGS.find((item) => item.key === setting.key);
+      const fallback = LOCAL_SETTINGS.find((item) => item.key === setting.key);
       return fallback
         ? {
             ...fallback,
@@ -106,7 +227,7 @@ function withPasswordResetSettings(settings: AdminSetting[]): AdminSetting[] {
           }
         : setting;
     }),
-    ...PASSWORD_RESET_SETTINGS.filter((setting) => !byKey.has(setting.key)),
+    ...LOCAL_SETTINGS.filter((setting) => !byKey.has(setting.key)),
   ];
 }
 
@@ -151,7 +272,7 @@ export default function Settings() {
         adminApiService.getSettings(),
         adminApiService.getAdminSession(),
       ]);
-      const settings = withPasswordResetSettings(settingsResponse.settings);
+      const settings = withLocalSettings(settingsResponse.settings);
       setAdminRole(sessionResponse.role || "read");
       setSettings(settings);
       const d: Record<string, unknown> = {};
@@ -332,6 +453,7 @@ export default function Settings() {
                             (s.secure && s.value === "[REDACTED]") ||
                             enablePasswordResetBlocked;
                           const isObject = t === "object";
+                          const enumOptions = ENUM_OPTIONS[s.key];
                           const atDefault = isObject
                             ? JSON.stringify(s.value) === JSON.stringify(s.defaultValue)
                             : false;
@@ -378,6 +500,37 @@ export default function Settings() {
                                     onBlur={() => save(s)}
                                     disabled={disabled}
                                   />
+                                ) : enumOptions ? (
+                                  <Select
+                                    value={String(drafts[s.key] ?? s.defaultValue ?? "")}
+                                    onValueChange={(value) => {
+                                      setDrafts((d) => ({ ...d, [s.key]: value }));
+                                      adminApiService
+                                        .updateSetting(s.key, value)
+                                        .then(() => toast({ title: "Saved", description: s.key }))
+                                        .catch((e) => {
+                                          setDrafts((d) => ({ ...d, [s.key]: s.value }));
+                                          toast({
+                                            title: "Error",
+                                            description:
+                                              e instanceof Error ? e.message : "Failed to save",
+                                            variant: "destructive",
+                                          });
+                                        });
+                                    }}
+                                    disabled={disabled}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {enumOptions.map((option) => (
+                                        <SelectItem key={option.value} value={option.value}>
+                                          {option.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 ) : t === "string" ? (
                                   <Input
                                     value={String(drafts[s.key] ?? "")}

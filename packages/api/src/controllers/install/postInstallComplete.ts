@@ -66,21 +66,13 @@ async function _postInstallComplete(
     "[install:post] parsed payload"
   );
 
-  // Validate install token (must match and be fresh) unless admin was already created
   const providedToken = data.token;
-  const adminFinished = !!context.services.install?.adminCreated;
-  if (!adminFinished) {
-    if (!providedToken || providedToken !== context.services.install?.token) {
-      if (!context.config.isDevelopment) {
-        throw new ForbiddenInstallTokenError();
-      }
-    }
-    if (context.services.install?.createdAt) {
-      const tokenAge = Date.now() - (context.services.install?.createdAt || 0);
-      if (tokenAge > 10 * 60 * 1000 && !context.config.isDevelopment) {
-        throw new ExpiredInstallTokenError();
-      }
-    }
+  if (!providedToken || providedToken !== context.services.install?.token) {
+    throw new ForbiddenInstallTokenError();
+  }
+  const tokenCreatedAt = context.services.install?.createdAt;
+  if (!tokenCreatedAt || Date.now() - tokenCreatedAt > 10 * 60 * 1000) {
+    throw new ExpiredInstallTokenError();
   }
 
   if (!context.config.kekPassphrase) {

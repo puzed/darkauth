@@ -4,7 +4,7 @@ import { ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
-import { requireSession } from "../../services/sessions.ts";
+import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { fromBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
@@ -36,6 +36,10 @@ async function postUserPasswordRecoveryVerifyFinishHandler(
   }
 
   await opaque.finishLogin(finishBuffer, parsed.sessionId);
+  const sessionId = getSessionId(request, false);
+  if (sessionId) {
+    await updateSession(context, sessionId, { ...session, keyState: "unlocked" });
+  }
 
   sendJson(response, 200, { success: true });
 }

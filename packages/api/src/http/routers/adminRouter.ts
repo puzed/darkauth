@@ -10,9 +10,12 @@ import { updateAdminUserController } from "../../controllers/admin/adminUserUpda
 import { getAuditLogDetail } from "../../controllers/admin/auditLogDetail.ts";
 import { getAuditLogExport } from "../../controllers/admin/auditLogExport.ts";
 import { getAuditLogs } from "../../controllers/admin/auditLogs.ts";
-import { createClient } from "../../controllers/admin/clientCreate.ts";
+import { createClient, isSafeDashboardIcon } from "../../controllers/admin/clientCreate.ts";
 import { deleteClientController } from "../../controllers/admin/clientDelete.ts";
-import { getClientSecretController } from "../../controllers/admin/clientSecret.ts";
+import {
+  getClientSecretController,
+  rotateClientSecretController,
+} from "../../controllers/admin/clientSecret.ts";
 import { getClients } from "../../controllers/admin/clients.ts";
 import { updateClientController } from "../../controllers/admin/clientUpdate.ts";
 import {
@@ -20,6 +23,15 @@ import {
   putAdminEmailTemplate,
 } from "../../controllers/admin/emailTemplates.ts";
 import { postAdminEmailTest } from "../../controllers/admin/emailTest.ts";
+import {
+  deleteFederationConnectionController,
+  getFederationConnectionController,
+  getFederationConnections,
+  getFederationDomainRoute,
+  getFederationOidcDiscovery,
+  postFederationConnection,
+  putFederationConnection,
+} from "../../controllers/admin/federationConnections.ts";
 import { getJwks } from "../../controllers/admin/jwks.ts";
 import { rotateJwks } from "../../controllers/admin/jwksRotate.ts";
 import { postAdminLogout } from "../../controllers/admin/logout.ts";
@@ -55,6 +67,11 @@ import { getRole } from "../../controllers/admin/roleGet.ts";
 import { putRolePermissions } from "../../controllers/admin/rolePermissionsUpdate.ts";
 import { getRoles } from "../../controllers/admin/roles.ts";
 import { putRole } from "../../controllers/admin/roleUpdate.ts";
+import {
+  deleteScimToken,
+  getScimTokens,
+  postScimToken,
+} from "../../controllers/admin/scimTokens.ts";
 import { getAdminSession } from "../../controllers/admin/session.ts";
 import { getSettings } from "../../controllers/admin/settings.ts";
 import { updateSettings } from "../../controllers/admin/settingsUpdate.ts";
@@ -116,6 +133,21 @@ export function createAdminRouter(context: Context) {
 
       if (method === "POST" && pathname === "/admin/logout") {
         return await postAdminLogout(context, request, response);
+      }
+
+      if (pathname === "/admin/scim/tokens") {
+        if (method === "GET") return await getScimTokens(context, request, response);
+        if (method === "POST") return await postScimToken(context, request, response);
+      }
+
+      const scimTokenMatch = pathname.match(/^\/admin\/scim\/tokens\/([^/]+)$/);
+      if (scimTokenMatch && method === "DELETE") {
+        return await deleteScimToken(
+          context,
+          request,
+          response,
+          decodeURIComponent(scimTokenMatch[1] as string)
+        );
       }
 
       if (method === "POST" && pathname === "/admin/opaque/login/start") {
@@ -363,10 +395,49 @@ export function createAdminRouter(context: Context) {
         if (method === "POST") return await createClient(context, request, response);
       }
 
+      if (pathname === "/admin/federation/connections") {
+        if (method === "GET") return await getFederationConnections(context, request, response);
+        if (method === "POST") return await postFederationConnection(context, request, response);
+      }
+
+      if (pathname === "/admin/federation/domain-route" && method === "GET") {
+        return await getFederationDomainRoute(context, request, response);
+      }
+
+      if (pathname === "/admin/federation/oidc/discovery" && method === "GET") {
+        return await getFederationOidcDiscovery(context, request, response);
+      }
+
+      const federationConnectionMatch = pathname.match(
+        /^\/admin\/federation\/connections\/([^/]+)$/
+      );
+      if (federationConnectionMatch) {
+        const connectionId = federationConnectionMatch[1] as string;
+        if (method === "GET") {
+          return await getFederationConnectionController(context, request, response, connectionId);
+        }
+        if (method === "PUT") {
+          return await putFederationConnection(context, request, response, connectionId);
+        }
+        if (method === "DELETE") {
+          return await deleteFederationConnectionController(
+            context,
+            request,
+            response,
+            connectionId
+          );
+        }
+      }
+
       const clientSecretMatch = pathname.match(/^\/admin\/clients\/([^/]+)\/secret$/);
       if (clientSecretMatch && method === "GET") {
         const clientId = clientSecretMatch[1];
         return await getClientSecretController(context, request, response, clientId as string);
+      }
+      const clientSecretRotateMatch = pathname.match(/^\/admin\/clients\/([^/]+)\/secret\/rotate$/);
+      if (clientSecretRotateMatch && method === "POST") {
+        const clientId = clientSecretRotateMatch[1];
+        return await rotateClientSecretController(context, request, response, clientId as string);
       }
 
       const adminSetStartMatch = pathname.match(
@@ -411,13 +482,15 @@ export function createAdminRouter(context: Context) {
           !icon ||
           icon.dashboardIconMode !== "upload" ||
           !icon.dashboardIconData ||
-          !icon.dashboardIconMimeType
+          !icon.dashboardIconMimeType ||
+          !isSafeDashboardIcon(icon.dashboardIconData, icon.dashboardIconMimeType)
         ) {
           throw new NotFoundError("Icon not found");
         }
         response.statusCode = 200;
         response.setHeader("Content-Type", icon.dashboardIconMimeType);
         response.setHeader("Cache-Control", "public, max-age=86400");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.end(icon.dashboardIconData);
         return;
       }

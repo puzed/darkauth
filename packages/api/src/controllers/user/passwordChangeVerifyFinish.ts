@@ -5,6 +5,11 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
+import {
+  getSession as getSessionData,
+  getSessionId,
+  updateSession,
+} from "../../services/sessions.ts";
 import type { Context, ControllerSchema, JWTPayload } from "../../types.ts";
 import { fromBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
@@ -37,6 +42,13 @@ async function postUserPasswordVerifyFinishHandler(
   }
 
   await opaque.finishLogin(finishBuffer, parsed.sessionId);
+  const sessionId = getSessionId(request, false);
+  if (sessionId) {
+    const sessionData = await getSessionData(context, sessionId);
+    if (sessionData) {
+      await updateSession(context, sessionId, { ...sessionData, keyState: "unlocked" });
+    }
+  }
 
   const token = await signJWT(
     context,

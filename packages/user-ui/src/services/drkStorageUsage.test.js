@@ -32,3 +32,11 @@ test("Auth UI does not persist DRK through drkStorage outside legacy clearing", 
   }
   assert.deepEqual(offenders, []);
 });
+
+test("session export keys stay memory-only", () => {
+  const source = readFileSync(join(root, "services", "sessionKey.ts"), "utf8");
+  assert.match(source, /memoryExportKeys/);
+  assert.doesNotMatch(source, /setItem\(LEGACY_PREFIX/);
+  assert.doesNotMatch(source, /saveExportKey[\s\S]*sessionStorage\.setItem/);
+  assert.doesNotMatch(source, /saveExportKey[\s\S]*localStorage\.setItem/);
+});

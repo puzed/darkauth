@@ -18,11 +18,10 @@ import {
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { fromBase64Url, sha256Base64Url, toBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
-  // Rate limit by sessionId to prevent abuse
   const data = body as { sessionId?: string };
   return data?.sessionId;
 })(
@@ -30,9 +29,8 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
     eventType: "USER_LOGIN",
     resourceType: "user",
     extractResourceId: (body) => {
-      // Use sessionId for audit correlation
       const data = body as { sessionId?: string };
-      return data?.sessionId;
+      return data?.sessionId ? sha256Base64Url(data.sessionId).slice(0, 16) : undefined;
     },
   })(
     async (
@@ -154,6 +152,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         name: user.name || undefined,
         ...sessionOrganization,
         clientId: userClientId,
+        keyState: "unlocked",
         otpRequired: otpRequired,
         otpVerified: false,
       });
