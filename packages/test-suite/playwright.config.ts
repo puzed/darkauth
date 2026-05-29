@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const reporter = process.env.PW_REPORTER || 'dot';
 const artifacts = process.env.PW_ARTIFACTS || 'off';
 const outputDir = process.env.PW_OUTPUT_DIR || 'test-results';
+const browserChannel = process.env.PW_BROWSER_CHANNEL;
 
 export default defineConfig({
   testDir: './tests',
@@ -21,8 +22,8 @@ export default defineConfig({
   outputDir,
   projects: [
     {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 800 } },
+      name: browserChannel || 'chromium',
+      use: { ...devices['Desktop Chrome'], channel: browserChannel, viewport: { width: 1400, height: 800 } },
     },
   ],
   globalSetup: undefined,
