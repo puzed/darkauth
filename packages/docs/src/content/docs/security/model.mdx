@@ -11,8 +11,9 @@ DarkAuth tries to avoid server-side access to:
 
 - Plaintext passwords.
 - OPAQUE export keys.
-- Plaintext Data Root Keys.
-- Plaintext app data protected by DRK-derived keys.
+- Plaintext account root keys.
+- Plaintext client app keys.
+- Plaintext app data protected by client-held keys.
 - Plaintext reset tokens.
 - Plaintext private signing keys at rest.
 
@@ -29,7 +30,7 @@ DarkAuth must still trust:
 - The configured redirect URI and origin allowlists.
 - Admin users with write access.
 
-If trusted frontend code is malicious, it can read secrets while they are in use. If an app receives the DRK, that app can misuse it. These are explicit parts of the hosted-web trust boundary.
+If trusted frontend code is malicious, it can read secrets while they are in use. If an app receives a CAK or legacy DRK, that app can misuse it. These are explicit parts of the hosted-web trust boundary.
 
 ## Operational controls
 

@@ -1,0 +1,24 @@
+---
+title: SCIM
+description: Provision and deactivate users with SCIM.
+---
+
+SCIM lets an external identity system create, update, and deactivate DarkAuth users. Admins manage SCIM bearer tokens in the admin portal, then configure the identity provider to call the SCIM API on the user origin.
+
+## Tokens
+
+SCIM tokens are generated for a specific integration and shown once. Store the token in the upstream identity provider immediately. Later reads show token metadata, not the plaintext bearer token.
+
+Revoke tokens that are no longer used, belong to a retired integration, or may have been copied into logs or support tickets.
+
+## Provisioning
+
+SCIM can create and update user profile data such as user name, email, display name, active state, and external ID. The upstream provider should be the source of truth for SCIM-managed fields.
+
+Use stable external IDs where possible. Email addresses can change, but external IDs should continue to identify the same upstream account.
+
+## Deactivation
+
+When SCIM marks a user inactive, DarkAuth disables the user and invalidates pending authorization requests, authorization codes, and server-side session or refresh state for that user. This prevents a code issued before deactivation from being redeemed after the account has been disabled.
+
+Already issued stateless access and ID tokens remain governed by their expiry. For high-risk offboarding, combine SCIM deactivation with short token lifetimes, downstream authorization checks, and application-side access review.

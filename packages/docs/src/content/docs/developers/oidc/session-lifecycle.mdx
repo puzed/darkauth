@@ -29,10 +29,12 @@ Applications should validate:
 
 DarkAuth rotates refresh credentials. A refresh token should be single use. Reuse of an already-consumed refresh token is suspicious and should fail.
 
-In the default first-party browser profile used by the TypeScript SDK, refresh can rely on HttpOnly cookies instead of JavaScript-readable refresh tokens. That reduces browser storage exposure.
+Refresh tokens are client-bound. A public client can redeem refresh tokens issued to that public client, and a confidential client must authenticate before redeeming refresh tokens issued to it. A refresh token issued to one client cannot be replayed through another refresh-capable client.
+
+In the default first-party browser profile used by the TypeScript SDK, refresh can rely on HttpOnly cookies instead of JavaScript-readable refresh tokens. That cookie-backed flow is intended for the first-party public client, reducing browser storage exposure.
 
 ## Logout
 
 Logout should clear application state and end the DarkAuth session where appropriate. Clients can also use registered post-logout redirect URIs.
 
-For zero-knowledge apps, logout should clear token state, the DRK, derived keys, callback state, PKCE verifier, and any ephemeral private key material.
+For zero-knowledge apps, logout should clear token state, CAK, legacy DRK material, derived keys, callback state, PKCE verifier, and any ephemeral private key material.

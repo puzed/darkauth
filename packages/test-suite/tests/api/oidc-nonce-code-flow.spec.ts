@@ -425,10 +425,12 @@ test.describe('API - OIDC nonce auth code flow', () => {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
-    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret`, {
+    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret/rotate`, {
+      method: 'POST',
       headers: {
         Cookie: adminSession.cookieHeader,
-        Origin: servers.adminUrl
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken,
       }
     })
     expect(secretRes.ok).toBeTruthy()

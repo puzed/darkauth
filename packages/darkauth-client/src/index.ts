@@ -15,7 +15,7 @@ type Config = {
   discovery?: boolean;
   firstParty?: boolean;
   tokenStorage?: "memory" | "localStorage";
-  drkStorage?: "memory" | "localStorage";
+  drkStorage?: "memory";
   refreshMode?: "cookie" | "token";
   credentials?: RequestCredentials;
 };
@@ -75,13 +75,13 @@ let cfg: Config = {
   zk: true,
 };
 
-const OBFUSCATION_KEY = "DarkAuth-Storage-Protection-2025";
 const EMPTY_DRK = new Uint8Array(0);
 const ID_TOKEN_KEY = "id_token";
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const DRK_STORAGE_KEY = "drk_protected";
 const OAUTH_STATE_KEY = "oauth_state";
+const V2_KEY_JWE_MAX_TTL_SECONDS = 600;
 
 type ResolvedEndpoints = {
   authorizationEndpoint: string;
@@ -123,10 +123,6 @@ function clearStoredAccessToken(): void {
 
 function tokenStorageMode(): "memory" | "localStorage" {
   return cfg.tokenStorage || (cfg.firstParty === false ? "localStorage" : "memory");
-}
-
-function drkStorageMode(): "memory" | "localStorage" {
-  return cfg.drkStorage || (cfg.firstParty === false ? "localStorage" : "memory");
 }
 
 function refreshMode(): "cookie" | "token" {
@@ -219,19 +215,35 @@ function parseFragmentParams(hash: string): Record<string, string> {
   return res;
 }
 
-function obfuscateKey(drk: Uint8Array): Uint8Array {
-  const obfKey = new TextEncoder().encode(OBFUSCATION_KEY);
-  const out = new Uint8Array(drk.length);
-  for (let i = 0; i < drk.length; i++) {
-    const a = drk[i] ?? 0;
-    const b = obfKey[i % obfKey.length] ?? 0;
-    out[i] = a ^ b;
-  }
-  return out;
+async function sha256Base64Url(value: string): Promise<string> {
+  return bytesToBase64Url(await sha256(new TextEncoder().encode(value)));
 }
 
-function deobfuscateKey(obfuscated: Uint8Array): Uint8Array {
-  return obfuscateKey(obfuscated);
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function audienceMatches(value: unknown, expected: string): boolean {
+  if (typeof value === "string") return value === expected;
+  if (isStringArray(value)) return value.includes(expected);
+  return false;
+}
+
+function requireString(value: unknown, name: string): string {
+  if (typeof value !== "string" || value.length === 0) throw new Error(`Invalid ${name}`);
+  return value;
+}
+
+function requireNumber(value: unknown, name: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) throw new Error(`Invalid ${name}`);
+  return value;
+}
+
+function parseJsonPayload(bytes: Uint8Array): Record<string, unknown> {
+  const parsed = JSON.parse(new TextDecoder().decode(bytes)) as unknown;
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+    throw new Error("Invalid key payload");
+  return parsed as Record<string, unknown>;
 }
 
 function clearStoredDrk(): void {
@@ -239,24 +251,12 @@ function clearStoredDrk(): void {
 }
 
 function getStoredDrk(): Uint8Array | null {
-  if (drkStorageMode() !== "localStorage") {
-    clearStoredDrk();
-    return null;
-  }
-  const obfuscatedDrkBase64 = localStorage.getItem(DRK_STORAGE_KEY);
-  if (!obfuscatedDrkBase64) return null;
-  try {
-    const obfuscatedDrk = base64UrlToBytes(obfuscatedDrkBase64);
-    return deobfuscateKey(obfuscatedDrk);
-  } catch {
-    clearStoredDrk();
-    return null;
-  }
+  clearStoredDrk();
+  return null;
 }
 
 function storeSession(session: AuthSession): AuthSession {
   const tokenMode = tokenStorageMode();
-  const drkMode = drkStorageMode();
   const currentRefreshMode = refreshMode();
   const storedSession: AuthSession = {
     idToken: session.idToken,
@@ -273,12 +273,7 @@ function storeSession(session: AuthSession): AuthSession {
     clearStoredIdToken();
     clearStoredAccessToken();
   }
-  if (drkMode === "localStorage" && session.drk.length > 0) {
-    const obfuscatedDrk = obfuscateKey(session.drk);
-    localStorage.setItem(DRK_STORAGE_KEY, bytesToBase64Url(obfuscatedDrk));
-  } else {
-    clearStoredDrk();
-  }
+  clearStoredDrk();
   if (currentRefreshMode === "token") {
     memoryRefreshToken = session.refreshToken || memoryRefreshToken;
     if (tokenMode === "localStorage" && session.refreshToken) {
@@ -297,11 +292,12 @@ function clearCallbackStorage(): void {
   sessionStorage.removeItem("pkce_verifier");
 }
 
-function stripDrkJweFragment(): void {
-  if (!location.hash.includes("drk_jwe=")) return;
+function stripKeyJweFragment(): void {
+  if (!location.hash.includes("drk_jwe=") && !location.hash.includes("darkauth_key_jwe=")) return;
   const hash = location.hash.startsWith("#") ? location.hash.slice(1) : location.hash;
   const params = new URLSearchParams(hash);
   params.delete("drk_jwe");
+  params.delete("darkauth_key_jwe");
   const nextHash = params.toString();
   const nextUrl = `${location.origin}${location.pathname}${location.search || ""}${
     nextHash ? `#${nextHash}` : ""
@@ -373,7 +369,8 @@ export async function handleCallback(): Promise<AuthSession | null> {
   if (!code) return null;
   const fragmentParams = parseFragmentParams(location.hash || "");
   const drkJwe: string | undefined = fragmentParams.drk_jwe;
-  if (drkJwe) stripDrkJweFragment();
+  const darkauthKeyJwe: string | undefined = fragmentParams.darkauth_key_jwe;
+  if (drkJwe || darkauthKeyJwe) stripKeyJweFragment();
   const expectedState = sessionStorage.getItem(OAUTH_STATE_KEY);
   const returnedState = params.get("state");
   if (!expectedState) throw new Error("Missing OAuth state");
@@ -406,6 +403,18 @@ export async function handleCallback(): Promise<AuthSession | null> {
         typeof tokenResponse.zk_drk_hash === "string"
           ? (tokenResponse.zk_drk_hash as string)
           : null;
+      const zkKeyHash =
+        typeof tokenResponse.zk_key_hash === "string"
+          ? (tokenResponse.zk_key_hash as string)
+          : null;
+      const zkKeyKind =
+        typeof tokenResponse.zk_key_kind === "string"
+          ? (tokenResponse.zk_key_kind as string)
+          : null;
+      const zkKeyVersion =
+        typeof tokenResponse.zk_key_version === "string"
+          ? (tokenResponse.zk_key_version as string)
+          : null;
       const idToken = tokenResponse.id_token as string;
       const accessToken =
         typeof tokenResponse.access_token === "string"
@@ -416,16 +425,12 @@ export async function handleCallback(): Promise<AuthSession | null> {
         tokenRefreshMode === "token"
           ? (tokenResponse.refresh_token as string | undefined)
           : undefined;
-      const hasZkArtifacts = !!drkJwe || !!zkDrkHash;
+      const hasV2Artifacts = !!darkauthKeyJwe || !!zkKeyHash || !!zkKeyKind || !!zkKeyVersion;
+      const hasLegacyArtifacts = !!drkJwe || !!zkDrkHash;
+      const hasZkArtifacts = hasV2Artifacts || hasLegacyArtifacts;
       if (!hasZkArtifacts) {
         clearCallbackUrl();
         return storeSession({ idToken, accessToken, drk: EMPTY_DRK, refreshToken });
-      }
-      if (!drkJwe || typeof drkJwe !== "string")
-        throw new Error("Missing DRK JWE from URL fragment");
-      if (zkDrkHash) {
-        const hash = bytesToBase64Url(await sha256(new TextEncoder().encode(drkJwe)));
-        if (zkDrkHash !== hash) throw new Error("DRK hash mismatch");
       }
       const privateJwkString = sessionStorage.getItem("zk_eph_priv_jwk");
       if (!privateJwkString) throw new Error("Missing ZK private key for callback");
@@ -437,8 +442,61 @@ export async function handleCallback(): Promise<AuthSession | null> {
         true,
         ["deriveBits", "deriveKey"]
       );
-      const { plaintext } = await compactDecrypt(drkJwe, privateKey);
-      const drk = new Uint8Array(plaintext);
+      let drk: Uint8Array;
+      if (hasV2Artifacts) {
+        if (hasLegacyArtifacts) throw new Error("Mixed key delivery metadata");
+        if (!darkauthKeyJwe || typeof darkauthKeyJwe !== "string")
+          throw new Error("Missing client key JWE from URL fragment");
+        if (!zkKeyHash) throw new Error("Missing client key hash");
+        if (zkKeyKind !== "client_app_key") throw new Error("Invalid client key kind");
+        if (zkKeyVersion !== "v2") throw new Error("Invalid client key version");
+        const hash = await sha256Base64Url(darkauthKeyJwe);
+        if (zkKeyHash !== hash) throw new Error("Client key hash mismatch");
+        const { plaintext, protectedHeader } = await compactDecrypt(darkauthKeyJwe, privateKey);
+        if (protectedHeader.alg !== "ECDH-ES" || protectedHeader.enc !== "A256GCM")
+          throw new Error("Invalid client key JWE header");
+        const payload = parseJsonPayload(new Uint8Array(plaintext));
+        if (payload.typ !== "DarkAuth-Client-Key") throw new Error("Invalid client key type");
+        if (payload.version !== "v2" && payload.version !== "v2-client-key")
+          throw new Error("Invalid client key payload version");
+        if (payload.key_kind !== "client_app_key")
+          throw new Error("Invalid client key payload kind");
+        if (payload.client_id !== cfg.clientId) throw new Error("Invalid client key client");
+        if (!audienceMatches(payload.aud, cfg.clientId))
+          throw new Error("Invalid client key audience");
+        const idTokenSubject = parseJwt(idToken)?.sub;
+        if (!idTokenSubject || payload.sub !== idTokenSubject)
+          throw new Error("Invalid client key subject");
+        if (payload.state_hash !== (await sha256Base64Url(expectedState)))
+          throw new Error("Invalid client key state");
+        if (payload.redirect_uri_hash !== (await sha256Base64Url(cfg.redirectUri)))
+          throw new Error("Invalid client key redirect URI");
+        requireString(payload.key_id, "client key id");
+        const exp = requireNumber(payload.exp, "client key expiry");
+        const now = Date.now() / 1000;
+        if (exp <= now) throw new Error("Client key JWE expired");
+        if (typeof payload.iat === "number") {
+          if (!Number.isFinite(payload.iat)) throw new Error("Invalid client key issued-at");
+          if (payload.iat > now + 60) throw new Error("Invalid client key issued-at");
+          if (exp - payload.iat > V2_KEY_JWE_MAX_TTL_SECONDS)
+            throw new Error("Client key JWE lifetime too long");
+        } else if (exp > now + V2_KEY_JWE_MAX_TTL_SECONDS) {
+          throw new Error("Client key JWE lifetime too long");
+        }
+        drk = base64UrlToBytes(requireString(payload.cak, "client app key"));
+        if (drk.length === 0) throw new Error("Invalid client app key");
+      } else {
+        if (!drkJwe || typeof drkJwe !== "string")
+          throw new Error("Missing DRK JWE from URL fragment");
+        if (zkDrkHash) {
+          const hash = await sha256Base64Url(drkJwe);
+          if (zkDrkHash !== hash) throw new Error("DRK hash mismatch");
+        }
+        const { plaintext, protectedHeader } = await compactDecrypt(drkJwe, privateKey);
+        if (protectedHeader.alg !== "ECDH-ES" || protectedHeader.enc !== "A256GCM")
+          throw new Error("Invalid DRK JWE header");
+        drk = new Uint8Array(plaintext);
+      }
       clearCallbackUrl();
       return storeSession({ idToken, accessToken, drk, refreshToken });
     } finally {

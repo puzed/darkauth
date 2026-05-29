@@ -70,7 +70,7 @@ export interface AuthorizeRequest {
   requestId: string;
   approve: boolean;
   drkHash?: string;
-  drkJwe?: string;
+  zkKeyHash?: string;
   organizationId?: string;
 }
 
@@ -86,6 +86,7 @@ export interface SessionResponse {
   passwordResetRequired?: boolean;
   otpRequired?: boolean;
   otpVerified?: boolean;
+  keyState?: "locked" | "unlocked" | "setup_required";
   organizationId?: string;
   organizationSlug?: string;
 }
@@ -111,6 +112,84 @@ export interface SessionOrganizationResponse {
 
 export interface WrappedDrkResponse {
   wrapped_drk: string;
+}
+
+export interface AccountKeyResponse {
+  key_id: string;
+  sub: string;
+  version: string;
+  status: string;
+}
+
+export interface KeyEnvelopeResponse {
+  envelope_id: string;
+  key_id: string;
+  sub: string;
+  type: string;
+  label?: string | null;
+  wrapping_alg: string;
+  wrapped_key: string;
+  aad: string;
+  metadata?: Record<string, unknown>;
+  revoked_at?: string | null;
+}
+
+export interface KeybagResponse {
+  account_keys: AccountKeyResponse[];
+  envelopes: KeyEnvelopeResponse[];
+}
+
+export interface TrustedDeviceResponse {
+  device_id: string;
+  sub?: string;
+  label?: string | null;
+  public_jwk?: JsonWebKey | null;
+  public_key_jwk?: JsonWebKey | null;
+  key_handle?: string | null;
+  key_handle_metadata?: Record<string, unknown> | null;
+  envelope_id?: string | null;
+  created_at?: string | null;
+  last_seen_at?: string | null;
+  last_used_at?: string | null;
+  revoked_at?: string | null;
+}
+
+export interface DeviceApprovalResponse {
+  request_id: string;
+  sub?: string;
+  new_device_public_jwk?: JsonWebKey | null;
+  client_id?: string | null;
+  state_hash?: string | null;
+  verification_code?: string | null;
+  status?: string | null;
+  expires_at?: string | null;
+  approved_by_device_id?: string | null;
+  encrypted_approval?: string | null;
+  created_at?: string | null;
+}
+
+export interface RecoveryKeyCreateRequest {
+  recoveryKeyId?: string;
+  envelopeId?: string;
+  keyId: string;
+  label?: string | null;
+  wrappingAlg: string;
+  wrappedKey: string;
+  aad: string;
+  verifier: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface RecoveryKeyResponse {
+  recovery_key_id: string;
+  sub?: string;
+  envelope_id?: string;
+  label?: string | null;
+  verifier_alg?: string;
+  envelope?: KeyEnvelopeResponse;
+  created_at?: string | null;
+  last_used_at?: string | null;
+  revoked_at?: string | null;
 }
 
 export interface PasswordResetRequestResponse {
@@ -510,6 +589,9 @@ class ApiService {
     if (request.drkHash) {
       params.set("drk_hash", request.drkHash);
     }
+    if (request.zkKeyHash) {
+      params.set("zk_key_hash", request.zkKeyHash);
+    }
     if (request.organizationId) {
       params.set("organization_id", request.organizationId);
     }
@@ -559,6 +641,214 @@ class ApiService {
   async putWrappedDrk(wrappedDrkBase64Url: string): Promise<void> {
     const body = JSON.stringify({ wrapped_drk: wrappedDrkBase64Url });
     await this.request("/crypto/wrapped-drk", { method: "PUT", body });
+  }
+
+  async getKeybag(): Promise<KeybagResponse> {
+    return this.request<KeybagResponse>("/crypto/keybag");
+  }
+
+  async createAccountKey(request: {
+    keyId?: string;
+    version?: string;
+  }): Promise<AccountKeyResponse> {
+    const data = await this.request<{ account_key: AccountKeyResponse }>(
+      "/crypto/keybag/account-key",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          key_id: request.keyId,
+          version: request.version,
+        }),
+      }
+    );
+    return data.account_key;
+  }
+
+  async createKeyEnvelope(request: {
+    envelopeId?: string;
+    keyId: string;
+    type: "password" | "passkey_prf" | "trusted_device" | "recovery";
+    label?: string | null;
+    wrappingAlg: string;
+    wrappedKey: string;
+    aad: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<KeyEnvelopeResponse> {
+    const data = await this.request<{ envelope: KeyEnvelopeResponse }>("/crypto/keybag/envelopes", {
+      method: "POST",
+      body: JSON.stringify({
+        envelope_id: request.envelopeId,
+        key_id: request.keyId,
+        type: request.type,
+        label: request.label,
+        wrapping_alg: request.wrappingAlg,
+        wrapped_key: request.wrappedKey,
+        aad: request.aad,
+        metadata: request.metadata,
+      }),
+    });
+    return data.envelope;
+  }
+
+  async revokeKeyEnvelope(envelopeId: string): Promise<void> {
+    await this.request(`/crypto/keybag/envelopes/${encodeURIComponent(envelopeId)}`, {
+      method: "DELETE",
+    });
+  }
+
+  async getTrustedDevices(): Promise<TrustedDeviceResponse[]> {
+    const data = await this.request<
+      | { devices?: TrustedDeviceResponse[]; trusted_devices?: TrustedDeviceResponse[] }
+      | TrustedDeviceResponse[]
+    >("/crypto/devices");
+    if (Array.isArray(data)) return data;
+    return data.devices || data.trusted_devices || [];
+  }
+
+  async createTrustedDevice(request: {
+    label?: string;
+    publicKeyJwk?: JsonWebKey | null;
+    keyHandle?: string | null;
+    keyHandleMetadata?: Record<string, unknown> | null;
+    envelopeId?: string | null;
+  }): Promise<TrustedDeviceResponse> {
+    const data = await this.request<{ device?: TrustedDeviceResponse } | TrustedDeviceResponse>(
+      "/crypto/devices",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          label: request.label,
+          public_jwk: request.publicKeyJwk,
+          key_handle:
+            request.keyHandle ??
+            (request.keyHandleMetadata ? JSON.stringify(request.keyHandleMetadata) : undefined),
+          envelope_id: request.envelopeId,
+        }),
+      }
+    );
+    const wrapped = data as { device?: TrustedDeviceResponse };
+    return wrapped.device || (data as TrustedDeviceResponse);
+  }
+
+  async revokeTrustedDevice(deviceId: string): Promise<void> {
+    await this.request(`/crypto/devices/${encodeURIComponent(deviceId)}/revoke`, {
+      method: "POST",
+    });
+  }
+
+  async createDeviceApproval(request: {
+    newDevicePublicJwk: JsonWebKey;
+    clientId: string;
+    stateHash: string;
+    verificationCodeHash: string;
+  }): Promise<DeviceApprovalResponse> {
+    const data = await this.request<
+      | { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse }
+      | DeviceApprovalResponse
+    >("/crypto/device-approvals", {
+      method: "POST",
+      body: JSON.stringify({
+        new_device_public_jwk: request.newDevicePublicJwk,
+        client_id: request.clientId,
+        state_hash: request.stateHash,
+        verification_code_hash: request.verificationCodeHash,
+      }),
+    });
+    const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
+    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+  }
+
+  async getDeviceApprovals(): Promise<DeviceApprovalResponse[]> {
+    const data = await this.request<
+      | {
+          approvals?: DeviceApprovalResponse[];
+          requests?: DeviceApprovalResponse[];
+          device_approval_requests?: DeviceApprovalResponse[];
+        }
+      | DeviceApprovalResponse[]
+    >("/crypto/device-approvals");
+    if (Array.isArray(data)) return data;
+    return data.approvals || data.requests || data.device_approval_requests || [];
+  }
+
+  async approveDeviceApproval(
+    requestId: string,
+    request: { encryptedApproval: string; approvedDeviceId?: string }
+  ): Promise<DeviceApprovalResponse> {
+    const data = await this.request<
+      | { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse }
+      | DeviceApprovalResponse
+    >(`/crypto/device-approvals/${encodeURIComponent(requestId)}/approve`, {
+      method: "POST",
+      body: JSON.stringify({
+        encrypted_approval: request.encryptedApproval,
+        approved_device_id: request.approvedDeviceId,
+      }),
+    });
+    const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
+    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+  }
+
+  async consumeDeviceApproval(
+    requestId: string,
+    request: { newDeviceProof: string }
+  ): Promise<DeviceApprovalResponse> {
+    const data = await this.request<
+      | { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse }
+      | DeviceApprovalResponse
+    >(`/crypto/device-approvals/${encodeURIComponent(requestId)}/consume`, {
+      method: "POST",
+      body: JSON.stringify({
+        request_id: requestId,
+        new_device_proof: request.newDeviceProof,
+      }),
+    });
+    const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
+    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+  }
+
+  async denyDeviceApproval(requestId: string): Promise<void> {
+    await this.request(`/crypto/device-approvals/${encodeURIComponent(requestId)}/deny`, {
+      method: "POST",
+    });
+  }
+
+  async createRecoveryKey(request: RecoveryKeyCreateRequest): Promise<RecoveryKeyResponse> {
+    const data = await this.request<{ recovery_key: RecoveryKeyResponse } | RecoveryKeyResponse>(
+      "/crypto/recovery-keys",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          recovery_key_id: request.recoveryKeyId,
+          envelope_id: request.envelopeId,
+          key_id: request.keyId,
+          label: request.label,
+          wrapping_alg: request.wrappingAlg,
+          wrapped_key: request.wrappedKey,
+          aad: request.aad,
+          verifier: request.verifier,
+          metadata: request.metadata,
+        }),
+      }
+    );
+    return "recovery_key" in data ? data.recovery_key : data;
+  }
+
+  async getRecoveryKeys(): Promise<RecoveryKeyResponse[]> {
+    const data = await this.request<
+      { recovery_keys: RecoveryKeyResponse[] } | RecoveryKeyResponse[]
+    >("/crypto/recovery-keys");
+    return Array.isArray(data) ? data : data.recovery_keys;
+  }
+
+  async revokeRecoveryKey(recoveryKeyId: string): Promise<void> {
+    await this.request(`/crypto/recovery-keys/${encodeURIComponent(recoveryKeyId)}/revoke`, {
+      method: "POST",
+    });
+  }
+
+  async rotateRecoveryKey(request: RecoveryKeyCreateRequest): Promise<RecoveryKeyResponse> {
+    return this.createRecoveryKey(request);
   }
 
   async putEncPublicJwk(jwk: JsonWebKey): Promise<void> {

@@ -9,7 +9,7 @@ const sourceExtensions = new Set([".ts", ".tsx"]);
 const forbiddenLoggerPayloads = [
   /logger\.(debug|info|warn|error)\(\s*\{\s*response\s*:/,
   /logger\.(debug|info|warn|error)\(\s*\{\s*body\s*:/,
-  /logger\.(debug|info|warn|error)\(\s*\{\s*(request|finish|message|record|wrapped_drk|wrappedDrk|drk_jwe|zk_pub|exportKey|password)\s*:/,
+  /logger\.(debug|info|warn|error)\(\s*\{\s*(request|finish|message|record|wrapped_drk|wrappedDrk|wrapped_key|wrappedKey|drk_jwe|darkauth_key_jwe|zk_pub|zkPub|exportKey|password|ark|cak|prf|prfOutput|recoveryKey|privateKey|privateJwk)\s*:/,
 ];
 
 function sourceFiles(directory) {

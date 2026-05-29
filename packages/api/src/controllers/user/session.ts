@@ -115,6 +115,10 @@ export async function getSession(
     passwordResetRequired: resetRequired,
     otpRequired: !!sessionData.otpRequired,
     otpVerified: !!sessionData.otpVerified,
+    keyState:
+      sessionData.keyState === "unlocked" || sessionData.keyState === "setup_required"
+        ? sessionData.keyState
+        : "locked",
     organizationId:
       typeof sessionData.organizationId === "string" ? sessionData.organizationId : undefined,
     organizationSlug:
@@ -213,6 +217,7 @@ const Resp = z.object({
   name: z.string().nullable().optional(),
   otpRequired: z.boolean().optional(),
   otpVerified: z.boolean().optional(),
+  keyState: z.enum(["locked", "unlocked", "setup_required"]).optional(),
   organizationId: z.string().optional(),
   organizationSlug: z.string().nullable().optional(),
 });

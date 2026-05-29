@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, mock, test } from "node:test";
 import { clients } from "../../db/schema.ts";
+import { ValidationError } from "../../errors.ts";
 import type { Context } from "../../types.ts";
 import { updateClientController } from "./clientUpdate.ts";
 
@@ -165,6 +166,49 @@ describe("admin clientUpdate controller", () => {
     assert.equal(patch.dashboardIconLetter, null);
     assert.equal(patch.dashboardIconData, null);
     assert.equal(patch.dashboardIconMimeType, null);
+  });
+
+  test("upload stores only validated inert icon bytes", async () => {
+    const iconBytes = Buffer.from([0xff, 0xd8, 0xff, 0xdb]);
+    const patch = await runUpdateCase({
+      existingClient: {
+        type: "public",
+        tokenEndpointAuthMethod: "none",
+        clientSecretEnc: null,
+      },
+      body: {
+        dashboardIconMode: "upload",
+        dashboardIconUpload: {
+          mimeType: "image/jpeg; charset=utf-8",
+          data: iconBytes.toString("base64"),
+        },
+      },
+    });
+
+    assert.equal(patch.dashboardIconMimeType, "image/jpeg");
+    assert.deepEqual(patch.dashboardIconData, iconBytes);
+  });
+
+  test("rejects active upload MIME types", async () => {
+    await assert.rejects(
+      () =>
+        runUpdateCase({
+          existingClient: {
+            type: "public",
+            tokenEndpointAuthMethod: "none",
+            clientSecretEnc: null,
+          },
+          body: {
+            dashboardIconMode: "upload",
+            dashboardIconUpload: {
+              mimeType: "text/html",
+              data: Buffer.from("<script>alert(1)</script>").toString("base64"),
+            },
+          },
+        }),
+      (error: unknown) =>
+        error instanceof ValidationError && error.message === "Unsupported dashboard icon type"
+    );
   });
 
   test("upload null clears icon blob", async () => {

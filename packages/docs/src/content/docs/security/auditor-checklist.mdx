@@ -43,4 +43,4 @@ Use this checklist when reviewing a DarkAuth deployment or preparing for a secur
 - Applications validate issuer, audience, signature, expiry, and scopes.
 - Organization-scoped apps validate `org_id`.
 - Backends enforce permissions, not only frontend UI.
-- ZK apps clear fragment, private key, and DRK on logout.
+- ZK apps clear fragment, private key, CAK, and any legacy DRK material on logout.

@@ -1,15 +1,17 @@
 ---
 title: Crypto API
-description: Wrapped DRK and user encryption key endpoints.
+description: Keybag and user encryption key endpoints.
 ---
 
 Crypto endpoints support zero-knowledge storage and user encryption-key discovery. They require an authenticated user session.
 
-## Wrapped DRK
+## Keybag
 
-`GET /crypto/wrapped-drk` returns the caller's wrapped Data Root Key if one exists. `PUT /crypto/wrapped-drk` stores a wrapped DRK.
+`GET /crypto/keybag` returns the caller's keybag metadata and encrypted account-key material. `POST /crypto/keybag/account-key` creates account-key state when the user does not already have one.
 
-The wrapped DRK is encrypted client-side under a key derived from the OPAQUE export key. The server stores ciphertext and cannot unwrap it during honest operation.
+`GET /crypto/keybag/envelopes`, `POST /crypto/keybag/envelopes`, and `DELETE /crypto/keybag/envelopes/{id}` manage encrypted key envelopes. Envelopes can be password, passkey PRF, trusted-device, or recovery-key based. The server stores ciphertext and metadata, not plaintext ARK, CAK, export-key, PRF, or recovery-key material.
+
+Legacy `wrapped-drk` endpoints may exist for older clients, but current integrations should use keybag and v2 ZK delivery.
 
 ## Public encryption keys
 
@@ -19,7 +21,7 @@ This can support user-to-user sharing, messaging, or app-specific encrypted coll
 
 ## Wrapped private keys
 
-`PUT /crypto/wrapped-enc-priv` stores the caller's private encryption JWK wrapped under DRK-derived material. `GET /crypto/wrapped-enc-priv` retrieves it for recovery on a new session or device.
+`PUT /crypto/wrapped-enc-priv` stores the caller's private encryption JWK wrapped under client-held key material. `GET /crypto/wrapped-enc-priv` retrieves it for recovery on a new session or device.
 
 ## Payload handling
 

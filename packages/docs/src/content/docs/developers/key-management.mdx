@@ -1,0 +1,35 @@
+---
+title: Key Management
+description: Account keys, passkeys, trusted devices, and recovery envelopes.
+---
+
+DarkAuth stores account key material as encrypted envelopes. The server persists metadata and ciphertext, while clients unwrap keys with material derived from OPAQUE login, passkey PRF output, trusted devices, or recovery keys.
+
+## Keybag
+
+The keybag is the user's encrypted account-key container. It contains an active account key and one or more envelopes that can unwrap that key. Envelopes can be created, rotated, revoked, and listed without returning plaintext key material.
+
+Envelope types are:
+
+- `password` for OPAQUE-derived login material.
+- `passkey_prf` for WebAuthn PRF-capable authenticators.
+- `trusted_device` for an approved device handoff.
+- `recovery` for user-held recovery keys.
+
+## Passkeys
+
+Passkeys can be registered and used for sign-in. When a credential supports PRF, the client can create a passkey envelope so the account key can be recovered from the authenticator without exposing the passkey secret to the server.
+
+Applications should treat PRF support as capability-dependent. Users may still need password and recovery-key envelopes.
+
+## Trusted devices
+
+Trusted devices let an already trusted browser approve a new device. The approving device creates an encrypted envelope for the requesting device, and the requester consumes that approval to unwrap the account key.
+
+Approvals are short-lived and user scoped. Users should revoke devices they no longer control.
+
+## Recovery keys
+
+Recovery keys are user-held secrets. DarkAuth stores verifier hashes and encrypted recovery envelopes, not plaintext recovery keys. A recovery key can be marked used, revoked, and replaced.
+
+Recovery keys should be generated, displayed, and stored through a deliberate user flow. Do not silently create recovery keys that users never save.

@@ -22,12 +22,47 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
   const [needsKeyRegen, setNeedsKeyRegen] = useState(false);
   const [pendingNewExportKey, setPendingNewExportKey] = useState<Uint8Array | null>(null);
 
+  const getOrCreateAccountKeyId = async () => {
+    try {
+      const keybag = await apiService.getKeybag();
+      const active = keybag.account_keys.find((key) => key.status === "active");
+      if (active) return active.key_id;
+    } catch {}
+    const accountKey = await apiService.createAccountKey({ version: "v2" });
+    return accountKey.key_id;
+  };
+
+  const storePasswordEnvelope = async (drk: Uint8Array, wrapKey: Uint8Array) => {
+    const keyId = await getOrCreateAccountKeyId();
+    const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
+    const envelopeId = `env_${crypto.randomUUID()}`;
+    const aad = cryptoService.envelopeAad({
+      sub,
+      keyId,
+      envelopeId,
+      type: "password",
+      wrappingAlg,
+    });
+    const wrappedDrk = await cryptoService.wrapKeyMaterial(drk, wrapKey, aad);
+    await apiService.createKeyEnvelope({
+      envelopeId,
+      keyId,
+      type: "password",
+      label: "Password",
+      wrappingAlg,
+      wrappedKey: toBase64Url(wrappedDrk),
+      aad: toBase64Url(aad),
+      metadata: { version: "v2" },
+    });
+  };
+
   const tryGenerateNewKeys = async (newExportKey: Uint8Array) => {
     const keys = await cryptoService.deriveKeysFromExportKey(newExportKey, sub);
     const drk = await cryptoService.generateDRK();
     const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sub);
     try {
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+      await storePasswordEnvelope(drk, keys.wrapKey);
     } catch {}
     try {
       const kp = await cryptoService.generateECDHKeyPair();
@@ -100,6 +135,7 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
         const keysNew = await cryptoService.deriveKeysFromExportKey(regFinish.passwordKey, sub);
         const wrappedDrk = await cryptoService.wrapDRK(recoveredDrk, keysNew.wrapKey, sub);
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+        await storePasswordEnvelope(recoveredDrk, keysNew.wrapKey);
 
         // Clear all sensitive data from memory
         cryptoService.clearSensitiveData(

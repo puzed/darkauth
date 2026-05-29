@@ -20,7 +20,11 @@ DarkAuth stores configuration, identity state, protocol state, and audit data in
 
 - `opaque_records` stores user OPAQUE records.
 - `admin_opaque_records` stores admin OPAQUE records.
-- `wrapped_root_keys` stores wrapped DRKs.
+- `account_keys` stores account root key metadata and ciphertext.
+- `key_envelopes` stores encrypted account-key envelopes.
+- `recovery_keys` stores recovery-key verifier metadata.
+- `trusted_devices` stores trusted-device envelope metadata.
+- `wrapped_root_keys` stores legacy wrapped DRK state for migration compatibility.
 - `user_encryption_keys` stores public and wrapped private encryption keys.
 
 ## Organizations and authorization

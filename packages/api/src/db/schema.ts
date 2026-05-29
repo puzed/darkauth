@@ -46,6 +46,12 @@ export const organizationStatusEnum = pgEnum("organization_status", [
   "invited",
   "suspended",
 ]);
+export const federationConnectionTypeEnum = pgEnum("federation_connection_type", ["oidc"]);
+export const federationAccountLinkingPolicyEnum = pgEnum("federation_account_linking_policy", [
+  "disabled",
+  "email_verified",
+  "email",
+]);
 
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
@@ -89,6 +95,8 @@ export const clients = pgTable("clients", {
   requirePkce: boolean("require_pkce").default(true).notNull(),
   zkDelivery: zkDeliveryEnum("zk_delivery").default("none").notNull(),
   zkRequired: boolean("zk_required").default(false).notNull(),
+  keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
+  deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   allowedJweAlgs: text("allowed_jwe_algs").array().default([]).notNull(),
   allowedJweEncs: text("allowed_jwe_encs").array().default([]).notNull(),
   redirectUris: text("redirect_uris").array().default([]).notNull(),
@@ -104,6 +112,40 @@ export const clients = pgTable("clients", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const federationConnections = pgTable(
+  "federation_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    type: federationConnectionTypeEnum("type").default("oidc").notNull(),
+    name: text("name").notNull(),
+    issuer: text("issuer").notNull(),
+    clientId: text("client_id").notNull(),
+    clientSecretEnc: bytea("client_secret_enc"),
+    discoveryUrl: text("discovery_url").notNull(),
+    authorizationEndpoint: text("authorization_endpoint").notNull(),
+    tokenEndpoint: text("token_endpoint").notNull(),
+    jwksUri: text("jwks_uri").notNull(),
+    userinfoEndpoint: text("userinfo_endpoint"),
+    scopes: text("scopes").array().default(["openid", "profile", "email"]).notNull(),
+    claimMapping: jsonb("claim_mapping").default({}).notNull(),
+    accountLinkingPolicy: federationAccountLinkingPolicyEnum("account_linking_policy")
+      .default("email_verified")
+      .notNull(),
+    domains: text("domains").array().default([]).notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    issuerClientIdx: uniqueIndex("federation_connections_issuer_client_idx").on(
+      table.issuer,
+      table.clientId
+    ),
+    enabledIdx: index("federation_connections_enabled_idx").on(table.enabled),
+  })
+);
+
 export const users = pgTable("users", {
   sub: text("sub").primaryKey(),
   email: text("email").unique(),
@@ -115,6 +157,54 @@ export const users = pgTable("users", {
   lastActivityAt: timestamp("last_activity_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+export const federationIdentities = pgTable(
+  "federation_identities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => federationConnections.id, { onDelete: "cascade" }),
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    issuer: text("issuer").notNull(),
+    externalSubject: text("external_subject").notNull(),
+    email: text("email"),
+    emailVerified: boolean("email_verified").default(false).notNull(),
+    claims: jsonb("claims").default({}).notNull(),
+    linkedAt: timestamp("linked_at").defaultNow().notNull(),
+    lastLoginAt: timestamp("last_login_at"),
+  },
+  (table) => ({
+    connectionSubjectIdx: uniqueIndex("federation_identities_connection_subject_idx").on(
+      table.connectionId,
+      table.externalSubject
+    ),
+    userSubIdx: index("federation_identities_user_sub_idx").on(table.userSub),
+    emailIdx: index("federation_identities_email_idx").on(table.email),
+  })
+);
+
+export const federationOidcStates = pgTable(
+  "federation_oidc_states",
+  {
+    stateHash: text("state_hash").primaryKey(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => federationConnections.id, { onDelete: "cascade" }),
+    nonceHash: text("nonce_hash").notNull(),
+    codeVerifierHash: text("code_verifier_hash"),
+    returnTo: text("return_to"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+  },
+  (table) => ({
+    connectionIdIdx: index("federation_oidc_states_connection_id_idx").on(table.connectionId),
+    expiresAtIdx: index("federation_oidc_states_expires_at_idx").on(table.expiresAt),
+  })
+);
 
 export const emailVerificationTokens = pgTable(
   "email_verification_tokens",
@@ -182,6 +272,184 @@ export const wrappedRootKeys = pgTable("wrapped_root_keys", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const accountKeys = pgTable(
+  "account_keys",
+  {
+    keyId: text("key_id").primaryKey(),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    version: text("version").default("v2").notNull(),
+    status: text("status").default("active").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    rotatedAt: timestamp("rotated_at"),
+  },
+  (table) => ({
+    subIdx: index("account_keys_sub_idx").on(table.sub),
+    subStatusIdx: index("account_keys_sub_status_idx").on(table.sub, table.status),
+  })
+);
+
+export const keyEnvelopes = pgTable(
+  "key_envelopes",
+  {
+    envelopeId: text("envelope_id").primaryKey(),
+    keyId: text("key_id")
+      .notNull()
+      .references(() => accountKeys.keyId, { onDelete: "cascade" }),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    label: text("label"),
+    wrappingAlg: text("wrapping_alg").notNull(),
+    wrappedKey: bytea("wrapped_key").notNull(),
+    aad: bytea("aad").notNull(),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => ({
+    keyIdIdx: index("key_envelopes_key_id_idx").on(table.keyId),
+    subIdx: index("key_envelopes_sub_idx").on(table.sub),
+    subTypeIdx: index("key_envelopes_sub_type_idx").on(table.sub, table.type),
+  })
+);
+
+export const recoveryKeys = pgTable(
+  "recovery_keys",
+  {
+    recoveryKeyId: text("recovery_key_id").primaryKey(),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    envelopeId: text("envelope_id")
+      .notNull()
+      .references(() => keyEnvelopes.envelopeId, { onDelete: "cascade" }),
+    label: text("label"),
+    verifierHash: text("verifier_hash").notNull(),
+    verifierAlg: text("verifier_alg").notNull(),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => ({
+    subIdx: index("recovery_keys_sub_idx").on(table.sub),
+    subActiveIdx: index("recovery_keys_sub_active_idx").on(table.sub, table.revokedAt),
+    envelopeIdx: uniqueIndex("recovery_keys_envelope_idx").on(table.envelopeId),
+  })
+);
+
+export const webauthnCredentials = pgTable(
+  "webauthn_credentials",
+  {
+    credentialId: text("credential_id").primaryKey(),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    label: text("label"),
+    publicKey: bytea("public_key").notNull(),
+    signCount: integer("sign_count").default(0).notNull(),
+    transports: text("transports").array().default([]).notNull(),
+    aaguid: text("aaguid"),
+    backupEligible: boolean("backup_eligible").default(false).notNull(),
+    backupState: boolean("backup_state").default(false).notNull(),
+    userVerified: boolean("user_verified").default(false).notNull(),
+    prfSupported: boolean("prf_supported").default(false).notNull(),
+    prfSalt: bytea("prf_salt"),
+    prfEnvelopeId: text("prf_envelope_id").references(() => keyEnvelopes.envelopeId, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => ({
+    subIdx: index("webauthn_credentials_sub_idx").on(table.sub),
+    subActiveIdx: index("webauthn_credentials_sub_active_idx").on(table.sub, table.revokedAt),
+    prfEnvelopeIdx: index("webauthn_credentials_prf_envelope_idx").on(table.prfEnvelopeId),
+  })
+);
+
+export const webauthnChallenges = pgTable(
+  "webauthn_challenges",
+  {
+    challengeId: text("challenge_id").primaryKey(),
+    type: text("type").notNull(),
+    challenge: text("challenge").notNull().unique(),
+    sub: text("sub").references(() => users.sub, { onDelete: "cascade" }),
+    credentialId: text("credential_id").references(() => webauthnCredentials.credentialId, {
+      onDelete: "cascade",
+    }),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+  },
+  (table) => ({
+    typeIdx: index("webauthn_challenges_type_idx").on(table.type),
+    subIdx: index("webauthn_challenges_sub_idx").on(table.sub),
+    expiresAtIdx: index("webauthn_challenges_expires_at_idx").on(table.expiresAt),
+  })
+);
+
+export const trustedDevices = pgTable(
+  "trusted_devices",
+  {
+    deviceId: text("device_id").primaryKey(),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    label: text("label"),
+    publicJwk: jsonb("public_jwk").notNull(),
+    keyHandle: text("key_handle"),
+    envelopeId: text("envelope_id").references(() => keyEnvelopes.envelopeId, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => ({
+    subIdx: index("trusted_devices_sub_idx").on(table.sub),
+    subActiveIdx: index("trusted_devices_sub_active_idx").on(table.sub, table.revokedAt),
+    envelopeIdx: index("trusted_devices_envelope_idx").on(table.envelopeId),
+  })
+);
+
+export const deviceApprovalRequests = pgTable(
+  "device_approval_requests",
+  {
+    requestId: text("request_id").primaryKey(),
+    sub: text("sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    requesterSessionId: text("requester_session_id"),
+    newDevicePublicJwk: jsonb("new_device_public_jwk").notNull(),
+    newDeviceLabel: text("new_device_label"),
+    verificationCode: text("verification_code").notNull(),
+    status: text("status").default("pending").notNull(),
+    approvedByDeviceId: text("approved_by_device_id").references(() => trustedDevices.deviceId, {
+      onDelete: "set null",
+    }),
+    encryptedApproval: bytea("encrypted_approval"),
+    approvalAad: bytea("approval_aad"),
+    metadata: jsonb("metadata").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    expiresAt: timestamp("expires_at").notNull(),
+    approvedAt: timestamp("approved_at"),
+    consumedAt: timestamp("consumed_at"),
+    deniedAt: timestamp("denied_at"),
+  },
+  (table) => ({
+    subIdx: index("device_approval_requests_sub_idx").on(table.sub),
+    subStatusIdx: index("device_approval_requests_sub_status_idx").on(table.sub, table.status),
+    expiresAtIdx: index("device_approval_requests_expires_at_idx").on(table.expiresAt),
+  })
+);
+
 export const userEncryptionKeys = pgTable("user_encryption_keys", {
   sub: text("sub")
     .primaryKey()
@@ -212,6 +480,9 @@ export const authCodes = pgTable("auth_codes", {
   hasZk: boolean("has_zk").default(false).notNull(),
   zkPubKid: text("zk_pub_kid"),
   drkHash: text("drk_hash"),
+  zkKeyHash: text("zk_key_hash"),
+  zkKeyKind: text("zk_key_kind"),
+  zkKeyVersion: text("zk_key_version"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -253,6 +524,8 @@ export const pendingAuth = pgTable("pending_auth", {
   codeChallenge: text("code_challenge"),
   codeChallengeMethod: text("code_challenge_method"),
   zkPubKid: text("zk_pub_kid"),
+  keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
+  deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   userSub: text("user_sub").references(() => users.sub, {
@@ -308,6 +581,80 @@ export const adminOpaqueRecords = pgTable("admin_opaque_records", {
   serverPubkey: bytea("server_pubkey").notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const scimBearerTokens = pgTable(
+  "scim_bearer_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    createdByAdminId: uuid("created_by_admin_id").references(() => adminUsers.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at"),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+  },
+  (table) => ({
+    tokenHashIdx: uniqueIndex("scim_bearer_tokens_token_hash_idx").on(table.tokenHash),
+    activeIdx: index("scim_bearer_tokens_active_idx").on(table.revokedAt, table.expiresAt),
+  })
+);
+
+export const scimUsers = pgTable(
+  "scim_users",
+  {
+    userSub: text("user_sub")
+      .primaryKey()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    externalId: text("external_id"),
+    userName: text("user_name").notNull(),
+    displayName: text("display_name"),
+    active: boolean("active").default(true).notNull(),
+    raw: jsonb("raw").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    externalIdIdx: uniqueIndex("scim_users_external_id_idx").on(table.externalId),
+    userNameIdx: uniqueIndex("scim_users_user_name_idx").on(table.userName),
+    activeIdx: index("scim_users_active_idx").on(table.active),
+  })
+);
+
+export const scimGroups = pgTable(
+  "scim_groups",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    externalId: text("external_id"),
+    displayName: text("display_name").notNull(),
+    raw: jsonb("raw").default({}).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    externalIdIdx: uniqueIndex("scim_groups_external_id_idx").on(table.externalId),
+    displayNameIdx: uniqueIndex("scim_groups_display_name_idx").on(table.displayName),
+  })
+);
+
+export const scimGroupMembers = pgTable(
+  "scim_group_members",
+  {
+    groupId: uuid("group_id")
+      .notNull()
+      .references(() => scimGroups.id, { onDelete: "cascade" }),
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.groupId, table.userSub] }),
+    userSubIdx: index("scim_group_members_user_sub_idx").on(table.userSub),
+  })
+);
 
 export const permissions = pgTable("permissions", {
   key: text("key").primaryKey(),
@@ -468,12 +815,20 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.sub],
     references: [wrappedRootKeys.sub],
   }),
+  accountKeys: many(accountKeys),
+  keyEnvelopes: many(keyEnvelopes),
+  recoveryKeys: many(recoveryKeys),
+  webauthnCredentials: many(webauthnCredentials),
+  webauthnChallenges: many(webauthnChallenges),
+  trustedDevices: many(trustedDevices),
+  deviceApprovalRequests: many(deviceApprovalRequests),
   authCodes: many(authCodes),
   sessions: many(sessions),
   organizations: many(organizationMembers),
   permissions: many(userPermissions),
   emailVerificationTokens: many(emailVerificationTokens),
   passwordResetTokens: many(passwordResetTokens),
+  federationIdentities: many(federationIdentities),
 }));
 
 export const emailVerificationTokensRelations = relations(emailVerificationTokens, ({ one }) => ({
@@ -493,6 +848,106 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
 export const clientsRelations = relations(clients, ({ many }) => ({
   authCodes: many(authCodes),
   pendingAuth: many(pendingAuth),
+}));
+
+export const federationConnectionsRelations = relations(federationConnections, ({ many }) => ({
+  identities: many(federationIdentities),
+  oidcStates: many(federationOidcStates),
+}));
+
+export const federationIdentitiesRelations = relations(federationIdentities, ({ one }) => ({
+  connection: one(federationConnections, {
+    fields: [federationIdentities.connectionId],
+    references: [federationConnections.id],
+  }),
+  user: one(users, {
+    fields: [federationIdentities.userSub],
+    references: [users.sub],
+  }),
+}));
+
+export const federationOidcStatesRelations = relations(federationOidcStates, ({ one }) => ({
+  connection: one(federationConnections, {
+    fields: [federationOidcStates.connectionId],
+    references: [federationConnections.id],
+  }),
+}));
+
+export const accountKeysRelations = relations(accountKeys, ({ one, many }) => ({
+  user: one(users, {
+    fields: [accountKeys.sub],
+    references: [users.sub],
+  }),
+  envelopes: many(keyEnvelopes),
+}));
+
+export const keyEnvelopesRelations = relations(keyEnvelopes, ({ one, many }) => ({
+  user: one(users, {
+    fields: [keyEnvelopes.sub],
+    references: [users.sub],
+  }),
+  accountKey: one(accountKeys, {
+    fields: [keyEnvelopes.keyId],
+    references: [accountKeys.keyId],
+  }),
+  recoveryKeys: many(recoveryKeys),
+}));
+
+export const recoveryKeysRelations = relations(recoveryKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [recoveryKeys.sub],
+    references: [users.sub],
+  }),
+  envelope: one(keyEnvelopes, {
+    fields: [recoveryKeys.envelopeId],
+    references: [keyEnvelopes.envelopeId],
+  }),
+}));
+
+export const webauthnCredentialsRelations = relations(webauthnCredentials, ({ one, many }) => ({
+  user: one(users, {
+    fields: [webauthnCredentials.sub],
+    references: [users.sub],
+  }),
+  prfEnvelope: one(keyEnvelopes, {
+    fields: [webauthnCredentials.prfEnvelopeId],
+    references: [keyEnvelopes.envelopeId],
+  }),
+  challenges: many(webauthnChallenges),
+}));
+
+export const webauthnChallengesRelations = relations(webauthnChallenges, ({ one }) => ({
+  user: one(users, {
+    fields: [webauthnChallenges.sub],
+    references: [users.sub],
+  }),
+  credential: one(webauthnCredentials, {
+    fields: [webauthnChallenges.credentialId],
+    references: [webauthnCredentials.credentialId],
+  }),
+}));
+
+export const trustedDevicesRelations = relations(trustedDevices, ({ one, many }) => ({
+  user: one(users, {
+    fields: [trustedDevices.sub],
+    references: [users.sub],
+  }),
+  envelope: one(keyEnvelopes, {
+    fields: [trustedDevices.envelopeId],
+    references: [keyEnvelopes.envelopeId],
+  }),
+  approvals: many(deviceApprovalRequests),
+}));
+
+export const deviceApprovalRequestsRelations = relations(deviceApprovalRequests, ({ one }) => ({
+  user: one(users, {
+    fields: [deviceApprovalRequests.sub],
+    references: [users.sub],
+  }),
+  approvedByDevice: one(trustedDevices, {
+    fields: [deviceApprovalRequests.approvedByDeviceId],
+    references: [trustedDevices.deviceId],
+  }),
 }));
 
 export const organizationsRelations = relations(organizations, ({ one, many }) => ({
@@ -535,6 +990,40 @@ export const adminOpaqueRecordsRelations = relations(adminOpaqueRecords, ({ one 
   adminUser: one(adminUsers, {
     fields: [adminOpaqueRecords.adminId],
     references: [adminUsers.id],
+  }),
+}));
+
+export const scimBearerTokensRelations = relations(scimBearerTokens, ({ one }) => ({
+  createdByAdmin: one(adminUsers, {
+    fields: [scimBearerTokens.createdByAdminId],
+    references: [adminUsers.id],
+  }),
+}));
+
+export const scimUsersRelations = relations(scimUsers, ({ one, many }) => ({
+  user: one(users, {
+    fields: [scimUsers.userSub],
+    references: [users.sub],
+  }),
+  groups: many(scimGroupMembers),
+}));
+
+export const scimGroupsRelations = relations(scimGroups, ({ many }) => ({
+  members: many(scimGroupMembers),
+}));
+
+export const scimGroupMembersRelations = relations(scimGroupMembers, ({ one }) => ({
+  group: one(scimGroups, {
+    fields: [scimGroupMembers.groupId],
+    references: [scimGroups.id],
+  }),
+  user: one(users, {
+    fields: [scimGroupMembers.userSub],
+    references: [users.sub],
+  }),
+  scimUser: one(scimUsers, {
+    fields: [scimGroupMembers.userSub],
+    references: [scimUsers.userSub],
   }),
 }));
 

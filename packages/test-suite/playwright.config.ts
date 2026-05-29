@@ -12,9 +12,9 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter,
   use: {
-    trace: artifacts === 'on' ? 'on' : 'off',
+    trace: artifacts === 'on' ? 'retain-on-failure' : 'off',
     screenshot: artifacts === 'on' ? 'on' : 'off',
-    video: artifacts === 'on' ? 'on' : 'off',
+    video: artifacts === 'on' ? 'retain-on-failure' : 'off',
     viewport: { width: 1400, height: 800 },
     colorScheme: process.env.COLOR_SCHEME === 'dark' ? 'dark' : process.env.COLOR_SCHEME === 'light' ? 'light' : undefined,
   },

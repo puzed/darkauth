@@ -4,7 +4,7 @@
 
 Implemented security-hardening pass. The checklist at the end records the completed work and the explicit follow-up decisions.
 
-This document captures the security review of DarkAuth's hosted web zero-knowledge model, especially the ZK DRK handoff used by first-party apps such as:
+This document captures the security review of DarkAuth's hosted web zero-knowledge model, including legacy DRK handoff and the keybag-based client-key handoff defined in `specs/USER_KEY_MANAGEMENT.md`.
 
 - `auth.darknotes.com`: DarkAuth user UI, OIDC provider, OPAQUE login, wrapped DRK recovery, and fragment JWE creation.
 - `app.darknotes.com`: Relying party app that stores only encrypted user data on its server and decrypts data in the user's browser.
@@ -44,7 +44,7 @@ The core implementation is split across:
 
 - `packages/api`: OIDC endpoints, token issuance, OPAQUE server endpoints, sessions, audit logging, wrapped DRK storage, JWKS, clients, and admin APIs.
 - `packages/user-ui`: Browser UI for user login, OPAQUE client operations, export key handling, DRK unwrap, and ZK authorization approval.
-- `packages/darkauth-client`: RP SDK used by apps to start Authorization Code + PKCE, request ZK DRK delivery, handle callback fragments, exchange code, verify `zk_drk_hash`, and decrypt the DRK JWE.
+- `packages/darkauth-client`: RP SDK used by apps to start Authorization Code + PKCE, request ZK key delivery, handle callback fragments, exchange code, verify token-bound key hashes, and decrypt the fragment JWE.
 - `packages/admin-ui`: Client and settings administration, including ZK delivery settings.
 - `specs`: Design documents for OIDC, ZK delivery, OPAQUE, sessions, logging, OTP, RBAC, and implementation plans.
 
@@ -140,7 +140,22 @@ The spec already says these values must never be logged. The implementation now 
 
 For the intended hosted-web ZK story, DRK storage has been revised. `localStorage` DRK persistence is removed from the default profile and is labeled as a lower-security compatibility/convenience mode where it remains available.
 
-## Recommended Target Architecture
+## Recommended Architecture
+
+### Keybag And Per-Client Key Delivery
+
+The hosted-web ZK model should use the user key management architecture in `specs/USER_KEY_MANAGEMENT.md`.
+
+Target posture:
+
+- Treat the existing DRK as legacy Account Root Key material during migration.
+- Store root material only as key envelopes.
+- Split identity authentication from key unlock.
+- Deliver a per-client Client App Key to ZK OAuth clients instead of delivering the account root.
+- Keep the fragment-only JWE handoff and token-response hash binding.
+- Preserve legacy DRK delivery only for clients explicitly registered for `key_delivery_version="v1-drk"`.
+
+This improves blast-radius isolation between relying parties. A malicious or compromised ZK client can still exfiltrate the key it receives, but it should receive only its own CAK rather than a root key usable by other clients.
 
 ### First-Party Auth Session
 
@@ -149,7 +164,7 @@ For the intended hosted-web ZK story, DRK storage has been revised. `localStorag
 - RP apps should avoid persisted bearer tokens where cookie transport is available.
 - The SDK should support a cookie-based first-party mode and avoid `localStorage` refresh tokens in that mode.
 
-### App-Side DRK Handling
+### App-Side Key Handling
 
 Default:
 
@@ -196,7 +211,7 @@ Trusted Types enforcement is a good production hardening follow-up, but this pas
 - [x] Use `HttpOnly` refresh cookie renewal for first-party refresh flows.
 - [x] Keep PKCE verifier and ephemeral ZK private key in `sessionStorage` only for callback continuity.
 - [x] Clear callback state, PKCE verifier, and ephemeral ZK private key immediately after callback handling.
-- [x] Document the difference between auth/session token custody and DRK custody.
+- [x] Document the difference between auth/session token custody and key custody.
 
 ### DRK Custody Modes
 

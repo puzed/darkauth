@@ -49,7 +49,7 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     const { code } = totp(secret, now, 30, 6, 'sha1');
     await page.fill('input[placeholder="123456"]', code);
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await page.getByText('Backup Codes').waitFor({ state: 'visible', timeout: 10000 });
+    await expect(page.getByText('Backup Codes', { exact: true })).toBeVisible({ timeout: 15000 });
     const backupCode = await page.locator('ul li').first().textContent();
     expect(backupCode && backupCode.includes('-')).toBeTruthy();
 

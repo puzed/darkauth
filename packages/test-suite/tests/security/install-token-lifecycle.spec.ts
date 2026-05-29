@@ -9,6 +9,14 @@ test.describe('Security - Install Token Lifecycle', () => {
 
   test.beforeAll(async () => {
     servers = await createTestServers({ testName: 'security-install-token-lifecycle' })
+    installToken = servers.context.services.install?.token ?? 'test-install-token'
+  })
+
+  test.beforeEach(async () => {
+    if (servers.context.services.install) {
+      servers.context.services.install.token = installToken
+      servers.context.services.install.createdAt = Date.now()
+    }
   })
 
   test.afterAll(async () => {
@@ -78,4 +86,3 @@ test.describe('Security - Install Token Lifecycle', () => {
     expect(reuseRes.status()).toBeGreaterThanOrEqual(400)
   })
 })
-

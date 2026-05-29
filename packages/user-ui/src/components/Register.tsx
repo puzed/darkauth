@@ -15,6 +15,7 @@ interface RegisterProps {
     name?: string;
     email?: string;
     passwordResetRequired?: boolean;
+    keyState?: "locked" | "unlocked" | "setup_required";
   }) => void;
   onSwitchToLogin: () => void;
 }
@@ -149,6 +150,27 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
 
       try {
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+        const accountKey = await apiService.createAccountKey({ version: "v2" });
+        const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
+        const envelopeId = `env_${crypto.randomUUID()}`;
+        const aad = cryptoService.envelopeAad({
+          sub: registrationFinishResponse.sub,
+          keyId: accountKey.key_id,
+          envelopeId,
+          type: "password",
+          wrappingAlg,
+        });
+        const wrappedEnvelopeDrk = await cryptoService.wrapKeyMaterial(drk, keys.wrapKey, aad);
+        await apiService.createKeyEnvelope({
+          envelopeId,
+          keyId: accountKey.key_id,
+          type: "password",
+          label: "Password",
+          wrappingAlg,
+          wrappedKey: toBase64Url(wrappedEnvelopeDrk),
+          aad: toBase64Url(aad),
+          metadata: { version: "v2" },
+        });
       } catch (error) {
         logger.warn(error, "Failed to store wrapped DRK");
         // Continue with registration even if DRK storage fails
@@ -193,6 +215,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         name: sessionData.name,
         email: sessionData.email,
         passwordResetRequired: !!sessionData.passwordResetRequired,
+        keyState: "unlocked",
       });
     } catch (error) {
       logger.error(error, "Registration failed");

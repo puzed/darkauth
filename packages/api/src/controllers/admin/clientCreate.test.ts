@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { describe, mock, test } from "node:test";
 import { clients } from "../../db/schema.ts";
-import { ForbiddenError } from "../../errors.ts";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
 import type { Context } from "../../types.ts";
 import { createClient } from "./clientCreate.ts";
 
@@ -180,6 +180,28 @@ describe("admin clientCreate controller", () => {
     ]);
   });
 
+  test("rejects active dashboardIconUpload content", async () => {
+    const context = createContext();
+    const request = createRequest({
+      clientId: "client-svg",
+      name: "SVG Client",
+      type: "public",
+      dashboardIconMode: "upload",
+      dashboardIconUpload: {
+        mimeType: "image/svg+xml",
+        data: Buffer.from("<svg><script>alert(1)</script></svg>").toString("base64"),
+      },
+    });
+    const response = createMockResponse();
+
+    await assert.rejects(
+      () =>
+        createClient(context, request as IncomingMessage, response as unknown as ServerResponse),
+      (error: unknown) =>
+        error instanceof ValidationError && error.message === "Unsupported dashboard icon type"
+    );
+  });
+
   test("maps dashboardIconUpload base64 into expected fields", async () => {
     let inserted: Record<string, unknown> | undefined;
     const context = createContext({
@@ -187,7 +209,7 @@ describe("admin clientCreate controller", () => {
         inserted = row;
       },
     });
-    const iconBytes = Buffer.from("icon-binary", "utf-8");
+    const iconBytes = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
     const request = createRequest({
       clientId: "client-upload",
       name: "Upload Client",

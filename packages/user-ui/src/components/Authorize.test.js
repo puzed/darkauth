@@ -10,20 +10,72 @@ const source = readFileSync(resolve(here, "Authorize.tsx"), "utf8");
 test("generateNewKeys copies DRK before clearing it for ZK handoff", () => {
   const copyIndex = source.indexOf("const drkForHandoff = drk.slice();");
   const clearIndex = source.indexOf("cryptoService.clearSensitiveData(drk);", copyIndex);
-  const jweIndex = source.indexOf(
-    "cryptoService.createDrkJWE(\n            drkForHandoff",
-    clearIndex
-  );
+  const finalizeIndex = source.indexOf("await finalizeWithZk(drkForHandoff);", clearIndex);
 
   assert.notEqual(copyIndex, -1);
   assert.notEqual(clearIndex, -1);
-  assert.notEqual(jweIndex, -1);
+  assert.notEqual(finalizeIndex, -1);
   assert.ok(copyIndex < clearIndex);
-  assert.ok(clearIndex < jweIndex);
+  assert.ok(clearIndex < finalizeIndex);
 });
 
 test("Authorize never posts DRK JWE to finalize", () => {
   assert.equal(source.includes("drkJwe:"), false);
+});
+
+test("Authorize sends only key hashes to finalize", () => {
+  assert.notEqual(source.indexOf("zkKeyHash:"), -1);
+  assert.notEqual(source.indexOf("drkHash:"), -1);
+  assert.equal(source.includes("jwe:"), false);
+});
+
+test("Authorize v2 handoff derives CAK and uses darkauth_key_jwe fragment", () => {
+  assert.notEqual(source.indexOf("cryptoService.deriveClientAppKey"), -1);
+  assert.notEqual(source.indexOf("cryptoService.createClientKeyJWE"), -1);
+  assert.notEqual(source.indexOf('fragmentName: "darkauth_key_jwe"'), -1);
+  assert.notEqual(source.indexOf('key_kind: "client_app_key"'), -1);
+});
+
+test("Authorize models key-locked ZK sessions before delivery", () => {
+  assert.notEqual(source.indexOf("keyLockedForZk"), -1);
+  assert.notEqual(source.indexOf("Unlock your encryption keys to continue."), -1);
+  assert.notEqual(source.indexOf("setKeyUnlocked(true)"), -1);
+});
+
+test("Authorize only prompts for key unlock when the pending client requested ZK", () => {
+  const keyLockedExpression = source.match(/const keyLockedForZk = ([^;]+);/);
+  const promptGuard = source.match(/if \(approve && keyLockedForZk\) \{[\s\S]*?return;\n\s*\}/);
+
+  assert.ok(keyLockedExpression);
+  assert.equal(keyLockedExpression[1], "authRequest.hasZk && !keyUnlocked");
+  assert.ok(promptGuard);
+  assert.notEqual(
+    promptGuard[0].indexOf('setError("Unlock your encryption keys to continue.")'),
+    -1
+  );
+});
+
+test("Authorize finalizes non-ZK requests without local key unwrap", () => {
+  const zkBranch = source.indexOf("if (approve && authRequest.hasZk) {");
+  const nonZkFinalize = source.indexOf(
+    "const authResponse = await apiService.authorize(",
+    zkBranch
+  );
+  const redirect = source.indexOf(
+    "window.location.href = authResponse.redirectUrl;",
+    nonZkFinalize
+  );
+
+  assert.notEqual(zkBranch, -1);
+  assert.notEqual(nonZkFinalize, -1);
+  assert.notEqual(redirect, -1);
+});
+
+test("Authorize offers trusted device approval before password unlock", () => {
+  assert.notEqual(source.indexOf("Accept on another device"), -1);
+  assert.notEqual(source.indexOf("apiService.createDeviceApproval"), -1);
+  assert.notEqual(source.indexOf("apiService.consumeDeviceApproval"), -1);
+  assert.notEqual(source.indexOf("cryptoService.decryptDeviceApprovalJWE"), -1);
 });
 
 test("multi-organization authorize keeps the organization picker visible", () => {

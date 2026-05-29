@@ -97,6 +97,29 @@ export interface Services {
     ) => Promise<OpaqueLoginResponse>;
     finishLogin: (finish: Uint8Array, sessionId: string) => Promise<OpaqueLoginResult>;
   };
+  webauthn?: {
+    verifyRegistrationResponse?: (options: unknown) => Promise<{
+      verified: boolean;
+      registrationInfo: {
+        aaguid: string;
+        credential: {
+          id: string;
+          publicKey: Uint8Array;
+          counter: number;
+          transports?: string[];
+        };
+        credentialDeviceType: string;
+        credentialBackedUp: boolean;
+        userVerified: boolean;
+      };
+    }>;
+    verifyAuthenticationResponse?: (options: unknown) => Promise<{
+      verified: boolean;
+      authenticationInfo: {
+        newCounter: number;
+      };
+    }>;
+  };
   install?: {
     token?: string;
     createdAt?: number;
@@ -293,6 +316,9 @@ export interface TokenResponse {
   refresh_token?: string;
   scope?: string;
   zk_drk_hash?: string;
+  zk_key_hash?: string;
+  zk_key_kind?: string;
+  zk_key_version?: string;
 }
 
 export interface AuthorizationRequest {
@@ -327,6 +353,7 @@ export interface SessionData {
   organizationSlug?: string;
   clientId?: string;
   scope?: string;
+  keyState?: "locked" | "unlocked" | "setup_required";
   adminId?: string;
   adminRole?: "read" | "write";
   pendingAuthId?: string;

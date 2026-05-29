@@ -171,9 +171,15 @@ export function resolveSessionClientId(sessionData: unknown): string | null {
 
 export function assertRefreshTokenClientBinding(
   issuedClientId: string | null,
-  authenticatedClientId: string | undefined
+  authenticatedClientId: string | undefined,
+  requireIssuedClientId = true
 ): void {
-  if (!issuedClientId) return;
+  if (!issuedClientId) {
+    if (requireIssuedClientId) {
+      throw new InvalidGrantError("Refresh token was not issued to this client");
+    }
+    return;
+  }
   if (issuedClientId !== authenticatedClientId) {
     throw new InvalidGrantError("Refresh token was not issued to this client");
   }
@@ -276,6 +282,8 @@ export const postToken = withRateLimit("token")(
             tokenRequest.client_id
           );
           if (!client) throw new UnauthorizedClientError("Unknown client");
+          if (client.type === "confidential")
+            throw new UnauthorizedClientError("Invalid client auth method");
           if (client.tokenEndpointAuthMethod !== "none")
             throw new UnauthorizedClientError("Invalid client auth method");
           if (!client.grantTypes.includes("refresh_token"))
@@ -286,7 +294,11 @@ export const postToken = withRateLimit("token")(
         if (!clientAuthOk) throw new UnauthorizedClientError("Client authentication failed");
         const existingSessionData = await getRefreshTokenSessionData(context, refreshToken);
         const issuedClientId = resolveSessionClientId(existingSessionData);
-        assertRefreshTokenClientBinding(issuedClientId, providedClientId);
+        assertRefreshTokenClientBinding(
+          issuedClientId,
+          providedClientId,
+          !!tokenRequest.refresh_token
+        );
         const rotated = await refreshSessionWithToken(context, refreshToken);
         if (!rotated) {
           if (!tokenRequest.refresh_token) {
@@ -534,6 +546,12 @@ export const postToken = withRateLimit("token")(
       if (!client) {
         throw new UnauthorizedClientError("Unknown client");
       }
+      if (
+        client.type === "confidential" &&
+        client.tokenEndpointAuthMethod !== "client_secret_basic"
+      ) {
+        throw new UnauthorizedClientError("Invalid client auth method");
+      }
       if (!client.grantTypes.includes("authorization_code")) {
         throw new UnauthorizedClientError("authorization_code grant not allowed for this client");
       }
@@ -697,13 +715,23 @@ export const postToken = withRateLimit("token")(
         scope: grantedScope,
       };
 
-      // Handle ZK delivery (include zk_drk_hash if applicable)
       if (authCode.hasZk) {
-        if (!authCode.drkHash) {
-          throw new InvalidGrantError("Missing ZK DRK hash binding");
+        const keyVersion = authCode.zkKeyVersion || "v1-drk";
+        if (keyVersion === "v2") {
+          if (!authCode.zkKeyHash) {
+            throw new InvalidGrantError("Missing ZK key hash binding");
+          }
+          tokenResponse.zk_key_hash = authCode.zkKeyHash;
+          tokenResponse.zk_key_kind = authCode.zkKeyKind || "client_app_key";
+          tokenResponse.zk_key_version = "v2";
+          context.logger.info("token zk delivery: zk_key_hash included");
+        } else {
+          if (!authCode.drkHash) {
+            throw new InvalidGrantError("Missing ZK DRK hash binding");
+          }
+          tokenResponse.zk_drk_hash = authCode.drkHash;
+          context.logger.info("token zk delivery: drk_hash included");
         }
-        tokenResponse.zk_drk_hash = authCode.drkHash;
-        context.logger.info("token zk delivery: drk_hash included");
       }
 
       const issueRefreshToken = shouldIssueRefreshTokenForClient(client.grantTypes);
@@ -716,6 +744,7 @@ export const postToken = withRateLimit("token")(
           organizationSlug: organizationSlug || undefined,
           clientId: authenticatedClientId,
           scope: grantedScope,
+          keyState: "locked",
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;
@@ -739,6 +768,10 @@ const TokenResponseSchema = z.object({
   expires_in: z.number().int().positive(),
   refresh_token: z.string().optional(),
   scope: z.string().optional(),
+  zk_drk_hash: z.string().optional(),
+  zk_key_hash: z.string().optional(),
+  zk_key_kind: z.string().optional(),
+  zk_key_version: z.string().optional(),
 });
 
 export const schema = {

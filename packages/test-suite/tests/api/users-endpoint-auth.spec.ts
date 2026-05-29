@@ -140,8 +140,13 @@ test.describe('API - Users endpoint auth methods', () => {
       password: FIXED_TEST_ADMIN.password
     })
 
-    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret`, {
-      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
+    const secretRes = await fetch(`${servers.adminUrl}/admin/clients/demo-confidential-client/secret/rotate`, {
+      method: 'POST',
+      headers: {
+        Cookie: adminSession.cookieHeader,
+        Origin: servers.adminUrl,
+        'x-csrf-token': adminSession.csrfToken
+      }
     })
     expect(secretRes.ok).toBeTruthy()
     const secretJson = await secretRes.json() as { clientSecret: string | null }

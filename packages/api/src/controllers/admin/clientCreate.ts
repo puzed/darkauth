@@ -9,6 +9,71 @@ const ScopeSchema = z.object({
   description: z.string().optional(),
 });
 
+const DASHBOARD_ICON_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+
+type DashboardIconUpload = { data: string; mimeType: string };
+
+function normalizeDashboardIconMimeType(mimeType: string) {
+  const normalized = mimeType.split(";")[0]?.trim().toLowerCase();
+  return normalized && DASHBOARD_ICON_MIME_TYPES.has(normalized) ? normalized : null;
+}
+
+function decodeBase64(value: string) {
+  const normalized = value.replace(/\s+/g, "");
+  if (!normalized || normalized.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(normalized)) {
+    throw new ValidationError("Dashboard icon data must be valid base64");
+  }
+  const data = Buffer.from(normalized, "base64");
+  if (data.toString("base64") !== normalized) {
+    throw new ValidationError("Dashboard icon data must be valid base64");
+  }
+  return data;
+}
+
+export function isSafeDashboardIcon(data: Uint8Array, mimeType: string) {
+  const normalized = normalizeDashboardIconMimeType(mimeType);
+  if (!normalized) return false;
+  const bytes = Buffer.from(data);
+  if (normalized === "image/png") {
+    return (
+      bytes.length >= 8 &&
+      bytes[0] === 0x89 &&
+      bytes[1] === 0x50 &&
+      bytes[2] === 0x4e &&
+      bytes[3] === 0x47 &&
+      bytes[4] === 0x0d &&
+      bytes[5] === 0x0a &&
+      bytes[6] === 0x1a &&
+      bytes[7] === 0x0a
+    );
+  }
+  if (normalized === "image/jpeg") {
+    return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  }
+  if (normalized === "image/webp") {
+    return (
+      bytes.length >= 12 &&
+      bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+      bytes.subarray(8, 12).toString("ascii") === "WEBP"
+    );
+  }
+  if (normalized === "image/gif") {
+    const signature = bytes.subarray(0, 6).toString("ascii");
+    return signature === "GIF87a" || signature === "GIF89a";
+  }
+  return false;
+}
+
+export function parseDashboardIconUpload(upload: DashboardIconUpload) {
+  const mimeType = normalizeDashboardIconMimeType(upload.mimeType);
+  if (!mimeType) throw new ValidationError("Unsupported dashboard icon type");
+  const data = decodeBase64(upload.data);
+  if (!isSafeDashboardIcon(data, mimeType)) {
+    throw new ValidationError("Dashboard icon content does not match type");
+  }
+  return { data, mimeType };
+}
+
 export const CreateClientSchema = z.object({
   clientId: z.string().min(1),
   name: z.string().min(1).max(255),
@@ -30,6 +95,8 @@ export const CreateClientSchema = z.object({
   requirePkce: z.boolean().optional().default(true),
   zkDelivery: z.enum(["none", "fragment-jwe"]).optional().default("none"),
   zkRequired: z.boolean().optional().default(false),
+  keyDeliveryVersion: z.enum(["v1-drk", "v2"]).optional().default("v2"),
+  deliveredKeyKind: z.enum(["root_key", "client_app_key"]).optional(),
   allowedJweAlgs: z.array(z.string()).optional().default([]),
   allowedJweEncs: z.array(z.string()).optional().default([]),
   redirectUris: z.array(z.string().url()).optional().default([]),
@@ -64,6 +131,8 @@ export const ClientResponseSchema = z.object({
   requirePkce: z.boolean(),
   zkDelivery: z.string(),
   zkRequired: z.boolean(),
+  keyDeliveryVersion: z.string(),
+  deliveredKeyKind: z.string(),
   allowedJweAlgs: z.array(z.string()),
   allowedJweEncs: z.array(z.string()),
   redirectUris: z.array(z.string()),
@@ -116,13 +185,14 @@ async function createClientHandler(
       ? parsed.data.dashboardIconLetter.trim()
       : null;
   const upload = mode === "upload" ? parsed.data.dashboardIconUpload : undefined;
+  const icon = upload ? parseDashboardIconUpload(upload) : undefined;
 
   const data = {
     ...parsed.data,
     dashboardIconEmoji: emoji,
     dashboardIconLetter: letter,
-    dashboardIconMimeType: upload?.mimeType ?? null,
-    dashboardIconData: upload ? Buffer.from(upload.data, "base64") : null,
+    dashboardIconMimeType: icon?.mimeType ?? null,
+    dashboardIconData: icon?.data ?? null,
   };
 
   const created = await createClientModel(context, data);

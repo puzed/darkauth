@@ -1,4 +1,4 @@
-Below is a **complete, implementable spec** for **DarkAuth v1** that your codegen agent can build. It’s OIDC-compatible by default, adds an **opt‑in zero-knowledge (ZK) DRK delivery** for your own clients via **fragment JWE**, uses **OPAQUE (RFC 9380)** for password auth (passwords are not sent to the server in the OPAQUE flow), and **stores *all* settings in Postgres**. The only required env at install is **POSTGRES\_URI**. Everything else is seeded into the DB.
+Below is a complete, implementable spec for DarkAuth. It is OIDC-compatible by default, adds opt-in zero-knowledge client key delivery via fragment JWE, uses OPAQUE (RFC 9380) for password auth, supports keybag-based user encryption, and stores shared/runtime settings in Postgres. The only required env at install is **POSTGRES\_URI**. Everything else is seeded into the DB.
 
 Config rules:
 
@@ -10,29 +10,30 @@ Config rules:
 
 ---
 
-# DarkAuth v1 — Technical Spec
+# DarkAuth Technical Spec
 
 **Status:** implement now
 **Principles:**
 
 * Passwords are not sent to the server during the OPAQUE flow.
 * Same deterministic client secret every session for a user+password (`export_key`).
-* Server stores only **opaque verifier** + **wrapped DRK ciphertext** for DRK recovery.
+* Server stores only **opaque verifier** + **encrypted key envelopes** for user key recovery/unlock.
 * Hosted-web ZK protects against backend/database access during honest frontend operation; users still trust the JavaScript served by the DarkAuth and RP origins while keys are usable in the browser.
-* Default DRK custody for hosted web apps is memory-only. Persistent DRK storage, including XOR-obfuscated `localStorage`, is a lower-security convenience mode and is not the default security boundary.
-* OIDC-compatible for every client; ZK DRK delivery is **per‑client opt‑in** (your apps get it; others don’t).
+* Default ARK/CAK custody for hosted web apps is memory-only. Persistent plaintext key storage is not a supported security boundary.
+* OIDC-compatible for every client; ZK client key delivery is **per-client opt-in**.
+* User key management uses the v2 keybag model in `specs/USER_KEY_MANAGEMENT.md`: authentication and key unlock are distinct states, the Account Root Key is wrapped only in key envelopes, and ZK OAuth clients receive a per-client Client App Key rather than the account root.
 * No config file at runtime; **all settings in Postgres**. Install script seeds defaults.
 
 ---
 
 ## 1. Components
 
-* **User UI (port 9080)**: HTML/JS pages implementing OPAQUE client, DRK unwrap, and optional fragment JWE creation. Public OIDC origin (e.g., `https://auth.puzed.com`).
-* **Auth API (port 9080)**: OIDC `/authorize`, `/token`, discovery, JWKS, OPAQUE server endpoints, DRK ciphertext store.
+* **User UI (port 9080)**: HTML/JS pages implementing OPAQUE client, keybag unlock/setup, and optional fragment JWE creation. Public OIDC origin (e.g., `https://auth.puzed.com`).
+* **Auth API (port 9080)**: OIDC `/authorize`, `/token`, discovery, JWKS, OPAQUE server endpoints, and encrypted key envelope storage.
 * **Admin UI (port 9081)**: Admin console for settings, clients, keys, users, groups, and permissions. Restricted access; not exposed publicly.
 * **Apps (RP clients)**: Redirect to `/authorize`, exchange code at `/token`.
 
-  * **ZK-enabled clients** add `zk_pub` and receive **DRK via fragment JWE**; standard clients don't.
+  * **ZK-enabled clients** add `zk_pub` and receive a per-client key via fragment JWE; standard clients do not receive key material.
 
 * **Install UI (first-run only, served on admin port)**: One-time initialization UI gated by a single-use token (query param). Collected data seeds defaults and config. Served on the admin port until installation completes. Exactly one bootstrap admin may be created, bound to the installer-provided email. The install token is invalidated on the first successful admin OPAQUE finish and all install endpoints are disabled once initialized.
 
@@ -54,12 +55,16 @@ Config rules:
 
   * Server stores **WRAPPED\_DRK = AEAD\_Encrypt(KW, DRK, aad=sub)**.
   * Client unwraps DRK using `KW` each session. During honest frontend operation the server cannot derive DRK or KW from stored state, but same-origin frontend code can access DRK while it is usable in the browser.
-* **JWE for DRK handoff (ZK delivery)**: **ECDH-ES + A256GCM** (compact JWE) using **P‑256**.
+  * In the v2 keybag model, this root secret is the Account Root Key (ARK). Existing DRK rows are treated as ARK material during migration.
+  * New ZK OAuth clients MUST receive a Client App Key (CAK) derived from ARK with client-specific context. They MUST NOT receive ARK/DRK directly.
+* **JWE for client key handoff (ZK delivery)**: **ECDH-ES + A256GCM** (compact JWE) using **P‑256**.
 
   * Receiver key: app’s ephemeral `zk_pub` JWK from `/authorize` query.
-  * AAD includes `sub` and `client_id`.
-  * **`drk_hash = base64url(SHA-256(drk_jwe))`** is stored with the auth code and returned by `/token` to bind fragment → code.
-  * **CRITICAL SECURITY**: The AS protocol stores only `drk_hash` for verification, not `drk_jwe`. The JWE is delivered via URL fragment during honest hosted-web operation.
+  * AAD/payload binding includes `sub`, `client_id`, `aud`, `request_id`, `state_hash`, `redirect_uri_hash`, `key_id`, `iat`, and `exp`.
+  * v2 clients receive `darkauth_key_jwe` containing `key_kind="client_app_key"` and `cak`.
+  * **`zk_key_hash = base64url(SHA-256(darkauth_key_jwe))`** is stored with the auth code and returned by `/token` to bind fragment → code.
+  * Legacy v1 clients may receive `drk_jwe` and `zk_drk_hash` only when registered with `key_delivery_version="v1-drk"`.
+  * **CRITICAL SECURITY**: The AS protocol stores only the JWE hash for verification, not the JWE. The JWE is delivered via URL fragment during honest hosted-web operation.
 
 ### 2.1 P-256 Public Key Validation Requirements
 
@@ -80,8 +85,8 @@ To protect cryptographic material and user privacy, the following logging restri
 
 #### 2.2.1 Prohibited Logging (NEVER log these values)
 * `zk_pub` - Ephemeral ECDH public keys from authorization requests
-* `drk_jwe` - JWE ciphertext containing encrypted DRK
-* `wrapped_drk` - User's wrapped Data Root Key ciphertext
+* `darkauth_key_jwe` / `drk_jwe` - JWE ciphertext containing encrypted key material
+* key envelopes / `wrapped_drk` - User root key ciphertext
 * OPAQUE protocol messages: `envelope`, `server_pubkey`, request/response payloads
 * Raw password attempts or password-derived values
 * Session tokens, refresh tokens, or authorization codes in plaintext
@@ -122,10 +127,18 @@ Tables and key fields:
 
 - settings: `key` (pk), `value` (jsonb), `secure` (bool), `updated_at`.
 - jwks: `kid` (pk), `alg`, `public_jwk` (jsonb), `private_jwk_enc` (bytea|null), `created_at`, `rotated_at`.
-- clients: `client_id` (pk), `name`, `type` in `public|confidential`, `token_endpoint_auth_method` in `none|client_secret_basic`, `client_secret_enc` (bytea|null), `require_pkce` (bool), `zk_delivery` in `none|fragment-jwe`, `zk_required` (bool), `allowed_jwe_algs` (text[]), `allowed_jwe_encs` (text[]), `redirect_uris` (text[]), `post_logout_redirect_uris` (text[]), `grant_types` (text[] default `authorization_code`), `response_types` (text[] default `code`), `scopes` (text[]), `allowed_zk_origins` (text[]), `created_at`, `updated_at`.
+- clients: `client_id` (pk), `name`, `type` in `public|confidential`, `token_endpoint_auth_method` in `none|client_secret_basic`, `client_secret_enc` (bytea|null), `require_pkce` (bool), `zk_delivery` in `none|fragment-jwe`, `zk_required` (bool), `key_delivery_version` in `v1-drk|v2-client-key`, `client_key_scope` in `account|organization`, `allowed_jwe_algs` (text[]), `allowed_jwe_encs` (text[]), `redirect_uris` (text[]), `post_logout_redirect_uris` (text[]), `grant_types` (text[] default `authorization_code`), `response_types` (text[] default `code`), `scopes` (text[]), `allowed_zk_origins` (text[]), `created_at`, `updated_at`.
 - users: `sub` (pk), `email` (unique, nullable), `name` (nullable), `created_at`.
 - opaque_records: `sub` (pk, fk users.sub), `envelope` (bytea), `server_pubkey` (bytea), `updated_at`.
 - wrapped_root_keys: `sub` (pk, fk users.sub), `wrapped_drk` (bytea), `updated_at`.
+- account_keys: `key_id` (pk), `sub` (fk users.sub), `version`, `status`, `created_at`, `rotated_at`.
+- key_envelopes: `envelope_id` (pk), `key_id` (fk account_keys.key_id), `sub` (fk users.sub), `type`, `label`, `wrapping_alg`, `wrapped_key` (bytea), `aad` (bytea), `metadata` (jsonb), `created_at`, `last_used_at`, `revoked_at`.
+- trusted_devices: `device_id` (pk), `sub` (fk users.sub), `label`, `public_key_jwk` (jsonb|null), `key_handle_metadata` (jsonb), `created_at`, `last_used_at`, `revoked_at`.
+- device_approval_requests: `request_id` (pk), `sub`, `new_device_public_jwk` (jsonb), `verification_code_hash`, `status`, `expires_at`, `approved_by_device_id`, `encrypted_approval` (bytea|null).
+- user_auth_identities: `identity_id` (pk), `sub`, `type`, `provider_id`, `external_subject`, `email`, `email_verified`, `created_at`, `last_used_at`.
+- federation_connections: `connection_id` (pk), `type`, `issuer_or_entity_id`, `client_id`, `encrypted_client_secret`, `jwks_uri`, `metadata`, `enabled`.
+- scim_tokens: `token_id` (pk), `organization_id`, `token_hash`, `scopes`, `created_at`, `expires_at`, `revoked_at`.
+- scim_external_ids: `organization_id`, `resource_type`, `external_id`, `local_id`.
 - user_encryption_keys: `sub` (pk, fk users.sub), `enc_public_jwk` (jsonb), `enc_private_jwk_wrapped` (bytea|null), `updated_at`.
 - auth_codes: `code` (pk), `client_id` (fk clients.client_id), `user_sub`, `redirect_uri`, `code_challenge`, `code_challenge_method`, `expires_at`, `consumed` (bool), `has_zk` (bool), `zk_pub_kid` (text), `drk_hash` (text|null).
 - sessions: `id` (pk), `cohort` in `user|admin`, `user_sub` (nullable), `admin_id` (nullable), `created_at`, `expires_at`, `data` (jsonb), `refresh_token` (text|null, SHA-256 base64url hash at rest), `refresh_token_expires_at` (timestamp|null), `refresh_token_consumed_at` (timestamp|null).
@@ -160,7 +173,7 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
   * `id_token`: `{"lifetime_seconds":300}`
   * `access_token`: `{"enabled":false,"lifetime_seconds":600}`
   * `user_keys`: `{"enc_public_visible_to_authenticated_users":true}`
-  * `zk_delivery`: `{"fragment_param":"drk_jwe","jwe_alg":"ECDH-ES","jwe_enc":"A256GCM","hash_alg":"SHA-256"}`
+  * `zk_delivery`: `{"fragment_param":"darkauth_key_jwe","legacy_fragment_param":"drk_jwe","jwe_alg":"ECDH-ES","jwe_enc":"A256GCM","hash_alg":"SHA-256"}`
   * `opaque`: e.g., `{"kdf":"ristretto255","envelope_mode":"base"}`
   * `users`: `{"self_registration_enabled": false}`
   * `security_headers`, `rate_limits`, etc.
@@ -199,12 +212,21 @@ Implemented in Drizzle ORM as: `admin_users`, `admin_opaque_records`, `permissio
 * DarkAuth validates client/redirect/PKCE (S256 only), shows login (OPAQUE).
 * On success, issues code and `302` to `redirect_uri?code=...&state=...`.
 
-**B) ZK-enabled client (DRK via fragment JWE):**
+**B) ZK-enabled client (client key via fragment JWE):**
 Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 
 * DarkAuth **only** honors `zk_pub` if the client has `zk_delivery='fragment-jwe'`.
-* **SECURITY PRINCIPLE**: JWE ciphertext is produced in browser code and delivered through the URL fragment; the AS stores only `drk_hash` in the protocol path.
-* After OPAQUE completes and the UI has unwrapped **DRK** client-side:
+* **SECURITY PRINCIPLE**: JWE ciphertext is produced in browser code and delivered through the URL fragment; the AS stores only hash metadata in the protocol path.
+* After authentication and key unlock, the UI has ARK/DRK in memory long enough to derive the delivered key.
+* For `key_delivery_version="v2-client-key"`:
+
+  1. Browser JS derives `CAK = HKDF(ARK, context={sub,key_id,client_id,org_id,aud,version})`.
+  2. Browser JS creates `darkauth_key_jwe = JWE_ECDH_ES_A256GCM(payload={key_kind:"client_app_key", cak, sub, client_id, aud, request_id, state_hash, redirect_uri_hash, key_id, iat, exp}, zk_pub)`.
+  3. Browser JS calls `/authorize/finalize` with `{ request_id, zk_key_hash }` where `zk_key_hash = base64url(SHA256(darkauth_key_jwe))`.
+  4. Server creates `code` and stores `has_zk=true`, `zk_pub_kid=SHA256(zk_pub)`, `zk_key_hash`, `zk_key_kind="client_app_key"`, and `zk_key_version="v2"`.
+  5. Browser redirects with `#darkauth_key_jwe=${encodeURIComponent(darkauth_key_jwe)}`.
+
+* For legacy `key_delivery_version="v1-drk"`:
 
   1. Browser JS creates `drk_jwe = JWE_ECDH_ES_A256GCM(DRK, zk_pub)` with AAD `{sub, client_id}`.
   2. Browser JS calls `/authorize/finalize` (POST) with:
@@ -213,7 +235,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
   3. Browser redirects:
      `location.assign(`\${redirect\_uri}?code=...\&state=...#drk\_jwe=\${encodeURIComponent(drk\_jwe)}`)`
 
-> **CRITICAL**: The AS does not receive or store `drk_jwe` in the designed flow. The fragment redirect is client-side only; a server 302 cannot attach the fragment safely.
+> **CRITICAL**: The AS does not receive or store key-delivery JWE ciphertext in the designed flow. The fragment redirect is client-side only; a server 302 cannot attach the fragment safely.
 
 **/authorize internals**
 
@@ -230,7 +252,7 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 - Refresh grant enforces `client_id` binding: only the original client can rotate that refresh token.
 - Refresh token rotation is single-use and atomic: exactly one concurrent redemption can succeed.
 - Optionally includes user authorization data as custom claims when configured: `permissions` (array of strings) and `groups` (array of strings). These reflect the union of direct user permissions and permissions derived from groups.
-- **SECURITY**: If the code had `has_zk=true`, include only `zk_drk_hash` for verification. The token endpoint MUST NOT return `zk_drk_jwe`.
+- **SECURITY**: If the code had `has_zk=true`, include only hash metadata for verification. For v2 clients return `zk_key_hash`, `zk_key_kind`, and `zk_key_version`. For legacy v1 clients return `zk_drk_hash`. The token endpoint MUST NOT return key-delivery JWE ciphertext.
 - Atomically consume the code so concurrent redemption attempts cannot both succeed.
 
 ### 5.3.1 UserInfo, Introspection, and Revocation
@@ -249,8 +271,9 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 * **ZK client**:
 
   1. Generate ephemeral ECDH keypair; send `zk_pub` on `/authorize`.
-  2. After landing back, read `#drk_jwe` from URL fragment; call `/token`; verify `base64url(sha256(drk_jwe)) === zk_drk_hash`; decrypt JWE using local ephemeral private key → **DRK** in memory.
-  3. **SECURITY**: The designed flow keeps JWE in browser memory and the URL fragment, not in AS token responses or AS storage.
+  2. For v2 clients, after landing back, read `#darkauth_key_jwe` from URL fragment; call `/token`; verify `base64url(sha256(darkauth_key_jwe)) === zk_key_hash`; decrypt JWE using local ephemeral private key; verify payload metadata; expose **CAK** in memory.
+  3. For legacy v1 clients, read `#drk_jwe`, verify against `zk_drk_hash`, and decrypt **DRK** in memory.
+  4. **SECURITY**: The designed flow keeps JWE in browser memory and the URL fragment, not in AS token responses or AS storage.
 * **Standard client**: ignore ZK. Normal OIDC.
 
 ---
@@ -260,18 +283,20 @@ Same as above **+** `&zk_pub=<base64url(JWK)>` (ephemeral ECDH public key).
 1. **OPAQUE login** (via `/opaque/login/start` + `/opaque/login/finish`):
 
    * On success, an IdP session is issued via `__Host-DarkAuth` HttpOnly cookie for the bound identity; **client gets `export_key`** in JS.
-2. **Get/store DRK**:
+2. **Unlock user keybag**:
 
-   * `GET /crypto/wrapped-drk` → if missing (first login), generate 32‑byte DRK, `WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)`, `PUT /crypto/wrapped-drk`.
-   * Derive `KW` from `export_key`; unwrap `WRAPPED_DRK` → DRK in memory.
-   * If `export_key` is unavailable (for example after browser restart), the Auth UI MUST perform step-up reauthentication with the current password using OPAQUE verify endpoints to rederive `export_key` before continuing authorization.
+   * For password unlock, derive `KW` from `export_key` and unwrap the password key envelope to obtain ARK in memory.
+   * For passkey PRF unlock, request PRF output and unwrap the passkey key envelope to obtain ARK in memory.
+   * For trusted-device approval, consume the encrypted approval envelope to obtain ARK in memory.
+   * If no ARK exists and the client requires ZK, generate a 32-byte ARK client-side and create at least one key envelope before continuing.
+   * Legacy `GET/PUT /crypto/wrapped-drk` is used only for v1 migration; migrated DRK is treated as ARK.
+   * If no unlock method is available, the Auth UI MUST route the user through key setup or recovery before continuing ZK authorization.
 3. **If ZK**:
 
    * read `zk_pub` from `location.search`.
-   * `drk_jwe = ECDH-ES+A256GCM(DRK, zk_pub, AAD={sub,client_id})`.
-   * `drk_hash = base64url(sha256(drk_jwe))`.
-   * `POST /authorize/finalize` (server stores `drk_hash` on the code).
-   * `location.assign(redirect_uri + '?code=...&state=...' + '#drk_jwe=' + encodeURIComponent(drk_jwe))`.
+   * For v2 clients, derive CAK from ARK, create `darkauth_key_jwe`, compute `zk_key_hash`, and call `/authorize/finalize`.
+   * For legacy v1 clients, create `drk_jwe`, compute `drk_hash`, and call `/authorize/finalize`.
+   * Redirect with the appropriate fragment parameter for the registered key delivery version.
 4. **Else** (non-ZK): call `/authorize/finalize` (no `drk_hash`), then 302.
 
 ---
@@ -314,7 +339,10 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
     "token_type": "Bearer",
     "expires_in": 300,
     "refresh_token": "...",
-    "zk_drk_hash": "..."       // only when code.has_zk = true
+    "zk_key_hash": "...",      // v2 ZK clients only
+    "zk_key_kind": "client_app_key",
+    "zk_key_version": "v2",
+    "zk_drk_hash": "..."       // legacy v1 ZK clients only
   }
   ```
 
@@ -356,14 +384,20 @@ Enumeration resistance:
 * Start responses MUST be indistinguishable for existing vs non-existing accounts. When the account is missing, the server MUST return a uniform response using a fixed dummy OPAQUE record and a sessionId that will fail at finish, without leaking existence.
 * Finish MUST return a generic Unauthorized on failure without revealing whether the account exists.
 
-### 7.4 DRK storage
+### 7.4 Keybag storage
 
-* **GET `/crypto/wrapped-drk`** (IdP session required) → `{ wrapped_drk: base64url }` or `404` if not set.
-* **PUT `/crypto/wrapped-drk`** (IdP session required) → `{ ok: true }` (store/replace ciphertext).
+* **GET `/crypto/keybag`** (IdP session required) → account key metadata, key state, envelope metadata, trusted-device metadata.
+* **POST `/crypto/keybag/account-key`** (IdP session required) → create account key metadata after client-side ARK generation.
+* **GET `/crypto/keybag/envelopes`** (IdP session required) → list caller's key envelopes without plaintext.
+* **POST `/crypto/keybag/envelopes`** (IdP session required) → store a password, passkey PRF, trusted-device, or recovery envelope.
+* **DELETE `/crypto/keybag/envelopes/{envelope_id}`** (IdP session required) → revoke an envelope.
+* **POST `/crypto/keybag/recovery`** (IdP session required) → create or rotate recovery envelope metadata.
+* **POST `/crypto/keybag/rotate`** (IdP session required) → rotate account key according to keybag policy.
+* **GET/PUT `/crypto/wrapped-drk`** MAY remain for legacy v1 clients and migration only.
 
 ### 7.4.1 User encryption keys
 
-Endpoints for publishing a user’s public encryption key and storing their wrapped private key (wrapped under DRK-derived key):
+Endpoints for publishing a user’s public encryption key and storing their wrapped private key (wrapped under an ARK-derived key):
 
 - **PUT `/crypto/enc-pub`** (IdP session required)
   Body: `{ enc_public_jwk: {kty, crv, x, y, ...} }`
@@ -373,7 +407,7 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
   Returns `{ enc_public_jwk: {...} }` for the given subject. Visibility is controlled by `settings.user_keys.enc_public_visible_to_authenticated_users` (when false, only the owner can read).
 
 - **PUT `/crypto/wrapped-enc-priv`** (IdP session required)
-  Body: `{ wrapped_enc_private_jwk: base64url }` where the payload is AES‑GCM(`serialize(private_jwk)`) using a key derived from DRK.
+  Body: `{ wrapped_enc_private_jwk: base64url }` where the payload is AES-GCM(`serialize(private_jwk)`) using a key derived from ARK.
 
 - **GET `/crypto/wrapped-enc-priv`** (IdP session required)
   Returns `{ wrapped_enc_private_jwk: base64url }` for the caller or `404` if not set.
@@ -391,6 +425,35 @@ Authenticated endpoints to discover users and their published public encryption 
 - **GET `/users/search?q=...`** → `{ users: [{ sub, display_name, public_key_jwk }] }` matching by name or email within the caller's active organization context.
 - **GET `/users/:sub`** → `{ sub, display_name, public_key_jwk }` for a specific user within the caller's active organization context.
 - Service clients using `client_credentials` with `darkauth.users:read` may use the same endpoints in management mode for cross-organization directory access.
+
+### 7.6.1 Federation, SCIM, Passkeys, And Device Approval
+
+These surfaces follow `specs/USER_KEY_MANAGEMENT.md`.
+
+Federation:
+
+- Admin APIs manage upstream OIDC/SAML connections, claim mapping, account linking policy, and domain routing.
+- User callback endpoints authenticate upstream identities and bind them to local DarkAuth subjects.
+- Upstream SSO authenticates identity only. ZK clients still require key unlock before CAK delivery.
+
+SCIM:
+
+- `/scim/v2/Users`, `/scim/v2/Groups`, `/scim/v2/ServiceProviderConfig`, `/scim/v2/ResourceTypes`, and `/scim/v2/Schemas`.
+- SCIM provisions users/groups and lifecycle state. It does not authenticate users.
+- SCIM deactivation revokes active sessions and refresh tokens.
+
+Passkeys:
+
+- `/webauthn/register/start`, `/webauthn/register/finish`, `/webauthn/login/start`, `/webauthn/login/finish`.
+- Passkeys without PRF authenticate only.
+- Passkeys with verified PRF may also create a key envelope and unlock ARK.
+
+Device approval:
+
+- `/crypto/device-approvals` create/list pending approvals.
+- `/crypto/device-approvals/{request_id}/approve` encrypts ARK from an existing unlocked device to the new device public key.
+- `/crypto/device-approvals/{request_id}/consume` lets the new device retrieve and decrypt the approval envelope.
+- Approval requests are short-lived, single-use, and audited.
 
 ### 7.7 Admin API (port 9081)
 
@@ -461,7 +524,7 @@ Sensitive operations require reauthentication with the current password. Passwor
   - Updates the stored OPAQUE record and records the new `export_key_hash`.
   - Clears `password_reset_required` for the user.
 
-Client guidance: attempt DRK preservation by deriving keys from both the old and new `export_key`. If the old DRK can be unwrapped, re‑wrap it under the new keys and store via `/crypto/wrapped-drk`. If recovery fails, generate a new DRK and publish fresh encryption keys.
+Client guidance: preserve ARK by unwrapping it with the old password envelope, then creating a new password envelope from the new `export_key`. If password-envelope recovery fails, require another envelope or recovery method; otherwise generate a new ARK and treat existing encrypted app data as unrecoverable.
 
 ## 8. Client (RP) Integration — ZK-enabled
 
@@ -473,24 +536,27 @@ Client guidance: attempt DRK preservation by deriving keys from both the old and
 
 **After redirect:**
 
-* Parse `#drk_jwe` from `location.hash`.
-* Exchange code at `/token`, read `zk_drk_hash`.
-* Verify `base64url(sha256(drk_jwe)) === zk_drk_hash`.
-* Decrypt JWE with ephemeral private key → **DRK** in memory.
+* For v2 clients, parse `#darkauth_key_jwe` from `location.hash`.
+* Exchange code at `/token`, read `zk_key_hash`, `zk_key_kind`, and `zk_key_version`.
+* Verify `base64url(sha256(darkauth_key_jwe)) === zk_key_hash`.
+* Decrypt JWE with ephemeral private key.
+* Verify payload `typ`, `key_kind`, `client_id`, `sub`, `aud`, `state_hash`, `redirect_uri_hash`, `key_id`, and `exp`.
+* Expose **CAK** in memory.
+* Legacy v1 clients parse `#drk_jwe`, verify `zk_drk_hash`, and decrypt DRK only when registered with `key_delivery_version="v1-drk"`.
 
-**App data crypto (four functions using DRK):**
+**App data crypto (four functions using CAK):**
 
 ```ts
-export async function encrypt(data: unknown, drk: CryptoKey|ArrayBuffer): Promise<string> {
-  const key = await asAesGcmKey(drk);
+export async function encrypt(data: unknown, cak: CryptoKey|ArrayBuffer): Promise<string> {
+  const key = await asAesGcmKey(cak);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const pt = new TextEncoder().encode(JSON.stringify(data));
   const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, pt);
   return toB64Url(concat(iv, new Uint8Array(ct)));
 }
-export async function decrypt(b64: string, drk: CryptoKey|ArrayBuffer): Promise<any> {
+export async function decrypt(b64: string, cak: CryptoKey|ArrayBuffer): Promise<any> {
   const buf = fromB64Url(b64); const iv = buf.slice(0,12); const ct = buf.slice(12);
-  const key = await asAesGcmKey(drk);
+  const key = await asAesGcmKey(cak);
   const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
   return JSON.parse(new TextDecoder().decode(pt));
 }
@@ -523,7 +589,7 @@ DarkAuth/
 │  │  ├─ jwks.ts               # load/rotate keys (decrypt with KEK)
 │  │  ├─ tokens.ts             # sign id/access tokens
 │  │  ├─ opaque.ts             # server side OPAQUE glue
-│  │  ├─ drkStore.ts           # GET/PUT wrapped_drk
+│  │  ├─ keybag.ts             # account keys, key envelopes, trusted devices
 │  │  ├─ authorize.ts          # pending auth management + code issuing
 │  │  └─ settings.ts           # read/write settings table
 │  │  └─ rbac.ts               # users/groups/permissions resolution
@@ -593,16 +659,16 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 1. `GET /authorize` → Auth UI page with `request_id`.
 2. **OPAQUE register** → store `opaque_records`.
 3. **Derive `export_key` client-side**.
-4. **Generate random DRK** (32 bytes).
-5. `KW = HKDF(export_key, ...)`; `WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)`; `PUT /crypto/wrapped-drk`.
-6. If ZK: create `drk_jwe`, `drk_hash`; `POST /authorize/finalize` → get `code` → redirect with `#drk_jwe`. Else: finalize & redirect.
+4. **Generate random ARK** (32 bytes).
+5. Derive password envelope wrapping key from `export_key`; store password key envelope via `/crypto/keybag/envelopes`.
+6. If ZK: derive CAK, create `darkauth_key_jwe`, compute `zk_key_hash`, `POST /authorize/finalize` → get `code` → redirect with `#darkauth_key_jwe`. Else: finalize & redirect.
 
 ### 11.2 Login (other devices)
 
 1. Same `/authorize`.
 2. **OPAQUE login** → client gets `export_key`.
-3. Fetch `WRAPPED_DRK`, unwrap with `KW` → DRK in memory.
-4. ZK client: do fragment JWE + finalize + redirect. Standard client: finalize & redirect.
+3. Fetch keybag metadata/envelopes; unwrap ARK with password, passkey PRF, trusted-device approval, or recovery.
+4. ZK client: derive CAK, do fragment JWE + finalize + redirect. Standard client: finalize & redirect.
 
 ### 11.3 Password change
 
@@ -612,9 +678,9 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 2. User sets a new password:
    - OPAQUE re‑registration via `/password/change/start` → `/password/change/finish` with `{ record, export_key_hash, reauth_token }`.
    - Server enforces reuse prevention using `export_key_hash` history and updates the OPAQUE record.
-3. DRK handling on client:
-   - Try to unwrap existing DRK with keys derived from the old `export_key`; if successful, re‑wrap under keys derived from the new `export_key` and `PUT /crypto/wrapped-drk`.
-   - If recovery fails, generate a new DRK and publish fresh encryption keys.
+3. ARK handling on client:
+   - Try to unwrap existing ARK with the old password envelope; if successful, create a new password envelope from the new `export_key`.
+   - If recovery fails, require another envelope or recovery method. Email/password reset alone MUST NOT decrypt existing ARK.
 
 ---
 
@@ -622,8 +688,8 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
 
 * **Secure logging**: Follow the comprehensive logging restrictions defined in §2.2. NEVER log cryptographic material.
 * `/authorize` only accepts `zk_pub` if `client.zk_delivery='fragment-jwe'`.
-* `/token` only returns `zk_drk_hash` if the code has `has_zk=true`.
-* **Bind everything**: pending-auth ↔ IdP session, code ↔ client\_id, drk\_hash ↔ code, `zk_pub_kid` ↔ code.
+* `/token` only returns ZK hash metadata if the code has `has_zk=true`.
+* **Bind everything**: pending-auth ↔ IdP session, code ↔ client\_id, `zk_key_hash` or legacy `drk_hash` ↔ code, `zk_pub_kid` ↔ code.
 * **Short TTLs**: code ≤ 60 s; access/session token TTL short (e.g., 15 min).
 * **Reauth for sensitive ops**: password change requires OPAQUE verification and a short‑lived JWT (`purpose="password_change"`, 10m) bound to the same subject.
 * **Password reuse prevention**: server tracks `export_key_hash` per user and rejects reuse during `/password/change/finish`.
@@ -640,12 +706,12 @@ Runtime: on boot, derive KEK from passphrase in config.yaml. Decrypt private key
   - Silent renewal uses Authorization Code + PKCE issued refresh tokens with OAuth 2.0 refresh grant semantics.
   - Refresh token rotation remains single-use, client-bound, and atomic.
   - On successful refresh, the AS reissues the first-party session cookie so `/session` and UI state remain aligned.
-* **DRK custody (hosted-web default)**:
-  - DRK is memory-only by default after callback handling.
-  - The app removes `drk_jwe` from the URL immediately after processing and clears the ephemeral ZK private key after decrypting.
-  - Reload without an in-memory DRK starts a fresh authorization request with a new `zk_pub`. If the Auth UI still has a valid session and session-scoped `export_key`, it can unwrap DRK and return a fresh JWE without prompting for the password. If `export_key` is missing, step-up OPAQUE verification is required.
-  - Persistent DRK storage in `localStorage`, including static XOR obfuscation, MUST NOT be the default hosted-web ZK profile and MUST NOT be described as cryptographic protection.
-  - Optional convenience modes MAY retain DRK or non-extractable WebCrypto handles only for the active browser session and MUST be labeled as a UX/security tradeoff.
+* **Key custody (hosted-web default)**:
+  - ARK and CAK are memory-only by default after callback handling.
+  - The app removes `darkauth_key_jwe` or legacy `drk_jwe` from the URL immediately after processing and clears the ephemeral ZK private key after decrypting.
+  - Reload without an in-memory CAK starts a fresh authorization request with a new `zk_pub`. If the Auth UI still has a valid session and an available unlock method, it can return a fresh JWE without prompting for the password. Otherwise key unlock is required.
+  - Persistent plaintext ARK/CAK storage in `localStorage`, `sessionStorage`, JS-readable cookies, or IndexedDB MUST NOT be the default hosted-web ZK profile and MUST NOT be described as cryptographic protection.
+  - Optional convenience modes MAY retain encrypted envelopes or non-extractable WebCrypto handles and MUST be labeled as a UX/security tradeoff.
 * **Client-side browser storage (first-party web profile)**:
   - First-party cookie session ID is never readable by JS (`HttpOnly`) and is never stored in `localStorage` or `sessionStorage`.
   - First-party refresh credentials are also `HttpOnly` cookies and are never readable by JS.
@@ -727,12 +793,13 @@ GET /authorize?
   &zk_pub=eyJrdHkiOiJ...   (base64url JWK)
 ```
 
-**Auth UI JS (after OPAQUE + DRK unwrap)**
+**Auth UI JS (after authentication + key unlock)**
 
-* `drk_jwe = ECDH-ES+A256GCM(DRK, zk_pub)`
-* `drk_hash = base64url(sha256(drk_jwe))`
-* `POST /authorize/finalize { request_id, drk_hash }` → `{ code, state }` (server stores `drk_hash`)
-* `location.assign(redirect_uri + '?code=...&state=...' + '#drk_jwe=' + encodeURIComponent(drk_jwe))`
+* `CAK = HKDF(ARK, context={sub,key_id,client_id,org_id,aud,version})`
+* `darkauth_key_jwe = ECDH-ES+A256GCM({key_kind:"client_app_key", cak, ...metadata}, zk_pub)`
+* `zk_key_hash = base64url(sha256(darkauth_key_jwe))`
+* `POST /authorize/finalize { request_id, zk_key_hash }` → `{ code, state }` (server stores `zk_key_hash`)
+* `location.assign(redirect_uri + '?code=...&state=...' + '#darkauth_key_jwe=' + encodeURIComponent(darkauth_key_jwe))`
 
 **App → /token**
 
@@ -753,14 +820,18 @@ POST /token
   "id_token":"...",
   "token_type":"Bearer",
   "expires_in":300,
-  "zk_drk_hash":"7mGfP3v9..."
+  "zk_key_hash":"7mGfP3v9...",
+  "zk_key_kind":"client_app_key",
+  "zk_key_version":"v2"
 }
 ```
 
 **App verifies + decrypts**
 
-* `if base64url(sha256(drk_jwe)) !== zk_drk_hash` → abort.
-* Else `DRK = JWE_decrypt(drk_jwe, eph_private_key)` → use DRK for app crypto.
+* `if base64url(sha256(darkauth_key_jwe)) !== zk_key_hash` → abort.
+* Else decrypt JWE with ephemeral private key.
+* Verify `key_kind`, `client_id`, `sub`, `aud`, `state_hash`, `redirect_uri_hash`, `key_id`, and `exp`.
+* Use CAK for app crypto.
 
 ---
 
@@ -770,23 +841,23 @@ POST /token
 
   * Code/PKCE verification.
   * JOSE JWE round-trips with ephemeral keys.
-  * DRK wrap/unwrap determinism from a fixed `export_key`.
+  * ARK envelope wrap/unwrap determinism from a fixed `export_key`.
 * **Integration**:
 
   * OPAQUE register/login (use the real lib; persist `opaque_records`).
   * `/authorize` pending logic → `/authorize/finalize` → code creation → `/token`.
-  * ZK flow: `zk_pub` → fragment JWE → `zk_drk_hash` binding.
+  * ZK flow: `zk_pub` → fragment JWE → `zk_key_hash` binding.
 * **E2E**:
 
-  * ZK client SPA redirects, gets fragment JWE, completes token exchange, verifies hash, decrypts DRK, encrypts/decrypts a sample record.
+  * ZK client SPA redirects, gets fragment JWE, completes token exchange, verifies hash and metadata, decrypts CAK, encrypts/decrypts a sample record.
   * Standard OIDC client (support desk) completes without ZK.
 
 ---
 
 ## 16. Performance & Limits
 
-* Fragment size: JWE for 32‑byte DRK with P‑256/A256GCM is typically < 1 KB; safe for URL fragment.
-* Code lifetime: 60 s; DRK handoff happens immediately on redirect.
+* Fragment size: JWE for 32-byte CAK plus metadata with P-256/A256GCM is expected to fit normal browser URL fragment limits; clients and tests must enforce practical size bounds.
+* Code lifetime: 60 s; key handoff happens immediately on redirect.
 * Settings and JWKS are cached in memory and reloaded on change (admin API optional).
 
 ---
@@ -794,7 +865,7 @@ POST /token
 ## 17. Guardrails & Footguns
 
 * If you refuse a bootstrap secret (KEK) and your DB leaks, attackers can mint tokens (private JWKs are in plaintext). That’s on you.
-* Client-side crypto does not protect against XSS, malicious same-origin frontend code, compromised browsers/extensions, or RP apps that intentionally exfiltrate DRK/plaintext. Keep CSP strict and keep trusted origins narrow.
+* Client-side crypto does not protect against XSS, malicious same-origin frontend code, compromised browsers/extensions, or RP apps that intentionally exfiltrate CAK/plaintext. Keep CSP strict and keep trusted origins narrow.
 * Do **not** fall back to “hash password in JS and send to server”. That is not zero‑knowledge.
 
 ---
@@ -833,15 +904,15 @@ The system includes a fully functional demo application showcasing zero-knowledg
 
   * `/authorize` GET → validate & create pending; serve UI.
   * Auth UI → OPAQUE → DRK unwrap → `/authorize/finalize` → redirect.
-  * `/token` → exchange code; emit `zk_drk_hash` when applicable.
+  * `/token` → exchange code; emit `zk_key_hash` for v2 ZK clients or `zk_drk_hash` for legacy v1 clients.
 
 ---
 
 ## 19. Done Criteria
 
 * Standard OIDC clients can authenticate and get tokens without any ZK additions.
-* ZK-enabled clients can receive DRK via fragment JWE, verify `zk_drk_hash`, and decrypt DRK locally.
-* Password is not sent to the server in the OPAQUE flow; during honest frontend operation the server cannot derive DRK from stored state.
+* ZK-enabled v2 clients can receive CAK via fragment JWE, verify `zk_key_hash`, validate payload metadata, and decrypt app data locally.
+* Password is not sent to the server in the OPAQUE flow; during honest frontend operation the server cannot derive ARK or CAK from stored state.
 * All settings live in Postgres; install works with only `POSTGRES_URI`.
 * Keys at rest are always encrypted with KEK.
 
@@ -864,7 +935,7 @@ This spec is tight enough to build the whole thing without guesswork.
 - KEK passphrase (mandatory): Must be provided in `config.yaml`. System refuses to start without valid KEK.
 - Defaults: seed `issuer` and `public_origin` to `http://localhost:9080` for development and require HTTPS origins in production. Seed `rp_id` accordingly.
 - Trusted frontend origins: production ZK clients must use explicit HTTPS origins for Auth UI and RP frontends, with redirect URI allowlists and `allowed_zk_origins` kept in sync. Avoid wildcard origins and isolate apps that can execute user-authored content.
-- Frontend compromise response: if Auth UI or RP frontend code, build pipeline, CDN, or dependency supply chain is suspected compromised, immediately disable affected ZK clients or ZK delivery, rotate/redeploy clean frontend assets, revoke active sessions and refresh tokens, review audit logs for suspicious authorization/finalize/token activity, notify affected users, and require OPAQUE step-up before resuming DRK handoff.
+- Frontend compromise response: if Auth UI or RP frontend code, build pipeline, CDN, or dependency supply chain is suspected compromised, immediately disable affected ZK clients or ZK delivery, rotate/redeploy clean frontend assets, revoke active sessions and refresh tokens, review audit logs for suspicious authorization/finalize/token activity, notify affected users, and require key unlock before resuming key handoff.
 - Audit log retention: keep authentication, authorization, client-admin, key-management, and ZK handoff metadata for a documented retention window; encrypt logs at rest; never retain cryptographic payloads or bearer secrets.
 - Release note requirement: any change from persistent DRK storage to memory-only custody must warn operators that page reloads can require a fresh ZK authorization and may require OPAQUE step-up when `export_key` is no longer session-cached.
 - UI technology: build the Auth UI and Admin UI with React + TypeScript + CSS Modules. The Node HTTP server serves the built static assets; no server-side rendering.

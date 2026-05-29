@@ -6,7 +6,7 @@ import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { getUserOpaqueRecordByEmail } from "../../models/users.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
 import type { Context, ControllerSchema, OpaqueLoginResponse } from "../../types.ts";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { fromBase64Url, sha256Base64Url, toBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 export const schema = {
@@ -83,7 +83,10 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
         loginResponse = await opaque.startLogin(requestBuffer, opaqueRecord, parsed.email);
       }
     }
-    context.logger.debug({ sessionId: loginResponse.sessionId }, "opaque start ok");
+    context.logger.debug(
+      { sessionHash: sha256Base64Url(loginResponse.sessionId).slice(0, 16) },
+      "opaque start ok"
+    );
 
     // Convert response to base64url for JSON transmission
     const responseData = {
