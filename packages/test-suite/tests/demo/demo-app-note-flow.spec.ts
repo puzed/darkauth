@@ -9,6 +9,7 @@ import {
   openDemoDashboard,
   createAndSaveDemoNote,
   verifyNoteAfterRelogin,
+  blockDemoExternalRequests,
   type DemoApiServer,
   type DemoUiServer,
   type DemoServerBundle,
@@ -103,10 +104,18 @@ test.describe('Demo App Note Flow', () => {
         (entry): entry is [string, string] => typeof entry[0] === 'string' && typeof entry[1] === 'string'
       ),
     });
-    await denyPage.goto(bundle.demoUi.url);
+    await blockDemoExternalRequests(denyPage);
+    await denyPage.goto(bundle.demoUi.url, { waitUntil: 'domcontentloaded' });
     const loginGateButton = denyPage.getByRole('button', { name: 'Login', exact: true });
+    await Promise.race([
+      loginGateButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+      denyPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 15000 }).catch(() => undefined),
+    ]);
     if (await loginGateButton.isVisible().catch(() => false)) {
-      await loginGateButton.click();
+      await Promise.all([
+        denyPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 30000 }),
+        loginGateButton.click(),
+      ]);
     }
     await denyPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 30000 });
     await denyPage.getByRole('button', { name: 'Deny', exact: true }).click();

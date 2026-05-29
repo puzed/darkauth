@@ -93,9 +93,18 @@ export default function Dashboard() {
       setSettings(s);
       setJwks(k);
       setAuditLogs(a.auditLogs || []);
-
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load dashboard data");
+    } finally {
+      setLoading(false);
+    }
+    try {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 3000);
       try {
-        const res = await fetch("https://release.darkauth.com/changelog.json");
+        const res = await fetch("https://release.darkauth.com/changelog.json", {
+          signal: controller.signal,
+        });
         if (res.ok) {
           const data = await res.json();
           const entries = (data.entries || []) as ChangelogEntry[];
@@ -115,12 +124,10 @@ export default function Dashboard() {
             );
           }
         }
-      } catch {}
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load dashboard data");
-    } finally {
-      setLoading(false);
-    }
+      } finally {
+        window.clearTimeout(timeout);
+      }
+    } catch {}
   }, []);
 
   useEffect(() => {
