@@ -7,13 +7,13 @@ DarkAuth exposes several API surfaces. They are grouped by purpose rather than b
 
 ## User and OIDC APIs
 
-The user surface includes OIDC discovery, JWKS, authorization, token exchange, sessions, logout, OPAQUE login and registration, OTP, password reset, email verification, user crypto key storage, organizations, apps, and users directory endpoints.
+The user surface includes OIDC discovery, JWKS, authorization, token exchange, sessions, logout, OPAQUE login and registration, OTP, password reset, email verification, federation routing, user crypto key storage, keybag envelopes, recovery keys, trusted devices, passkeys, organizations, apps, and users directory endpoints.
 
 These endpoints are served from the user origin, which is public in most deployments.
 
 ## Admin APIs
 
-The admin API manages users, admin users, clients, organizations, roles, permissions, settings, email templates, JWKS, OTP state, audit logs, and exports. Admin APIs require an authenticated admin session. Mutating endpoints require a write admin role.
+The admin API manages users, admin users, clients, organizations, roles, permissions, federation connections, SCIM tokens, settings, email templates, JWKS, OTP state, audit logs, and exports. Admin APIs require an authenticated admin session. Mutating endpoints require a write admin role.
 
 These endpoints are served from the admin origin, which should be restricted in production.
 

@@ -1,0 +1,20 @@
+---
+title: SCIM API
+description: Provision users through SCIM.
+---
+
+DarkAuth exposes SCIM endpoints for identity-provider provisioning. SCIM requests use bearer-token authentication with a token created by a write admin.
+
+## Admin token endpoints
+
+- `GET /admin/scim/tokens` lists SCIM token metadata.
+- `POST /admin/scim/tokens` creates a token and returns the plaintext bearer token once.
+- `DELETE /admin/scim/tokens/{id}` revokes a token.
+
+Store the token in the upstream identity provider when it is created. DarkAuth does not reveal the same token again.
+
+## SCIM resource endpoints
+
+The SCIM API supports user provisioning and update behavior expected by identity providers. Use the OpenAPI document for exact payload shapes and the identity provider's SCIM mapping controls for field selection.
+
+When a user is deactivated through SCIM, pending authorization codes for that user are invalidated before they can be redeemed.

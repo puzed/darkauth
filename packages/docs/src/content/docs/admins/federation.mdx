@@ -1,0 +1,30 @@
+---
+title: Federation
+description: Configure external OIDC identity providers and email domain routing.
+---
+
+Federation lets DarkAuth route users to an external OIDC identity provider for sign-in. Each connection represents one upstream issuer, its client credentials, claim mapping, and the email domains that should use it.
+
+## Connections
+
+Create a federation connection for each upstream provider and environment. A connection stores the issuer, authorization endpoint, token endpoint, JWKS URI, client ID, optional encrypted client secret, scopes, and profile claim mapping.
+
+Use separate connections for production and non-production identity providers. Domain routing is exact enough that a staging issuer should not share production domains.
+
+## Domain routing
+
+DarkAuth resolves a user's email domain before sign-in and returns the matching connection when federation is configured for that domain. If no connection matches, the user stays on the local OPAQUE sign-in path.
+
+Keep domain ownership clear. Do not route public webmail domains or shared supplier domains unless the provider truly owns every user under that domain.
+
+## Discovery
+
+Admins can use OIDC discovery to prefill a connection from an issuer URL. Discovery is restricted to public HTTPS issuers. Localhost, loopback, link-local, private network, and other internal hosts are rejected so discovery cannot be used to probe internal services.
+
+## Secrets
+
+Federation client secrets are encrypted at rest and are never returned by list or detail reads. To change a secret, submit a replacement value on the update flow. Leaving the secret field unchanged preserves the existing encrypted secret.
+
+## Deactivation
+
+Disabling or deleting a federation connection stops new routed sign-ins for its domains. Review active sessions and issued tokens separately if the upstream provider relationship is being removed for security reasons.
