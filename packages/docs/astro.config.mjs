@@ -49,6 +49,7 @@ export default defineConfig({
               ],
             },
             { label: "ZK DRK Delivery", slug: "developers/zk-drk-delivery" },
+            { label: "Key Management", slug: "developers/key-management" },
             { label: "OPAQUE", slug: "developers/opaque" },
             { label: "TypeScript SDK", slug: "developers/sdk/typescript" },
             { label: "Example Todos App", slug: "developers/examples/todos" },

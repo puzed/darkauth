@@ -13,6 +13,7 @@ If your app just needs login, use standard OIDC. If your browser app needs a use
 - Server-rendered web app: [Confidential Clients](/developers/oidc/confidential-clients/).
 - Service integration: [Confidential Clients](/developers/oidc/confidential-clients/) and client credentials.
 - Encrypted browser app: [ZK DRK Delivery](/developers/zk-drk-delivery/).
+- Account-key integration: [Key Management](/developers/key-management/).
 - SDK-based app: [TypeScript SDK](/developers/sdk/typescript/).
 - Org-aware app: [Organizations and RBAC](/developers/organizations-rbac/).
 
@@ -20,7 +21,7 @@ If your app just needs login, use standard OIDC. If your browser app needs a use
 
 DarkAuth can authenticate users and issue tokens, but applications still own their authorization checks. Your backend should verify token issuer, audience, expiry, signature, scopes, organization context, and permissions before allowing protected actions.
 
-For zero-knowledge apps, your frontend must also verify the DRK hash binding, decrypt the JWE with the ephemeral private key, remove sensitive fragments from the URL, and avoid persisting the DRK unless you intentionally accept that tradeoff.
+For zero-knowledge apps, your frontend must also verify key-delivery bindings, decrypt envelope material in the browser, remove sensitive fragments from the URL, and avoid persisting plaintext key material unless you intentionally accept that tradeoff.
 
 ## Local development
 

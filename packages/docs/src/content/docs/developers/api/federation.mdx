@@ -1,0 +1,28 @@
+---
+title: Federation API
+description: Admin and user endpoints for OIDC federation.
+---
+
+Federation endpoints are split between admin configuration and user sign-in routing.
+
+## Admin endpoints
+
+- `GET /admin/federation/connections` lists configured connections without plaintext secrets.
+- `POST /admin/federation/connections` creates a connection.
+- `GET /admin/federation/connections/{id}` reads one connection.
+- `PUT /admin/federation/connections/{id}` updates a connection and can replace the encrypted client secret.
+- `DELETE /admin/federation/connections/{id}` deletes a connection.
+- `GET /admin/federation/domain-route` previews domain routing.
+- `GET /admin/federation/oidc/discovery` fetches public HTTPS OIDC discovery metadata.
+
+Mutating admin endpoints require a write admin session and CSRF token.
+
+## User endpoint
+
+- `GET /federation/route` resolves an email address to the configured federation route for its domain.
+
+If no route exists, clients should continue with the local DarkAuth sign-in path.
+
+## Discovery safety
+
+Discovery rejects localhost, loopback, private, link-local, and internal hosts. Treat issuer URLs as public identity-provider URLs, not arbitrary fetch targets.
