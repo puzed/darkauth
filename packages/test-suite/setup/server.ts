@@ -81,10 +81,10 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
 }
 
 export async function destroyTestServers(servers: TestServers): Promise<void> {
-  await closeServer(servers.adminServer);
+  await withTimeout(closeServer(servers.adminServer), 5_000);
   delete process.env.DARKAUTH_TEST_MODE;
-  await closeServer(servers.userServer);
-  await servers.context.destroy();
+  await withTimeout(closeServer(servers.userServer), 5_000);
+  await withTimeout(servers.context.destroy(), 5_000);
 }
 
 async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
@@ -114,4 +114,17 @@ async function closeServer(server: ReturnType<typeof createServer>): Promise<voi
       }
     }
   });
+}
+
+async function withTimeout(promise: Promise<void>, timeoutMs: number): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    promise.finally(() => {
+      if (timeout) clearTimeout(timeout);
+    }),
+    new Promise<void>((resolve) => {
+      timeout = setTimeout(resolve, timeoutMs);
+      timeout.unref?.();
+    }),
+  ]);
 }
