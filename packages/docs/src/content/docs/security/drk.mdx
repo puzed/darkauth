@@ -1,26 +1,26 @@
 ---
-title: DRK Security
-description: Wrapped Data Root Key storage and fragment JWE delivery.
+title: ZK Key Security
+description: Keybag custody, account root keys, client app keys, and fragment JWE delivery.
 ---
 
-The Data Root Key is the root secret a zero-knowledge application can use to derive or unwrap application data keys. DarkAuth stores the DRK only as ciphertext wrapped under client-derived material.
+DarkAuth's current zero-knowledge model separates account custody from application delivery. The user has an Account Root Key, or ARK, stored inside a keybag. A ZK-enabled application receives a Client App Key, or CAK, derived for that client and organization context.
 
-## Wrapped storage
+## Keybag storage
 
-The client derives a wrapping key from OPAQUE output and uses it to encrypt the DRK. DarkAuth stores the wrapped value. During honest operation, the backend and database cannot unwrap it because they do not have the client-derived key.
+The keybag stores encrypted envelopes for the ARK. Password login uses OPAQUE export-key material to unlock a password envelope. Passkey PRF, trusted-device, and recovery-key flows can provide additional envelopes. During honest operation, the backend and database cannot unwrap the ARK because they do not have the client-derived envelope keys.
 
 ## Fragment delivery
 
-For ZK-enabled clients, the app sends an ephemeral ECDH public key in the authorization request. Browser code encrypts the DRK to that key and delivers the JWE through the URL fragment.
+For current ZK-enabled clients, the app sends an ephemeral ECDH public key in the authorization request. Browser code unwraps the ARK locally, derives a CAK for the requesting client, encrypts the CAK to that key, and delivers the JWE through the URL fragment.
 
-The server stores only `drk_hash`, a hash of the fragment JWE. The token response returns `zk_drk_hash` so the app can verify that the fragment it received matches the authorization code.
+The server stores only `zk_key_hash`, a hash of the fragment JWE. The token response returns `zk_key_hash`, `zk_key_kind`, and `zk_key_version` so the app can verify that the fragment it received matches the authorization code before decrypting. Explicit legacy v1 clients use `drk_hash`, `drk_jwe`, and `zk_drk_hash`.
 
 ## Custody recommendations
 
-Keep DRK custody memory-only by default. Clear it on logout. Remove the fragment from the URL after processing. Generate a fresh ephemeral key for each authorization request.
+Keep ARK, CAK, and fragment-private-key custody memory-only by default. Clear delivered keys on logout. Remove the fragment from the URL after processing. Generate a fresh ephemeral key for each authorization request.
 
-Persistent DRK storage can improve convenience, but it weakens the hosted-web custody story. If you enable it, describe the tradeoff clearly.
+Persistent key storage can improve convenience, but it weakens the hosted-web custody story. If you enable it, describe the tradeoff clearly.
 
 ## Threats to consider
 
-The DRK can be exposed by malicious app code, malicious DarkAuth frontend code, XSS, browser extensions, device compromise, or application code that logs or uploads it. The ZK flow reduces server-side custody; it does not remove frontend trust.
+The ARK or CAK can be exposed by malicious app code, malicious DarkAuth frontend code, XSS, browser extensions, device compromise, or application code that logs or uploads delivered key material. The ZK flow reduces server-side custody; it does not remove frontend trust.

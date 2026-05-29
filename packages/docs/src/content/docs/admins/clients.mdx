@@ -3,7 +3,7 @@ title: Clients
 description: OAuth and OIDC client management.
 ---
 
-Clients are applications that use DarkAuth for authentication or authorization. A client controls how an app redirects users, exchanges codes, receives tokens, requests scopes, and optionally participates in zero-knowledge DRK delivery.
+Clients are applications that use DarkAuth for authentication or authorization. A client controls how an app redirects users, exchanges codes, receives tokens, requests scopes, and optionally participates in zero-knowledge key delivery.
 
 ## Public clients
 
@@ -31,6 +31,6 @@ Scopes describe what the client is asking for. Built-in scopes such as `openid`,
 
 ## ZK delivery settings
 
-Zero-knowledge DRK delivery is opt-in per client. Only enable `fragment-jwe` for applications that are designed to handle encrypted key material safely, verify the delivery binding, and manage plaintext key custody deliberately.
+Zero-knowledge key delivery is opt-in per client. Current v2 clients receive a client app key, while explicit legacy v1 clients can still receive the older root-key delivery. Only enable `fragment-jwe` for applications that are designed to handle encrypted key material safely, verify the delivery binding, and manage plaintext key custody deliberately.
 
 Do not enable ZK delivery because it sounds stronger. Enable it because the application has a real client-side encryption model and a clear recovery story.

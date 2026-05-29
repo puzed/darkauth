@@ -3,7 +3,7 @@ title: TypeScript SDK
 description: The @darkauth/client package for browser and app integrations.
 ---
 
-The `@DarkAuth/client` package helps browser applications start OIDC login, handle callbacks, manage token state, refresh sessions, and process ZK DRK delivery.
+The `@DarkAuth/client` package helps browser applications start OIDC login, handle callbacks, manage token state, refresh sessions, and process ZK key delivery.
 
 ## Basic setup
 
@@ -37,14 +37,14 @@ The SDK defaults are designed for hosted browser apps:
 - OAuth state validation.
 - Cookie-based refresh where appropriate.
 - Memory-only token view.
-- Memory-only DRK custody.
+- Memory-only delivered-key custody.
 - ZK validation when ZK artifacts are present.
 
-The SDK can support explicit legacy storage options, but persistent token or DRK storage should be a conscious decision rather than an accidental default.
+The SDK can support explicit legacy storage options, but persistent token, ARK, CAK, or legacy DRK storage should be a conscious decision rather than an accidental default.
 
 ## Session shape
 
-The callback returns an auth session with an ID token, optional access token, and a `drk` value. In non-ZK flows, the DRK is an empty `Uint8Array`, so application code can handle standard and ZK flows without assuming every login returns a usable encryption root.
+The callback returns an auth session with an ID token, optional access token, and delivered key material when the client uses ZK delivery. Current v2 flows deliver a CAK and metadata. Non-ZK flows return no usable encryption key, so application code should branch on the ZK fields instead of assuming every login returns a root key.
 
 ## Crypto helpers
 

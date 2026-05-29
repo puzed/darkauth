@@ -3,13 +3,13 @@ title: Zero-Knowledge
 description: User-level explanation of DarkAuth zero-knowledge behavior.
 ---
 
-Zero-knowledge features are easiest to understand as a key custody decision. DarkAuth can help applications authenticate users without the server learning the password, and it can help trusted apps receive a user-held Data Root Key without storing that key in plaintext on the server.
+Zero-knowledge features are easiest to understand as a key custody decision. DarkAuth can help applications authenticate users without the server learning the password, and it can help trusted apps receive client-scoped key material without storing that plaintext key material on the server.
 
 ## What DarkAuth protects
 
 DarkAuth uses OPAQUE for password authentication. In the OPAQUE flow, the password is not sent to the server. The server stores an OPAQUE record that lets it participate in future logins without learning the password.
 
-For zero-knowledge enabled apps, the browser can derive key material after login, unwrap a user DRK, encrypt that DRK to the app's ephemeral public key, and deliver it through the URL fragment. The server stores only wrapped key material and a hash binding for the handoff.
+For zero-knowledge enabled apps, the browser can derive key material after login, unwrap account key material locally, derive a client app key for the requesting app, encrypt that key to the app's ephemeral public key, and deliver it through the URL fragment. The server stores only encrypted envelope material and a hash binding for the handoff.
 
 ## What this does not protect
 
@@ -25,12 +25,12 @@ If any of those are compromised, a key may be exposed while it is in use.
 
 ## Why reloads can matter
 
-The default hosted-web profile keeps the DRK in memory. Memory-only custody reduces persistent browser storage risk, but a page reload loses the key. A well-designed app should start a fresh authorization request and get a new encrypted handoff when it needs the DRK again.
+The default hosted-web profile keeps delivered key material in memory. Memory-only custody reduces persistent browser storage risk, but a page reload loses the key. A well-designed app should start a fresh authorization request and get a new encrypted handoff when it needs the key again.
 
 If the DarkAuth session is still valid and the necessary client-side material is available, this may not require a full password prompt. If not, the user may need to sign in or complete a step-up flow again.
 
 ## Password reset tradeoff
 
-Email password reset restores account access. It does not magically recover encrypted data that depended on the old password-derived key. If an app relies on DRK-protected data, it should explain its recovery model clearly before users need it.
+Email password reset restores account access. It does not magically recover encrypted data that depended on old password-derived key material without another recovery envelope or app recovery path. If an app relies on zero-knowledge protected data, it should explain its recovery model clearly before users need it.
 
 The benefit is that the server is not silently holding the user's decryption key. The tradeoff is that recovery requires explicit design.

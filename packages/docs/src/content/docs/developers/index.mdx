@@ -5,14 +5,14 @@ description: Integrate applications and contribute to DarkAuth.
 
 Developers can integrate DarkAuth as a normal OIDC provider, as a zero-knowledge key delivery service for trusted apps, or as both. The right starting point depends on the kind of application you are building.
 
-If your app just needs login, use standard OIDC. If your browser app needs a user-held Data Root Key, use the ZK DRK delivery flow. If you are contributing to DarkAuth itself, start with the architecture and schema docs so your changes fit the existing controller, model, service, and OpenAPI patterns.
+If your app just needs login, use standard OIDC. If your browser app needs user-held key material, use the ZK key delivery flow. If you are contributing to DarkAuth itself, start with the architecture and schema docs so your changes fit the existing controller, model, service, and OpenAPI patterns.
 
 ## Integration paths
 
 - Browser or SPA: [Public Clients](/developers/oidc/public-clients/).
 - Server-rendered web app: [Confidential Clients](/developers/oidc/confidential-clients/).
 - Service integration: [Confidential Clients](/developers/oidc/confidential-clients/) and client credentials.
-- Encrypted browser app: [ZK DRK Delivery](/developers/zk-drk-delivery/).
+- Encrypted browser app: [ZK Client Key Delivery](/developers/zk-drk-delivery/).
 - Account-key integration: [Key Management](/developers/key-management/).
 - SDK-based app: [TypeScript SDK](/developers/sdk/typescript/).
 - Org-aware app: [Organizations and RBAC](/developers/organizations-rbac/).
