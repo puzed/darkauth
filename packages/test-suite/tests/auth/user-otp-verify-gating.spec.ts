@@ -9,9 +9,9 @@ import {
 } from '../../setup/helpers/rbac.js';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 
-test.describe('Auth - OTP verification gating (UI)', () => {
-  test.setTimeout(60_000);
+test.setTimeout(60_000);
 
+test.describe('Auth - OTP verification gating (UI)', () => {
   let servers: TestServers;
   let adminSession: { cookieHeader: string; csrfToken: string };
 
