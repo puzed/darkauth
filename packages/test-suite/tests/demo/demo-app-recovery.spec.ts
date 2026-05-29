@@ -8,7 +8,7 @@ import {
   setUserPasswordViaAdmin,
 } from '../../setup/helpers/auth.js';
 import { configureDemoClient } from '../../setup/helpers/admin.js';
-import { startDemoApiServer, startDemoUiServer, type DemoApiServer, type DemoUiServer } from '../../setup/helpers/demo.js';
+import { blockDemoExternalRequests, startDemoApiServer, startDemoUiServer, type DemoApiServer, type DemoUiServer } from '../../setup/helpers/demo.js';
 import { generateRandomString } from '@DarkAuth/api/src/utils/crypto.ts';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
 import { fromBase64Url, sha256Base64Url, toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts';
@@ -83,6 +83,7 @@ test.describe('Demo App Recovery', () => {
       password: newPassword,
     });
     const recoveryPage = await recoveryContext.newPage();
+    await blockDemoExternalRequests(recoveryPage);
     await recoveryPage.addInitScript((payload) => {
       (window as any).__APP_CONFIG__ = payload.config;
       if (window.location.origin === payload.authOrigin) {
@@ -98,11 +99,23 @@ test.describe('Demo App Recovery', () => {
       authOrigin: servers.userUrl,
       accessToken: newAccessToken,
     });
-    await recoveryPage.goto(demoUi.url);
-    await recoveryPage.waitForLoadState('networkidle');
+    await recoveryPage.goto(demoUi.url, { waitUntil: 'domcontentloaded' });
+    await recoveryPage.waitForLoadState('domcontentloaded');
     const loginGateButton = recoveryPage.getByRole('button', { name: 'Login', exact: true });
+    await Promise.race([
+      loginGateButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+      recoveryPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 15000 }).catch(() => undefined),
+      recoveryPage.waitForURL((url) => url.toString().includes('/login'), { timeout: 15000 }).catch(() => undefined),
+    ]);
     if (await loginGateButton.isVisible().catch(() => false)) {
       await loginGateButton.click();
+      await expect.poll(
+        () => {
+          const href = recoveryPage.url();
+          return href.includes('/login') || href.includes('/authorize');
+        },
+        { timeout: 20000 }
+      ).toBe(true);
     }
     await expect.poll(
       () => {
@@ -136,28 +149,11 @@ test.describe('Demo App Recovery', () => {
     ).toBe(true);
     await recoveryContext.close();
 
-    const {
-      accessToken: freshAccessToken,
-      exportKeyB64Url: freshExportKeyB64Url,
-      sub: freshSub,
-    } = await loginUserViaApi(servers, { email: user.email, password: newPassword });
     const freshContext = await browser.newContext();
-    await establishUserSession(freshContext, servers, {
-      email: user.email,
-      password: newPassword,
-    });
     const freshPage = await freshContext.newPage();
+    await blockDemoExternalRequests(freshPage);
     await freshPage.addInitScript((payload) => {
       (window as any).__APP_CONFIG__ = payload.config;
-      if (window.location.origin === payload.authOrigin) {
-        window.localStorage.setItem('userAccessToken', payload.accessToken);
-        if (payload.exportKeyB64Url && payload.userSub) {
-          window.sessionStorage.setItem(
-            `DarkAuth_export_key:${payload.userSub}`,
-            payload.exportKeyB64Url
-          );
-        }
-      }
     }, {
       config: {
         issuer: servers.userUrl,
@@ -165,16 +161,29 @@ test.describe('Demo App Recovery', () => {
         redirectUri: `${demoUi.url}/callback`,
         demoApi: demoApi?.url ?? ''
       },
-      authOrigin: servers.userUrl,
-      accessToken: freshAccessToken,
-      exportKeyB64Url: freshExportKeyB64Url,
-      userSub: freshSub,
     });
-    await freshPage.goto(demoUi.url);
-    await freshPage.waitForLoadState('networkidle');
+    await freshPage.goto(demoUi.url, { waitUntil: 'domcontentloaded' });
+    await freshPage.waitForLoadState('domcontentloaded');
     const freshLoginGateButton = freshPage.getByRole('button', { name: 'Login', exact: true });
+    await Promise.race([
+      freshLoginGateButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+      freshPage.waitForURL((url) => url.toString().includes('/authorize'), { timeout: 15000 }).catch(() => undefined),
+      freshPage.waitForURL((url) => url.toString().includes('/login'), { timeout: 15000 }).catch(() => undefined),
+    ]);
     if (await freshLoginGateButton.isVisible().catch(() => false)) {
       await freshLoginGateButton.click();
+      await expect.poll(
+        () => {
+          const href = freshPage.url();
+          return href.includes('/login') || href.includes('/authorize');
+        },
+        { timeout: 20000 }
+      ).toBe(true);
+    }
+    if (freshPage.url().includes('/login')) {
+      await freshPage.fill('input[name="email"], input[type="email"]', user.email);
+      await freshPage.fill('input[name="password"], input[type="password"]', newPassword);
+      await freshPage.click('button[type="submit"], button:has-text("Continue"), button:has-text("Sign In")');
     }
     const freshAuthorizeButton = freshPage.locator('button:has-text("Authorize")');
     const dashboardNewCard = freshPage.locator('[class*="newCard"]').first();

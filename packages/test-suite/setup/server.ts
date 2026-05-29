@@ -16,6 +16,7 @@ export interface TestServers {
   userServer: ReturnType<typeof createServer>;
   context: Context;
   getContext: () => Context;
+  stop: () => Promise<void>;
   adminPort: number;
   userPort: number;
   adminUrl: string;
@@ -33,13 +34,11 @@ async function getRandomPort(): Promise<number> {
 }
 
 export async function createTestServers(config: TestServerConfig): Promise<TestServers> {
-  // Set test mode environment variable to allow iframe embedding
   process.env.DARKAUTH_TEST_MODE = 'true';
   
   const adminPort = config.adminPort || await getRandomPort();
   const userPort = config.userPort || await getRandomPort();
   
-  // Use a unique config file for each test to avoid conflicts
   const configFile = `./test-data/${config.testName}-${randomBytes(4).toString('hex')}/config.yaml`;
   
   const contextConfig: Config = {
@@ -57,7 +56,6 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
     configFile,
     installToken: config.installToken || 'test-install-token',
     inInstallMode: true,
-    // logLevel: 'silent'
   };
 
   const context = await createContext(contextConfig);
@@ -66,13 +64,12 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
   const adminServer = app.adminServer;
   const userServer = app.userServer;
 
-  // Test servers started
-
   return {
     adminServer,
     userServer,
     context,
     getContext: app.getContext,
+    stop: app.stop,
     adminPort,
     userPort,
     adminUrl: `http://localhost:${adminPort}`,
@@ -81,39 +78,11 @@ export async function createTestServers(config: TestServerConfig): Promise<TestS
 }
 
 export async function destroyTestServers(servers: TestServers): Promise<void> {
-  await withTimeout(closeServer(servers.adminServer), 5_000);
-  delete process.env.DARKAUTH_TEST_MODE;
-  await withTimeout(closeServer(servers.userServer), 5_000);
-  await withTimeout(servers.context.destroy(), 5_000);
-}
-
-async function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
-  if (!server.listening) return;
-  await new Promise<void>((resolve, reject) => {
-    let settled = false;
-    const finish = (error?: Error) => {
-      if (settled) return;
-      settled = true;
-      const code = (error as { code?: string } | undefined)?.code;
-      if (error && code !== 'ERR_SERVER_NOT_RUNNING') {
-        reject(error);
-        return;
-      }
-      resolve();
-    };
-    server.close((error) => {
-      finish(error);
-    });
-    try {
-      server.closeAllConnections();
-    } catch (error) {
-      const code = (error as { code?: string }).code;
-      if (!settled && code !== 'ERR_SERVER_NOT_RUNNING') {
-        settled = true;
-        reject(error);
-      }
-    }
-  });
+  try {
+    await withTimeout(servers.stop(), 5_000);
+  } finally {
+    delete process.env.DARKAUTH_TEST_MODE;
+  }
 }
 
 async function withTimeout(promise: Promise<void>, timeoutMs: number): Promise<void> {

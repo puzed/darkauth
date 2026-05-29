@@ -41,6 +41,17 @@ export type DemoServerBundle = {
   demoUi: DemoUiServer;
 };
 
+export async function blockDemoExternalRequests(page: Page): Promise<void> {
+  await page.route('https://fonts.googleapis.com/**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'text/css',
+      body: '',
+    })
+  );
+  await page.route('https://fonts.gstatic.com/**', (route) => route.abort());
+}
+
 export async function startDemoApiServer(issuer: string): Promise<DemoApiServer> {
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'darkauth-demo-api-'));
   const client = await PGlite.create(tempDir);
@@ -196,6 +207,7 @@ export async function openDemoDashboard(
   options?: { label?: string; captureBodies?: Array<string | RegExp> }
 ): Promise<Page> {
   const demoPage = await context.newPage();
+  await blockDemoExternalRequests(demoPage);
   attachConsoleLogging(demoPage, options?.label ?? 'demo');
   attachNetworkLogging(demoPage, {
     label: options?.label ?? 'demo',
@@ -238,9 +250,20 @@ export async function openDemoDashboard(
     redirectUri: `${bundle.demoUi.url}/callback`,
     demoApi: bundle.demoApi.url,
   });
-  await demoPage.goto(bundle.demoUi.url);
-  await demoPage.waitForLoadState('networkidle');
+  await demoPage.goto(bundle.demoUi.url, { waitUntil: 'domcontentloaded' });
+  await demoPage.waitForLoadState('domcontentloaded');
   const loginGateButton = demoPage.getByRole('button', { name: 'Login', exact: true });
+  const createCard = demoPage.locator('[class*="newCard"]').first();
+  const newNoteButton = demoPage.getByRole('button', { name: 'New Note', exact: true });
+  await Promise.race([
+    loginGateButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+    createCard.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+    newNoteButton.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+    demoPage.waitForURL((url) => {
+      const href = toUrlString(url);
+      return href.includes('/login') || href.includes('/authorize');
+    }, { timeout: 15000 }).catch(() => undefined),
+  ]);
   if (await loginGateButton.isVisible().catch(() => false)) {
     await loginGateButton.click();
   }
@@ -271,6 +294,19 @@ export async function openDemoDashboard(
       await authorizeButton.click();
     }
   }
+  const recoveryHeading = demoPage.getByRole('heading', { name: 'Key Recovery' });
+  await Promise.race([
+    recoveryHeading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
+    demoPage
+      .waitForURL((url) => toUrlString(url).startsWith(`${bundle.demoUi.url}/callback`), {
+        timeout: 15000,
+      })
+      .catch(() => undefined),
+  ]);
+  if (await recoveryHeading.isVisible().catch(() => false)) {
+    await demoPage.getByLabel('Current Password').fill(user.password);
+    await demoPage.getByRole('button', { name: 'Unlock with current password' }).click();
+  }
   await expect.poll(
     () => {
       const href = toUrlString(demoPage.url());
@@ -282,8 +318,6 @@ export async function openDemoDashboard(
     },
     { timeout: 30000 }
   ).toBe(true);
-  const createCard = demoPage.locator('[class*="newCard"]').first();
-  const newNoteButton = demoPage.getByRole('button', { name: 'New Note', exact: true });
   await Promise.race([
     createCard.waitFor({ state: 'visible', timeout: 30000 }),
     newNoteButton.waitFor({ state: 'visible', timeout: 30000 }),
@@ -402,7 +436,7 @@ export async function verifyNoteAfterRelogin(
     { timeout: 30000 }
   ).toBe(true);
   if (note.noteId) {
-    await demoPage.goto(`${bundle.demoUi.url}/notes/${note.noteId}`);
+    await demoPage.goto(`${bundle.demoUi.url}/notes/${note.noteId}`, { waitUntil: 'domcontentloaded' });
   } else {
     await expect(
       demoPage.locator('[class*="card"]', { hasText: note.title })
