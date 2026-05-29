@@ -41,6 +41,6 @@ test.describe('Auth - User OTP setup and verify (UI)', () => {
     const { code } = totp(secret, now, 30, 6, 'sha1');
     await page.fill('input[placeholder="123456"]', code);
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await page.getByText('Backup Codes').waitFor({ state: 'visible', timeout: 10000 });
+    await expect(page.getByText('Backup Codes', { exact: true })).toBeVisible({ timeout: 15000 });
   });
 });

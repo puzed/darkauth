@@ -29,6 +29,6 @@ Check host, port, TLS mode, username, password, sender address, firewall rules, 
 
 Check whether OTP is required by organization policy, whether setup is pending, whether the account is locked, and whether backup codes remain. A write admin can unlock or reset OTP state when appropriate.
 
-## ZK DRK verification fails
+## ZK key verification fails
 
-The application should compare the fragment JWE hash with `zk_drk_hash` from the token response before decrypting. If the values differ, check callback URL handling, fragment preservation, ephemeral key state, and whether the client is configured for `fragment-jwe`.
+For current v2 clients, the application should compare the `darkauth_key_jwe` fragment hash with `zk_key_hash` from the token response before decrypting. For explicit legacy v1 clients, compare `drk_jwe` with `zk_drk_hash`. If the values differ, check callback URL handling, fragment preservation, ephemeral key state, and whether the client is configured for `fragment-jwe`.

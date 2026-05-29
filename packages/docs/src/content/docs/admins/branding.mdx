@@ -29,3 +29,9 @@ Use clear wording for high-stakes actions. "Authorize" and "Deny" are better tha
 Custom CSS is powerful and should be used carefully. It can fix integration-specific visual needs, but it can also make screens harder to use or harder to audit. Prefer first-class branding fields for colors, logo, favicon, and wording before reaching for CSS.
 
 After changing branding, test login, registration, consent, MFA, password reset, and email verification in both light and dark modes.
+
+## Dashboard app icons
+
+OAuth clients can show an icon on the user dashboard. Uploaded dashboard icons are restricted to passive image formats: PNG, JPEG, WebP, and GIF. DarkAuth normalizes the MIME type, validates image magic bytes, rejects SVG, HTML, and other active content, and serves accepted icons with `X-Content-Type-Options: nosniff`.
+
+If an older stored upload no longer passes the safety checks, the icon endpoint returns 404 instead of serving it from a trusted DarkAuth origin.

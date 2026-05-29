@@ -1,0 +1,28 @@
+---
+title: Logging
+description: Log useful operational events without storing secrets.
+---
+
+DarkAuth logs should help operators investigate behavior without turning logs into a secret store.
+
+## Policy
+
+Runtime API logs go through the context logger. Audit records go through the audit service so request bodies, paths, changes, errors, and details are sanitized before persistence.
+
+Logs must not contain passwords, authorization headers, cookies, bearer tokens, OAuth codes, PKCE verifiers, refresh tokens, access tokens, ID tokens, client secrets, KEK material, OPAQUE payloads, session keys, export keys, DRK material, ARK material, CAK material, private keys, recovery secrets, wrapped private-key payloads, JWE payloads, or raw database connection URIs.
+
+## What to log
+
+Prefer metadata that explains state without exposing replayable material:
+
+- Stable IDs such as client IDs, user subs, admin IDs, and organization IDs.
+- State transitions such as created, rotated, revoked, denied, or consumed.
+- Booleans such as `hasClientSecret` instead of the secret value.
+- Durations and failure classes.
+- Public hostnames only when a URL might otherwise contain credentials or tokens.
+
+## Audit logs
+
+Audit logs are for security review and administrative accountability. They should record who changed what and when, while masking sensitive field values.
+
+When adding a new sensitive field, update runtime logger redaction, audit sanitization, and logger safety tests together.

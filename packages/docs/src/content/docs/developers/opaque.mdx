@@ -24,7 +24,7 @@ That binding is important. It prevents a client from authenticating one OPAQUE s
 
 ## Export key
 
-After successful OPAQUE authentication, the client receives an export key. DarkAuth uses this client-only value as part of the key schedule for wrapping and unwrapping the Data Root Key.
+After successful OPAQUE authentication, the client receives an export key. DarkAuth uses this client-only value to unlock the password envelope in the user's keybag. That envelope can unwrap the account root key locally, and current ZK clients derive client app keys from that account material instead of receiving the account root key directly.
 
 The server does not receive the export key. If an app depends on zero-knowledge data, losing the password or changing it without a recovery flow can affect access to old encrypted material.
 

@@ -26,8 +26,7 @@ export async function ensureAdminDashboard(
 ): Promise<void> {
   attachConsoleLogging(page, options?.label ?? 'admin');
   await establishAdminSession(page.context(), servers, admin);
-  await page.goto(`${servers.adminUrl}/`);
-  await page.waitForURL(/\/dashboard/, { timeout: 15000 }).catch(() => {});
+  await page.goto(`${servers.adminUrl}/`, { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Admin Dashboard', exact: true })).toBeVisible({
     timeout: 15000,
   });

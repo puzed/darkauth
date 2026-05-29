@@ -5,7 +5,13 @@ import Login from "./Login";
 import styles from "./LoginView.module.css";
 import ThemeToggle from "./ThemeToggle";
 
-type SessionData = { sub: string; name?: string; email?: string; passwordResetRequired?: boolean };
+type SessionData = {
+  sub: string;
+  name?: string;
+  email?: string;
+  passwordResetRequired?: boolean;
+  keyState?: "locked" | "unlocked" | "setup_required";
+};
 
 export default function LoginView(props?: {
   options?: unknown;

@@ -64,6 +64,10 @@ export const DEFAULT_RATE_LIMITS = {
   // Token endpoint
   token: { windowMs: 1 * 60 * 1000, maxRequests: 30, enabled: true },
 
+  webauthn: { windowMs: 1 * 60 * 1000, maxRequests: 20, enabled: true },
+  key_management: { windowMs: 1 * 60 * 1000, maxRequests: 30, enabled: true },
+  scim: { windowMs: 1 * 60 * 1000, maxRequests: 120, enabled: true },
+
   // Admin endpoints
   admin: { windowMs: 1 * 60 * 1000, maxRequests: 50, enabled: true },
 
@@ -111,6 +115,9 @@ export async function getRateLimitConfig(
         "auth",
         "opaque",
         "token",
+        "webauthn",
+        "key_management",
+        "scim",
         "admin",
         "install",
         "otp",
@@ -161,7 +168,7 @@ export async function getRateLimitConfig(
   let maxRequests = typeSettings.max_requests ?? defaultConfig.maxRequests;
   const enabled = typeSettings.enabled ?? defaultConfig.enabled;
 
-  if (context.config.isDevelopment) {
+  if (context.config?.isDevelopment) {
     if (limitType === "opaque" && maxRequests < 1000) {
       maxRequests = 1000;
     }

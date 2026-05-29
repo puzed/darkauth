@@ -32,6 +32,7 @@ interface SessionData {
   name?: string;
   email?: string;
   passwordResetRequired?: boolean;
+  keyState?: "locked" | "unlocked" | "setup_required";
   organizationId?: string;
   organizationSlug?: string;
 }
@@ -42,6 +43,8 @@ interface AuthRequest {
   scopes: string[];
   scopeDescriptions?: Record<string, string>;
   hasZk: boolean;
+  keyDeliveryVersion?: "v1-drk" | "v2";
+  deliveredKeyKind?: "root_key" | "client_app_key";
   clientId?: string;
   redirectUri?: string;
   state?: string;
@@ -92,6 +95,7 @@ function AppContent() {
           name: session.name,
           email: session.email,
           passwordResetRequired: !!session.passwordResetRequired,
+          keyState: session.keyState || "locked",
           organizationId: session.organizationId,
           organizationSlug: session.organizationSlug,
         });
@@ -139,6 +143,9 @@ function AppContent() {
       scopeDescriptions[scopeKey] = description;
     }
     const hasZk = params.get("has_zk") === "1";
+    const keyDeliveryVersion = params.get("key_delivery_version") === "v1-drk" ? "v1-drk" : "v2";
+    const deliveredKeyKind =
+      params.get("delivered_key_kind") === "root_key" ? "root_key" : "client_app_key";
     const clientId = params.get("client_id") || undefined;
     const redirectUri = params.get("redirect_uri") || undefined;
     const state = params.get("state") || undefined;
@@ -152,6 +159,8 @@ function AppContent() {
         JSON.stringify(current.scopeDescriptions || {}) ===
           JSON.stringify(scopeDescriptions || {}) &&
         current.hasZk === hasZk &&
+        current.keyDeliveryVersion === keyDeliveryVersion &&
+        current.deliveredKeyKind === deliveredKeyKind &&
         current.clientId === clientId &&
         current.redirectUri === redirectUri &&
         current.state === state &&
@@ -167,6 +176,8 @@ function AppContent() {
         scopes,
         scopeDescriptions,
         hasZk,
+        keyDeliveryVersion,
+        deliveredKeyKind,
         clientId,
         redirectUri,
         state,

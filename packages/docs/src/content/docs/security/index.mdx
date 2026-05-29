@@ -5,7 +5,7 @@ description: DarkAuth security model, controls, and trust boundaries.
 
 DarkAuth's security model is built around reducing server-side custody while remaining compatible with normal OAuth and OIDC application patterns.
 
-The important idea is not "the browser is magically safe." It is more precise: during honest hosted-web operation, the backend and database do not need to see the user's password, OPAQUE export key, plaintext DRK, or plaintext application data. Browser code still needs access to secrets while using them.
+The important idea is not "the browser is magically safe." It is more precise: during honest hosted-web operation, the backend and database do not need to see the user's password, OPAQUE export key, plaintext ARK, plaintext CAK, or plaintext application data. Browser code still needs access to secrets while using them.
 
 ## Main controls
 
@@ -19,7 +19,8 @@ The important idea is not "the browser is magically safe." It is more precise: d
 - TOTP MFA with backup codes, lockouts, and replay prevention.
 - Hashed reset and verification tokens.
 - Audit logging with redaction.
+- Centralized runtime log redaction and secret-safe logging.
 
 ## Read next
 
-Start with [Security Model](/security/model/) for trust boundaries, then read [OPAQUE Security](/security/opaque/) and [DRK Security](/security/drk/) for the parts that make DarkAuth different from a conventional auth server.
+Start with [Security Model](/security/model/) for trust boundaries, then read [OPAQUE Security](/security/opaque/), [ZK Key Security](/security/drk/), and [Logging](/security/logging/) for the parts that make DarkAuth different from a conventional auth server.

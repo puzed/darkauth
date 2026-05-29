@@ -34,6 +34,41 @@ test("createPendingAuth stores nonce in pending auth record", async () => {
   assert.equal(result.requestId, "request-id");
   assert.equal(insertedValues?.nonce, "nonce-value");
   assert.equal(insertedValues?.scope, "openid profile");
+  assert.equal(insertedValues?.keyDeliveryVersion, "v2");
+  assert.equal(insertedValues?.deliveredKeyKind, "client_app_key");
+});
+
+test("createPendingAuth stores requested key delivery metadata", async () => {
+  let insertedValues: Record<string, unknown> | undefined;
+
+  const context = {
+    db: {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertedValues = values;
+          return Promise.resolve();
+        },
+      }),
+    },
+  } as unknown as Context;
+
+  await createPendingAuth(context, {
+    requestId: "request-id",
+    clientId: "client-id",
+    redirectUri: "https://client.example/callback",
+    scope: "openid profile",
+    codeChallenge: "challenge",
+    codeChallengeMethod: "S256",
+    zkPubKid: "zk-pub-kid",
+    keyDeliveryVersion: "v1-drk",
+    deliveredKeyKind: "root_key",
+    origin: "https://issuer.example",
+    expiresAt: new Date("2026-02-15T00:00:00.000Z"),
+  });
+
+  assert.equal(insertedValues?.zkPubKid, "zk-pub-kid");
+  assert.equal(insertedValues?.keyDeliveryVersion, "v1-drk");
+  assert.equal(insertedValues?.deliveredKeyKind, "root_key");
 });
 
 test("createPendingAuth explains pending auth schema drift", async () => {
@@ -98,6 +133,47 @@ test("createAuthCode stores nonce in auth code record", async () => {
 
   assert.equal(insertedValues?.nonce, "nonce-value");
   assert.equal(insertedValues?.scope, "openid profile");
+  assert.equal(insertedValues?.zkKeyHash, undefined);
+  assert.equal(insertedValues?.zkKeyKind, undefined);
+  assert.equal(insertedValues?.zkKeyVersion, undefined);
+});
+
+test("createAuthCode stores v2 key hash metadata", async () => {
+  let insertedValues: Record<string, unknown> | undefined;
+
+  const context = {
+    db: {
+      insert: () => ({
+        values: (values: Record<string, unknown>) => {
+          insertedValues = values;
+          return Promise.resolve();
+        },
+      }),
+    },
+  } as unknown as Context;
+
+  await createAuthCode(context, {
+    code: "code-value",
+    clientId: "client-id",
+    userSub: "user-sub",
+    redirectUri: "https://client.example/callback",
+    scope: "openid profile",
+    codeChallenge: "challenge",
+    codeChallengeMethod: "S256",
+    expiresAt: new Date("2026-02-15T00:00:00.000Z"),
+    hasZk: true,
+    zkPubKid: "zk-pub-kid",
+    zkKeyHash: "zk-key-hash",
+    zkKeyKind: "client_app_key",
+    zkKeyVersion: "v2",
+  });
+
+  assert.equal(insertedValues?.hasZk, true);
+  assert.equal(insertedValues?.zkPubKid, "zk-pub-kid");
+  assert.equal(insertedValues?.zkKeyHash, "zk-key-hash");
+  assert.equal(insertedValues?.zkKeyKind, "client_app_key");
+  assert.equal(insertedValues?.zkKeyVersion, "v2");
+  assert.equal(insertedValues?.drkHash, undefined);
 });
 
 test("createAuthCode explains auth code schema drift", async () => {

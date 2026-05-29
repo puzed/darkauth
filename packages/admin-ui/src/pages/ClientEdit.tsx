@@ -1,5 +1,5 @@
 import { CircleHelp } from "lucide-react";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
 import CheckboxRow from "@/components/form/checkbox-row";
@@ -102,6 +102,11 @@ type ClientEditProps = {
   mode?: "create" | "edit";
 };
 
+type ClientSecretLocationState = {
+  clientId?: string;
+  clientSecret?: string;
+};
+
 export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
   const isCreateMode = mode === "create";
   const { clientId } = useParams<{ clientId: string }>();
@@ -114,6 +119,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
   const [client, setClient] = useState<Client | null>(null);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [showSecret, setShowSecret] = useState(false);
+  const consumedLocationSecretRef = useRef<string | null>(null);
   const [form, setForm] = useState({
     clientId: "",
     name: "",
@@ -165,12 +171,22 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         return;
       }
       setClient(c);
-      try {
-        const secretResp = await adminApiService.getClientSecret(c.clientId);
-        setClientSecret(secretResp.clientSecret);
-      } catch {
-        setClientSecret(null);
+      const locationState = location.state as ClientSecretLocationState | null;
+      const locationSecretKey =
+        locationState?.clientId && locationState.clientSecret
+          ? `${locationState.clientId}:${locationState.clientSecret}`
+          : null;
+      const oneTimeSecret =
+        locationState?.clientId === c.clientId &&
+        locationState.clientSecret &&
+        consumedLocationSecretRef.current !== locationSecretKey
+          ? locationState.clientSecret
+          : null;
+      if (oneTimeSecret && locationSecretKey) {
+        consumedLocationSecretRef.current = locationSecretKey;
       }
+      setClientSecret(oneTimeSecret);
+      setShowSecret(!!oneTimeSecret);
       setForm({
         clientId: c.clientId,
         name: c.name,
@@ -189,7 +205,8 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
             : c.dashboardIconLetter || "",
         dashboardIconUpload: null,
         type: c.type,
-        tokenEndpointAuthMethod: c.tokenEndpointAuthMethod,
+        tokenEndpointAuthMethod:
+          c.type === "public" ? "none" : c.tokenEndpointAuthMethod || "client_secret_basic",
         requirePkce: c.requirePkce,
         zkDelivery: c.zkDelivery,
         zkRequired: c.zkRequired,
@@ -214,7 +231,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     } finally {
       setLoading(false);
     }
-  }, [clientId, isCreateMode]);
+  }, [clientId, isCreateMode, location.state]);
 
   useEffect(() => {
     load();
@@ -228,7 +245,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         clientId: form.clientId,
         name: form.name,
         type: form.type,
-        tokenEndpointAuthMethod: form.tokenEndpointAuthMethod,
+        tokenEndpointAuthMethod: form.type === "public" ? "none" : ("client_secret_basic" as const),
         requirePkce: form.requirePkce,
         zkDelivery: form.zkDelivery,
         zkRequired: form.zkRequired,
@@ -275,7 +292,9 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
           ...payload,
           appUrl: payload.appUrl || undefined,
         });
-        navigate(`/clients/${created.clientId}`);
+        navigate(`/clients/${created.clientId}`, {
+          state: { clientId: created.clientId, clientSecret: created.clientSecret },
+        });
       } else {
         if (!client) return;
         await adminApiService.updateClient(client.clientId, payload);
@@ -335,6 +354,21 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
       },
       { replace: true }
     );
+  };
+
+  const rotateClientSecret = async () => {
+    if (!client) return;
+    try {
+      setSubmitting(true);
+      setFormError(null);
+      const rotated = await adminApiService.rotateClientSecret(client.clientId);
+      setClientSecret(rotated.clientSecret);
+      setShowSecret(true);
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : "Failed to rotate client secret");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (loading) return <div>Loading client...</div>;
@@ -443,8 +477,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                         setForm((f) => ({
                           ...f,
                           type: v as Client["type"],
-                          tokenEndpointAuthMethod:
-                            v === "public" ? "none" : f.tokenEndpointAuthMethod,
+                          tokenEndpointAuthMethod: v === "public" ? "none" : "client_secret_basic",
                         }))
                       }
                     >
@@ -483,7 +516,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">none</SelectItem>
+                        {form.type === "public" && <SelectItem value="none">none</SelectItem>}
                         {form.type === "confidential" && (
                           <SelectItem value="client_secret_basic">client_secret_basic</SelectItem>
                         )}
@@ -510,7 +543,10 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                               ? showSecret
                                 ? clientSecret
                                 : "•".repeat(24)
-                              : "Not available"
+                              : form.type === "confidential" &&
+                                  form.tokenEndpointAuthMethod === "client_secret_basic"
+                                ? "Hidden after creation"
+                                : "Not available"
                           }
                           disabled
                           readOnly
@@ -534,10 +570,20 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                         >
                           Copy
                         </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={
+                            submitting ||
+                            form.type !== "confidential" ||
+                            form.tokenEndpointAuthMethod !== "client_secret_basic"
+                          }
+                          onClick={rotateClientSecret}
+                        >
+                          Rotate
+                        </Button>
                       </div>
-                      <FieldHint>
-                        Public clients with auth method <code>none</code> will not have a secret.
-                      </FieldHint>
+                      <FieldHint>Secrets are shown once after creation or rotation.</FieldHint>
                     </FormField>
                   )}
                 </FormGrid>
@@ -645,7 +691,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <FileInput
-                          accept="image/png,image/jpeg,image/svg+xml,image/x-icon,image/webp"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;

@@ -9,6 +9,8 @@ Confidential clients are applications that can keep a secret away from the brows
 
 DarkAuth supports confidential clients using `client_secret_basic`. The application sends the client ID and secret to the token endpoint using HTTP Basic authentication. This proves the token exchange is coming from a server that has the registered secret.
 
+Confidential clients must authenticate as confidential clients. They cannot redeem authorization codes or refresh tokens by sending only `client_id` like a public client.
+
 Do not put a confidential client secret in frontend code. If the browser can see it, the client is not confidential.
 
 ## Authorization Code flow
@@ -31,7 +33,9 @@ Confidential clients can call `POST /revoke` with `client_secret_basic` to revok
 
 ## Secret rotation
 
-Plan for client secret rotation. Store the secret in a secret manager, deploy a new value safely, verify token exchange, then remove the old value. Avoid copying secrets into logs, issue trackers, or local scripts.
+DarkAuth shows a generated client secret once when a confidential client is created. Subsequent reads return secret metadata only, not the plaintext secret.
+
+Write admins can rotate a client secret. Rotation returns the new plaintext value once, updates the encrypted secret at rest, and invalidates use of the old secret for future token endpoint authentication. Store the new value in a secret manager, deploy it safely, verify token exchange, then remove the old value from application configuration. Avoid copying secrets into logs, issue trackers, or local scripts.
 
 ## When not to use a confidential client
 

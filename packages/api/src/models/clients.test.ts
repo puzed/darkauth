@@ -158,3 +158,100 @@ test("createClient and updateClient persist serialized scope definitions", async
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("createClient pins auth method to client type", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-clients-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger(), services: {} } as Context;
+
+  try {
+    await createClient(context, {
+      clientId: "confidential-default",
+      name: "Confidential Default",
+      type: "confidential",
+    });
+    await createClient(context, {
+      clientId: "public-basic",
+      name: "Public Basic",
+      type: "public",
+      tokenEndpointAuthMethod: "client_secret_basic",
+    });
+
+    const confidential = await getClient(context, "confidential-default");
+    const publicClient = await getClient(context, "public-basic");
+
+    assert.equal(confidential?.tokenEndpointAuthMethod, "client_secret_basic");
+    assert.equal(publicClient?.tokenEndpointAuthMethod, "none");
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("updateClient pins confidential clients to client_secret_basic", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-clients-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger(), services: {} } as Context;
+
+  try {
+    await createClient(context, {
+      clientId: "public-client",
+      name: "Public Client",
+      type: "public",
+    });
+
+    await updateClient(context, "public-client", {
+      type: "confidential",
+      tokenEndpointAuthMethod: "none",
+    });
+
+    const updated = await getClient(context, "public-client");
+    assert.equal(updated?.type, "confidential");
+    assert.equal(updated?.tokenEndpointAuthMethod, "client_secret_basic");
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("createClient and updateClient enforce key delivery version and delivered key kind", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-clients-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger(), services: {} } as Context;
+
+  try {
+    await createClient(context, {
+      clientId: "v2-client",
+      name: "V2 Client",
+      type: "public",
+      zkDelivery: "fragment-jwe",
+    });
+
+    const created = await getClient(context, "v2-client");
+    assert.ok(created);
+    assert.equal(created.keyDeliveryVersion, "v2");
+    assert.equal(created.deliveredKeyKind, "client_app_key");
+
+    await updateClient(context, "v2-client", {
+      keyDeliveryVersion: "v1-drk",
+      deliveredKeyKind: "root_key",
+    });
+
+    const updated = await getClient(context, "v2-client");
+    assert.ok(updated);
+    assert.equal(updated.keyDeliveryVersion, "v1-drk");
+    assert.equal(updated.deliveredKeyKind, "root_key");
+
+    await assert.rejects(
+      () =>
+        updateClient(context, "v2-client", {
+          keyDeliveryVersion: "v2",
+          deliveredKeyKind: "root_key",
+        }),
+      /v2 clients must deliver client_app_key/
+    );
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

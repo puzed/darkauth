@@ -79,8 +79,8 @@ function createRequest(url: string) {
 test("user router serves uploaded client icon", async () => {
   const context = createContext({
     dashboardIconMode: "upload",
-    dashboardIconData: Buffer.from("icon-data"),
-    dashboardIconMimeType: "image/png",
+    dashboardIconData: Buffer.from("GIF89aicon-data"),
+    dashboardIconMimeType: "image/gif",
   });
   const router = createUserRouter(context as never);
   const request = createRequest("/client-icons/app-1");
@@ -89,15 +89,16 @@ test("user router serves uploaded client icon", async () => {
   await router(request as IncomingMessage, response as ServerResponse);
 
   assert.equal(response.statusCode, 200);
-  assert.equal(response.getHeader("content-type"), "image/png");
+  assert.equal(response.getHeader("content-type"), "image/gif");
   assert.equal(response.getHeader("cache-control"), "public, max-age=86400");
-  assert.equal(response.body, "icon-data");
+  assert.equal(response.getHeader("x-content-type-options"), "nosniff");
+  assert.equal(response.body, "GIF89aicon-data");
 });
 
 test("admin router serves uploaded client icon without admin session token", async () => {
   const context = createContext({
     dashboardIconMode: "upload",
-    dashboardIconData: Buffer.from("admin-icon"),
+    dashboardIconData: Buffer.from("RIFFzzzzWEBPadmin-icon"),
     dashboardIconMimeType: "image/webp",
   });
   const router = createAdminRouter(context as never);
@@ -108,7 +109,8 @@ test("admin router serves uploaded client icon without admin session token", asy
 
   assert.equal(response.statusCode, 200);
   assert.equal(response.getHeader("content-type"), "image/webp");
-  assert.equal(response.body, "admin-icon");
+  assert.equal(response.getHeader("x-content-type-options"), "nosniff");
+  assert.equal(response.body, "RIFFzzzzWEBPadmin-icon");
 });
 
 test("user router returns 404 when icon is not upload mode", async () => {
@@ -119,6 +121,25 @@ test("user router returns 404 when icon is not upload mode", async () => {
   });
   const router = createUserRouter(context as never);
   const request = createRequest("/client-icons/app-3");
+  const response = createMockResponse();
+
+  await router(request as IncomingMessage, response as ServerResponse);
+
+  assert.equal(response.statusCode, 404);
+  assert.deepEqual(response.json, {
+    error: "Icon not found",
+    code: "NOT_FOUND",
+  });
+});
+
+test("user router returns 404 for existing active-content icon data", async () => {
+  const context = createContext({
+    dashboardIconMode: "upload",
+    dashboardIconData: Buffer.from("<script>alert(1)</script>"),
+    dashboardIconMimeType: "text/html",
+  });
+  const router = createUserRouter(context as never);
+  const request = createRequest("/client-icons/app-4");
   const response = createMockResponse();
 
   await router(request as IncomingMessage, response as ServerResponse);

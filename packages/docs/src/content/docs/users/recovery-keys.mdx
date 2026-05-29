@@ -1,0 +1,22 @@
+---
+title: Recovery Keys
+description: Recover encrypted account access with user-held recovery keys.
+---
+
+Recovery keys help restore access to encrypted account material when a normal sign-in method is unavailable. DarkAuth stores verifier hashes and encrypted recovery envelopes, not the plaintext recovery key.
+
+## Create a recovery key
+
+Create recovery keys from the account security area. The plaintext key is shown only during the creation workflow. Store it somewhere durable and private, such as a password manager.
+
+If you lose a recovery key before storing it, revoke it and create a new one.
+
+## Use a recovery key
+
+During recovery, the browser proves possession of the recovery key and uses it to unwrap the recovery envelope. DarkAuth records that the key was used, but does not learn the plaintext key.
+
+## Revoke a recovery key
+
+Revoke a recovery key if it was copied somewhere unsafe, shared with another person, printed and lost, or replaced by a newer key.
+
+Keep more than one recovery path available if your organization allows it. Recovery keys are most useful before you need them.

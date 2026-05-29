@@ -52,7 +52,6 @@ export async function postInstallOpaqueRegisterStart(
     if (context.services.install?.createdAt) {
       const tokenAge = Date.now() - (context.services.install.createdAt || 0);
       if (tokenAge > 10 * 60 * 1000) {
-        context.services.install.createdAt = Date.now();
         throw new ExpiredInstallTokenError();
       }
     }
@@ -99,8 +98,9 @@ export async function postInstallOpaqueRegisterStart(
             context.logger.info("[install:opaque:start] PGLite setup complete");
           }
         } else if (requestedDbMode === "remote" && data.postgresUri) {
+          const postgresHost = new URL(data.postgresUri).host;
           context.logger.info(
-            { uri: data.postgresUri },
+            { host: postgresHost },
             "[install:opaque:start] Using existing Postgres"
           );
           const { Pool } = await import("pg");

@@ -15,13 +15,13 @@ The Auth and OIDC endpoints are the main integration surface for applications.
 
 `GET /authorize` starts an authorization request. DarkAuth validates the client, redirect URI, response type, scopes, PKCE challenge, organization hint, and optional ZK public key. If the user must authenticate, it creates pending authorization state and sends the browser through the hosted user UI.
 
-`POST /authorize/finalize` completes a pending authorization request after the user has authenticated and consented. For ZK requests, the caller must include `drk_hash`; the server stores the hash and returns redirect details so browser code can attach the fragment JWE.
+`POST /authorize/finalize` completes a pending authorization request after the user has authenticated and consented. For current v2 ZK requests, the caller must include `zk_key_hash`; the server stores the hash and returns redirect details so browser code can attach the fragment JWE. Explicit legacy v1 ZK clients use `drk_hash`.
 
 ## Token exchange
 
 `POST /token` handles authorization code, refresh token, and client credentials grants depending on client configuration. For code grants, DarkAuth verifies redirect URI and PKCE before issuing tokens.
 
-For ZK code grants, the token response includes `zk_drk_hash`, not the JWE. The app verifies that hash against the fragment before decrypting.
+For current v2 ZK code grants, the token response includes `zk_key_hash`, `zk_key_kind`, and `zk_key_version`, not the JWE. The app verifies that hash against `darkauth_key_jwe` before decrypting. Explicit legacy v1 clients receive `zk_drk_hash` for `drk_jwe`.
 
 ## UserInfo
 

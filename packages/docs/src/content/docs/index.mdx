@@ -17,7 +17,7 @@ hero:
       icon: seti:typescript
 ---
 
-DarkAuth is a self-hosted authentication system for teams that want standards-based login without giving up control of password handling, key custody, or deployment. It behaves like a normal OAuth 2.0 and OpenID Connect provider for applications, while adding OPAQUE password authentication and optional zero-knowledge Data Root Key delivery for clients that need it.
+DarkAuth is a self-hosted authentication system for teams that want standards-based login without giving up control of password handling, key custody, or deployment. It behaves like a normal OAuth 2.0 and OpenID Connect provider for applications, while adding OPAQUE password authentication and optional zero-knowledge client app key delivery for clients that need it.
 
 The product has three main surfaces. Users sign in, authorize applications, manage MFA, recover accounts, switch organizations, and launch apps from the user portal. Admins install and operate the instance from the admin portal. Developers integrate applications through OIDC, the TypeScript SDK, and the API.
 
@@ -32,7 +32,7 @@ The product has three main surfaces. Users sign in, authorize applications, mana
   </a>
   <a class="path-card" href="/developers/">
     <strong>Developers</strong>
-    <p>Integrate OIDC, PKCE, the TypeScript SDK, ZK DRK delivery, user APIs, and org/RBAC claims.</p>
+    <p>Integrate OIDC, PKCE, the TypeScript SDK, ZK key delivery, user APIs, and org/RBAC claims.</p>
   </a>
   <a class="path-card" href="/security/">
     <strong>Security</strong>
@@ -56,7 +56,7 @@ DarkAuth includes the pieces you normally expect from an auth provider:
 DarkAuth also includes features that are less common in hosted auth products:
 
 - OPAQUE password authentication, where the password is not sent to the server in the login flow.
-- A zero-knowledge DRK handoff for trusted browser apps using fragment JWE.
+- A zero-knowledge client app key handoff for trusted browser apps using fragment JWE.
 - KEK-protected storage for private signing keys, client secrets, and sensitive OTP material.
 - A two-port deployment model that keeps public user/OIDC traffic separate from the admin surface.
 - Embedded PGLite support for lightweight installs, alongside remote PostgreSQL for production.

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useBranding } from "../hooks/useBranding";
-import apiService, { type UserOrganization } from "../services/api";
+import apiService, { type DeviceApprovalResponse, type UserOrganization } from "../services/api";
 import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
@@ -48,6 +48,12 @@ interface AuthorizeProps {
     scopes: string[];
     scopeDescriptions?: Record<string, string>;
     hasZk: boolean;
+    keyDeliveryVersion?: "v1-drk" | "v2";
+    deliveredKeyKind?: "root_key" | "client_app_key";
+    clientId?: string;
+    redirectUri?: string;
+    state?: string;
+    zkPub?: string;
     organizationId?: string;
   };
   sessionData: {
@@ -56,6 +62,7 @@ interface AuthorizeProps {
     email?: string;
     organizationId?: string;
     organizationSlug?: string;
+    keyState?: "locked" | "unlocked" | "setup_required";
   };
   onRecoverWithOldPassword?: () => void;
 }
@@ -72,8 +79,15 @@ export default function Authorize({
   const [currentPassword, setCurrentPassword] = useState("");
   const [oldPassword, setOldPassword] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [keyUnlocked, setKeyUnlocked] = useState(sessionData.keyState === "unlocked");
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(true);
+  const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
+  const [deviceApproval, setDeviceApproval] = useState<DeviceApprovalResponse | null>(null);
+  const [deviceApprovalCode, setDeviceApprovalCode] = useState<string | null>(null);
+  const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
+  const [deviceApprovalStatus, setDeviceApprovalStatus] = useState<string | null>(null);
+  const deviceApprovalPollRef = useRef<number | null>(null);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(
     authRequest.organizationId || sessionData.organizationId || ""
   );
@@ -97,6 +111,8 @@ export default function Authorize({
   const noActiveOrganizations = !organizationsLoading && activeOrganizations.length === 0;
   const selectedOrganizationLocked = !!explicitOrganizationId;
   const showOrganizationSummary = activeOrganizations.length === 1 || selectedOrganizationLocked;
+  const keyLockedForZk = authRequest.hasZk && !keyUnlocked;
+  const hasTrustedDevices = trustedDeviceCount > 0;
 
   const generateZkKeyPair = useCallback(async () => {
     try {
@@ -156,6 +172,36 @@ export default function Authorize({
     };
   }, [explicitOrganizationId, sessionOrganizationId]);
 
+  useEffect(() => {
+    if (!authRequest.hasZk || keyUnlocked) {
+      setTrustedDeviceCount(0);
+      return;
+    }
+    let cancelled = false;
+    apiService
+      .getTrustedDevices()
+      .then((devices) => {
+        if (!cancelled) {
+          setTrustedDeviceCount(devices.filter((device) => !device.revoked_at).length);
+        }
+      })
+      .catch((error) => {
+        logger.warn(error, "Failed to load trusted devices");
+        if (!cancelled) setTrustedDeviceCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authRequest.hasZk, keyUnlocked]);
+
+  useEffect(() => {
+    return () => {
+      if (deviceApprovalPollRef.current) {
+        window.clearInterval(deviceApprovalPollRef.current);
+      }
+    };
+  }, []);
+
   const getScopeInfo = (scope: string): ScopeInfo => {
     const info = SCOPE_DESCRIPTIONS[scope];
     if (info) {
@@ -188,6 +234,226 @@ export default function Authorize({
   );
   const signedInAs = branding.getText("signedInAs", "Signed in as");
 
+  const resolveAccountKeyId = async () => {
+    try {
+      const keybag = await apiService.getKeybag();
+      const activeKey = keybag.account_keys.find((key) => key.status === "active");
+      if (activeKey) return activeKey.key_id;
+    } catch (error) {
+      logger.warn(error, "Failed to load keybag metadata");
+    }
+    return `legacy-drk:${sessionData.sub}`;
+  };
+
+  const createZkDelivery = async (ark: Uint8Array) => {
+    const url = new URL(window.location.href);
+    const zkPubParam = url.searchParams.get("zk_pub");
+    const clientId = url.searchParams.get("client_id") || "";
+    if (!zkPubParam || !clientId) {
+      throw new Error("Missing zero-knowledge delivery request");
+    }
+    const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
+    const keyDeliveryVersion = authRequest.keyDeliveryVersion === "v1-drk" ? "v1-drk" : "v2";
+
+    if (keyDeliveryVersion === "v1-drk") {
+      const jwe = await cryptoService.createDrkJWE(ark, zkPubJwk, sessionData.sub, clientId);
+      return {
+        fragmentName: "drk_jwe",
+        drkHash: await sha256Base64Url(jwe),
+        jwe,
+      } as const;
+    }
+
+    const keyId = await resolveAccountKeyId();
+    const cak = await cryptoService.deriveClientAppKey(ark, {
+      sub: sessionData.sub,
+      keyId,
+      clientId,
+      organizationId: selectedOrganizationId || undefined,
+      audience: clientId,
+    });
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      const payload = {
+        typ: "DarkAuth-Client-Key",
+        version: "v2",
+        sub: sessionData.sub,
+        client_id: clientId,
+        aud: clientId,
+        ...(selectedOrganizationId ? { org_id: selectedOrganizationId } : {}),
+        request_id: authRequest.requestId,
+        state_hash: await sha256Base64Url(authRequest.state || ""),
+        redirect_uri_hash: await sha256Base64Url(authRequest.redirectUri || ""),
+        key_id: keyId,
+        key_kind: "client_app_key",
+        cak: toBase64Url(cak),
+        iat: now,
+        exp: now + 120,
+      } as const;
+      const jwe = await cryptoService.createClientKeyJWE(payload, zkPubJwk);
+      return {
+        fragmentName: "darkauth_key_jwe",
+        zkKeyHash: await sha256Base64Url(jwe),
+        jwe,
+      } as const;
+    } finally {
+      cryptoService.clearSensitiveData(cak);
+    }
+  };
+
+  const finalizeWithZk = async (ark: Uint8Array) => {
+    const delivery = await createZkDelivery(ark);
+    const authResponse = await apiService.authorize({
+      requestId: authRequest.requestId,
+      approve: true,
+      drkHash: "drkHash" in delivery ? delivery.drkHash : undefined,
+      zkKeyHash: "zkKeyHash" in delivery ? delivery.zkKeyHash : undefined,
+      organizationId: selectedOrganizationId || undefined,
+    });
+    const redirectUrl = new URL(authResponse.redirectUrl);
+    redirectUrl.hash = `${delivery.fragmentName}=${encodeURIComponent(delivery.jwe)}`;
+    window.location.href = redirectUrl.toString();
+  };
+
+  const storePasswordEnvelope = async (ark: Uint8Array, wrapKey: Uint8Array) => {
+    const accountKey = await apiService.createAccountKey({ version: "v2" });
+    const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
+    const envelopeId = `env_${crypto.randomUUID()}`;
+    const aad = cryptoService.envelopeAad({
+      sub: sessionData.sub,
+      keyId: accountKey.key_id,
+      envelopeId,
+      type: "password",
+      wrappingAlg,
+    });
+    const wrappedArk = await cryptoService.wrapKeyMaterial(ark, wrapKey, aad);
+    await apiService.createKeyEnvelope({
+      envelopeId,
+      keyId: accountKey.key_id,
+      type: "password",
+      label: "Password",
+      wrappingAlg,
+      wrappedKey: toBase64Url(wrappedArk),
+      aad: toBase64Url(aad),
+      metadata: { version: "v2" },
+    });
+    return accountKey.key_id;
+  };
+
+  const generateVerificationCode = () => {
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
+    const value = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+    return String(value % 1000000).padStart(6, "0");
+  };
+
+  const stopDeviceApprovalPolling = () => {
+    if (deviceApprovalPollRef.current) {
+      window.clearInterval(deviceApprovalPollRef.current);
+      deviceApprovalPollRef.current = null;
+    }
+  };
+
+  const consumeDeviceApproval = async (approval: DeviceApprovalResponse, privateKey: CryptoKey) => {
+    const encryptedApproval = approval.encrypted_approval;
+    if (!encryptedApproval) return false;
+    let ark: Uint8Array | null = null;
+    try {
+      ark = await cryptoService.decryptDeviceApprovalJWE(encryptedApproval, privateKey);
+      stopDeviceApprovalPolling();
+      setDeviceApprovalStatus("Approved. Finalizing authorization...");
+      setKeyUnlocked(true);
+      await finalizeWithZk(ark);
+      return true;
+    } finally {
+      if (ark) {
+        cryptoService.clearSensitiveData(ark);
+      }
+    }
+  };
+
+  const startDeviceApprovalPolling = (
+    approval: DeviceApprovalResponse,
+    privateKey: CryptoKey,
+    publicJwk: JsonWebKey
+  ) => {
+    stopDeviceApprovalPolling();
+    let attempts = 0;
+    const tick = async () => {
+      attempts += 1;
+      try {
+        const consumed = await apiService.consumeDeviceApproval(approval.request_id, {
+          newDeviceProof: await sha256Base64Url(JSON.stringify(publicJwk)),
+        });
+        const status = consumed.status || "pending";
+        if (consumed.encrypted_approval) {
+          await consumeDeviceApproval(consumed, privateKey);
+        } else if (status === "denied" || status === "expired") {
+          stopDeviceApprovalPolling();
+          setDeviceApprovalStatus(
+            status === "denied"
+              ? "The approval request was denied."
+              : "The approval request expired."
+          );
+        } else if (attempts > 40) {
+          stopDeviceApprovalPolling();
+          setDeviceApprovalStatus("Approval timed out. You can try again or enter your password.");
+        } else {
+          setDeviceApprovalStatus("Waiting for approval on another trusted device...");
+        }
+      } catch {
+        if (attempts > 40) {
+          stopDeviceApprovalPolling();
+          setDeviceApprovalStatus("Approval timed out. You can try again or enter your password.");
+        } else {
+          logger.debug({ requestId: approval.request_id }, "Device approval still pending");
+        }
+      }
+    };
+    void tick();
+    deviceApprovalPollRef.current = window.setInterval(tick, 3000);
+  };
+
+  const requestDeviceApproval = async () => {
+    if (!hasTrustedDevices) {
+      setRecoveryVisible(true);
+      setError("No trusted devices are available. Enter your password to continue.");
+      return;
+    }
+    setDeviceApprovalLoading(true);
+    setError(null);
+    setDeviceApprovalStatus(null);
+    try {
+      const url = new URL(window.location.href);
+      const clientId = url.searchParams.get("client_id") || authRequest.clientId || "";
+      if (!clientId) {
+        throw new Error("Missing client id for device approval");
+      }
+      const keyPair = await cryptoService.generateECDHKeyPair();
+      const publicJwk = await cryptoService.exportPublicKeyJWK(keyPair.publicKey);
+      const code = generateVerificationCode();
+      const approval = await apiService.createDeviceApproval({
+        newDevicePublicJwk: publicJwk,
+        clientId,
+        stateHash: await sha256Base64Url(authRequest.state || ""),
+        verificationCodeHash: await sha256Base64Url(code),
+      });
+      const nextApproval = {
+        ...approval,
+        verification_code: approval.verification_code || code,
+      };
+      setDeviceApproval(nextApproval);
+      setDeviceApprovalCode(nextApproval.verification_code || code);
+      setDeviceApprovalStatus("Waiting for approval on another trusted device...");
+      setRecoveryVisible(false);
+      startDeviceApprovalPolling(nextApproval, keyPair.privateKey, publicJwk);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to request device approval");
+    } finally {
+      setDeviceApprovalLoading(false);
+    }
+  };
+
   const handleAuthorize = async (approve: boolean) => {
     if (approve && noActiveOrganizations) {
       setError("Your account is not a member of any active organization.");
@@ -202,45 +468,35 @@ export default function Authorize({
     setError(null);
 
     try {
+      if (approve && keyLockedForZk) {
+        setLoading(false);
+        if (hasTrustedDevices) {
+          await requestDeviceApproval();
+        } else {
+          setRecoveryVisible(true);
+          setError("Unlock your encryption keys to continue.");
+        }
+        return;
+      }
       if (approve && authRequest.hasZk) {
         const url = new URL(window.location.href);
         const zkPubParam = url.searchParams.get("zk_pub");
         const clientId = url.searchParams.get("client_id") || "";
 
         if (zkPubParam && clientId) {
+          let exportKey: Uint8Array | null = null;
+          let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
+          let drk: Uint8Array | null = null;
           try {
-            const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
             const wrappedDrkB64 = await apiService.getWrappedDrk();
             const wrappedDrk = fromBase64Url(wrappedDrkB64);
-            const exportKey = await loadExportKey(sessionData.sub);
+            exportKey = await loadExportKey(sessionData.sub);
             if (!exportKey) {
               throw new Error("Missing export key");
             }
-            const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-            const drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
-            const jwe = await cryptoService.createDrkJWE(drk, zkPubJwk, sessionData.sub, clientId);
-
-            // Clear sensitive data immediately
-            cryptoService.clearSensitiveData(
-              exportKey,
-              keys.masterKey,
-              keys.wrapKey,
-              keys.deriveKey,
-              drk
-            );
-            const drkHash = await sha256Base64Url(jwe);
-
-            const authResponse = await apiService.authorize({
-              requestId: authRequest.requestId,
-              approve,
-              drkHash,
-              organizationId: selectedOrganizationId || undefined,
-            });
-
-            // Add the JWE to the fragment (this is how it gets to the app without server seeing it)
-            const redirectUrl = new URL(authResponse.redirectUrl);
-            redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
-            window.location.href = redirectUrl.toString();
+            keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
+            drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
+            await finalizeWithZk(drk);
             return;
           } catch (e) {
             setError(
@@ -248,6 +504,12 @@ export default function Authorize({
             );
             setRecoveryVisible(true);
             return;
+          } finally {
+            cryptoService.clearSensitiveData(
+              ...(exportKey ? [exportKey] : []),
+              ...(keys ? [keys.masterKey, keys.wrapKey, keys.deriveKey] : []),
+              ...(drk ? [drk] : [])
+            );
           }
         }
       }
@@ -317,6 +579,7 @@ export default function Authorize({
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys storing wrapped DRK");
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
+      await storePasswordEnvelope(drk, keys.wrapKey);
       try {
         const kp = await cryptoService.generateECDHKeyPair();
         const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
@@ -338,6 +601,7 @@ export default function Authorize({
         );
       }
       logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys success");
+      setKeyUnlocked(true);
       setRecoveryVisible(false);
       const drkForHandoff = drk.slice();
       cryptoService.clearSensitiveData(drk);
@@ -346,28 +610,12 @@ export default function Authorize({
         const zkPubParam = url.searchParams.get("zk_pub");
         const clientId = url.searchParams.get("client_id") || "";
         if (authRequest.hasZk && zkPubParam && clientId) {
-          const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
-          const jwe = await cryptoService.createDrkJWE(
-            drkForHandoff,
-            zkPubJwk,
-            sessionData.sub,
-            clientId
-          );
-          const drkHash = await sha256Base64Url(jwe);
           logger.debug(
             { requestId: authRequest.requestId },
             "[Authorize] finalize immediately after generateNewKeys"
           );
-          const authResponse = await apiService.authorize({
-            requestId: authRequest.requestId,
-            approve: true,
-            drkHash,
-            organizationId: selectedOrganizationId || undefined,
-          });
-          const redirectUrl = new URL(authResponse.redirectUrl);
-          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
+          await finalizeWithZk(drkForHandoff);
           cryptoService.clearSensitiveData(drkForHandoff);
-          window.location.href = redirectUrl.toString();
           return;
         }
       } catch (e) {
@@ -456,6 +704,7 @@ export default function Authorize({
       );
       await apiService.putWrappedDrk(toBase64Url(rewrapped));
       logger.debug({ sub: sessionData.sub }, "[Authorize] recovery success");
+      setKeyUnlocked(true);
       setRecoveryVisible(false);
       setOldPassword("");
       setCurrentPassword("");
@@ -464,27 +713,11 @@ export default function Authorize({
         const zkPubParam = url.searchParams.get("zk_pub");
         const clientId = url.searchParams.get("client_id") || "";
         if (authRequest.hasZk && zkPubParam && clientId) {
-          const zkPubJwk = JSON.parse(new TextDecoder().decode(fromBase64Url(zkPubParam)));
-          const jwe = await cryptoService.createDrkJWE(
-            recoveredDrk,
-            zkPubJwk,
-            sessionData.sub,
-            clientId
-          );
-          const drkHash = await sha256Base64Url(jwe);
           logger.debug(
             { requestId: authRequest.requestId },
             "[Authorize] finalize immediately after recovery"
           );
-          const authResponse = await apiService.authorize({
-            requestId: authRequest.requestId,
-            approve: true,
-            drkHash,
-            organizationId: selectedOrganizationId || undefined,
-          });
-          const redirectUrl = new URL(authResponse.redirectUrl);
-          redirectUrl.hash = `drk_jwe=${encodeURIComponent(jwe)}`;
-          window.location.href = redirectUrl.toString();
+          await finalizeWithZk(recoveredDrk);
           return;
         }
       } catch (e) {
@@ -548,6 +781,7 @@ export default function Authorize({
       await saveExportKey(sessionData.sub, currentFinish.exportKey);
       cryptoService.clearSensitiveData(currentFinish.sessionKey, currentFinish.exportKey);
       setCurrentPassword("");
+      setKeyUnlocked(true);
       setRecoveryVisible(false);
       queueMicrotask(() => {
         handleAuthorize(true);
@@ -681,6 +915,31 @@ export default function Authorize({
           </div>
         )}
 
+        {deviceApproval && (
+          <div className="authorize-recovery">
+            <h3>Accept on another device</h3>
+            <p>
+              Open Security Settings on a trusted device, approve this request, and confirm the
+              verification code matches.
+            </p>
+            <div
+              style={{
+                fontFamily: "monospace",
+                fontSize: 28,
+                letterSpacing: 6,
+                textAlign: "center",
+                padding: 12,
+                borderRadius: 8,
+                background: "hsl(var(--muted))",
+                margin: "12px 0",
+              }}
+            >
+              {deviceApprovalCode}
+            </div>
+            {deviceApprovalStatus && <div className="help-text">{deviceApprovalStatus}</div>}
+          </div>
+        )}
+
         {recoveryVisible && (
           <div className="authorize-recovery">
             <h3>Key Recovery</h3>
@@ -758,22 +1017,45 @@ export default function Authorize({
               : branding.getText("deny", "Deny")}
           </Button>
 
+          {keyLockedForZk && hasTrustedDevices && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setRecoveryVisible(true);
+                setError(null);
+              }}
+              disabled={loading || deviceApprovalLoading}
+            >
+              Enter password
+            </Button>
+          )}
+
           <Button
             type="button"
             variant="success"
-            onClick={() => handleAuthorize(true)}
+            onClick={() =>
+              keyLockedForZk && hasTrustedDevices ? requestDeviceApproval() : handleAuthorize(true)
+            }
             disabled={
               loading ||
+              deviceApprovalLoading ||
               organizationsLoading ||
               noActiveOrganizations ||
               (activeOrganizations.length > 1 && !selectedOrganizationId)
             }
           >
-            {loading ? (
+            {loading || deviceApprovalLoading ? (
               <>
                 <span className="loading-spinner" />
-                {branding.getText("authorizing", "Authorizing...")}
+                {deviceApprovalLoading
+                  ? "Requesting approval..."
+                  : branding.getText("authorizing", "Authorizing...")}
               </>
+            ) : keyLockedForZk && hasTrustedDevices ? (
+              "Accept on another device"
+            ) : keyLockedForZk ? (
+              "Enter password"
             ) : (
               branding.getText("authorize", "Authorize")
             )}

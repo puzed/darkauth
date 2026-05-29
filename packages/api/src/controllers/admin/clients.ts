@@ -29,6 +29,8 @@ const ClientResponseSchema = z.object({
   requirePkce: z.boolean(),
   zkDelivery: z.string(),
   zkRequired: z.boolean(),
+  keyDeliveryVersion: z.string(),
+  deliveredKeyKind: z.string(),
   allowedJweAlgs: z.array(z.string()),
   allowedJweEncs: z.array(z.string()),
   redirectUris: z.array(z.string()),

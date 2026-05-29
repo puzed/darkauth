@@ -110,6 +110,7 @@ export async function userOpaqueRegisterFinish(
     email: data.email,
     name: data.name,
     clientId: userClientId,
+    keyState: "unlocked",
   });
   return {
     sub,

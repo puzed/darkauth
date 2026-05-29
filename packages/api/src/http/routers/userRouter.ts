@@ -1,12 +1,22 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { isSafeDashboardIcon } from "../../controllers/admin/clientCreate.ts";
+import { handleScimRateLimited } from "../../controllers/scim.ts";
 import { getAuthorize } from "../../controllers/user/authorize.ts";
 import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.ts";
 import { postEmailVerificationResend } from "../../controllers/user/emailVerificationResend.ts";
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
+import { getFederationRoute } from "../../controllers/user/federationRoute.ts";
 import { getUserApps } from "../../controllers/user/getUserApps.ts";
 import { postIntrospect } from "../../controllers/user/introspect.ts";
+import {
+  deleteKeyEnvelope,
+  getKeybag,
+  getKeyEnvelopes,
+  postAccountKey,
+  postKeyEnvelope,
+} from "../../controllers/user/keybag.ts";
 import { postLogout } from "../../controllers/user/logout.ts";
 import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.ts";
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.ts";
@@ -37,15 +47,38 @@ import { postPasswordResetRequest } from "../../controllers/user/passwordResetRe
 import { postPasswordResetStart } from "../../controllers/user/passwordResetStart.ts";
 import { getPasswordResetToken } from "../../controllers/user/passwordResetToken.ts";
 import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
+import {
+  getRecoveryKeys,
+  postRecoveryKey,
+  postRecoveryKeyRevoke,
+  postRecoveryKeyUse,
+} from "../../controllers/user/recoveryKeys.ts";
 import { postRevoke } from "../../controllers/user/revoke.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
 import { postToken } from "../../controllers/user/token.ts";
+import {
+  getDeviceApprovalRequests,
+  getTrustedDevices,
+  postDeviceApprovalApprove,
+  postDeviceApprovalConsume,
+  postDeviceApprovalDeny,
+  postDeviceApprovalRequest,
+  postTrustedDevice,
+  postTrustedDeviceRevoke,
+} from "../../controllers/user/trustedDevices.ts";
 import { handleUserinfo } from "../../controllers/user/userinfo.ts";
 import {
   getUserDirectoryEntry,
   searchUserDirectory,
 } from "../../controllers/user/usersDirectory.ts";
+import {
+  postPasskeyPrfEnvelope,
+  postWebAuthnLoginFinish,
+  postWebAuthnLoginStart,
+  postWebAuthnRegisterFinish,
+  postWebAuthnRegisterStart,
+} from "../../controllers/user/webauthn.ts";
 import { getWellKnownJwks } from "../../controllers/user/wellKnownJwks.ts";
 import { getWellKnownOpenidConfiguration } from "../../controllers/user/wellKnownOpenid.ts";
 import { getWrappedDrk } from "../../controllers/user/wrappedDrk.ts";
@@ -86,13 +119,23 @@ export function createUserRouter(context: Context) {
           "/password/reset/request",
           "/password/reset/start",
           "/password/reset/finish",
+          "/webauthn/login/start",
+          "/webauthn/login/finish",
         ].includes(pathname);
       const isOAuthPost =
         method === "POST" && ["/token", "/userinfo", "/introspect", "/revoke"].includes(pathname);
+      const isScimRequest = pathname.startsWith("/scim/v2/");
       const needsCsrf =
-        !["GET", "HEAD", "OPTIONS"].includes(method) && !isOAuthPost && !isPublicAuthPost;
+        !["GET", "HEAD", "OPTIONS"].includes(method) &&
+        !isOAuthPost &&
+        !isPublicAuthPost &&
+        !isScimRequest;
       if (isPublicAuthPost) assertSameOrigin(request);
       if (needsCsrf) assertCsrf(request, false);
+      if (isScimRequest) {
+        await handleScimRateLimited(context, request, response);
+        return;
+      }
       if (method === "GET" && pathname === "/branding/logo") {
         const url = new URL(request.url || "", `http://${request.headers.host}`);
         const useDark = url.searchParams.get("dark") === "1";
@@ -144,6 +187,10 @@ export function createUserRouter(context: Context) {
         response.setHeader("Cache-Control", "public, max-age=86400");
         response.end(buf);
         return;
+      }
+
+      if (method === "GET" && pathname === "/federation/route") {
+        return await getFederationRoute(context, request, response);
       }
 
       if (method === "GET" && pathname === "/branding/custom.css") {
@@ -384,12 +431,119 @@ export function createUserRouter(context: Context) {
         return await postOpaqueLoginFinish(context, request, response);
       }
 
+      if (method === "POST" && pathname === "/webauthn/register/start") {
+        return await postWebAuthnRegisterStart(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/webauthn/register/finish") {
+        return await postWebAuthnRegisterFinish(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/webauthn/login/start") {
+        return await postWebAuthnLoginStart(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/webauthn/login/finish") {
+        return await postWebAuthnLoginFinish(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/webauthn/prf-envelope") {
+        return await postPasskeyPrfEnvelope(context, request, response);
+      }
+
       if (method === "GET" && pathname === "/crypto/wrapped-drk") {
         return await getWrappedDrk(context, request, response);
       }
 
       if (method === "PUT" && pathname === "/crypto/wrapped-drk") {
         return await putWrappedDrk(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/crypto/keybag") {
+        return await getKeybag(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/keybag/account-key") {
+        return await postAccountKey(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/crypto/keybag/envelopes") {
+        return await getKeyEnvelopes(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/keybag/envelopes") {
+        return await postKeyEnvelope(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/crypto/recovery-keys") {
+        return await getRecoveryKeys(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/recovery-keys") {
+        return await postRecoveryKey(context, request, response);
+      }
+
+      const recoveryKeyMatch = pathname.match(/^\/crypto\/recovery-keys\/([^/]+)\/([^/]+)$/);
+      if (method === "POST" && recoveryKeyMatch) {
+        const recoveryKeyId = decodeURIComponent(recoveryKeyMatch[1] as string);
+        const action = recoveryKeyMatch[2];
+        if (action === "revoke") {
+          return await postRecoveryKeyRevoke(context, request, response, recoveryKeyId);
+        }
+        if (action === "use") {
+          return await postRecoveryKeyUse(context, request, response, recoveryKeyId);
+        }
+      }
+
+      if (method === "GET" && pathname === "/crypto/devices") {
+        return await getTrustedDevices(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/devices") {
+        return await postTrustedDevice(context, request, response);
+      }
+
+      const trustedDeviceRevokeMatch = pathname.match(/^\/crypto\/devices\/([^/]+)\/revoke$/);
+      if (method === "POST" && trustedDeviceRevokeMatch) {
+        return await postTrustedDeviceRevoke(
+          context,
+          request,
+          response,
+          decodeURIComponent(trustedDeviceRevokeMatch[1] as string)
+        );
+      }
+
+      if (method === "POST" && pathname === "/crypto/device-approvals") {
+        return await postDeviceApprovalRequest(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/crypto/device-approvals") {
+        return await getDeviceApprovalRequests(context, request, response);
+      }
+
+      const deviceApprovalMatch = pathname.match(/^\/crypto\/device-approvals\/([^/]+)\/([^/]+)$/);
+      if (method === "POST" && deviceApprovalMatch) {
+        const requestId = decodeURIComponent(deviceApprovalMatch[1] as string);
+        const action = deviceApprovalMatch[2];
+        if (action === "approve") {
+          return await postDeviceApprovalApprove(context, request, response, requestId);
+        }
+        if (action === "consume") {
+          return await postDeviceApprovalConsume(context, request, response, requestId);
+        }
+        if (action === "deny") {
+          return await postDeviceApprovalDeny(context, request, response, requestId);
+        }
+      }
+
+      const keyEnvelopeMatch = pathname.match(/^\/crypto\/keybag\/envelopes\/([^/]+)$/);
+      if (method === "DELETE" && keyEnvelopeMatch) {
+        return await deleteKeyEnvelope(
+          context,
+          request,
+          response,
+          decodeURIComponent(keyEnvelopeMatch[1] as string)
+        );
       }
 
       if (method === "GET" && pathname === "/crypto/user-enc-pub") {
@@ -453,13 +607,15 @@ export function createUserRouter(context: Context) {
           !icon ||
           icon.dashboardIconMode !== "upload" ||
           !icon.dashboardIconData ||
-          !icon.dashboardIconMimeType
+          !icon.dashboardIconMimeType ||
+          !isSafeDashboardIcon(icon.dashboardIconData, icon.dashboardIconMimeType)
         ) {
           throw new NotFoundError("Icon not found");
         }
         response.statusCode = 200;
         response.setHeader("Content-Type", icon.dashboardIconMimeType);
         response.setHeader("Cache-Control", "public, max-age=86400");
+        response.setHeader("X-Content-Type-Options", "nosniff");
         response.end(icon.dashboardIconData);
         return;
       }
