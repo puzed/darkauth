@@ -15,6 +15,7 @@ import {
   createWebAuthnCredential,
   credentialCanUnlockWithPrf,
   listWebAuthnCredentials,
+  revokeWebAuthnCredential,
 } from "./webauthn.ts";
 
 function createLogger() {
@@ -145,6 +146,45 @@ test("passkey credentials model auth-only passkeys separately from PRF unlock pa
     assert.equal(envelopes.length, 1);
     assert.equal(prfCredential?.prfEnvelopeId, "env_prf");
     assert.equal(prfCredential ? credentialCanUnlockWithPrf(prfCredential) : false, true);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("revoking a passkey also revokes its PRF envelope", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createAccountKey(context, { keyId: "ark_user-sub_1", sub: "user-sub" });
+    await createWebAuthnCredential(context, {
+      credentialId: "cred-prf",
+      sub: "user-sub",
+      publicKey: Buffer.from("public-key-prf"),
+      prfSupported: true,
+    });
+    await createPasskeyPrfEnvelope(context, {
+      credentialId: "cred-prf",
+      sub: "user-sub",
+      keyId: "ark_user-sub_1",
+      envelopeId: "env_prf",
+      wrappingAlg: "WebAuthn-PRF-HKDF-SHA256+A256GCM",
+      wrappedKey: Buffer.from("wrapped-key"),
+      aad: Buffer.from("aad"),
+      prfSalt: Buffer.from("prf-salt"),
+      prfResultConfirmed: true,
+    });
+
+    const revoked = await revokeWebAuthnCredential(context, {
+      credentialId: "cred-prf",
+      sub: "user-sub",
+    });
+    const activeCredentials = await listWebAuthnCredentials(context, "user-sub");
+    const activeEnvelopes = await listKeyEnvelopes(context, "user-sub", { type: "passkey_prf" });
+
+    assert.equal(revoked.credentialId, "cred-prf");
+    assert.ok(revoked.revokedAt);
+    assert.equal(activeCredentials.length, 0);
+    assert.equal(activeEnvelopes.length, 0);
   } finally {
     await cleanup();
   }

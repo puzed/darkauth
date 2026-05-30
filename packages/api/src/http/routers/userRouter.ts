@@ -77,7 +77,9 @@ import {
   searchUserDirectory,
 } from "../../controllers/user/usersDirectory.ts";
 import {
+  getWebAuthnCredentials,
   postPasskeyPrfEnvelope,
+  postWebAuthnCredentialRevoke,
   postWebAuthnLoginFinish,
   postWebAuthnLoginStart,
   postWebAuthnRegisterFinish,
@@ -467,6 +469,22 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/webauthn/prf-envelope") {
         return await postPasskeyPrfEnvelope(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/webauthn/credentials") {
+        return await getWebAuthnCredentials(context, request, response);
+      }
+
+      const webAuthnCredentialRevokeMatch = pathname.match(
+        /^\/webauthn\/credentials\/([^/]+)\/revoke$/
+      );
+      if (method === "POST" && webAuthnCredentialRevokeMatch) {
+        return await postWebAuthnCredentialRevoke(
+          context,
+          request,
+          response,
+          decodeURIComponent(webAuthnCredentialRevokeMatch[1] || "")
+        );
       }
 
       if (method === "GET" && pathname === "/crypto/wrapped-drk") {

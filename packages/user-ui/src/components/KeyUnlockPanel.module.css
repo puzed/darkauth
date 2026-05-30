@@ -1,0 +1,142 @@
+.panel {
+  width: 100%;
+  border: 1px solid #f59e0b;
+  border-radius: 0.75rem;
+  background: #fffbeb;
+  padding: 1rem;
+  text-align: left;
+}
+
+.inlinePanel {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.summary {
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.copy {
+  min-width: 0;
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  color: #92400e;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.description {
+  margin: 0;
+  color: #78350f;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.field label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #78350f;
+}
+
+.field input {
+  width: 100%;
+  border: 1px solid #fbbf24;
+  border-radius: 0.5rem;
+  padding: 0.7rem 0.8rem;
+  background: white;
+  color: #111827;
+  font-size: 1rem;
+}
+
+.field input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  box-shadow: 0 0 0 3px rgb(245 158 11 / 0.2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.error,
+.success {
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+@media (max-width: 768px) {
+  .summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+[data-da-theme="dark"] .panel {
+  border-color: #92400e;
+  background: #451a0399;
+}
+
+[data-da-theme="dark"] .inlinePanel {
+  border: 0;
+  background: transparent;
+}
+
+[data-da-theme="dark"] .title {
+  color: #fbbf24;
+}
+
+[data-da-theme="dark"] .description,
+[data-da-theme="dark"] .field label {
+  color: #fde68a;
+}
+
+[data-da-theme="dark"] .field input {
+  border-color: #92400e;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .error {
+  border-color: #f871714d;
+  background: #7f1d1d33;
+  color: #fca5a5;
+}
+
+[data-da-theme="dark"] .success {
+  border-color: #22c55e4d;
+  background: #14532d33;
+  color: #86efac;
+}

@@ -217,6 +217,7 @@ test("getSession returns current organization context", async () => {
       passwordResetRequired: false,
       otpRequired: false,
       otpVerified: false,
+      keyState: "locked",
       organizationId: organization.id,
       organizationSlug: "session-org",
     });
