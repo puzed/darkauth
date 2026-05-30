@@ -128,10 +128,52 @@ export async function getWebAuthnChallenge(context: Context, challengeId: string
   return row;
 }
 
-export async function listWebAuthnCredentials(context: Context, sub: string) {
+export async function listWebAuthnCredentials(
+  context: Context,
+  sub: string,
+  options: { includeRevoked?: boolean } = {}
+) {
   validateIdentifier(sub, "sub");
+  const conditions = [eq(webauthnCredentials.sub, sub)];
+  if (!options.includeRevoked) conditions.push(isNull(webauthnCredentials.revokedAt));
   return await context.db.query.webauthnCredentials.findMany({
-    where: and(eq(webauthnCredentials.sub, sub), isNull(webauthnCredentials.revokedAt)),
+    where: and(...conditions),
+  });
+}
+
+export async function revokeWebAuthnCredential(
+  context: Context,
+  data: { credentialId: string; sub: string }
+) {
+  validateIdentifier(data.credentialId, "credentialId");
+  validateIdentifier(data.sub, "sub");
+  const now = new Date();
+  return await context.db.transaction(async (tx) => {
+    const [credential] = await tx
+      .update(webauthnCredentials)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          eq(webauthnCredentials.credentialId, data.credentialId),
+          eq(webauthnCredentials.sub, data.sub),
+          isNull(webauthnCredentials.revokedAt)
+        )
+      )
+      .returning();
+    if (!credential) throw new NotFoundError("WebAuthn credential not found");
+    if (credential.prfEnvelopeId) {
+      await tx
+        .update(keyEnvelopes)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(keyEnvelopes.envelopeId, credential.prfEnvelopeId),
+            eq(keyEnvelopes.sub, data.sub),
+            isNull(keyEnvelopes.revokedAt)
+          )
+        );
+    }
+    return credential;
   });
 }
 

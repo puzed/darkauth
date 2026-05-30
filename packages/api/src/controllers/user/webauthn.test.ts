@@ -16,7 +16,9 @@ import {
 import type { Context } from "../../types.ts";
 import { toBase64Url } from "../../utils/crypto.ts";
 import {
+  getWebAuthnCredentials,
   postPasskeyPrfEnvelope,
+  postWebAuthnCredentialRevoke,
   postWebAuthnLoginFinish,
   postWebAuthnLoginStart,
   postWebAuthnRegisterFinish,
@@ -457,6 +459,93 @@ test("passkey PRF envelope endpoint requires a PRF-capable credential and confir
       credential_id: "cred-prf",
       prf_result_confirmed: true,
     });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("webauthn credentials endpoint lists and revokes passkeys", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const sessionId = await createUserSession(context, "user-a");
+    await createAccountKey(context, { keyId: "ark_user-a_1", sub: "user-a" });
+    await createWebAuthnCredential(context, {
+      credentialId: "credential-auth-only",
+      sub: "user-a",
+      publicKey: Buffer.from("public-key"),
+      prfSupported: false,
+    });
+    await createWebAuthnCredential(context, {
+      credentialId: "credential-prf",
+      sub: "user-a",
+      publicKey: Buffer.from("public-key-prf"),
+      prfSupported: true,
+    });
+    await createPasskeyPrfEnvelope(context, {
+      credentialId: "credential-prf",
+      sub: "user-a",
+      keyId: "ark_user-a_1",
+      envelopeId: "env_prf",
+      wrappingAlg: "WebAuthn-PRF-HKDF-SHA256+A256GCM/v2",
+      wrappedKey: Buffer.from("wrapped-key"),
+      aad: Buffer.from("aad"),
+      prfSalt: Buffer.from("login-prf-salt-32-byte-value!!"),
+      prfResultConfirmed: true,
+    });
+
+    const listResponse = createResponse();
+    await getWebAuthnCredentials(
+      context,
+      createRequest({ method: "GET", url: "/webauthn/credentials", sessionId }),
+      listResponse
+    );
+    const listBody = listResponse.json as {
+      credentials: Array<{ credential_id: string; can_unlock: boolean }>;
+    };
+
+    assert.equal(listResponse.statusCode, 200);
+    assert.deepEqual(
+      listBody.credentials
+        .map((credential) => [credential.credential_id, credential.can_unlock])
+        .sort(),
+      [
+        ["credential-auth-only", false],
+        ["credential-prf", true],
+      ]
+    );
+
+    const revokeResponse = createResponse();
+    await postWebAuthnCredentialRevoke(
+      context,
+      createRequest({
+        method: "POST",
+        url: "/webauthn/credentials/credential-prf/revoke",
+        sessionId,
+      }),
+      revokeResponse,
+      "credential-prf"
+    );
+    const revokeBody = revokeResponse.json as {
+      credential: { credential_id: string; revoked_at: string };
+    };
+
+    assert.equal(revokeResponse.statusCode, 200);
+    assert.equal(revokeBody.credential.credential_id, "credential-prf");
+    assert.ok(revokeBody.credential.revoked_at);
+
+    const afterRevokeResponse = createResponse();
+    await getWebAuthnCredentials(
+      context,
+      createRequest({ method: "GET", url: "/webauthn/credentials", sessionId }),
+      afterRevokeResponse
+    );
+    const afterRevokeBody = afterRevokeResponse.json as {
+      credentials: Array<{ credential_id: string }>;
+    };
+    assert.deepEqual(
+      afterRevokeBody.credentials.map((credential) => credential.credential_id).sort(),
+      ["credential-auth-only"]
+    );
   } finally {
     await cleanup();
   }

@@ -155,6 +155,8 @@ import {
 } from "../controllers/user/usersDirectory.ts";
 import {
   postPasskeyPrfEnvelopeSchema as userPasskeyPrfEnvelopeSchema,
+  postWebAuthnCredentialRevokeSchema as userWebAuthnCredentialRevokeSchema,
+  getWebAuthnCredentialsSchema as userWebAuthnCredentialsSchema,
   postWebAuthnLoginFinishSchema as userWebAuthnLoginFinishSchema,
   postWebAuthnLoginStartSchema as userWebAuthnLoginStartSchema,
   postWebAuthnRegisterFinishSchema as userWebAuthnRegisterFinishSchema,
@@ -270,6 +272,8 @@ const documentedSchemas: ControllerSchema[] = [
   userWebAuthnLoginStartSchema,
   userWebAuthnLoginFinishSchema,
   userPasskeyPrfEnvelopeSchema,
+  userWebAuthnCredentialsSchema,
+  userWebAuthnCredentialRevokeSchema,
   userRecoveryKeysSchema,
   userRecoveryKeySchema,
   userRecoveryKeyRevokeSchema,
