@@ -13,20 +13,65 @@ type PublicKeyCredentialWithExtensions = PublicKeyCredential & {
 
 type RegistrationPublicKeyOptions = Omit<
   PublicKeyCredentialCreationOptions,
-  "challenge" | "user" | "excludeCredentials"
+  "challenge" | "user" | "excludeCredentials" | "extensions"
 > & {
   challenge: string;
   user: Omit<PublicKeyCredentialUserEntity, "id"> & { id: string };
   excludeCredentials?: Array<Omit<PublicKeyCredentialDescriptor, "id"> & { id: string }>;
+  extensions?: WebAuthnJsonExtensions;
 };
 
 type AuthenticationPublicKeyOptions = Omit<
   PublicKeyCredentialRequestOptions,
-  "challenge" | "allowCredentials"
+  "challenge" | "allowCredentials" | "extensions"
 > & {
   challenge: string;
   allowCredentials?: Array<Omit<PublicKeyCredentialDescriptor, "id"> & { id: string }>;
+  extensions?: WebAuthnJsonExtensions;
 };
+
+type WebAuthnJsonExtensions = Omit<AuthenticationExtensionsClientInputs, "prf"> & {
+  prf?: {
+    eval?: WebAuthnJsonPrfValues;
+    evalByCredential?: Record<string, WebAuthnJsonPrfValues>;
+  };
+};
+
+type WebAuthnJsonPrfValues = {
+  first: string | BufferSource;
+  second?: string | BufferSource;
+};
+
+function decodePrfValue(value: string | BufferSource): BufferSource {
+  return typeof value === "string" ? (fromBase64Url(value).buffer as ArrayBuffer) : value;
+}
+
+function decodePrfValues(values: WebAuthnJsonPrfValues): AuthenticationExtensionsPRFValues {
+  const decoded: AuthenticationExtensionsPRFValues = { first: decodePrfValue(values.first) };
+  if (values.second) decoded.second = decodePrfValue(values.second);
+  return decoded;
+}
+
+export function decodeWebAuthnExtensions(
+  extensions: WebAuthnJsonExtensions | undefined
+): AuthenticationExtensionsClientInputs | undefined {
+  if (!extensions?.prf) return extensions as AuthenticationExtensionsClientInputs | undefined;
+  return {
+    ...extensions,
+    prf: {
+      ...extensions.prf,
+      eval: extensions.prf.eval ? decodePrfValues(extensions.prf.eval) : undefined,
+      evalByCredential: extensions.prf.evalByCredential
+        ? Object.fromEntries(
+            Object.entries(extensions.prf.evalByCredential).map(([id, values]) => [
+              id,
+              decodePrfValues(values),
+            ])
+          )
+        : undefined,
+    },
+  };
+}
 
 export function browserSupportsWebAuthn(): boolean {
   return typeof window.PublicKeyCredential !== "undefined" && !!navigator.credentials;
@@ -45,6 +90,7 @@ export async function createPasskeyCredential(publicKey: RegistrationPublicKeyOp
         ...item,
         id: fromBase64Url(item.id),
       })),
+      extensions: decodeWebAuthnExtensions(publicKey.extensions),
     } as PublicKeyCredentialCreationOptions,
   });
   if (!(credential instanceof PublicKeyCredential)) {
@@ -62,6 +108,7 @@ export async function getPasskeyCredential(publicKey: AuthenticationPublicKeyOpt
         ...item,
         id: fromBase64Url(item.id),
       })),
+      extensions: decodeWebAuthnExtensions(publicKey.extensions),
     } as PublicKeyCredentialRequestOptions,
   });
   if (!(credential instanceof PublicKeyCredential)) {
