@@ -95,12 +95,13 @@
 }
 
 .main {
-  padding: 3rem 2rem;
+  padding: 2rem;
 }
 
 .container {
   width: 100%;
   margin: 0 auto;
+  text-align: left;
 }
 
 .mainGrid {
@@ -113,15 +114,13 @@
 }
 
 .keyStateBanner {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
+  display: block;
   margin-bottom: 1.5rem;
-  padding: 1rem;
+  padding: 0;
   border: 1px solid #f59e0b;
   border-radius: 0.5rem;
   background: #fffbeb;
+  overflow: hidden;
 }
 
 .keyStateBanner h3 {
@@ -136,7 +135,7 @@
   font-size: 0.875rem;
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 900px) {
   .mainGrid {
     grid-template-columns: 2fr 1fr;
     grid-template-areas: "apps account";
@@ -146,20 +145,34 @@
 .appsSection {
   grid-area: apps;
   background: white;
-  padding: 3rem;
-  border-radius: 1rem;
+  padding: 2rem;
+  border-radius: 0.5rem;
   box-shadow:
     0 1px 3px 0 rgb(0 0 0 / 0.05),
     0 1px 2px -1px rgb(0 0 0 / 0.05);
   border: 1px solid rgba(229, 231, 235, 0.5);
 }
 
-.appsSection h3 {
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.sectionHeader h3 {
   font-size: 1.5rem;
   font-weight: 600;
   color: #0f172a;
-  margin: 0 0 2rem 0;
+  margin: 0;
   letter-spacing: -0.015em;
+}
+
+.sectionHeader p {
+  color: #64748b;
+  font-size: 0.9375rem;
+  margin: 0.25rem 0 0;
 }
 
 .appsActions {
@@ -175,10 +188,10 @@
   border: 1px solid #cbd5e1;
   background: #f8fafc;
   color: #334155;
-  border-radius: 0.6rem;
-  padding: 0.55rem 0.85rem;
+  border-radius: 0.5rem;
+  padding: 0.65rem 0.85rem;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -190,18 +203,18 @@
 
 .appsGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .appCard {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  padding: 1.75rem;
+  gap: 1rem;
+  padding: 1rem;
   background: #fafbfc;
   border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   text-decoration: none;
   transition: all 0.2s ease;
   position: relative;
@@ -216,8 +229,8 @@
 }
 
 .appIcon {
-  width: 3rem;
-  height: 3rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -274,7 +287,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3rem;
+  min-height: 12rem;
+  padding: 2rem;
   text-align: center;
 }
 
@@ -307,40 +321,32 @@
 .accountSection {
   grid-area: account;
   background: white;
-  padding: 3rem;
-  border-radius: 1rem;
+  padding: 2rem;
+  border-radius: 0.5rem;
   box-shadow:
     0 1px 3px 0 rgb(0 0 0 / 0.05),
     0 1px 2px -1px rgb(0 0 0 / 0.05);
   border: 1px solid rgba(229, 231, 235, 0.5);
 }
 
-.accountSection h3 {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0 0 2rem 0;
-  letter-spacing: -0.015em;
-}
-
 .accountInfo {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .infoRow {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1.25rem;
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+  padding: 0.875rem 0;
   background: #fafbfc;
-  border-radius: 0.5rem;
-  border: 1px solid #f1f5f9;
+  border-top: 1px solid #e2e8f0;
 }
 
 .label {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
@@ -350,18 +356,25 @@
 .value {
   color: #0f172a;
   font-weight: 500;
-  font-size: 1.125rem;
+  font-size: 1rem;
 }
 
 .userId {
   font-family: "SF Mono", Monaco, "Cascadia Code", monospace;
   font-size: 0.9rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--primary-700);
   font-weight: 600;
   letter-spacing: 0.025em;
+  overflow-wrap: anywhere;
+}
+
+.securityActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e2e8f0;
 }
 
 @keyframes spin {
@@ -436,8 +449,13 @@
 }
 
 [data-da-theme="dark"] .appsSection h3,
-[data-da-theme="dark"] .accountSection h3 {
+[data-da-theme="dark"] .accountSection h3,
+[data-da-theme="dark"] .sectionHeader h3 {
   color: #f1f5f9;
+}
+
+[data-da-theme="dark"] .sectionHeader p {
+  color: #94a3b8;
 }
 
 [data-da-theme="dark"] .appCard {
@@ -506,8 +524,8 @@
 }
 
 [data-da-theme="dark"] .infoRow {
-  background: rgba(15, 23, 42, 0.5);
-  border-color: rgba(51, 65, 85, 0.5);
+  background: transparent;
+  border-color: #334155;
 }
 
 [data-da-theme="dark"] .label {
@@ -519,10 +537,11 @@
 }
 
 [data-da-theme="dark"] .userId {
-  background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #a5b4fc;
+}
+
+[data-da-theme="dark"] .securityActions {
+  border-top-color: #334155;
 }
 
 /* Responsive design */

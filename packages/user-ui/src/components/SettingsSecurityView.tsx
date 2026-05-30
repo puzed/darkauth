@@ -46,7 +46,7 @@ export default function SettingsSecurityView({
       onLogout={onLogout}
     >
       <div className={styles.content}>
-        <div className={styles.formHeader}>
+        <div className={`${styles.formHeader} ${styles.securityHeader}`}>
           <h2>Security Settings</h2>
           <p className={styles.subtitle}>
             {keyState !== "unlocked"
@@ -54,7 +54,7 @@ export default function SettingsSecurityView({
               : "Manage two-factor authentication, passkeys, recovery keys, and trusted devices"}
           </p>
         </div>
-        <div className={styles.formWrapper}>
+        <div className={`${styles.formWrapper} ${styles.securityWrapper}`}>
           {keyState !== "unlocked" ? (
             <KeyUnlockPanel
               sub={sessionData.sub}

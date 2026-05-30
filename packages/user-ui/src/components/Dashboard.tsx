@@ -82,18 +82,16 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
               inline
               onUnlocked={(session) => setKeyState(session?.keyState || "unlocked")}
             />
-            <button
-              type="button"
-              className={styles.appsActionButton}
-              onClick={() => navigate("/settings")}
-            >
-              Manage unlock methods
-            </button>
           </section>
         ) : null}
         <div className={styles.mainGrid}>
           <section className={styles.appsSection}>
-            <h3>Your Applications</h3>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h3>Applications</h3>
+                <p>{apps.length === 1 ? "1 app available" : `${apps.length} apps available`}</p>
+              </div>
+            </div>
             {loading ? (
               <div className={styles.loadingState}>
                 <div className={styles.spinner} />
@@ -201,26 +199,15 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
                 <span>Applications you have access to will appear here</span>
               </div>
             )}
-            <div className={styles.appsActions}>
-              <button
-                type="button"
-                className={styles.appsActionButton}
-                onClick={() => navigate("/change-password")}
-              >
-                Change Password
-              </button>
-              <button
-                type="button"
-                className={styles.appsActionButton}
-                onClick={() => navigate("/settings")}
-              >
-                Passkeys & Security
-              </button>
-            </div>
           </section>
 
           <section className={styles.accountSection}>
-            <h3>Account Information</h3>
+            <div className={styles.sectionHeader}>
+              <div>
+                <h3>Account</h3>
+                <p>Profile and security controls</p>
+              </div>
+            </div>
             <div className={styles.accountInfo}>
               <div className={styles.infoRow}>
                 <span className={styles.label}>Name</span>
@@ -234,6 +221,22 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
                 <span className={styles.label}>User ID</span>
                 <code className={styles.userId}>{sessionData.sub}</code>
               </div>
+            </div>
+            <div className={styles.securityActions}>
+              <button
+                type="button"
+                className={styles.appsActionButton}
+                onClick={() => navigate("/settings")}
+              >
+                Passkeys & Security
+              </button>
+              <button
+                type="button"
+                className={styles.appsActionButton}
+                onClick={() => navigate("/change-password")}
+              >
+                Change Password
+              </button>
             </div>
           </section>
         </div>

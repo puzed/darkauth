@@ -87,12 +87,18 @@ test("trusted device actions use unlocked ARK instead of requiring export key", 
 });
 
 test("Settings security separates sign-in methods from encryption unlock methods", () => {
+  assert.notEqual(source.indexOf('type SecuritySection = "signin"'), -1);
   assert.notEqual(source.indexOf("Sign-in Methods"), -1);
   assert.notEqual(source.indexOf("Password sign-in"), -1);
   assert.notEqual(source.indexOf("Enterprise SSO"), -1);
   assert.notEqual(source.indexOf("Connected identities"), -1);
   assert.notEqual(source.indexOf("Encryption Unlock Methods"), -1);
-  assert.notEqual(source.indexOf("Encryption unlock methods are managed separately"), -1);
+  assert.notEqual(source.indexOf("Encryption unlock methods"), -1);
+  assert.notEqual(source.indexOf("managed"), -1);
+  assert.notEqual(source.indexOf("separately"), -1);
+  assert.notEqual(source.indexOf('aria-label="Security settings sections"'), -1);
+  assert.notEqual(source.indexOf('activeSection === "passkeys"'), -1);
+  assert.notEqual(source.indexOf('activeSection === "devices"'), -1);
   assert.notEqual(apiSource.indexOf("getConnectedIdentities"), -1);
   assert.notEqual(apiSource.indexOf("/federation/identities"), -1);
 });

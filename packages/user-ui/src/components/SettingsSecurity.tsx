@@ -21,6 +21,9 @@ import {
 } from "../services/webauthn";
 import Button from "./Button";
 import { loadArkFromAvailableLocalUnlocks } from "./KeyUnlockPanel";
+import styles from "./SettingsSecurity.module.css";
+
+type SecuritySection = "signin" | "passkeys" | "unlock" | "devices" | "recovery" | "mfa";
 
 export default function SettingsSecurity({
   sessionData,
@@ -70,6 +73,7 @@ export default function SettingsSecurity({
   } | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showManual, setShowManual] = useState(false);
+  const [activeSection, setActiveSection] = useState<SecuritySection>("signin");
 
   const reload = useCallback(async () => {
     try {
@@ -598,6 +602,50 @@ export default function SettingsSecurity({
     return date.toLocaleString();
   };
 
+  const tabs: Array<{
+    id: SecuritySection;
+    label: string;
+    detail: string;
+    count?: number;
+  }> = [
+    {
+      id: "signin",
+      label: "Sign-in",
+      detail: "Password, SSO, and connected identities",
+      count: 1 + connectedIdentityCount + (enterpriseSsoRoute ? 1 : 0),
+    },
+    {
+      id: "passkeys",
+      label: "Passkeys",
+      detail: "Sign-in and PRF unlock credentials",
+      count: activePasskeys.length,
+    },
+    {
+      id: "unlock",
+      label: "Unlock",
+      detail: "Encrypted key envelopes",
+      count: activeEnvelopes.length,
+    },
+    {
+      id: "devices",
+      label: "Devices",
+      detail: "Trusted browsers and approvals",
+      count: activeTrustedDevices.length + pendingApprovals.length,
+    },
+    {
+      id: "recovery",
+      label: "Recovery",
+      detail: "Offline recovery access",
+      count: activeRecoveryKeys.length || recoveryEnvelopes.length,
+    },
+    {
+      id: "mfa",
+      label: "2FA",
+      detail: "Authenticator app codes",
+      count: status?.enabled ? 1 : 0,
+    },
+  ];
+
   if (loading)
     return (
       <div className="loading-container">
@@ -607,54 +655,463 @@ export default function SettingsSecurity({
     );
 
   return (
-    <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
+    <div className={styles.settings}>
       {error && <div className="error-message">{error}</div>}
-      {!status?.enabled && (
-        <div className="form-group">
-          <h3>Enable Two-Factor Authentication</h3>
-          {!provisioningUri ? (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <Button type="button" variant="primary" onClick={doResetup}>
-                Start Setup
-              </Button>
-            </div>
-          ) : (
-            <>
-              <div className="help-text">Scan the QR or use the URI below.</div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 16,
-                  marginTop: 16,
-                  marginBottom: 20,
-                }}
-              >
-                <canvas
-                  ref={qrCanvasRef}
-                  width={192}
-                  height={192}
-                  style={{ background: "#fff", borderRadius: 8 }}
-                />
-                <Button type="button" variant="secondary" onClick={() => setShowManual((v) => !v)}>
-                  {showManual ? "Hide secret" : "Can't scan? Show secret"}
+      <div className={styles.overview}>
+        <div className={styles.metric}>
+          <span>Key state</span>
+          <strong>{sessionData.keyState === "unlocked" ? "Unlocked" : "Locked"}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Passkeys</span>
+          <strong>{activePasskeys.length}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Trusted devices</span>
+          <strong>{activeTrustedDevices.length}</strong>
+        </div>
+        <div className={styles.metric}>
+          <span>Recovery</span>
+          <strong>
+            {activeRecoveryKeys.length || recoveryEnvelopes.length ? "Ready" : "Not set"}
+          </strong>
+        </div>
+      </div>
+      <div className={styles.layout}>
+        <nav className={styles.tabs} aria-label="Security settings sections">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={activeSection === tab.id ? styles.activeTab : styles.tab}
+              onClick={() => setActiveSection(tab.id)}
+              aria-pressed={activeSection === tab.id}
+            >
+              <span>{tab.label}</span>
+              <small>{tab.detail}</small>
+              {typeof tab.count === "number" && <b>{tab.count}</b>}
+            </button>
+          ))}
+        </nav>
+        <div className={styles.panel}>
+          {activeSection === "signin" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Sign-in Methods</h3>
+                  <p>
+                    Sign-in methods prove your identity. Encryption unlock methods are managed
+                    separately.
+                  </p>
+                </div>
+              </div>
+              <div className={styles.itemList}>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Password sign-in</h4>
+                    <p>
+                      {sessionData.email
+                        ? `Enabled for ${sessionData.email}.`
+                        : "Available when this account has a DarkAuth email identity."}
+                    </p>
+                  </div>
+                  <a className={styles.linkButton} href="/change-password">
+                    Manage password
+                  </a>
+                </article>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Enterprise SSO</h4>
+                    <p>
+                      {enterpriseSsoRoute
+                        ? `${enterpriseSsoRoute.name} routes sign-ins for this email domain.`
+                        : "No enterprise SSO route is advertised for your email domain."}
+                    </p>
+                  </div>
+                </article>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Connected identities</h4>
+                    {connectedIdentityCount > 0 ? (
+                      <div className={styles.identityList}>
+                        {connectedIdentities.map((identity) => {
+                          const connectionName =
+                            identity.connectionName || identity.connection_name;
+                          const externalSubject =
+                            identity.externalSubject || identity.external_subject;
+                          const emailVerified = identity.emailVerified ?? identity.email_verified;
+                          return (
+                            <p key={identity.id}>
+                              {connectionName || identity.issuer || "Enterprise identity"}
+                              {identity.email ? ` · ${identity.email}` : ""}
+                              {emailVerified ? " · verified email" : ""}
+                              {externalSubject ? ` · Subject ${externalSubject}` : ""}
+                            </p>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p>
+                        Connected enterprise identities appear here after a successful SSO sign-in.
+                      </p>
+                    )}
+                  </div>
+                </article>
+              </div>
+            </section>
+          )}
+          {activeSection === "passkeys" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Passkeys</h3>
+                  <p>
+                    Passkeys can sign you in. Only passkeys with verified WebAuthn PRF support can
+                    also unlock encrypted app keys.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={registerPasskey}
+                  disabled={!passkeyCompatibility?.webauthn || passkeyActionLoading}
+                >
+                  {passkeyActionLoading ? "Creating..." : "Create passkey"}
                 </Button>
-                {showManual && secret && (
-                  <div style={{ maxWidth: 420, width: "100%" }}>
-                    <div
-                      style={{
-                        wordBreak: "break-all",
-                        background: "hsl(var(--muted))",
-                        padding: 8,
-                        borderRadius: 6,
-                        textAlign: "center",
-                        fontFamily: "monospace",
+              </div>
+              <div className={styles.inlineStats}>
+                <span>Auth + unlock passkeys: {unlockPasskeys.length}</span>
+                <span>Auth-only passkeys: {authOnlyPasskeys.length}</span>
+              </div>
+              <details className={styles.details}>
+                <summary>Compatibility details</summary>
+                <p>
+                  {passkeyCompatibility?.webauthn
+                    ? "This browser supports passkey sign-in."
+                    : "This browser does not appear to support passkey sign-in."}{" "}
+                  {passkeyCompatibility?.platformAuthenticator
+                    ? "A platform authenticator is available."
+                    : "Use a compatible security key or platform authenticator."}
+                  {passkeyCompatibility?.conditionalMediation
+                    ? " Conditional passkey prompts are available."
+                    : ""}
+                </p>
+                <p>
+                  PRF unlock support is confirmed during setup with the chosen authenticator. If PRF
+                  is unavailable, use password unlock, a recovery key, or trusted-device approval.
+                </p>
+                {!unlockPolicy.allowPasskeyPrfEnvelope && (
+                  <p>
+                    Your organization allows passkey sign-in but disables passkey encryption unlock
+                    setup.
+                  </p>
+                )}
+              </details>
+              {passkeyMessage && <div className={styles.notice}>{passkeyMessage}</div>}
+              {activePasskeys.length > 0 ? (
+                <div className={styles.itemList}>
+                  {activePasskeys.map((passkey) => (
+                    <article className={styles.item} key={passkey.credential_id}>
+                      <div>
+                        <h4>{passkey.label || "Passkey"}</h4>
+                        <p>
+                          {passkey.can_unlock ? "Sign-in and encryption unlock" : "Sign-in only"} ·
+                          Last used {formatDate(passkey.last_used_at)} · Added{" "}
+                          {formatDate(passkey.created_at)}
+                        </p>
+                        {passkey.transports && passkey.transports.length > 0 && (
+                          <p>{passkey.transports.join(", ")}</p>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => revokePasskey(passkey.credential_id)}
+                        disabled={passkeyRevokeLoading === passkey.credential_id}
+                      >
+                        Revoke
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>No passkeys are registered for this account.</div>
+              )}
+            </section>
+          )}
+          {activeSection === "unlock" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Encryption Unlock Methods</h3>
+                  <p>These records unlock encrypted app access without changing sign-in methods.</p>
+                </div>
+              </div>
+              <div className={styles.inlineStats}>
+                <span>Password envelopes: {passwordEnvelopeCount}</span>
+                <span>PRF passkey envelopes: {unlockPasskeys.length}</span>
+                <span>Trusted devices: {activeTrustedDevices.length}</span>
+                <span>Recovery keys: {activeRecoveryKeys.length || recoveryEnvelopes.length}</span>
+              </div>
+              {unlockPolicy.managed && (
+                <details className={styles.details}>
+                  <summary>Organization policy</summary>
+                  <p>
+                    Your organization manages allowed unlock methods. Password envelopes{" "}
+                    {unlockPolicy.allowPasswordEnvelope ? "are allowed" : "are disabled"}, PRF
+                    passkey envelopes{" "}
+                    {unlockPolicy.allowPasskeyPrfEnvelope ? "are allowed" : "are disabled"}, and
+                    trusted-device approval{" "}
+                    {unlockPolicy.allowTrustedDeviceApproval ? "is allowed" : "is disabled"}.
+                  </p>
+                </details>
+              )}
+              {activeEnvelopes.length > 0 ? (
+                <div className={styles.itemList}>
+                  {activeEnvelopes.map((envelope) => (
+                    <article className={styles.item} key={envelope.envelope_id}>
+                      <div>
+                        <h4>{envelope.label || envelope.type}</h4>
+                        <p>
+                          {envelope.type} · {envelope.wrapping_alg}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => revokeEnvelope(envelope.envelope_id)}
+                      >
+                        Revoke
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>
+                  No key envelopes are registered for this account.
+                </div>
+              )}
+            </section>
+          )}
+          {activeSection === "recovery" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Recovery Key</h3>
+                  <p>
+                    A recovery key can unlock encrypted app access if other unlock methods are
+                    unavailable.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={createRecoveryKey}
+                  disabled={recoveryActionLoading === "create"}
+                >
+                  {activeRecoveryKeys.length > 0 ? "Rotate recovery key" : "Create recovery key"}
+                </Button>
+              </div>
+              <div className={styles.notice}>
+                {activeRecoveryKeys.length > 0 || recoveryEnvelopes.length > 0
+                  ? "A recovery key is registered for this account."
+                  : "No recovery key is registered for this account."}
+              </div>
+              {recoverySecret && (
+                <div className={styles.secretBox}>
+                  <p>Save this recovery key now. It will not be shown again.</p>
+                  <code>{recoverySecret}</code>
+                  <div className={styles.actions}>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(recoverySecret);
+                        } catch {}
                       }}
                     >
-                      {secret}
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                      Copy
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setRecoverySecret(null)}
+                    >
+                      Hide
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {activeRecoveryKeys.length > 0 && (
+                <div className={styles.itemList}>
+                  {activeRecoveryKeys.map((recoveryKey) => (
+                    <article className={styles.item} key={recoveryKey.recovery_key_id}>
+                      <div>
+                        <h4>{recoveryKey.label || "Recovery key"}</h4>
+                        <p>
+                          Last used {formatDate(recoveryKey.last_used_at)} · Added{" "}
+                          {formatDate(recoveryKey.created_at)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => revokeRecoveryKey(recoveryKey.recovery_key_id)}
+                        disabled={recoveryActionLoading === recoveryKey.recovery_key_id}
+                      >
+                        Revoke
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+          {activeSection === "devices" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Trusted Devices</h3>
+                  <p>Trusted devices can approve encrypted key access for a new browser.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={trustCurrentDevice}
+                  disabled={
+                    trustDeviceLoading ||
+                    sessionData.keyState !== "unlocked" ||
+                    !unlockPolicy.allowTrustedDeviceApproval
+                  }
+                >
+                  {trustDeviceLoading ? "Trusting..." : "Trust this browser"}
+                </Button>
+              </div>
+              {sessionData.keyState !== "unlocked" && (
+                <div className={styles.notice}>
+                  Unlock encryption keys before trusting this browser.
+                </div>
+              )}
+              {!unlockPolicy.allowTrustedDeviceApproval && (
+                <div className={styles.notice}>
+                  Your organization disabled trusted-device approval setup.
+                </div>
+              )}
+              {trustedDeviceMessage && <div className={styles.notice}>{trustedDeviceMessage}</div>}
+              {activeTrustedDevices.length > 0 ? (
+                <div className={styles.itemList}>
+                  {activeTrustedDevices.map((device) => (
+                    <article className={styles.item} key={device.device_id}>
+                      <div>
+                        <h4>{device.label || "Trusted device"}</h4>
+                        <p>
+                          Last used {formatDate(device.last_used_at)} · Added{" "}
+                          {formatDate(device.created_at)}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => revokeTrustedDevice(device.device_id)}
+                        disabled={deviceActionLoading === device.device_id}
+                      >
+                        Revoke
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>
+                  No trusted devices are registered for this account.
+                </div>
+              )}
+              <div className={styles.divider} />
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Pending Device Approvals</h3>
+                  <p>
+                    Approve only requests that show the same verification code on the new device.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={refreshDeviceApprovals}
+                  disabled={!!deviceActionLoading}
+                >
+                  Refresh approvals
+                </Button>
+              </div>
+              {pendingApprovals.length > 0 ? (
+                <div className={styles.itemList}>
+                  {pendingApprovals.map((approval) => (
+                    <article className={styles.item} key={approval.request_id}>
+                      <div>
+                        <h4>{approval.client_id || "New device request"}</h4>
+                        <p>
+                          Code {approval.verification_code || "shown on the new device"} · Expires{" "}
+                          {formatDate(approval.expires_at)}
+                        </p>
+                      </div>
+                      <div className={styles.actions}>
+                        <Button
+                          type="button"
+                          variant="success"
+                          onClick={() => approveApproval(approval)}
+                          disabled={deviceActionLoading === approval.request_id}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => denyApproval(approval.request_id)}
+                          disabled={deviceActionLoading === approval.request_id}
+                        >
+                          Deny
+                        </Button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>No device approvals are waiting.</div>
+              )}
+            </section>
+          )}
+          {activeSection === "mfa" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Two-Factor Authentication</h3>
+                  <p>Use an authenticator app or backup codes for account sign-in protection.</p>
+                </div>
+                {status?.enabled && status.verified && (
+                  <Button type="button" variant="secondary" onClick={doResetup}>
+                    Resetup OTP
+                  </Button>
+                )}
+              </div>
+              {!status?.enabled && !provisioningUri && (
+                <Button type="button" variant="primary" onClick={doResetup}>
+                  Start Setup
+                </Button>
+              )}
+              {(provisioningUri || (status?.enabled && !status.verified)) && (
+                <div className={styles.setupBox}>
+                  <p>Scan the QR code, then enter the 6-digit code from your authenticator app.</p>
+                  {provisioningUri && <canvas ref={qrCanvasRef} width={192} height={192} />}
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setShowManual((v) => !v)}
+                  >
+                    {showManual ? "Hide secret" : "Can't scan? Show secret"}
+                  </Button>
+                  {showManual && secret && (
+                    <div className={styles.secretBox}>
+                      <code>{secret}</code>
                       <Button
                         type="button"
                         variant="secondary"
@@ -667,647 +1124,79 @@ export default function SettingsSecurity({
                         Copy secret
                       </Button>
                     </div>
-                  </div>
-                )}
-              </div>
-              <div className="help-text">Enter the 6-digit code to verify:</div>
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="123456"
-                className="form-input"
-                style={{ width: 192, margin: "8px auto 10px" }}
-                maxLength={6}
-                inputMode="numeric"
-                pattern="[0-9]*"
-              />
-              <div style={{ width: 192, margin: "0 auto" }}>
-                <Button
-                  type="button"
-                  variant="primary"
-                  fullWidth
-                  onClick={doSetupVerify}
-                  disabled={code.length !== 6}
-                >
-                  Verify
-                </Button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-      {status?.enabled && !status.verified && (
-        <div className="form-group">
-          <h3>Complete Verification</h3>
-          <div className="help-text">
-            Scan the QR or enter a code from your app or a backup code.
-          </div>
-          {provisioningUri && (
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 16,
-                marginTop: 16,
-                marginBottom: 20,
-              }}
-            >
-              <canvas
-                ref={qrCanvasRef}
-                width={192}
-                height={192}
-                style={{ background: "#fff", borderRadius: 8 }}
-              />
-              <Button type="button" variant="secondary" onClick={() => setShowManual((v) => !v)}>
-                {showManual ? "Hide secret" : "Can't scan? Show secret"}
-              </Button>
-              {showManual && secret && (
-                <div style={{ maxWidth: 420, width: "100%" }}>
-                  <div
-                    style={{
-                      wordBreak: "break-all",
-                      background: "hsl(var(--muted))",
-                      padding: 8,
-                      borderRadius: 6,
-                      textAlign: "center",
-                      fontFamily: "monospace",
+                  )}
+                  <input
+                    value={code}
+                    onChange={(event) => {
+                      const cleaned = event.target.value
+                        .replace(/[^0-9A-Za-z-]/g, "")
+                        .toUpperCase();
+                      setCode(cleaned.slice(0, 14));
                     }}
+                    placeholder="123456"
+                    className={styles.codeInput}
+                    maxLength={14}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                  />
+                  <Button
+                    type="button"
+                    variant="primary"
+                    onClick={doSetupVerify}
+                    disabled={code.replace(/-/g, "").length !== 6}
                   >
-                    {secret}
+                    Verify
+                  </Button>
+                </div>
+              )}
+              {status?.enabled && status.verified && (
+                <div className={styles.notice}>Two-factor authentication is enabled.</div>
+              )}
+              {backupCodes && backupCodes.length > 0 && (
+                <div className={styles.secretBox}>
+                  <h4>Your Backup Codes</h4>
+                  <p>Store these codes securely. Each can be used once.</p>
+                  <div className={styles.codeGrid}>
+                    {backupCodes.map((backupCode) => (
+                      <code key={backupCode}>{backupCode}</code>
+                    ))}
                   </div>
-                  <div style={{ display: "flex", justifyContent: "center", marginTop: 8 }}>
+                  <div className={styles.actions}>
                     <Button
                       type="button"
                       variant="secondary"
                       onClick={async () => {
                         try {
-                          await navigator.clipboard.writeText(secret);
+                          await navigator.clipboard.writeText(backupCodes.join("\n"));
                         } catch {}
                       }}
                     >
-                      Copy secret
+                      Copy
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => {
+                        const blob = new Blob([backupCodes.join("\n")], { type: "text/plain" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = "backup-codes.txt";
+                        document.body.appendChild(a);
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        a.remove();
+                      }}
+                    >
+                      Download
                     </Button>
                   </div>
                 </div>
               )}
-            </div>
+            </section>
           )}
-          {!provisioningUri && (
-            <div style={{ display: "flex", justifyContent: "center", marginTop: 12 }}>
-              <Button type="button" variant="secondary" onClick={doResetup}>
-                Generate new QR
-              </Button>
-            </div>
-          )}
-          <div className="help-text" style={{ textAlign: "center" }}>
-            You can enter either the one time token from your authenticator or a backup code.
-          </div>
-          <input
-            value={code}
-            onChange={(event) => {
-              const cleaned = event.target.value.replace(/[^0-9A-Za-z-]/g, "").toUpperCase();
-              setCode(cleaned.slice(0, 14));
-            }}
-            placeholder="Enter One Time Code"
-            className="form-input"
-            style={{
-              width: 240,
-              margin: "8px auto 10px",
-              textAlign: "center",
-              fontSize: 24,
-              letterSpacing: 6,
-            }}
-            maxLength={14}
-          />
-          <div style={{ width: 192, margin: "0 auto" }}>
-            <Button
-              type="button"
-              variant="primary"
-              fullWidth
-              onClick={doSetupVerify}
-              disabled={code.replace(/-/g, "").length !== 6}
-            >
-              Verify
-            </Button>
-          </div>
-        </div>
-      )}
-      {status?.enabled && status.verified && (
-        <div className="form-footer">
-          <div className="actions">
-            <Button type="button" variant="primary" onClick={doResetup}>
-              Resetup OTP
-            </Button>
-          </div>
-        </div>
-      )}
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Sign-in Methods</h3>
-        <div className="help-text">
-          Sign-in methods prove your identity. Encryption unlock methods are managed separately
-          below.
-        </div>
-        <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-          <li
-            style={{
-              padding: "10px 0",
-              borderTop: "1px solid hsl(var(--border))",
-            }}
-          >
-            <div style={{ fontWeight: 600 }}>Password sign-in</div>
-            <div className="help-text">
-              {sessionData.email
-                ? `Enabled for ${sessionData.email}. Change the password from account navigation.`
-                : "Available when this account has a DarkAuth email identity."}
-            </div>
-            <div style={{ display: "flex", marginTop: 8 }}>
-              <a className="secondary-button" href="/change-password">
-                Manage password
-              </a>
-            </div>
-          </li>
-          <li
-            style={{
-              padding: "10px 0",
-              borderTop: "1px solid hsl(var(--border))",
-            }}
-          >
-            <div style={{ fontWeight: 600 }}>Enterprise SSO</div>
-            <div className="help-text">
-              {enterpriseSsoRoute
-                ? `${enterpriseSsoRoute.name} routes sign-ins for this email domain.`
-                : "No enterprise SSO route is advertised for your email domain."}
-            </div>
-          </li>
-          <li
-            style={{
-              padding: "10px 0",
-              borderTop: "1px solid hsl(var(--border))",
-            }}
-          >
-            <div style={{ fontWeight: 600 }}>Connected identities</div>
-            {connectedIdentityCount > 0 ? (
-              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0" }}>
-                {connectedIdentities.map((identity) => {
-                  const connectionName = identity.connectionName || identity.connection_name;
-                  const externalSubject = identity.externalSubject || identity.external_subject;
-                  const emailVerified = identity.emailVerified ?? identity.email_verified;
-                  return (
-                    <li key={identity.id} style={{ marginTop: 8 }}>
-                      <div className="help-text">
-                        {connectionName || identity.issuer || "Enterprise identity"}
-                        {identity.email ? ` · ${identity.email}` : ""}
-                        {emailVerified ? " · verified email" : ""}
-                      </div>
-                      {externalSubject && (
-                        <div className="help-text">Subject {externalSubject}</div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <div className="help-text">
-                Connected enterprise identities appear here after a successful SSO sign-in.
-              </div>
-            )}
-          </li>
-        </ul>
-      </div>
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Passkeys</h3>
-        <div className="help-text">
-          Passkeys can sign you in. Only passkeys with verified WebAuthn PRF support can also unlock
-          encrypted app keys.
-        </div>
-        <div className="help-text" style={{ marginTop: 8 }}>
-          {passkeyCompatibility?.webauthn
-            ? "This browser supports passkey sign-in."
-            : "This browser does not appear to support passkey sign-in."}{" "}
-          {passkeyCompatibility?.platformAuthenticator
-            ? "A platform authenticator is available."
-            : "Use a compatible security key or platform authenticator."}
-          {passkeyCompatibility?.conditionalMediation
-            ? " Conditional passkey prompts are available."
-            : ""}
-        </div>
-        <div className="help-text" style={{ marginTop: 8 }}>
-          PRF unlock support is confirmed during setup with the chosen authenticator. If PRF is
-          unavailable, use password unlock, a recovery key, or trusted-device approval.
-        </div>
-        {!unlockPolicy.allowPasskeyPrfEnvelope && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            Your organization allows passkey sign-in but disables passkey encryption unlock setup.
-          </div>
-        )}
-        <div className="help-text" style={{ marginTop: 12 }}>
-          Auth + unlock passkeys: {unlockPasskeys.length}. Auth-only passkeys:{" "}
-          {authOnlyPasskeys.length}. Auth-only passkeys are sign-in methods, not encryption unlock
-          methods.
-        </div>
-        {activePasskeys.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-            {activePasskeys.map((passkey) => (
-              <li
-                key={passkey.credential_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 0",
-                  borderTop: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>{passkey.label || "Passkey"}</div>
-                  <div className="help-text">
-                    {passkey.can_unlock ? "Sign-in and encryption unlock" : "Sign-in only"} · Last
-                    used {formatDate(passkey.last_used_at)} · Added {formatDate(passkey.created_at)}
-                  </div>
-                  {passkey.transports && passkey.transports.length > 0 && (
-                    <div className="help-text">{passkey.transports.join(", ")}</div>
-                  )}
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => revokePasskey(passkey.credential_id)}
-                  disabled={passkeyRevokeLoading === passkey.credential_id}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="help-text" style={{ marginTop: 12 }}>
-            No passkeys are registered for this account.
-          </div>
-        )}
-        {passkeyMessage && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            {passkeyMessage}
-          </div>
-        )}
-        <div style={{ display: "flex", marginTop: 12 }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={registerPasskey}
-            disabled={!passkeyCompatibility?.webauthn || passkeyActionLoading}
-          >
-            {passkeyActionLoading ? "Creating passkey..." : "Create passkey"}
-          </Button>
         </div>
       </div>
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Encryption Unlock Methods</h3>
-        <div className="help-text">
-          These records are encrypted key envelopes. Revoking one removes that unlock method without
-          changing sign-in methods.
-        </div>
-        <div className="help-text" style={{ marginTop: 8 }}>
-          Password envelopes: {passwordEnvelopeCount}. PRF passkey envelopes:{" "}
-          {unlockPasskeys.length}. Trusted devices: {activeTrustedDevices.length}. Recovery keys:{" "}
-          {activeRecoveryKeys.length || recoveryEnvelopes.length}.
-        </div>
-        {unlockPolicy.managed && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            Your organization manages allowed unlock methods. Password envelopes{" "}
-            {unlockPolicy.allowPasswordEnvelope ? "are allowed" : "are disabled"}, PRF passkey
-            envelopes {unlockPolicy.allowPasskeyPrfEnvelope ? "are allowed" : "are disabled"}, and
-            trusted-device approval{" "}
-            {unlockPolicy.allowTrustedDeviceApproval ? "is allowed" : "is disabled"}.
-          </div>
-        )}
-        {keybag && keybag.envelopes.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-            {keybag.envelopes.map((envelope) => (
-              <li
-                key={envelope.envelope_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 0",
-                  borderTop: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>{envelope.label || envelope.type}</div>
-                  <div className="help-text">
-                    {envelope.type} · {envelope.wrapping_alg}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => revokeEnvelope(envelope.envelope_id)}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="help-text" style={{ marginTop: 12 }}>
-            No key envelopes are registered for this account.
-          </div>
-        )}
-      </div>
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Recovery Key</h3>
-        <div className="help-text">
-          A recovery key can unlock encrypted app access after sign-in if other unlock methods are
-          unavailable.
-        </div>
-        <div className="help-text" style={{ marginTop: 8 }}>
-          {activeRecoveryKeys.length > 0 || recoveryEnvelopes.length > 0
-            ? "A recovery key is registered for this account."
-            : "No recovery key is registered for this account."}
-        </div>
-        {recoverySecret && (
-          <div style={{ marginTop: 12 }}>
-            <div className="help-text">Save this recovery key now. It will not be shown again.</div>
-            <div
-              style={{
-                wordBreak: "break-all",
-                background: "hsl(var(--muted))",
-                padding: 8,
-                borderRadius: 6,
-                fontFamily: "monospace",
-                marginTop: 8,
-              }}
-            >
-              {recoverySecret}
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(recoverySecret);
-                  } catch {}
-                }}
-              >
-                Copy
-              </Button>
-              <Button type="button" variant="secondary" onClick={() => setRecoverySecret(null)}>
-                Hide
-              </Button>
-            </div>
-          </div>
-        )}
-        {activeRecoveryKeys.length > 0 && (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-            {activeRecoveryKeys.map((recoveryKey) => (
-              <li
-                key={recoveryKey.recovery_key_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 0",
-                  borderTop: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>{recoveryKey.label || "Recovery key"}</div>
-                  <div className="help-text">
-                    Last used {formatDate(recoveryKey.last_used_at)} · Added{" "}
-                    {formatDate(recoveryKey.created_at)}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => revokeRecoveryKey(recoveryKey.recovery_key_id)}
-                  disabled={recoveryActionLoading === recoveryKey.recovery_key_id}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={createRecoveryKey}
-            disabled={recoveryActionLoading === "create"}
-          >
-            {activeRecoveryKeys.length > 0 ? "Rotate recovery key" : "Create recovery key"}
-          </Button>
-        </div>
-      </div>
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Trusted Devices</h3>
-        <div className="help-text">
-          Trusted devices can approve encrypted key access for a new browser without exposing keys
-          to the server.
-        </div>
-        <div className="help-text" style={{ marginTop: 8 }}>
-          This browser stores only a local key handle; DarkAuth stores the encrypted envelope.
-        </div>
-        {sessionData.keyState !== "unlocked" && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            Unlock encryption keys before trusting this browser.
-          </div>
-        )}
-        {!unlockPolicy.allowTrustedDeviceApproval && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            Your organization disabled trusted-device approval setup.
-          </div>
-        )}
-        <div style={{ display: "flex", marginTop: 12 }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={trustCurrentDevice}
-            disabled={
-              trustDeviceLoading ||
-              sessionData.keyState !== "unlocked" ||
-              !unlockPolicy.allowTrustedDeviceApproval
-            }
-          >
-            {trustDeviceLoading ? "Trusting browser..." : "Trust this browser"}
-          </Button>
-        </div>
-        {trustedDeviceMessage && (
-          <div className="help-text" style={{ marginTop: 8 }}>
-            {trustedDeviceMessage}
-          </div>
-        )}
-        {activeTrustedDevices.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-            {activeTrustedDevices.map((device) => (
-              <li
-                key={device.device_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 0",
-                  borderTop: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>{device.label || "Trusted device"}</div>
-                  <div className="help-text">
-                    Last used {formatDate(device.last_used_at)} · Added{" "}
-                    {formatDate(device.created_at)}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => revokeTrustedDevice(device.device_id)}
-                  disabled={deviceActionLoading === device.device_id}
-                >
-                  Revoke
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="help-text" style={{ marginTop: 12 }}>
-            No trusted devices are registered for this account.
-          </div>
-        )}
-      </div>
-      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Pending Device Approvals</h3>
-        <div className="help-text">
-          Approve only requests that show the same verification code on the new device.
-        </div>
-        <div style={{ display: "flex", marginTop: 12 }}>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={refreshDeviceApprovals}
-            disabled={!!deviceActionLoading}
-          >
-            Refresh approvals
-          </Button>
-        </div>
-        {pendingApprovals.length > 0 ? (
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
-            {pendingApprovals.map((approval) => (
-              <li
-                key={approval.request_id}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  alignItems: "center",
-                  padding: "10px 0",
-                  borderTop: "1px solid hsl(var(--border))",
-                }}
-              >
-                <div>
-                  <div style={{ fontWeight: 600 }}>
-                    {approval.client_id || "New device request"}
-                  </div>
-                  <div className="help-text">
-                    Code {approval.verification_code || "shown on the new device"} · Expires{" "}
-                    {formatDate(approval.expires_at)}
-                  </div>
-                </div>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <Button
-                    type="button"
-                    variant="success"
-                    onClick={() => approveApproval(approval)}
-                    disabled={deviceActionLoading === approval.request_id}
-                  >
-                    Approve
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => denyApproval(approval.request_id)}
-                    disabled={deviceActionLoading === approval.request_id}
-                  >
-                    Deny
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="help-text" style={{ marginTop: 12 }}>
-            No device approvals are waiting.
-          </div>
-        )}
-      </div>
-      {backupCodes && backupCodes.length > 0 && (
-        <div className="form-group">
-          <h3>Your Backup Codes</h3>
-          <div className="help-text">Store these codes securely. Each can be used once.</div>
-          <ul>
-            {backupCodes.map((c) => (
-              <li key={c} style={{ fontFamily: "monospace" }}>
-                {c}
-              </li>
-            ))}
-          </ul>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(backupCodes.join("\n"));
-                } catch {}
-              }}
-            >
-              Copy
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                const blob = new Blob([backupCodes.join("\n")], { type: "text/plain" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "backup-codes.txt";
-                document.body.appendChild(a);
-                a.click();
-                URL.revokeObjectURL(url);
-                a.remove();
-              }}
-            >
-              Download
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                const content = backupCodes.join("\n");
-                const w = window.open("", "_blank");
-                if (w) {
-                  w.document.write(
-                    `<pre>${content.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`
-                  );
-                  w.document.close();
-                  w.focus();
-                  w.print();
-                }
-              }}
-            >
-              Print
-            </Button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
