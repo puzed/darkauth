@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
+import { getPendingAuth } from "../../models/authorize.ts";
 import {
   approveDeviceApprovalRequest,
   consumeDeviceApprovalRequest,
@@ -10,6 +11,7 @@ import {
   createTrustedDevice,
   type DeviceApprovalStatus,
   denyDeviceApprovalRequest,
+  getDeviceApprovalRequestAad,
   listDeviceApprovalRequests,
   listTrustedDevices,
   revokeTrustedDevice,
@@ -17,7 +19,7 @@ import {
 import { getSessionId, requireSession, updateSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
-import { fromBase64Url, toBase64Url } from "../../utils/crypto.ts";
+import { fromBase64Url, sha256Base64Url, toBase64Url } from "../../utils/crypto.ts";
 import { parseJsonSafely, sendJson } from "../../utils/http.ts";
 
 const approvalStatuses = ["pending", "approved", "consumed", "denied"] as const;
@@ -34,6 +36,7 @@ const TrustedDeviceRequest = z.object({
 const ApprovalCreateRequest = z.object({
   new_device_public_jwk: z.record(z.string(), z.unknown()),
   new_device_label: z.string().trim().min(1).max(128).nullable().optional(),
+  authorization_request_id: z.string().trim().min(1).max(256).optional(),
   client_id: z.string().trim().min(1).max(256).optional(),
   state_hash: z.string().trim().min(1).max(256).optional(),
   verification_code_hash: z.string().trim().min(1).max(256).optional(),
@@ -43,6 +46,7 @@ const ApprovalCreateRequest = z.object({
 const ApprovalApproveRequest = z.object({
   approved_device_id: z.string().trim().min(1).max(256),
   encrypted_approval: z.string().refine(isValidBase64Url, "Invalid encrypted_approval"),
+  approval_proof: z.string().refine(isValidBase64Url, "Invalid approval_proof"),
   approval_aad: z.string().refine(isValidBase64Url, "Invalid approval_aad").optional(),
 });
 
@@ -112,6 +116,18 @@ export const postDeviceApprovalRequest = withRateLimit("key_management")(
     const session = await requireSession(context, request, false);
     if (!session.sub) throw new UnauthorizedError("User session required");
     const parsed = parseBody(ApprovalCreateRequest, await getCachedBody(request));
+    const pendingAuth = parsed.authorization_request_id
+      ? await getPendingAuth(context, parsed.authorization_request_id)
+      : null;
+    if (parsed.authorization_request_id && !pendingAuth) {
+      throw new ValidationError("authorization_request_id is invalid");
+    }
+    if (pendingAuth?.userSub && pendingAuth.userSub !== session.sub) {
+      throw new UnauthorizedError("Authorization request belongs to another user");
+    }
+    if (pendingAuth && pendingAuth.expiresAt < new Date()) {
+      throw new ValidationError("Authorization request has expired");
+    }
     const approval = await createDeviceApprovalRequest(context, {
       sub: session.sub,
       requesterSessionId: getSessionId(request, false),
@@ -119,8 +135,9 @@ export const postDeviceApprovalRequest = withRateLimit("key_management")(
       newDeviceLabel: parsed.new_device_label ?? null,
       metadata: {
         ...(parsed.metadata ?? {}),
-        client_id: parsed.client_id,
-        state_hash: parsed.state_hash,
+        authorization_request_id: parsed.authorization_request_id,
+        client_id: pendingAuth?.clientId ?? parsed.client_id,
+        state_hash: pendingAuth ? sha256Base64Url(pendingAuth.state || "") : parsed.state_hash,
         verification_code_hash: parsed.verification_code_hash,
       },
     });
@@ -163,6 +180,7 @@ export const postDeviceApprovalApprove = withRateLimit("key_management")(
       requestId,
       approvedByDeviceId: parsed.approved_device_id,
       encryptedApproval: decodeBase64Url(parsed.encrypted_approval, "encrypted_approval"),
+      approvalProof: decodeBase64Url(parsed.approval_proof, "approval_proof"),
       approvalAad: parsed.approval_aad
         ? decodeBase64Url(parsed.approval_aad, "approval_aad")
         : await resolveApprovalAad(context, sub, requestId),
@@ -187,6 +205,7 @@ export const postDeviceApprovalConsume = withRateLimit("key_management")(
       sub,
       requestId,
       newDeviceProof: parsed.new_device_proof,
+      requesterSessionId: getSessionId(request, false),
     });
     const sessionId = getSessionId(request, false);
     if (sessionId) await updateSession(context, sessionId, { ...session, keyState: "unlocked" });
@@ -331,17 +350,29 @@ function serializeDeviceApproval(
   },
   includePendingFields: boolean
 ) {
+  const metadata =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : {};
   return {
     request_id: row.requestId,
     sub: row.sub,
     requester_session_id: row.requesterSessionId,
     new_device_public_jwk: includePendingFields ? row.newDevicePublicJwk : undefined,
     new_device_label: row.newDeviceLabel,
+    client_id: typeof metadata.client_id === "string" ? metadata.client_id : null,
+    state_hash: typeof metadata.state_hash === "string" ? metadata.state_hash : null,
+    verification_code_hash:
+      typeof metadata.verification_code_hash === "string" ? metadata.verification_code_hash : null,
     verification_code: row.verificationCode,
     status: row.status,
     approved_by_device_id: row.approvedByDeviceId,
     encrypted_approval: row.encryptedApproval ? toBase64Url(row.encryptedApproval) : null,
-    approval_aad: row.approvalAad ? toBase64Url(row.approvalAad) : null,
+    approval_aad: row.approvalAad
+      ? toBase64Url(row.approvalAad)
+      : includePendingFields
+        ? toBase64Url(resolveApprovalAadFromRow(row))
+        : null,
     metadata: row.metadata,
     created_at: row.createdAt,
     expires_at: row.expiresAt,
@@ -349,6 +380,29 @@ function serializeDeviceApproval(
     consumed_at: row.consumedAt,
     denied_at: row.deniedAt,
   };
+}
+
+function resolveApprovalAadFromRow(row: {
+  sub: string;
+  requestId: string;
+  newDevicePublicJwk: unknown;
+  metadata: unknown;
+}) {
+  const metadata =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : {};
+  const publicKeyHash =
+    typeof metadata.new_device_public_jwk_hash === "string"
+      ? metadata.new_device_public_jwk_hash
+      : "";
+  const requestBindingHash =
+    typeof metadata.request_binding_hash === "string" ? metadata.request_binding_hash : "";
+  return Buffer.from(
+    ["DarkAuth", "device-approval", row.sub, row.requestId, publicKeyHash, requestBindingHash].join(
+      "|"
+    )
+  );
 }
 
 function decodeBase64Url(value: string, name: string): Buffer {
@@ -370,16 +424,5 @@ function isValidBase64Url(value: string): boolean {
 }
 
 async function resolveApprovalAad(context: Context, sub: string, requestId: string) {
-  const approval = await context.db.query.deviceApprovalRequests.findFirst({
-    where: (table, { and, eq }) => and(eq(table.requestId, requestId), eq(table.sub, sub)),
-  });
-  const metadata =
-    approval?.metadata && typeof approval.metadata === "object" && !Array.isArray(approval.metadata)
-      ? (approval.metadata as Record<string, unknown>)
-      : {};
-  const hash =
-    typeof metadata.new_device_public_jwk_hash === "string"
-      ? metadata.new_device_public_jwk_hash
-      : "";
-  return Buffer.from(`DarkAuth|device-approval|${sub}|${requestId}|${hash}`);
+  return await getDeviceApprovalRequestAad(context, { sub, requestId });
 }
