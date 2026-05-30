@@ -24,6 +24,10 @@ export interface AuthSession {
   idToken: string;
   accessToken?: string;
   drk: Uint8Array;
+  clientAppKey?: Uint8Array;
+  rootKey?: Uint8Array;
+  deliveredKeyKind?: "client_app_key" | "root_key";
+  keyDeliveryVersion?: "v1-drk" | "v2";
   refreshToken?: string;
 }
 
@@ -262,6 +266,10 @@ function storeSession(session: AuthSession): AuthSession {
     idToken: session.idToken,
     accessToken: session.accessToken,
     drk: session.drk,
+    clientAppKey: session.clientAppKey,
+    rootKey: session.rootKey,
+    deliveredKeyKind: session.deliveredKeyKind,
+    keyDeliveryVersion: session.keyDeliveryVersion,
     refreshToken: currentRefreshMode === "token" ? session.refreshToken : undefined,
   };
   memorySession = storedSession;
@@ -443,6 +451,10 @@ export async function handleCallback(): Promise<AuthSession | null> {
         ["deriveBits", "deriveKey"]
       );
       let drk: Uint8Array;
+      let clientAppKey: Uint8Array | undefined;
+      let rootKey: Uint8Array | undefined;
+      let deliveredKeyKind: AuthSession["deliveredKeyKind"];
+      let keyDeliveryVersion: AuthSession["keyDeliveryVersion"];
       if (hasV2Artifacts) {
         if (hasLegacyArtifacts) throw new Error("Mixed key delivery metadata");
         if (!darkauthKeyJwe || typeof darkauthKeyJwe !== "string")
@@ -485,6 +497,9 @@ export async function handleCallback(): Promise<AuthSession | null> {
         }
         drk = base64UrlToBytes(requireString(payload.cak, "client app key"));
         if (drk.length === 0) throw new Error("Invalid client app key");
+        clientAppKey = drk;
+        deliveredKeyKind = "client_app_key";
+        keyDeliveryVersion = "v2";
       } else {
         if (!drkJwe || typeof drkJwe !== "string")
           throw new Error("Missing DRK JWE from URL fragment");
@@ -496,9 +511,21 @@ export async function handleCallback(): Promise<AuthSession | null> {
         if (protectedHeader.alg !== "ECDH-ES" || protectedHeader.enc !== "A256GCM")
           throw new Error("Invalid DRK JWE header");
         drk = new Uint8Array(plaintext);
+        rootKey = drk;
+        deliveredKeyKind = "root_key";
+        keyDeliveryVersion = "v1-drk";
       }
       clearCallbackUrl();
-      return storeSession({ idToken, accessToken, drk, refreshToken });
+      return storeSession({
+        idToken,
+        accessToken,
+        drk,
+        clientAppKey,
+        rootKey,
+        deliveredKeyKind,
+        keyDeliveryVersion,
+        refreshToken,
+      });
     } finally {
       clearCallbackStorage();
     }
@@ -595,6 +622,10 @@ export async function refreshSession(): Promise<AuthSession | null> {
     idToken,
     accessToken,
     drk,
+    clientAppKey: memorySession?.clientAppKey,
+    rootKey: memorySession?.rootKey,
+    deliveredKeyKind: memorySession?.deliveredKeyKind,
+    keyDeliveryVersion: memorySession?.keyDeliveryVersion,
     refreshToken:
       currentRefreshMode === "token" ? newRefreshToken || refreshToken || undefined : undefined,
   });

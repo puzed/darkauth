@@ -158,6 +158,10 @@ test("zk callback keeps DRK and tokens memory-only by default", async () => {
 
   assert.ok(session);
   assert.deepEqual(Array.from(session.drk), Array.from(drk));
+  assert.deepEqual(Array.from(session.rootKey), Array.from(drk));
+  assert.equal(session.clientAppKey, undefined);
+  assert.equal(session.deliveredKeyKind, "root_key");
+  assert.equal(session.keyDeliveryVersion, "v1-drk");
   assert.equal(plaintext, "secret note");
   assert.equal(session.refreshToken, undefined);
   assert.equal(tokenBody.get("code_verifier"), verifier);
@@ -232,6 +236,10 @@ test("v2 zk callback verifies client key metadata and keeps key memory-only", as
 
   assert.ok(session);
   assert.deepEqual(Array.from(session.drk), Array.from(cak));
+  assert.deepEqual(Array.from(session.clientAppKey), Array.from(cak));
+  assert.equal(session.rootKey, undefined);
+  assert.equal(session.deliveredKeyKind, "client_app_key");
+  assert.equal(session.keyDeliveryVersion, "v2");
   assert.equal(tokenBody.get("code_verifier"), verifier);
   assert.equal(globalThis.localStorage.getItem("drk_protected"), null);
   assert.equal(globalThis.localStorage.getItem("id_token"), null);
@@ -294,12 +302,30 @@ test("v2 zk callback rejects invalid client key metadata without exposing the ke
   assert.equal(getStoredSession(), null);
 });
 
-test("v2 zk callback rejects wrong client, redirect, expiry, and hash", async () => {
+test("v2 zk callback rejects wrong state, redirect, client, subject, audience, expiry, and hash", async () => {
   const cases = [
+    {
+      name: "state",
+      mutate: async (payload) => ({
+        ...payload,
+        state_hash: await sha256Base64Url("wrong-state"),
+      }),
+      error: /Invalid client key state/,
+    },
     {
       name: "client",
       mutate: (payload) => ({ ...payload, client_id: "other-client", aud: "other-client" }),
       error: /Invalid client key client/,
+    },
+    {
+      name: "audience",
+      mutate: (payload) => ({ ...payload, aud: "other-client" }),
+      error: /Invalid client key audience/,
+    },
+    {
+      name: "subject",
+      mutate: (payload) => ({ ...payload, sub: "other-user" }),
+      error: /Invalid client key subject/,
     },
     {
       name: "redirect",
