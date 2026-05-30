@@ -32,7 +32,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
           setStep("setup");
           return;
         }
-        window.location.replace("/dashboard");
+        window.location.replace("/apps");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load OTP status");
       } finally {
@@ -74,7 +74,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
     try {
       setError(null);
       await api.otpVerify(code);
-      window.location.replace("/dashboard");
+      window.location.replace("/apps");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
     }
@@ -240,7 +240,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                   margin: fullWidth ? "16px 0 0" : "16px auto 0",
                 }}
               >
-                <Button onClick={() => window.location.replace("/dashboard")} fullWidth={true}>
+                <Button onClick={() => window.location.replace("/apps")} fullWidth={true}>
                   Continue
                 </Button>
               </div>

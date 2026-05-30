@@ -27,7 +27,7 @@ function getRedirectTarget(
     response.returnTo ||
     response.return_to ||
     getLocalReturnPath(returnTo) ||
-    "/dashboard"
+    "/apps"
   );
 }
 
@@ -115,7 +115,7 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
       <div className="authorize-card da-container">
         <div className="authorize-header">
           <div className="authorize-app">
-            <div className="authorize-app-icon">🏢</div>
+            <div className="authorize-app-icon">O</div>
             <div className="authorize-app-text">
               <h2 className="authorize-title da-auth-title">Switch organization</h2>
               <p className="authorize-description">
@@ -124,7 +124,9 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
             </div>
           </div>
           <div className="authorize-account">
-            <div className="authorize-avatar">👤</div>
+            <div className="authorize-avatar">
+              {(sessionData.name || sessionData.email || "A").slice(0, 1).toUpperCase()}
+            </div>
             <div className="authorize-account-text">
               <p className="authorize-account-label">Signed in as</p>
               <p className="authorize-account-name">{sessionData.name || sessionData.email}</p>
@@ -174,18 +176,13 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
           )}
         </div>
 
-        {error && (
-          <div className="error-message da-error-message">
-            <span className="error-icon">⚠️</span>
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message da-error-message">{error}</div>}
 
         <div className="actions da-authorize-actions">
           <Button
             type="button"
             variant="secondary"
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate("/apps")}
             disabled={submitting}
           >
             Cancel

@@ -21,6 +21,35 @@
   margin-bottom: 1.5rem;
 }
 
+.segmented {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem;
+  border: 1px solid var(--da-color-border, var(--gray-200));
+  border-radius: var(--radius-md);
+  background: var(--da-color-surface-raised, var(--gray-50));
+}
+
+.segment,
+.segmentActive {
+  min-height: 44px;
+  padding: 0.625rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--da-color-text-muted, var(--gray-600));
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.segmentActive {
+  background: var(--da-color-surface, white);
+  color: var(--da-color-text, var(--gray-900));
+  box-shadow: var(--shadow-xs);
+}
+
 .formLabel {
   display: block;
   margin-bottom: 0.5rem;
@@ -55,6 +84,17 @@
   cursor: not-allowed;
 }
 
+.formInput[data-mode="code"] {
+  font-size: 2rem;
+  letter-spacing: 0.45rem;
+  text-align: center;
+}
+
+.formInput[data-mode="backup"] {
+  font-size: 1.125rem;
+  text-align: center;
+}
+
 .errorText {
   display: flex;
   align-items: center;
@@ -66,7 +106,7 @@
 }
 
 .errorText::before {
-  content: "⚠";
+  content: "!";
   font-size: 1rem;
 }
 
@@ -93,7 +133,7 @@
 }
 
 .errorMessage::before {
-  content: "⚠";
+  content: "!";
   font-size: 1.25rem;
   color: var(--error-500);
   flex-shrink: 0;

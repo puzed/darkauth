@@ -128,7 +128,7 @@ test("Authorize consumes another-device approval with the requested public key p
 });
 
 test("Authorize uses distinct unlock methods instead of old-password recovery", () => {
-  assert.notEqual(source.indexOf("Unlock encryption keys"), -1);
+  assert.notEqual(source.indexOf("Unlock encrypted app access"), -1);
   assert.notEqual(source.indexOf("unlockMethod"), -1);
   assert.notEqual(source.indexOf("unlockWithRecoveryKey"), -1);
   assert.notEqual(source.indexOf("unlockWithTrustedDevice"), -1);
@@ -191,7 +191,7 @@ test("Authorize unlock-method picker exposes every expected visible browser flow
   }
 
   assert.notEqual(pickerBlock.indexOf('name="unlock_method"'), -1);
-  assert.notEqual(source.indexOf("Unlock encryption keys"), -1);
+  assert.notEqual(source.indexOf("Unlock encrypted app access"), -1);
   assert.notEqual(pickerBlock.indexOf("Paste your recovery key"), -1);
   assert.notEqual(
     pickerBlock.indexOf("Use a passkey that was registered with encryption unlock support."),

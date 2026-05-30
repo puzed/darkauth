@@ -1,0 +1,215 @@
+.page {
+  display: grid;
+  gap: var(--da-space-6);
+  width: 100%;
+  text-align: left;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--da-space-4);
+}
+
+.eyebrow {
+  margin: 0 0 var(--da-space-1);
+  color: var(--da-color-action);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.title {
+  margin: 0;
+  color: var(--da-color-text);
+  font-size: clamp(1.875rem, 6vw, 2.75rem);
+  font-weight: 850;
+  letter-spacing: 0;
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+}
+
+.description {
+  max-width: 58rem;
+  margin: var(--da-space-2) 0 0;
+  color: var(--da-color-text-muted);
+  font-size: 0.96875rem;
+  line-height: 1.55;
+}
+
+.section {
+  display: grid;
+  gap: var(--da-space-5);
+  min-width: 0;
+  padding: var(--da-space-5);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--da-space-4);
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--da-color-text);
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.sectionDescription {
+  margin: var(--da-space-1) 0 0;
+  color: var(--da-color-text-muted);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.list {
+  display: grid;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface);
+  overflow: hidden;
+}
+
+.listItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--da-space-4);
+  min-width: 0;
+  padding: var(--da-space-4);
+  border: 0;
+  border-bottom: 1px solid var(--da-color-border);
+  background: transparent;
+  color: var(--da-color-text);
+  text-align: left;
+}
+
+.listItem:last-child {
+  border-bottom: 0;
+}
+
+.listItemInteractive {
+  cursor: pointer;
+}
+
+.listItemInteractive:hover {
+  background: color-mix(in srgb, var(--da-color-action) 6%, transparent);
+}
+
+.itemCopy {
+  display: grid;
+  min-width: 0;
+  gap: var(--da-space-1);
+}
+
+.itemTitle {
+  color: var(--da-color-text);
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.itemDescription {
+  color: var(--da-color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--da-space-2);
+}
+
+.empty {
+  display: grid;
+  place-items: center;
+  gap: var(--da-space-2);
+  min-height: 10rem;
+  padding: var(--da-space-8) var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface);
+  color: var(--da-color-text-muted);
+  text-align: center;
+}
+
+.emptyTitle {
+  margin: 0;
+  color: var(--da-color-text);
+  font-size: 1.125rem;
+  font-weight: 800;
+}
+
+.emptyText {
+  margin: 0;
+  max-width: 30rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 1.625rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ready {
+  background: color-mix(in srgb, var(--da-color-success) 14%, transparent);
+  color: color-mix(in srgb, var(--da-color-success) 68%, black);
+}
+
+.action {
+  background: color-mix(in srgb, var(--da-color-warning) 14%, transparent);
+  color: color-mix(in srgb, var(--da-color-warning) 68%, black);
+}
+
+.neutral {
+  background: color-mix(in srgb, var(--da-color-text-muted) 12%, transparent);
+  color: var(--da-color-text-muted);
+}
+
+@media (max-width: 640px) {
+  .page {
+    gap: var(--da-space-5);
+  }
+
+  .header,
+  .sectionHeader,
+  .listItem {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .section {
+    padding: var(--da-space-4);
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+}
+
+[data-da-theme="dark"] .ready {
+  color: color-mix(in srgb, var(--da-color-success) 88%, white);
+}
+
+[data-da-theme="dark"] .action {
+  color: color-mix(in srgb, var(--da-color-warning) 88%, white);
+}

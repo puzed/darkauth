@@ -11,7 +11,7 @@ const unlockSource = readFileSync(resolve(here, "KeyUnlockPanel.tsx"), "utf8");
 const apiSource = readFileSync(resolve(here, "../services/api.ts"), "utf8");
 
 test("Settings security manages trusted devices and approval requests", () => {
-  assert.notEqual(source.indexOf("Trusted Devices"), -1);
+  assert.notEqual(source.indexOf("Trusted Browsers"), -1);
   assert.notEqual(source.indexOf("Pending Device Approvals"), -1);
   assert.notEqual(source.indexOf("deviceKeyStore.createKeyHandle"), -1);
   assert.notEqual(source.indexOf("cryptoService.wrapKeyMaterialWithAesKey"), -1);
@@ -32,13 +32,13 @@ test("Settings security approval encrypts the ARK to the requesting device", () 
 
 test("Settings security distinguishes passkey authentication from PRF unlock", () => {
   assert.notEqual(source.indexOf("Passkeys"), -1);
-  assert.notEqual(source.indexOf("verified WebAuthn PRF support"), -1);
-  assert.notEqual(source.indexOf("Auth + unlock passkeys"), -1);
-  assert.notEqual(source.indexOf("Auth-only passkeys"), -1);
+  assert.notEqual(source.indexOf("passkey unlock"), -1);
+  assert.notEqual(source.indexOf("Sign-in and encrypted access"), -1);
+  assert.notEqual(source.indexOf("Sign-in only"), -1);
   assert.notEqual(source.indexOf("api.getWebAuthnCredentials"), -1);
   assert.notEqual(source.indexOf("api.revokeWebAuthnCredential"), -1);
-  assert.notEqual(source.indexOf("Sign-in and encryption unlock"), -1);
-  assert.notEqual(source.indexOf("Sign-in only"), -1);
+  assert.notEqual(source.indexOf("Signs you in and unlocks encrypted apps"), -1);
+  assert.notEqual(source.indexOf("Signs you in only"), -1);
   assert.notEqual(source.indexOf("registerPasskey"), -1);
   assert.notEqual(source.indexOf("api.webAuthnRegisterStart"), -1);
   assert.notEqual(source.indexOf("api.createPasskeyPrfEnvelope"), -1);
@@ -87,15 +87,17 @@ test("trusted device actions use unlocked ARK instead of requiring export key", 
 });
 
 test("Settings security separates sign-in methods from encryption unlock methods", () => {
-  assert.notEqual(source.indexOf('type SecuritySection = "signin"'), -1);
+  assert.notEqual(source.indexOf('| "signin"'), -1);
+  assert.notEqual(source.indexOf("Security overview"), -1);
+  assert.notEqual(source.indexOf("recommendedAction"), -1);
   assert.notEqual(source.indexOf("Sign-in Methods"), -1);
   assert.notEqual(source.indexOf("Password sign-in"), -1);
   assert.notEqual(source.indexOf("Enterprise SSO"), -1);
   assert.notEqual(source.indexOf("Connected identities"), -1);
-  assert.notEqual(source.indexOf("Encryption Unlock Methods"), -1);
-  assert.notEqual(source.indexOf("Encryption unlock methods"), -1);
+  assert.notEqual(source.indexOf("Encrypted App Access"), -1);
+  assert.notEqual(source.indexOf("Advanced Key Records"), -1);
   assert.notEqual(source.indexOf("managed"), -1);
-  assert.notEqual(source.indexOf("separately"), -1);
+  assert.notEqual(source.indexOf("signed in while encrypted app access is still locked"), -1);
   assert.notEqual(source.indexOf('aria-label="Security settings sections"'), -1);
   assert.notEqual(source.indexOf('activeSection === "passkeys"'), -1);
   assert.notEqual(source.indexOf('activeSection === "devices"'), -1);

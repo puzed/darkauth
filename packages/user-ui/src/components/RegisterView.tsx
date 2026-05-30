@@ -1,7 +1,5 @@
-import { useBranding } from "../hooks/useBranding";
-import styles from "./LoginView.module.css";
+import AuthViewFrame from "./AuthViewFrame";
 import Register from "./Register";
-import ThemeToggle from "./ThemeToggle";
 
 type SessionData = {
   sub: string;
@@ -16,34 +14,12 @@ export default function RegisterView(props?: {
   onSwitchToLogin?: () => void;
   onRegister?: (session: SessionData) => void;
 }) {
-  const branding = useBranding();
-  const logoUrl = branding.getLogoUrl();
-  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
-
   return (
-    <div className={styles.app}>
-      <div className={styles.container}>
-        <div className={styles.authHeader}>
-          <div className={styles.headerTop}>
-            <div className={styles.brand}>
-              <span className={styles.brandIcon}>
-                <img
-                  src={logoUrl}
-                  alt={branding.getTitle()}
-                  className={isDefaultLogo ? styles.defaultLogo : ""}
-                />
-              </span>
-              <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>
-            </div>
-            <ThemeToggle />
-          </div>
-          <p className={styles.tagline}>{branding.getTagline()}</p>
-        </div>
-        <Register
-          onRegister={props?.onRegister || (() => {})}
-          onSwitchToLogin={props?.onSwitchToLogin || (() => {})}
-        />
-      </div>
-    </div>
+    <AuthViewFrame>
+      <Register
+        onRegister={props?.onRegister || (() => {})}
+        onSwitchToLogin={props?.onSwitchToLogin || (() => {})}
+      />
+    </AuthViewFrame>
   );
 }

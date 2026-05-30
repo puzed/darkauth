@@ -45,6 +45,19 @@
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
+  --da-space-1: 0.25rem;
+  --da-space-2: 0.5rem;
+  --da-space-3: 0.75rem;
+  --da-space-4: 1rem;
+  --da-space-5: 1.25rem;
+  --da-space-6: 1.5rem;
+  --da-space-8: 2rem;
+  --da-space-10: 2.5rem;
+  --da-page-max: 1120px;
+  --da-page-gutter: clamp(1rem, 4vw, 2rem);
+  --da-page-rail: min(calc(100% - (var(--da-page-gutter) * 2)), var(--da-page-max));
+  --da-surface-radius: 0.5rem;
+  --da-control-radius: 0.5rem;
 
   --font-sans:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell",
@@ -54,13 +67,27 @@
   --da-input-bg: #ffffff;
   --da-card-bg: #ffffff;
   --da-page-bg: #f3f4f6;
-
-  /* Calculate button text color based on primary color luminance */
-  /* For light mode purple (#6600cc), use white text */
+  --da-color-brand: var(--primary-500);
+  --da-color-action: var(--primary-600);
+  --da-color-action-text: #ffffff;
+  --da-color-page: #f3f4f6;
+  --da-color-surface: #ffffff;
+  --da-color-surface-raised: #f8fafc;
+  --da-color-surface-muted: #f1f5f9;
+  --da-color-text: #111827;
+  --da-color-text-secondary: #334155;
+  --da-color-text-muted: #475569;
+  --da-text: var(--da-color-text);
+  --da-text-secondary: var(--da-color-text-secondary);
+  --da-text-muted: var(--da-color-text-muted);
+  --da-color-border: #e2e8f0;
+  --da-color-success: #16a34a;
+  --da-color-warning: #d97706;
+  --da-color-danger: #dc2626;
+  --da-focus-ring: var(--primary-600);
   --primary-button-text: #ffffff;
 }
 
-/* Dark mode primary color overrides */
 [data-da-theme="dark"] {
   --primary-50: #2a3548;
   --primary-100: #3a4558;
@@ -72,8 +99,21 @@
   --primary-700: #cee1ff;
   --primary-800: #def1ff;
   --primary-900: #eeffff;
-
-  /* For dark mode light blue (#aec1e0), use dark text */
+  --da-color-brand: #aec1e0;
+  --da-color-action: #c5d3e8;
+  --da-color-action-text: #1f2937;
+  --da-color-page: #0f172a;
+  --da-color-surface: #111827;
+  --da-color-surface-raised: #1f2937;
+  --da-color-surface-muted: #172033;
+  --da-color-text: #f8fafc;
+  --da-color-text-secondary: #e2e8f0;
+  --da-color-text-muted: #cbd5e1;
+  --da-text: var(--da-color-text);
+  --da-text-secondary: var(--da-color-text-secondary);
+  --da-text-muted: var(--da-color-text-muted);
+  --da-color-border: #334155;
+  --da-focus-ring: #c5d3e8;
   --primary-button-text: #1f2937;
 }
 
@@ -96,8 +136,8 @@ body {
   font-family: var(--font-sans);
   font-size: 1rem;
   line-height: 1.5;
-  color: var(--gray-900);
-  background: var(--da-page-bg);
+  color: var(--da-color-text);
+  background: var(--da-color-page);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -240,7 +280,7 @@ body {
 }
 
 .error-text::before {
-  content: "⚠";
+  content: "!";
   font-size: 1rem;
 }
 
@@ -265,7 +305,7 @@ body {
 }
 
 .error-message::before {
-  content: "⚠";
+  content: "!";
   font-size: 1.25rem;
   color: var(--error-500);
   flex-shrink: 0;
@@ -596,12 +636,14 @@ body {
 .authorize-app-icon {
   width: 3rem;
   height: 3rem;
-  background: var(--da-primary-light, var(--primary-100));
+  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 12%, transparent);
+  color: var(--da-color-action, var(--da-primary));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.5rem;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 
 .authorize-title {
@@ -634,11 +676,13 @@ body {
 .authorize-avatar {
   width: 2.25rem;
   height: 2.25rem;
-  background: var(--da-primary-light, var(--gray-100));
-  border-radius: 999px;
+  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 12%, transparent);
+  color: var(--da-color-action, var(--da-primary));
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
+  font-weight: 800;
 }
 
 .authorize-account-text {
@@ -707,13 +751,15 @@ body {
 .authorize-scope-icon {
   width: 2rem;
   height: 2rem;
-  background: var(--da-primary-light, var(--primary-100));
+  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 10%, transparent);
+  color: var(--da-color-action, var(--da-primary));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 1.1rem;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .authorize-scope-text {
@@ -765,6 +811,20 @@ body {
   color: var(--da-text-secondary, var(--gray-600));
   font-size: 0.95rem;
   line-height: 1.5;
+}
+
+.authorize-code {
+  margin: 0.75rem 0;
+  padding: 0.875rem;
+  border: 1px solid var(--da-color-border, var(--da-border));
+  border-radius: var(--radius-md);
+  background: var(--da-color-surface, var(--da-card-bg));
+  color: var(--da-color-text, var(--da-text));
+  font-family: var(--font-mono);
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.35rem;
+  text-align: center;
 }
 
 .authorize-recovery .actions {

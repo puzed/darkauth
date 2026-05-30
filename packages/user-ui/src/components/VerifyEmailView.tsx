@@ -12,6 +12,7 @@ export default function VerifyEmailView() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("Verifying your email...");
   const [success, setSuccess] = useState(false);
+  const [nextPath, setNextPath] = useState("/login");
 
   const logoUrl = branding.getLogoUrl();
   const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
@@ -28,9 +29,14 @@ export default function VerifyEmailView() {
 
     apiService
       .verifyEmailToken(token)
-      .then(() => {
+      .then((result) => {
         setSuccess(true);
-        setMessage("Your email is verified. You can now sign in.");
+        setMessage(
+          result.purpose === "email_change_verify"
+            ? "Your email address was changed. Your account details will refresh the next time you open the portal."
+            : "Your email is verified. You can now sign in."
+        );
+        setNextPath(result.purpose === "email_change_verify" ? "/profile" : "/login");
       })
       .catch((error) => {
         setSuccess(false);
@@ -76,9 +82,9 @@ export default function VerifyEmailView() {
               type="button"
               variant={success ? "primary" : "secondary"}
               fullWidth
-              onClick={() => navigate("/login")}
+              onClick={() => navigate(nextPath)}
             >
-              {success ? "Continue to sign in" : "Back to sign in"}
+              {success ? "Continue" : "Back to sign in"}
             </Button>
           ) : (
             <div style={{ display: "flex", justifyContent: "center", padding: "1rem" }}>

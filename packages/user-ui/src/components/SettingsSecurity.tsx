@@ -1,3 +1,14 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Fingerprint,
+  KeyRound,
+  Laptop,
+  LifeBuoy,
+  ListChecks,
+  LockKeyhole,
+  ShieldCheck,
+  SlidersHorizontal,
+} from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, {
@@ -21,9 +32,18 @@ import {
 } from "../services/webauthn";
 import Button from "./Button";
 import { loadArkFromAvailableLocalUnlocks } from "./KeyUnlockPanel";
+import { cx, StatusPill } from "./Portal";
 import styles from "./SettingsSecurity.module.css";
 
-type SecuritySection = "signin" | "passkeys" | "unlock" | "devices" | "recovery" | "mfa";
+type SecuritySection =
+  | "overview"
+  | "signin"
+  | "passkeys"
+  | "unlock"
+  | "devices"
+  | "recovery"
+  | "mfa"
+  | "advanced";
 
 export default function SettingsSecurity({
   sessionData,
@@ -56,6 +76,7 @@ export default function SettingsSecurity({
   const [trustedDeviceMessage, setTrustedDeviceMessage] = useState<string | null>(null);
   const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKeyResponse[]>([]);
   const [recoverySecret, setRecoverySecret] = useState<string | null>(null);
+  const [recoverySecretSaved, setRecoverySecretSaved] = useState(false);
   const [recoveryActionLoading, setRecoveryActionLoading] = useState<string | null>(null);
   const [passkeyActionLoading, setPasskeyActionLoading] = useState(false);
   const [passkeyRevokeLoading, setPasskeyRevokeLoading] = useState<string | null>(null);
@@ -73,7 +94,7 @@ export default function SettingsSecurity({
   } | null>(null);
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showManual, setShowManual] = useState(false);
-  const [activeSection, setActiveSection] = useState<SecuritySection>("signin");
+  const [activeSection, setActiveSection] = useState<SecuritySection>("overview");
 
   const reload = useCallback(async () => {
     try {
@@ -346,6 +367,7 @@ export default function SettingsSecurity({
     try {
       setRecoveryActionLoading("create");
       setRecoverySecret(null);
+      setRecoverySecretSaved(false);
       setError(null);
       ark = await getUnlockedArk();
       if (!ark) {
@@ -602,49 +624,99 @@ export default function SettingsSecurity({
     return date.toLocaleString();
   };
 
-  const tabs: Array<{
+  const securityRows: Array<{
     id: SecuritySection;
     label: string;
     detail: string;
+    state: string;
+    tone: "ready" | "action" | "neutral";
     count?: number;
+    Icon: LucideIcon;
   }> = [
     {
       id: "signin",
       label: "Sign-in",
       detail: "Password, SSO, and connected identities",
+      state: connectedIdentityCount || enterpriseSsoRoute ? "Configured" : "Password",
+      tone: "ready",
       count: 1 + connectedIdentityCount + (enterpriseSsoRoute ? 1 : 0),
+      Icon: LockKeyhole,
     },
     {
       id: "passkeys",
       label: "Passkeys",
-      detail: "Sign-in and PRF unlock credentials",
+      detail: "Sign in faster and optionally unlock encrypted apps",
+      state: activePasskeys.length ? `${activePasskeys.length} active` : "Not set",
+      tone: activePasskeys.length ? "ready" : "action",
       count: activePasskeys.length,
+      Icon: Fingerprint,
     },
     {
       id: "unlock",
-      label: "Unlock",
-      detail: "Encrypted key envelopes",
-      count: activeEnvelopes.length,
+      label: "Encrypted app access",
+      detail: "Control how this browser unlocks zero-knowledge app keys",
+      state: sessionData.keyState === "unlocked" ? "Ready" : "Locked",
+      tone: sessionData.keyState === "unlocked" ? "ready" : "action",
+      count:
+        passwordEnvelopeCount +
+        unlockPasskeys.length +
+        activeTrustedDevices.length +
+        activeRecoveryKeys.length,
+      Icon: KeyRound,
     },
     {
       id: "devices",
-      label: "Devices",
-      detail: "Trusted browsers and approvals",
+      label: "Trusted browsers",
+      detail: "Approve encrypted access on a new browser",
+      state: activeTrustedDevices.length ? `${activeTrustedDevices.length} trusted` : "Not set",
+      tone: activeTrustedDevices.length ? "ready" : "action",
       count: activeTrustedDevices.length + pendingApprovals.length,
+      Icon: Laptop,
     },
     {
       id: "recovery",
       label: "Recovery",
-      detail: "Offline recovery access",
+      detail: "Recover encrypted access when other methods are unavailable",
+      state: activeRecoveryKeys.length || recoveryEnvelopes.length ? "Ready" : "Not set",
+      tone: activeRecoveryKeys.length || recoveryEnvelopes.length ? "ready" : "action",
       count: activeRecoveryKeys.length || recoveryEnvelopes.length,
+      Icon: LifeBuoy,
     },
     {
       id: "mfa",
-      label: "2FA",
+      label: "Two-factor",
       detail: "Authenticator app codes",
+      state: status?.enabled ? "Enabled" : "Optional",
+      tone: status?.enabled ? "ready" : "neutral",
       count: status?.enabled ? 1 : 0,
+      Icon: ShieldCheck,
+    },
+    {
+      id: "advanced",
+      label: "Advanced key records",
+      detail: "Raw encrypted access records for troubleshooting",
+      state: `${activeEnvelopes.length} records`,
+      tone: "neutral",
+      count: activeEnvelopes.length,
+      Icon: SlidersHorizontal,
     },
   ];
+  const recommendedAction = !activeRecoveryKeys.length
+    ? "Create a recovery key"
+    : activePasskeys.length === 0
+      ? "Add a passkey"
+      : activeTrustedDevices.length === 0 && unlockPolicy.allowTrustedDeviceApproval
+        ? "Trust this browser"
+        : null;
+  const activeRow =
+    activeSection === "overview"
+      ? {
+          label: "Overview",
+          detail: "Recommended actions and security status",
+          state: recommendedAction ? "Action needed" : "Ready",
+          tone: recommendedAction ? ("action" as const) : ("ready" as const),
+        }
+      : securityRows.find((row) => row.id === activeSection);
 
   if (loading)
     return (
@@ -657,43 +729,116 @@ export default function SettingsSecurity({
   return (
     <div className={styles.settings}>
       {error && <div className="error-message">{error}</div>}
-      <div className={styles.overview}>
-        <div className={styles.metric}>
-          <span>Key state</span>
-          <strong>{sessionData.keyState === "unlocked" ? "Unlocked" : "Locked"}</strong>
-        </div>
-        <div className={styles.metric}>
-          <span>Passkeys</span>
-          <strong>{activePasskeys.length}</strong>
-        </div>
-        <div className={styles.metric}>
-          <span>Trusted devices</span>
-          <strong>{activeTrustedDevices.length}</strong>
-        </div>
-        <div className={styles.metric}>
-          <span>Recovery</span>
-          <strong>
-            {activeRecoveryKeys.length || recoveryEnvelopes.length ? "Ready" : "Not set"}
-          </strong>
-        </div>
-      </div>
       <div className={styles.layout}>
-        <nav className={styles.tabs} aria-label="Security settings sections">
-          {tabs.map((tab) => (
+        <nav className={styles.menu} aria-label="Security settings sections">
+          <button
+            type="button"
+            className={cx(styles.menuItem, activeSection === "overview" && styles.menuItemActive)}
+            onClick={() => setActiveSection("overview")}
+            aria-pressed={activeSection === "overview"}
+          >
+            <span className={styles.menuIcon} aria-hidden="true">
+              <ListChecks size={18} />
+            </span>
+            <span className={styles.menuCopy}>
+              <span>Overview</span>
+              <small>Recommended actions and security status</small>
+            </span>
+            <StatusPill tone={recommendedAction ? "action" : "ready"}>
+              {recommendedAction ? "Action" : "Ready"}
+            </StatusPill>
+          </button>
+          {securityRows.map((tab) => (
             <button
               key={tab.id}
               type="button"
-              className={activeSection === tab.id ? styles.activeTab : styles.tab}
+              className={cx(styles.menuItem, activeSection === tab.id && styles.menuItemActive)}
               onClick={() => setActiveSection(tab.id)}
               aria-pressed={activeSection === tab.id}
             >
-              <span>{tab.label}</span>
-              <small>{tab.detail}</small>
-              {typeof tab.count === "number" && <b>{tab.count}</b>}
+              <span className={styles.menuIcon} aria-hidden="true">
+                <tab.Icon size={18} />
+              </span>
+              <span className={styles.menuCopy}>
+                <span>{tab.label}</span>
+                <small>{tab.detail}</small>
+              </span>
+              <StatusPill tone={tab.tone}>{tab.state}</StatusPill>
             </button>
           ))}
         </nav>
         <div className={styles.panel}>
+          {activeRow ? (
+            <div className={styles.panelHeader}>
+              <div>
+                <p className={styles.panelKicker}>Security settings</p>
+                <h3>
+                  {activeSection === "overview" ? activeRow.label : `${activeRow.label} settings`}
+                </h3>
+                <p>{activeRow.detail}</p>
+              </div>
+              <StatusPill tone={activeRow.tone}>{activeRow.state}</StatusPill>
+            </div>
+          ) : null}
+          {activeSection === "overview" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Security overview</h3>
+                  <p>
+                    Review the ways you sign in, unlock encrypted app access, and recover this
+                    account.
+                  </p>
+                </div>
+              </div>
+              {recommendedAction && (
+                <div className={styles.recommendation}>
+                  <div>
+                    <strong>{recommendedAction}</strong>
+                    <p>
+                      {recommendedAction === "Create a recovery key"
+                        ? "A recovery key protects encrypted app access if you lose your password, passkey, or trusted browser."
+                        : recommendedAction === "Add a passkey"
+                          ? "Passkeys make sign-in easier and may also unlock encrypted app access on supported devices."
+                          : "Trusted browsers can approve encrypted access when you sign in somewhere new."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className={styles.actionButton}
+                    onClick={() =>
+                      setActiveSection(
+                        recommendedAction === "Create a recovery key"
+                          ? "recovery"
+                          : recommendedAction === "Add a passkey"
+                            ? "passkeys"
+                            : "devices"
+                      )
+                    }
+                  >
+                    Start
+                  </Button>
+                </div>
+              )}
+              <div className={styles.statusList}>
+                {securityRows.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    className={styles.statusRow}
+                    onClick={() => setActiveSection(row.id)}
+                  >
+                    <span className={styles.statusText}>
+                      <strong>{row.label}</strong>
+                      <small>{row.detail}</small>
+                    </span>
+                    <StatusPill tone={row.tone}>{row.state}</StatusPill>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
           {activeSection === "signin" && (
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
@@ -715,7 +860,7 @@ export default function SettingsSecurity({
                         : "Available when this account has a DarkAuth email identity."}
                     </p>
                   </div>
-                  <a className={styles.linkButton} href="/change-password">
+                  <a className={styles.linkButton} href="/security/password">
                     Manage password
                   </a>
                 </article>
@@ -766,13 +911,14 @@ export default function SettingsSecurity({
                 <div>
                   <h3>Passkeys</h3>
                   <p>
-                    Passkeys can sign you in. Only passkeys with verified WebAuthn PRF support can
-                    also unlock encrypted app keys.
+                    Add a passkey for faster sign-in. If your browser and authenticator support
+                    passkey unlock, DarkAuth will also use it for encrypted app access.
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="primary"
+                  className={styles.actionButton}
                   onClick={registerPasskey}
                   disabled={!passkeyCompatibility?.webauthn || passkeyActionLoading}
                 >
@@ -780,8 +926,8 @@ export default function SettingsSecurity({
                 </Button>
               </div>
               <div className={styles.inlineStats}>
-                <span>Auth + unlock passkeys: {unlockPasskeys.length}</span>
-                <span>Auth-only passkeys: {authOnlyPasskeys.length}</span>
+                <span>Sign-in and encrypted access: {unlockPasskeys.length}</span>
+                <span>Sign-in only: {authOnlyPasskeys.length}</span>
               </div>
               <details className={styles.details}>
                 <summary>Compatibility details</summary>
@@ -815,8 +961,10 @@ export default function SettingsSecurity({
                       <div>
                         <h4>{passkey.label || "Passkey"}</h4>
                         <p>
-                          {passkey.can_unlock ? "Sign-in and encryption unlock" : "Sign-in only"} ·
-                          Last used {formatDate(passkey.last_used_at)} · Added{" "}
+                          {passkey.can_unlock
+                            ? "Signs you in and unlocks encrypted apps"
+                            : "Signs you in only"}{" "}
+                          · Last used {formatDate(passkey.last_used_at)} · Added{" "}
                           {formatDate(passkey.created_at)}
                         </p>
                         {passkey.transports && passkey.transports.length > 0 && (
@@ -826,7 +974,11 @@ export default function SettingsSecurity({
                       <Button
                         type="button"
                         variant="secondary"
-                        onClick={() => revokePasskey(passkey.credential_id)}
+                        onClick={() => {
+                          if (window.confirm("Remove this passkey from your account?")) {
+                            void revokePasskey(passkey.credential_id);
+                          }
+                        }}
                         disabled={passkeyRevokeLoading === passkey.credential_id}
                       >
                         Revoke
@@ -843,14 +995,17 @@ export default function SettingsSecurity({
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div>
-                  <h3>Encryption Unlock Methods</h3>
-                  <p>These records unlock encrypted app access without changing sign-in methods.</p>
+                  <h3>Encrypted App Access</h3>
+                  <p>
+                    You can be signed in while encrypted app access is still locked. Add more than
+                    one unlock method so zero-knowledge apps stay reachable.
+                  </p>
                 </div>
               </div>
               <div className={styles.inlineStats}>
-                <span>Password envelopes: {passwordEnvelopeCount}</span>
-                <span>PRF passkey envelopes: {unlockPasskeys.length}</span>
-                <span>Trusted devices: {activeTrustedDevices.length}</span>
+                <span>Password unlock: {passwordEnvelopeCount ? "Ready" : "Not set"}</span>
+                <span>Passkey unlock: {unlockPasskeys.length}</span>
+                <span>Trusted browsers: {activeTrustedDevices.length}</span>
                 <span>Recovery keys: {activeRecoveryKeys.length || recoveryEnvelopes.length}</span>
               </div>
               {unlockPolicy.managed && (
@@ -866,31 +1021,57 @@ export default function SettingsSecurity({
                   </p>
                 </details>
               )}
-              {activeEnvelopes.length > 0 ? (
-                <div className={styles.itemList}>
-                  {activeEnvelopes.map((envelope) => (
-                    <article className={styles.item} key={envelope.envelope_id}>
-                      <div>
-                        <h4>{envelope.label || envelope.type}</h4>
-                        <p>
-                          {envelope.type} · {envelope.wrapping_alg}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => revokeEnvelope(envelope.envelope_id)}
-                      >
-                        Revoke
-                      </Button>
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.empty}>
-                  No key envelopes are registered for this account.
-                </div>
-              )}
+              <div className={styles.itemList}>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Password unlock</h4>
+                    <p>
+                      {passwordEnvelopeCount
+                        ? "Your password can unlock encrypted app access."
+                        : "No password unlock record is available."}
+                    </p>
+                  </div>
+                  <a className={styles.linkButton} href="/security/password">
+                    Manage password
+                  </a>
+                </article>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Passkey unlock</h4>
+                    <p>
+                      {unlockPasskeys.length
+                        ? `${unlockPasskeys.length} passkey can unlock encrypted apps.`
+                        : "Add a compatible passkey to unlock encrypted apps without typing a password."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className={styles.actionButton}
+                    onClick={() => setActiveSection("passkeys")}
+                  >
+                    Manage passkeys
+                  </Button>
+                </article>
+                <article className={styles.item}>
+                  <div>
+                    <h4>Trusted browsers</h4>
+                    <p>
+                      {activeTrustedDevices.length
+                        ? `${activeTrustedDevices.length} browser can approve new encrypted access requests.`
+                        : "Trust this browser after unlocking encrypted access."}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className={styles.actionButton}
+                    onClick={() => setActiveSection("devices")}
+                  >
+                    Manage browsers
+                  </Button>
+                </article>
+              </div>
             </section>
           )}
           {activeSection === "recovery" && (
@@ -899,13 +1080,14 @@ export default function SettingsSecurity({
                 <div>
                   <h3>Recovery Key</h3>
                   <p>
-                    A recovery key can unlock encrypted app access if other unlock methods are
-                    unavailable.
+                    Create a recovery key, save it somewhere safe, then confirm it is saved before
+                    leaving this screen.
                   </p>
                 </div>
                 <Button
                   type="button"
                   variant="primary"
+                  className={styles.actionButton}
                   onClick={createRecoveryKey}
                   disabled={recoveryActionLoading === "create"}
                 >
@@ -921,6 +1103,14 @@ export default function SettingsSecurity({
                 <div className={styles.secretBox}>
                   <p>Save this recovery key now. It will not be shown again.</p>
                   <code>{recoverySecret}</code>
+                  <label className={styles.confirmSaved}>
+                    <input
+                      type="checkbox"
+                      checked={recoverySecretSaved}
+                      onChange={(event) => setRecoverySecretSaved(event.target.checked)}
+                    />
+                    <span>I saved this recovery key somewhere safe.</span>
+                  </label>
                   <div className={styles.actions}>
                     <Button
                       type="button"
@@ -936,9 +1126,10 @@ export default function SettingsSecurity({
                     <Button
                       type="button"
                       variant="secondary"
+                      disabled={!recoverySecretSaved}
                       onClick={() => setRecoverySecret(null)}
                     >
-                      Hide
+                      Done
                     </Button>
                   </div>
                 </div>
@@ -957,7 +1148,11 @@ export default function SettingsSecurity({
                       <Button
                         type="button"
                         variant="secondary"
-                        onClick={() => revokeRecoveryKey(recoveryKey.recovery_key_id)}
+                        onClick={() => {
+                          if (window.confirm("Revoke this recovery key? It will stop working.")) {
+                            void revokeRecoveryKey(recoveryKey.recovery_key_id);
+                          }
+                        }}
                         disabled={recoveryActionLoading === recoveryKey.recovery_key_id}
                       >
                         Revoke
@@ -972,12 +1167,13 @@ export default function SettingsSecurity({
             <section className={styles.section}>
               <div className={styles.sectionHeader}>
                 <div>
-                  <h3>Trusted Devices</h3>
-                  <p>Trusted devices can approve encrypted key access for a new browser.</p>
+                  <h3>Trusted Browsers</h3>
+                  <p>Trusted browsers can approve encrypted app access for a new browser.</p>
                 </div>
                 <Button
                   type="button"
                   variant="primary"
+                  className={styles.actionButton}
                   onClick={trustCurrentDevice}
                   disabled={
                     trustDeviceLoading ||
@@ -991,6 +1187,11 @@ export default function SettingsSecurity({
               {sessionData.keyState !== "unlocked" && (
                 <div className={styles.notice}>
                   Unlock encryption keys before trusting this browser.
+                </div>
+              )}
+              {sessionData.keyState === "unlocked" && (
+                <div className={styles.notice}>
+                  This browser is ready to become trusted for future encrypted access approvals.
                 </div>
               )}
               {!unlockPolicy.allowTrustedDeviceApproval && (
@@ -1023,7 +1224,7 @@ export default function SettingsSecurity({
                 </div>
               ) : (
                 <div className={styles.empty}>
-                  No trusted devices are registered for this account.
+                  No trusted browsers are registered for this account.
                 </div>
               )}
               <div className={styles.divider} />
@@ -1037,6 +1238,7 @@ export default function SettingsSecurity({
                 <Button
                   type="button"
                   variant="secondary"
+                  className={styles.actionButton}
                   onClick={refreshDeviceApprovals}
                   disabled={!!deviceActionLoading}
                 >
@@ -1085,11 +1287,11 @@ export default function SettingsSecurity({
               <div className={styles.sectionHeader}>
                 <div>
                   <h3>Two-Factor Authentication</h3>
-                  <p>Use an authenticator app or backup codes for account sign-in protection.</p>
+                  <p>Use an authenticator app and backup codes for account sign-in protection.</p>
                 </div>
                 {status?.enabled && status.verified && (
                   <Button type="button" variant="secondary" onClick={doResetup}>
-                    Resetup OTP
+                    Replace authenticator app
                   </Button>
                 )}
               </div>
@@ -1191,6 +1393,44 @@ export default function SettingsSecurity({
                       Download
                     </Button>
                   </div>
+                </div>
+              )}
+            </section>
+          )}
+          {activeSection === "advanced" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Advanced Key Records</h3>
+                  <p>
+                    These encrypted records are used to unlock zero-knowledge app access. Most
+                    people never need to manage them directly.
+                  </p>
+                </div>
+              </div>
+              {activeEnvelopes.length > 0 ? (
+                <div className={styles.itemList}>
+                  {activeEnvelopes.map((envelope) => (
+                    <article className={styles.item} key={envelope.envelope_id}>
+                      <div>
+                        <h4>{envelope.label || envelope.type}</h4>
+                        <p>
+                          {envelope.type} · {envelope.wrapping_alg}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => revokeEnvelope(envelope.envelope_id)}
+                      >
+                        Revoke
+                      </Button>
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>
+                  No advanced key records are registered for this account.
                 </div>
               )}
             </section>
