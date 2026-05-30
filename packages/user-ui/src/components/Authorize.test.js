@@ -152,3 +152,105 @@ test("multi-organization authorize keeps the organization picker visible", () =>
     "activeOrganizations.length === 1 || selectedOrganizationLocked"
   );
 });
+
+test("Authorize filters unlock choices through enterprise policy", () => {
+  assert.notEqual(source.indexOf("getUnlockPolicy"), -1);
+  assert.notEqual(source.indexOf("isUnlockMethodAllowed(unlockPolicy"), -1);
+  assert.notEqual(source.indexOf("unlockOptions.map"), -1);
+  assert.notEqual(source.indexOf("clientKeyScope"), -1);
+  assert.notEqual(source.indexOf("Password encryption unlock is disabled"), -1);
+  assert.notEqual(source.indexOf("Passkey encryption unlock is disabled"), -1);
+  assert.notEqual(source.indexOf("Trusted-device approval is disabled"), -1);
+  assert.notEqual(source.indexOf("Your organization manages which encryption unlock methods"), -1);
+});
+
+test("Authorize unlock-method picker exposes every expected visible browser flow", () => {
+  const optionsStart = source.indexOf(
+    "const allUnlockOptions: Array<{ value: UnlockMethod; label: string }> = ["
+  );
+  const optionsEnd = source.indexOf("];", optionsStart);
+  const pickerStart = source.indexOf('<div className="authorize-unlock-methods">');
+  const pickerEnd = source.indexOf('<div className="actions da-authorize-actions">', pickerStart);
+
+  assert.notEqual(optionsStart, -1);
+  assert.notEqual(optionsEnd, -1);
+  assert.notEqual(pickerStart, -1);
+  assert.notEqual(pickerEnd, -1);
+
+  const optionsBlock = source.slice(optionsStart, optionsEnd);
+  const pickerBlock = source.slice(pickerStart, pickerEnd);
+
+  for (const expected of [
+    '{ value: "password", label: "Password" }',
+    '{ value: "passkey", label: "PRF passkey" }',
+    '{ value: "trusted_device", label: "This trusted browser" }',
+    '{ value: "recovery", label: "Recovery key" }',
+    '{ value: "new_key", label: "Create new keys" }',
+  ]) {
+    assert.notEqual(optionsBlock.indexOf(expected), -1);
+  }
+
+  assert.notEqual(pickerBlock.indexOf('name="unlock_method"'), -1);
+  assert.notEqual(source.indexOf("Unlock encryption keys"), -1);
+  assert.notEqual(pickerBlock.indexOf("Paste your recovery key"), -1);
+  assert.notEqual(
+    pickerBlock.indexOf("Use a passkey that was registered with encryption unlock support."),
+    -1
+  );
+  assert.notEqual(
+    pickerBlock.indexOf("Use the key stored in this browser when it was marked as trusted."),
+    -1
+  );
+  assert.notEqual(pickerBlock.indexOf("This creates a new account root key."), -1);
+  assert.notEqual(source.indexOf("Choose another method"), -1);
+  assert.notEqual(source.indexOf("Accept on another device"), -1);
+});
+
+test("Authorize unlock flows unwrap locally before finalizing ZK authorization", () => {
+  const recoveryStart = source.indexOf("const unlockWithRecoveryKey = async () => {");
+  const trustedStart = source.indexOf("const unlockWithTrustedDevice = async () => {");
+  const passkeyStart = source.indexOf("const unlockWithPasskey = async () => {");
+  const passwordStart = source.indexOf("const unlockWithCurrentPassword = async () => {");
+
+  assert.notEqual(recoveryStart, -1);
+  assert.notEqual(trustedStart, -1);
+  assert.notEqual(passkeyStart, -1);
+  assert.notEqual(passwordStart, -1);
+
+  const recoveryBlock = source.slice(recoveryStart, trustedStart);
+  const trustedBlock = source.slice(trustedStart, passkeyStart);
+  const passkeyBlock = source.slice(passkeyStart, passwordStart);
+
+  for (const expected of [
+    "apiService.getRecoveryKeys()",
+    "cryptoService.deriveRecoveryVerifier(secretBytes)",
+    "apiService.recordRecoveryKeyUse",
+    "cryptoService.deriveRecoveryKeyMaterial(secretBytes, sessionData.sub)",
+    "cryptoService.unwrapKeyMaterial(",
+    "await finishUnlockWithArk(ark);",
+  ]) {
+    assert.notEqual(recoveryBlock.indexOf(expected), -1);
+  }
+
+  for (const expected of [
+    "apiService.getKeybag()",
+    "deviceKeyStore.getKey(handle)",
+    "cryptoService.unwrapKeyMaterialWithAesKey(",
+    "await finishUnlockWithArk(ark);",
+    "This browser does not have a usable trusted-device key.",
+  ]) {
+    assert.notEqual(trustedBlock.indexOf(expected), -1);
+  }
+
+  for (const expected of [
+    "apiService.webAuthnLoginStart()",
+    "getPasskeyCredential(start.public_key)",
+    "getPasskeyPrfResult(credential)",
+    "prfResultConfirmed: !!prfResult",
+    "This passkey signed you in but did not unlock encryption keys.",
+    "derivePasskeyPrfWrapKey({",
+    "await finishUnlockWithArk(ark);",
+  ]) {
+    assert.notEqual(passkeyBlock.indexOf(expected), -1);
+  }
+});

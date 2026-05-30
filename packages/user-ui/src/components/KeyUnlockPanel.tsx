@@ -9,6 +9,11 @@ import deviceKeyStore from "../services/deviceKeyStore";
 import opaqueService from "../services/opaque";
 import { loadExportKey, saveExportKey } from "../services/sessionKey";
 import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
+import {
+  defaultUnlockPolicy,
+  isUnlockMethodAllowed,
+  type UnlockPolicy,
+} from "../services/unlockPolicy";
 import Button from "./Button";
 import styles from "./KeyUnlockPanel.module.css";
 
@@ -204,6 +209,7 @@ export default function KeyUnlockPanel({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
+  const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(defaultUnlockPolicy);
   const [deviceApproval, setDeviceApproval] = useState<DeviceApprovalResponse | null>(null);
   const [deviceApprovalCode, setDeviceApprovalCode] = useState<string | null>(null);
   const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
@@ -217,6 +223,21 @@ export default function KeyUnlockPanel({
       window.clearInterval(deviceApprovalPollRef.current);
       deviceApprovalPollRef.current = null;
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getUnlockPolicy()
+      .then((policy) => {
+        if (!cancelled) setUnlockPolicy(policy);
+      })
+      .catch(() => {
+        if (!cancelled) setUnlockPolicy(defaultUnlockPolicy);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -321,8 +342,16 @@ export default function KeyUnlockPanel({
   );
 
   const requestDeviceApproval = async () => {
+    if (!isUnlockMethodAllowed(unlockPolicy, "trusted_device")) {
+      setError("Trusted-browser approval is disabled by your organization policy.");
+      return;
+    }
     if (trustedDeviceCount < 1) {
-      setError("No trusted browsers are available. Unlock with your password instead.");
+      setError(
+        passwordAllowed
+          ? "No trusted browsers are available. Unlock with your password instead."
+          : "No trusted browsers are available."
+      );
       return;
     }
     setDeviceApprovalLoading(true);
@@ -357,6 +386,10 @@ export default function KeyUnlockPanel({
 
   const unlockWithPassword = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (!isUnlockMethodAllowed(unlockPolicy, "password")) {
+      setError("Password encryption unlock is disabled by your organization policy.");
+      return;
+    }
     if (!email) {
       setError("Your account email is required to unlock with password.");
       return;
@@ -408,6 +441,9 @@ export default function KeyUnlockPanel({
     }
   };
 
+  const passwordAllowed = isUnlockMethodAllowed(unlockPolicy, "password");
+  const trustedDeviceAllowed = isUnlockMethodAllowed(unlockPolicy, "trusted_device");
+
   return (
     <div className={inline ? styles.inlinePanel : styles.panel}>
       <div className={styles.summary}>
@@ -418,7 +454,7 @@ export default function KeyUnlockPanel({
           </p>
         </div>
         <div className={styles.actions}>
-          {trustedDeviceCount > 0 && !deviceApproval && (
+          {trustedDeviceAllowed && trustedDeviceCount > 0 && !deviceApproval && (
             <Button
               type="button"
               variant="primary"
@@ -428,10 +464,10 @@ export default function KeyUnlockPanel({
               {deviceApprovalLoading ? "Requesting..." : "Accept on Another Browser"}
             </Button>
           )}
-          {!expanded && (
+          {passwordAllowed && !expanded && (
             <Button
               type="button"
-              variant={trustedDeviceCount > 0 ? "secondary" : "primary"}
+              variant={trustedDeviceAllowed && trustedDeviceCount > 0 ? "secondary" : "primary"}
               onClick={() => setExpanded(true)}
               disabled={deviceApprovalLoading}
             >
@@ -440,6 +476,14 @@ export default function KeyUnlockPanel({
           )}
         </div>
       </div>
+      {unlockPolicy.managed && (
+        <div className={styles.status}>
+          Your organization manages which encryption unlock methods are available.
+        </div>
+      )}
+      {!passwordAllowed && !trustedDeviceAllowed && (
+        <div className={styles.error}>No browser unlock method is enabled for this account.</div>
+      )}
       {deviceApproval && (
         <div className={styles.approval}>
           <h4>Approve from a trusted browser</h4>
@@ -449,24 +493,26 @@ export default function KeyUnlockPanel({
           </p>
           <div className={styles.code}>{deviceApprovalCode}</div>
           {deviceApprovalStatus && <div className={styles.status}>{deviceApprovalStatus}</div>}
-          <div className={styles.actions}>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                stopDeviceApprovalPolling();
-                setDeviceApproval(null);
-                setDeviceApprovalCode(null);
-                setDeviceApprovalStatus(null);
-                setExpanded(true);
-              }}
-            >
-              Use password instead
-            </Button>
-          </div>
+          {passwordAllowed && (
+            <div className={styles.actions}>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  stopDeviceApprovalPolling();
+                  setDeviceApproval(null);
+                  setDeviceApprovalCode(null);
+                  setDeviceApprovalStatus(null);
+                  setExpanded(true);
+                }}
+              >
+                Use password instead
+              </Button>
+            </div>
+          )}
         </div>
       )}
-      {expanded && (
+      {passwordAllowed && expanded && (
         <form className={styles.form} onSubmit={unlockWithPassword}>
           <div className={styles.field}>
             <label htmlFor={passwordId}>DarkAuth password</label>

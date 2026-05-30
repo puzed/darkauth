@@ -54,6 +54,7 @@ test("Settings security creates high entropy recovery key envelopes", () => {
   assert.notEqual(source.indexOf("Create recovery key"), -1);
   assert.notEqual(source.indexOf("Rotate recovery key"), -1);
   assert.notEqual(apiSource.indexOf("RecoveryKeyCreateRequest"), -1);
+  assert.notEqual(source.indexOf("revokeExisting: activeRecoveryKeys.length > 0"), -1);
   assert.notEqual(apiSource.indexOf("/crypto/recovery-keys"), -1);
   assert.equal(apiSource.indexOf("/crypto/keybag/recovery"), -1);
 });
@@ -83,4 +84,25 @@ test("trusted device actions use unlocked ARK instead of requiring export key", 
   assert.notEqual(unlockSource.indexOf("unlockArkWithLocalTrustedDevice"), -1);
   assert.notEqual(unlockSource.indexOf("deviceKeyStore.getKey"), -1);
   assert.notEqual(source.indexOf("This browser is trusted for encrypted key approvals."), -1);
+});
+
+test("Settings security separates sign-in methods from encryption unlock methods", () => {
+  assert.notEqual(source.indexOf("Sign-in Methods"), -1);
+  assert.notEqual(source.indexOf("Password sign-in"), -1);
+  assert.notEqual(source.indexOf("Enterprise SSO"), -1);
+  assert.notEqual(source.indexOf("Connected identities"), -1);
+  assert.notEqual(source.indexOf("Encryption Unlock Methods"), -1);
+  assert.notEqual(source.indexOf("Encryption unlock methods are managed separately"), -1);
+  assert.notEqual(apiSource.indexOf("getConnectedIdentities"), -1);
+  assert.notEqual(apiSource.indexOf("/federation/identities"), -1);
+});
+
+test("Settings security applies enterprise unlock policy controls", () => {
+  assert.notEqual(source.indexOf("getUnlockPolicy"), -1);
+  assert.notEqual(source.indexOf("unlockPolicy.allowPasskeyPrfEnvelope"), -1);
+  assert.notEqual(source.indexOf("unlockPolicy.allowTrustedDeviceApproval"), -1);
+  assert.notEqual(source.indexOf("Your organization manages allowed unlock methods"), -1);
+  assert.notEqual(unlockSource.indexOf("getUnlockPolicy"), -1);
+  assert.notEqual(unlockSource.indexOf("Password encryption unlock is disabled"), -1);
+  assert.notEqual(unlockSource.indexOf("Trusted-browser approval is disabled"), -1);
 });
