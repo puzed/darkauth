@@ -7,7 +7,7 @@ Trusted devices let you move encrypted account access to a new browser or device
 
 ## Add a device
 
-Start the device approval flow on the new device, then approve it from an existing trusted device. The approving device creates an encrypted envelope that only the requesting device can consume.
+Start the device approval flow on the new device with the unlock option for another trusted device, then approve it from an existing trusted device in account security. The approving device creates an encrypted envelope that only the requesting device can consume.
 
 Approvals expire. If a request is old or unexpected, deny it and start again from a device you control.
 
@@ -18,6 +18,8 @@ A trusted device is an unlock path for encrypted account material. It is not jus
 After signing in on a new browser, the account may be authenticated but key locked. In that state, ordinary account access can work, but zero-knowledge applications cannot receive a client app key yet.
 
 Trusted-device approval moves the new browser from key locked to key unlocked by transferring an encrypted envelope. If no trusted device is available, use another configured unlock method, such as password-derived unlock, passkey PRF, or a recovery key.
+
+If a browser was signed in with federation or an authentication-only passkey, it may still need this approval step before a zero-knowledge app can open encrypted data.
 
 ## Manage devices
 

@@ -8,13 +8,14 @@ import { eq } from "drizzle-orm";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { createPglite } from "../../db/pglite.ts";
 import {
+  auditLogs,
   federationIdentities,
   organizationMembers,
   organizations,
   sessions,
   users,
 } from "../../db/schema.ts";
-import { UnauthorizedError } from "../../errors.ts";
+import { UnauthorizedError, ValidationError } from "../../errors.ts";
 import { createFederationConnection } from "../../models/federation.ts";
 import type { Context } from "../../types.ts";
 import { getFederationCallback, getFederationStart } from "./federationOidc.ts";
@@ -307,7 +308,65 @@ test("federation callback validates ID token, links account, and creates locked 
     const identities = await context.db.select().from(federationIdentities);
     assert.equal(identities.length, 1);
     assert.equal(identities[0]?.externalSubject, "external-sub");
+    const callbackAudit = await context.db.query.auditLogs.findFirst({
+      where: eq(auditLogs.eventType, "FEDERATION_CALLBACK"),
+    });
+    const linkAudit = await context.db.query.auditLogs.findFirst({
+      where: eq(auditLogs.eventType, "FEDERATION_ACCOUNT_LINK"),
+    });
+    assert.equal(callbackAudit?.userId, "user-sub");
+    assert.equal(callbackAudit?.resourceId, connection.id);
+    assert.equal(callbackAudit?.success, true);
+    assert.equal(linkAudit?.userId, "user-sub");
+    assert.equal(JSON.stringify(callbackAudit).includes("upstream-access-token"), false);
     activeFetchMock.mock.restore();
+  } finally {
+    await cleanup();
+  }
+});
+
+test("federation callback rejects replayed callback state", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUserWithOrganization(context);
+    const connection = await createConnection(context);
+    const started = await startFederation(context, connection.id);
+    const keyPair = await signingKeyPair();
+    const idToken = await signedIdToken({
+      privateKey: keyPair.privateKey,
+      nonce: started.nonce,
+    });
+    const fetchMock = mockOidcFetch({ publicJwk: keyPair.publicJwk, idToken });
+    await getFederationCallback(
+      context,
+      createRequest(
+        `/federation/callback?state=${encodeURIComponent(started.state)}&code=auth-code`,
+        started.cookie
+      ),
+      createResponse() as unknown as ServerResponse
+    );
+
+    await assert.rejects(
+      () =>
+        getFederationCallback(
+          context,
+          createRequest(
+            `/federation/callback?state=${encodeURIComponent(started.state)}&code=auth-code`,
+            started.cookie
+          ),
+          createResponse() as unknown as ServerResponse
+        ),
+      ValidationError
+    );
+
+    const sessionRows = await context.db.select().from(sessions);
+    const failureAudit = await context.db.query.auditLogs.findFirst({
+      where: eq(auditLogs.eventType, "FEDERATION_LOGIN_FAILURE"),
+    });
+    assert.equal(sessionRows.length, 1);
+    assert.equal(failureAudit?.success, false);
+    assert.equal(failureAudit?.errorCode, "VALIDATION_ERROR");
+    fetchMock.mock.restore();
   } finally {
     await cleanup();
   }
@@ -399,11 +458,11 @@ test("federation callback rejects account-link policy failure", async () => {
   }
 });
 
-test("federation callback rejects unverified email linking without explicit gate", async () => {
+test("federation callback rejects unverified email linking", async () => {
   const { context, cleanup } = await createContext();
   try {
     await createUserWithOrganization(context);
-    const connection = await createConnection(context, "email", true);
+    const connection = await createConnection(context, "email_verified", true);
     const started = await startFederation(context, connection.id);
     const keyPair = await signingKeyPair();
     const idToken = await signedIdToken({

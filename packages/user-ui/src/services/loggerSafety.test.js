@@ -6,10 +6,52 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const sourceExtensions = new Set([".ts", ".tsx"]);
+const forbiddenSecretFieldNames = [
+  "request",
+  "finish",
+  "message",
+  "record",
+  "wrapped_drk",
+  "wrappedDrk",
+  "wrapped_key",
+  "wrappedKey",
+  "drk_jwe",
+  "drkJwe",
+  "darkauth_key_jwe",
+  "darkauthKeyJwe",
+  "zk_pub",
+  "zkPub",
+  "exportKey",
+  "password",
+  "ark",
+  "cak",
+  "prf",
+  "prf_output",
+  "prfOutput",
+  "recoveryKey",
+  "recoverySecret",
+  "privateKey",
+  "privateJwk",
+  "refreshToken",
+  "refresh_token",
+  "accessToken",
+  "access_token",
+  "idToken",
+  "id_token",
+  "authorizationCode",
+  "authCode",
+  "oauthCode",
+  "codeVerifier",
+  "code_verifier",
+  "clientSecret",
+  "client_secret",
+];
 const forbiddenLoggerPayloads = [
   /logger\.(debug|info|warn|error)\(\s*\{\s*response\s*:/,
   /logger\.(debug|info|warn|error)\(\s*\{\s*body\s*:/,
-  /logger\.(debug|info|warn|error)\(\s*\{\s*(request|finish|message|record|wrapped_drk|wrappedDrk|wrapped_key|wrappedKey|drk_jwe|darkauth_key_jwe|zk_pub|zkPub|exportKey|password|ark|cak|prf|prfOutput|recoveryKey|privateKey|privateJwk)\s*:/,
+  new RegExp(
+    `logger\\.(debug|info|warn|error)\\(\\s*\\{\\s*(${forbiddenSecretFieldNames.join("|")})\\s*:`
+  ),
 ];
 
 function sourceFiles(directory) {

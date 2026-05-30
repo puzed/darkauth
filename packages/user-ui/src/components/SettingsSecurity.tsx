@@ -1,7 +1,9 @@
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, {
+  type ConnectedIdentityResponse,
   type DeviceApprovalResponse,
+  type FederationConnectionRoute,
   type KeybagResponse,
   type RecoveryKeyResponse,
   type TrustedDeviceResponse,
@@ -9,6 +11,7 @@ import api, {
 } from "../services/api";
 import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
+import { defaultUnlockPolicy, type UnlockPolicy } from "../services/unlockPolicy";
 import {
   createPasskeyCredential,
   derivePasskeyPrfWrapKey,
@@ -55,6 +58,11 @@ export default function SettingsSecurity({
   const [passkeyRevokeLoading, setPasskeyRevokeLoading] = useState<string | null>(null);
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
   const [passkeys, setPasskeys] = useState<WebAuthnCredentialResponse[]>([]);
+  const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(defaultUnlockPolicy);
+  const [connectedIdentities, setConnectedIdentities] = useState<ConnectedIdentityResponse[]>([]);
+  const [enterpriseSsoRoute, setEnterpriseSsoRoute] = useState<FederationConnectionRoute | null>(
+    null
+  );
   const [passkeyCompatibility, setPasskeyCompatibility] = useState<{
     webauthn: boolean;
     platformAuthenticator: boolean | null;
@@ -68,20 +76,27 @@ export default function SettingsSecurity({
       setLoading(true);
       setError(null);
       setBackupCodes(null);
-      const [s, keys, devices, approvals, recovery, credentials] = await Promise.all([
-        api.getOtpStatus(),
-        api.getKeybag().catch(() => null),
-        api.getTrustedDevices(),
-        api.getDeviceApprovals(),
-        api.getRecoveryKeys().catch(() => []),
-        api.getWebAuthnCredentials().catch(() => []),
-      ]);
+      const [s, keys, devices, approvals, recovery, credentials, policy, identities, ssoRoute] =
+        await Promise.all([
+          api.getOtpStatus(),
+          api.getKeybag().catch(() => null),
+          api.getTrustedDevices(),
+          api.getDeviceApprovals(),
+          api.getRecoveryKeys().catch(() => []),
+          api.getWebAuthnCredentials().catch(() => []),
+          api.getUnlockPolicy().catch(() => defaultUnlockPolicy),
+          api.getConnectedIdentities().catch(() => []),
+          sessionData.email ? api.getFederationRoute(sessionData.email).catch(() => null) : null,
+        ]);
       setStatus(s);
       setKeybag(keys);
       setTrustedDevices(devices);
       setDeviceApprovals(approvals);
       setRecoveryKeys(recovery);
       setPasskeys(credentials);
+      setUnlockPolicy(policy);
+      setConnectedIdentities(identities);
+      setEnterpriseSsoRoute(ssoRoute);
       setProvisioningUri(null);
       setSecret(null);
     } catch (e) {
@@ -89,7 +104,7 @@ export default function SettingsSecurity({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sessionData.email]);
 
   const refreshDeviceApprovals = useCallback(async () => {
     try {
@@ -216,7 +231,12 @@ export default function SettingsSecurity({
       });
       prfResult = getPasskeyPrfResult(credential);
       const credentialId = finish.credential.credential_id;
-      if (finish.credential.prf_supported && passkeyPrfEnabled(credential) && prfResult) {
+      if (
+        finish.credential.prf_supported &&
+        passkeyPrfEnabled(credential) &&
+        prfResult &&
+        unlockPolicy.allowPasskeyPrfEnvelope
+      ) {
         ark = await getUnlockedArk();
         if (ark) {
           const keyId = await getOrCreateAccountKeyId();
@@ -265,6 +285,10 @@ export default function SettingsSecurity({
             "Passkey registered for sign-in. Unlock this browser to add key unlock."
           );
         }
+      } else if (!unlockPolicy.allowPasskeyPrfEnvelope && prfResult) {
+        setPasskeyMessage(
+          "Passkey registered for sign-in. Your organization disabled passkey encryption unlock."
+        );
       } else {
         setPasskeyMessage(
           "Passkey registered for sign-in. This authenticator did not return PRF unlock material."
@@ -350,6 +374,7 @@ export default function SettingsSecurity({
         aad: toBase64Url(aad),
         verifier: toBase64Url(verifier),
         metadata: { version: "v2" },
+        revokeExisting: activeRecoveryKeys.length > 0,
       });
       setRecoverySecret(secret);
       const [keysAfterCreate, recoveryAfterCreate] = await Promise.all([
@@ -403,6 +428,10 @@ export default function SettingsSecurity({
   };
 
   const trustCurrentDevice = async () => {
+    if (!unlockPolicy.allowTrustedDeviceApproval) {
+      setError("Trusted-device approval is disabled by your organization policy.");
+      return;
+    }
     let ark: Uint8Array | null = null;
     let wrappedKey: Uint8Array | null = null;
     let handle: string | null = null;
@@ -554,6 +583,10 @@ export default function SettingsSecurity({
   const authOnlyPasskeys = activePasskeys.filter((passkey) => !passkey.can_unlock);
   const recoveryEnvelopes = activeEnvelopes.filter((envelope) => envelope.type === "recovery");
   const activeRecoveryKeys = recoveryKeys.filter((key) => !key.revoked_at);
+  const passwordEnvelopeCount = activeEnvelopes.filter(
+    (envelope) => envelope.type === "password"
+  ).length;
+  const connectedIdentityCount = connectedIdentities.length;
   const pendingApprovals = deviceApprovals.filter((approval) => {
     const status = approval.status || "pending";
     return status === "pending" || status === "requested";
@@ -770,6 +803,79 @@ export default function SettingsSecurity({
         </div>
       )}
       <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
+        <h3>Sign-in Methods</h3>
+        <div className="help-text">
+          Sign-in methods prove your identity. Encryption unlock methods are managed separately
+          below.
+        </div>
+        <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
+          <li
+            style={{
+              padding: "10px 0",
+              borderTop: "1px solid hsl(var(--border))",
+            }}
+          >
+            <div style={{ fontWeight: 600 }}>Password sign-in</div>
+            <div className="help-text">
+              {sessionData.email
+                ? `Enabled for ${sessionData.email}. Change the password from account navigation.`
+                : "Available when this account has a DarkAuth email identity."}
+            </div>
+            <div style={{ display: "flex", marginTop: 8 }}>
+              <a className="secondary-button" href="/change-password">
+                Manage password
+              </a>
+            </div>
+          </li>
+          <li
+            style={{
+              padding: "10px 0",
+              borderTop: "1px solid hsl(var(--border))",
+            }}
+          >
+            <div style={{ fontWeight: 600 }}>Enterprise SSO</div>
+            <div className="help-text">
+              {enterpriseSsoRoute
+                ? `${enterpriseSsoRoute.name} routes sign-ins for this email domain.`
+                : "No enterprise SSO route is advertised for your email domain."}
+            </div>
+          </li>
+          <li
+            style={{
+              padding: "10px 0",
+              borderTop: "1px solid hsl(var(--border))",
+            }}
+          >
+            <div style={{ fontWeight: 600 }}>Connected identities</div>
+            {connectedIdentityCount > 0 ? (
+              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0" }}>
+                {connectedIdentities.map((identity) => {
+                  const connectionName = identity.connectionName || identity.connection_name;
+                  const externalSubject = identity.externalSubject || identity.external_subject;
+                  const emailVerified = identity.emailVerified ?? identity.email_verified;
+                  return (
+                    <li key={identity.id} style={{ marginTop: 8 }}>
+                      <div className="help-text">
+                        {connectionName || identity.issuer || "Enterprise identity"}
+                        {identity.email ? ` · ${identity.email}` : ""}
+                        {emailVerified ? " · verified email" : ""}
+                      </div>
+                      {externalSubject && (
+                        <div className="help-text">Subject {externalSubject}</div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="help-text">
+                Connected enterprise identities appear here after a successful SSO sign-in.
+              </div>
+            )}
+          </li>
+        </ul>
+      </div>
+      <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
         <h3>Passkeys</h3>
         <div className="help-text">
           Passkeys can sign you in. Only passkeys with verified WebAuthn PRF support can also unlock
@@ -790,6 +896,11 @@ export default function SettingsSecurity({
           PRF unlock support is confirmed during setup with the chosen authenticator. If PRF is
           unavailable, use password unlock, a recovery key, or trusted-device approval.
         </div>
+        {!unlockPolicy.allowPasskeyPrfEnvelope && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            Your organization allows passkey sign-in but disables passkey encryption unlock setup.
+          </div>
+        )}
         <div className="help-text" style={{ marginTop: 12 }}>
           Auth + unlock passkeys: {unlockPasskeys.length}. Auth-only passkeys:{" "}
           {authOnlyPasskeys.length}. Auth-only passkeys are sign-in methods, not encryption unlock
@@ -852,10 +963,25 @@ export default function SettingsSecurity({
         </div>
       </div>
       <div className="form-group" style={{ marginTop: 24, textAlign: "left" }}>
-        <h3>Encryption Keys</h3>
+        <h3>Encryption Unlock Methods</h3>
         <div className="help-text">
-          These records are encrypted key envelopes. Revoking one removes that unlock method.
+          These records are encrypted key envelopes. Revoking one removes that unlock method without
+          changing sign-in methods.
         </div>
+        <div className="help-text" style={{ marginTop: 8 }}>
+          Password envelopes: {passwordEnvelopeCount}. PRF passkey envelopes:{" "}
+          {unlockPasskeys.length}. Trusted devices: {activeTrustedDevices.length}. Recovery keys:{" "}
+          {activeRecoveryKeys.length || recoveryEnvelopes.length}.
+        </div>
+        {unlockPolicy.managed && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            Your organization manages allowed unlock methods. Password envelopes{" "}
+            {unlockPolicy.allowPasswordEnvelope ? "are allowed" : "are disabled"}, PRF passkey
+            envelopes {unlockPolicy.allowPasskeyPrfEnvelope ? "are allowed" : "are disabled"}, and
+            trusted-device approval{" "}
+            {unlockPolicy.allowTrustedDeviceApproval ? "is allowed" : "is disabled"}.
+          </div>
+        )}
         {keybag && keybag.envelopes.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
             {keybag.envelopes.map((envelope) => (
@@ -994,12 +1120,21 @@ export default function SettingsSecurity({
             Unlock encryption keys before trusting this browser.
           </div>
         )}
+        {!unlockPolicy.allowTrustedDeviceApproval && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            Your organization disabled trusted-device approval setup.
+          </div>
+        )}
         <div style={{ display: "flex", marginTop: 12 }}>
           <Button
             type="button"
             variant="secondary"
             onClick={trustCurrentDevice}
-            disabled={trustDeviceLoading || sessionData.keyState !== "unlocked"}
+            disabled={
+              trustDeviceLoading ||
+              sessionData.keyState !== "unlocked" ||
+              !unlockPolicy.allowTrustedDeviceApproval
+            }
           >
             {trustDeviceLoading ? "Trusting browser..." : "Trust this browser"}
           </Button>

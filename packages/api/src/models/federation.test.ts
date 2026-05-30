@@ -132,6 +132,26 @@ test("federation connections support configuration, domain routing, and claim li
   }
 });
 
+test("federation configuration rejects email-only account linking", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await assert.rejects(
+      () =>
+        createFederationConnection(context, {
+          name: "Example IDP",
+          issuer: metadata.issuer,
+          clientId: "client-id",
+          metadata,
+          domains: ["example.com"],
+          accountLinkingPolicy: "email",
+        }),
+      /Invalid account linking policy/
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test("federation OIDC callback state is single use and bound to nonce", async () => {
   const { context, cleanup } = await createContext();
   try {

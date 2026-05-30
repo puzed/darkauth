@@ -44,6 +44,8 @@ test("SCIM token page shows created bearer token once and supports revoke", () =
 
 test("client editor exposes v2 key delivery and derived delivered key kind", () => {
   assert.notEqual(clientSource.indexOf("keyDeliveryVersion"), -1);
+  assert.notEqual(clientSource.indexOf("clientKeyScope"), -1);
+  assert.notEqual(clientSource.indexOf("Client Key Scope"), -1);
   assert.notEqual(clientSource.indexOf("deliveredKeyKindFor"), -1);
   assert.notEqual(clientSource.indexOf("v1-drk"), -1);
   assert.notEqual(clientSource.indexOf("client_app_key"), -1);
@@ -54,4 +56,16 @@ test("user detail includes key status inventory and revoke hooks", () => {
   assert.notEqual(userSource.indexOf("Key Status"), -1);
   assert.notEqual(userSource.indexOf("revokeUserKeyEnvelope"), -1);
   assert.notEqual(userSource.indexOf("revokeUserTrustedDevice"), -1);
+});
+
+test("federation page exposes enterprise federation policy controls", () => {
+  assert.notEqual(apiSource.indexOf("FederationPolicyControls"), -1);
+  assert.notEqual(federationSource.indexOf("defaultFederationPolicy"), -1);
+  assert.notEqual(federationSource.indexOf("JIT User Creation"), -1);
+  assert.notEqual(federationSource.indexOf("SCIM Pre-provisioning"), -1);
+  assert.notEqual(federationSource.indexOf("ZK Password Setup"), -1);
+  assert.notEqual(federationSource.indexOf("Passkey PRF Unlock"), -1);
+  assert.notEqual(federationSource.indexOf("Trusted-device Approval"), -1);
+  assert.notEqual(federationSource.indexOf("Non-ZK Key Setup Bypass"), -1);
+  assert.notEqual(federationSource.indexOf("darkauth_policy"), -1);
 });

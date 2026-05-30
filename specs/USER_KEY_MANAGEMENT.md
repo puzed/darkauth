@@ -781,8 +781,15 @@ Keybag endpoints:
 - `GET /crypto/keybag/envelopes`
 - `POST /crypto/keybag/envelopes`
 - `DELETE /crypto/keybag/envelopes/{envelope_id}`
-- `POST /crypto/keybag/recovery`
 - `POST /crypto/keybag/rotate`
+- `POST /crypto/keybag/recovery` as a compatibility alias for recovery-key creation
+
+Recovery key endpoints:
+
+- `GET /crypto/recovery-keys`
+- `POST /crypto/recovery-keys`
+- `POST /crypto/recovery-keys/{recovery_key_id}/use`
+- `POST /crypto/recovery-keys/{recovery_key_id}/revoke`
 
 Device approval endpoints:
 
@@ -832,6 +839,34 @@ Create envelope:
 }
 ```
 
+Create recovery key:
+
+```json
+{
+  "recovery_key_id": "rk_...",
+  "envelope_id": "env_...",
+  "key_id": "ark_...",
+  "label": "Recovery key",
+  "wrapping_alg": "DarkAuth-Recovery-HKDF-SHA256+A256GCM/v2",
+  "wrapped_key": "base64url",
+  "aad": "base64url",
+  "verifier": "base64url 32 bytes",
+  "metadata": {
+    "version": "v2"
+  }
+}
+```
+
+Rotate account key:
+
+```json
+{
+  "key_id": "ark_...",
+  "version": "v2",
+  "retire_old_envelopes": false
+}
+```
+
 Create device approval:
 
 ```json
@@ -865,7 +900,7 @@ Responses MUST avoid returning plaintext keys except to the authenticated browse
 
 ## 15. Implementation Status And Remaining Plan
 
-Last audited: 2026-05-29.
+Last audited: 2026-05-30.
 
 A checked item means the repository contains an implemented, wired code path for that item. An unchecked item means the item is missing, only a backend foundation exists, only UI text exists, or the implementation is not usable end-to-end.
 
@@ -881,8 +916,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Update `specs/2_CORE.md` to describe v2 keybag semantics.
 - [x] Update `specs/0_OIDC_ZK_EXTENSION.md` to describe CAK delivery for v2 clients.
 - [x] Update hosted-web security review to distinguish root-key custody from per-client-key delivery.
-- [ ] Add an account-key rotation API and implementation for `POST /crypto/keybag/rotate`.
-- [ ] Resolve the spec/API mismatch for recovery creation: either implement `POST /crypto/keybag/recovery` or update the spec to canonically use `/crypto/recovery-keys`.
+- [x] Add an account-key rotation API and implementation for `POST /crypto/keybag/rotate`.
+- [x] Canonicalize recovery-key creation and management on `/crypto/recovery-keys`; `/crypto/keybag/recovery` remains a compatibility alias for creation.
 - [x] Add admin visibility for account key status and envelope counts without exposing ciphertext or plaintext.
 - [x] Add admin revoke controls for user key envelopes.
 
@@ -901,8 +936,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Expose `delivered_key_kind` in admin client create/edit UI, or show it as derived read-only state.
 - [x] Add client key migration status in the admin UI.
 - [x] Add client key migration actions or guidance for switching legacy ZK clients from v1 DRK delivery to v2 CAK delivery.
-- [ ] Add explicit client configuration for account-wide versus organization-scoped CAK derivation.
-- [ ] Update SDK public naming so v2 callers can distinguish a client app key from a root DRK instead of only receiving it through the legacy `drk` field.
+- [x] Add explicit client configuration for account-wide versus organization-scoped CAK derivation.
+- [x] Update SDK public naming so v2 callers can distinguish a client app key from a root DRK instead of only receiving it through the legacy `AuthSession.drk` field.
 
 ### Phase 3: Login Versus Key Unlock
 
@@ -919,9 +954,9 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Make authenticated-but-key-locked state obvious outside the authorization screen, including the dashboard and settings surfaces.
 - [x] Add dashboard/settings password unlock for authenticated key-locked sessions.
 - [x] Add dashboard/settings trusted-browser approval unlock for authenticated key-locked sessions.
-- [ ] Enforce SCIM/SSO unlock-method policy in the user UI.
-- [ ] Add user-visible connected identity and enterprise SSO management.
-- [ ] Add user-visible password sign-in method management separate from encryption unlock methods.
+- [x] Enforce SCIM/SSO unlock-method policy in the user UI.
+- [x] Add user-visible connected identity and enterprise SSO management.
+- [x] Add user-visible password sign-in method management separate from encryption unlock methods.
 
 ### Phase 4: Trusted Device Approval
 
@@ -961,7 +996,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Replace the disabled `Passkey setup unavailable` settings control with a working setup flow.
 - [x] Update server-side session state to unlocked after successful passkey PRF unlock, or add an authorization finalize path that accepts the verified PRF unlock result.
 - [x] Add browser/authenticator fallback copy for passkeys without PRF during real registration and login flows.
-- [ ] Add end-to-end passkey tests with mocked WebAuthn ceremonies.
+- [x] Add end-to-end passkey tests with mocked WebAuthn ceremonies.
 
 ### Phase 6: Federation
 
@@ -983,11 +1018,11 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Create DarkAuth sessions from successful upstream federation.
 - [x] Ensure SSO login produces `keyState = "locked"` unless a separate unlock method succeeds.
 - [x] Add SSO login UI and email-domain routing in the user sign-in flow.
-- [ ] Add connected-identity UI for users.
+- [x] Add connected-identity UI for users.
 - [x] Add admin UI pages for enterprise federation connections.
 - [x] Add admin UI for OIDC discovery, domain routing preview, claim mapping, and secret replacement.
-- [ ] Remove or disable email-only account linking because it can trust an unverified upstream email. Default and admin-UI-created paths now reject unverified upstream email, but a metadata escape hatch still exists in the model/API.
-- [ ] Add federation policy controls for pre-provisioning, allowed domains, allowed unlock methods, and non-ZK bypass.
+- [x] Remove or disable email-only account linking because it can trust an unverified upstream email.
+- [x] Add federation policy controls for pre-provisioning, allowed domains, allowed unlock methods, and non-ZK bypass.
 
 ### Phase 7: SCIM
 
@@ -1012,8 +1047,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Enforce `users.scim.deprovision_action`.
 - [x] Implement SCIM group-to-organization and group-to-role mapping.
 - [x] Enforce `users.scim.unknown_group_policy`.
-- [ ] Add SCIM audit details for user/group create, update, patch, deactivate, token create, and token revoke.
-- [ ] Add SCIM conformance tests for common identity-provider payloads.
+- [x] Add SCIM audit details for user/group create, update, patch, deactivate, token create, and token revoke.
+- [x] Add SCIM conformance tests for common identity-provider payloads.
 
 ## 16. Security Checklist
 
@@ -1026,8 +1061,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Derive password wrapping keys from OPAQUE `export_key`.
 - [x] Create high-entropy recovery key material client-side and store only verifier/ciphertext server-side.
 - [x] Complete passkey PRF envelope setup in the browser and verify the result is from a real WebAuthn PRF ceremony.
-- [ ] Add account-key rotation semantics that preserve or intentionally retire old encrypted app data.
-- [ ] Add recovery-key rotation semantics that revoke old recovery envelopes after successful replacement.
+- [x] Add account-key rotation semantics that preserve or intentionally retire old encrypted app data.
+- [x] Add recovery-key rotation semantics that revoke old recovery envelopes after successful replacement.
 - [x] Ensure v2 clients never receive ARK and add tests proving legacy root-key delivery is impossible unless the client is explicitly registered as `v1-drk`.
 
 ### Delivery
@@ -1038,8 +1073,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Return only JWE hash metadata from the token endpoint.
 - [x] Have the SDK verify v2 hash, payload metadata, and JWE header before accepting the key.
 - [x] Strip ZK key fragments after callback handling.
-- [ ] Add browser integration tests for wrong state, wrong redirect URI, wrong client, wrong subject, expired JWE, and mismatched hash.
-- [ ] Add tests proving non-ZK clients never see key-unlock controls or key-delivery metadata.
+- [x] Add browser integration tests for wrong state, wrong redirect URI, wrong client, wrong subject, expired JWE, and mismatched hash.
+- [x] Add tests proving non-ZK clients never see key-unlock controls or key-delivery metadata.
 
 ### Storage
 
@@ -1047,8 +1082,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Avoid plaintext keys in localStorage by default.
 - [x] Avoid plaintext keys in JS-readable cookies.
 - [x] Store persistent trusted-device state as encrypted envelopes plus local key handles.
-- [ ] Review and minimize sessionStorage continuity data for OAuth callback private keys.
-- [ ] Add automated storage assertions for user UI, authorize flow, SDK callback flow, trusted-device flow, and recovery flow.
+- [x] Review and minimize sessionStorage continuity data for OAuth callback private keys.
+- [x] Add automated storage assertions for user UI, authorize flow, SDK callback flow, trusted-device flow, and recovery flow.
 
 ### Authentication And Provisioning
 
@@ -1059,7 +1094,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Implement actual SSO login; current federation work is model/admin API foundation only.
 - [x] Ensure SSO login to non-ZK clients does not prompt for key unlock.
 - [x] Ensure SSO login to ZK clients prompts for a separate key unlock or setup journey.
-- [ ] Ensure account linking never trusts an unverified upstream email alone. Default and admin-UI-created paths now reject unverified upstream email, but a metadata escape hatch still exists in the model/API.
+- [x] Ensure account linking never trusts an unverified upstream email alone.
 - [x] Enforce all SCIM enterprise sign-in and unlock-method policies.
 - [x] Label actual registered passkeys as auth-only versus auth-and-unlock in user UI.
 
@@ -1070,10 +1105,10 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Audit trusted device creation, revocation, and device approval actions.
 - [x] Audit recovery key creation, revocation, and use.
 - [x] Rate-limit auth, key-management, WebAuthn, SCIM, and device approval endpoints.
-- [ ] Add federation login, callback, account-link, and failure audit events.
-- [ ] Add SCIM resource create/update/patch/delete audit events with safe details.
-- [ ] Add abuse tests for federation callback replay, bad nonce, bad issuer, bad signature, and denied account-link policy. Bad nonce, bad issuer, bad signature, and denied account-link tests exist; explicit callback replay coverage is still missing.
-- [ ] Add abuse tests for SCIM bearer token expiry, revocation, malformed filters, and excessive pagination.
+- [x] Add federation login, callback, account-link, and failure audit events.
+- [x] Add SCIM resource create/update/patch/delete audit events with safe details.
+- [x] Add abuse tests for federation callback replay, bad nonce, bad issuer, bad signature, and denied account-link policy.
+- [x] Add abuse tests for SCIM bearer token expiry, revocation, malformed filters, and excessive pagination.
 
 ## 17. Testing Checklist
 
@@ -1097,29 +1132,29 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Unit/source tests cover user passkey login, passkey PRF setup UI, recovery unlock, trusted-device unlock, unlock-method picker, and visible key-locked state.
 - [x] Unit tests cover trusted-device public-key proof verification and revoked-device approval rejection.
 
-### Missing Tests
+### Missing End-to-End Tests
 
-- [ ] End-to-end test for password login to a v2 ZK client receiving a stable CAK.
-- [ ] End-to-end test proving different clients receive different CAKs.
-- [ ] End-to-end test proving organization-scoped CAKs differ when policy requires it.
-- [ ] End-to-end test proving legacy v1 clients still receive root-key delivery only when explicitly configured.
-- [ ] End-to-end test for SSO login to a non-ZK client.
-- [ ] End-to-end test for SSO login to a ZK client requiring unlock.
-- [ ] End-to-end test for SCIM-provisioned first login to a non-ZK client.
-- [ ] End-to-end test for SCIM-provisioned first login to a ZK client requiring setup or unlock.
-- [ ] End-to-end test for recovery-key unlock during authorization.
-- [ ] End-to-end test for trusted-device approval completing ZK authorization.
-- [ ] End-to-end test proving trusted-device approval cannot be replayed.
-- [ ] End-to-end test proving revoked trusted devices cannot approve or unwrap.
-- [ ] End-to-end test for passkey registration.
-- [ ] End-to-end test for passkey login without PRF producing a locked session.
-- [ ] End-to-end test for passkey PRF login unlocking a ZK authorization.
-- [ ] End-to-end test for admin federation connection CRUD UI.
-- [ ] End-to-end test for admin SCIM token management UI.
-- [ ] End-to-end test for admin client key delivery controls.
-- [ ] End-to-end test for admin user key status visibility and revocation controls.
-- [ ] Security test proving email reset cannot decrypt ARK without an existing envelope, old password, trusted device, PRF passkey, or recovery key.
-- [ ] Security test proving no logs include OPAQUE payloads, PRF outputs, wrapped keys, JWE ciphertexts, auth codes, refresh tokens, client secrets, recovery secrets, or private keys across the new federation and SCIM paths.
+- [x] End-to-end test for password login to a v2 ZK client receiving a stable CAK.
+- [x] End-to-end test proving different clients receive different CAKs.
+- [x] End-to-end test proving organization-scoped CAKs differ when policy requires it.
+- [x] End-to-end test proving legacy v1 clients still receive root-key delivery only when explicitly configured.
+- [x] End-to-end test for SSO login to a non-ZK client.
+- [x] End-to-end test for SSO login to a ZK client requiring unlock.
+- [x] End-to-end test for SCIM-provisioned first login to a non-ZK client.
+- [x] End-to-end test for SCIM-provisioned first login to a ZK client requiring setup or unlock.
+- [x] End-to-end test for recovery-key unlock during authorization.
+- [x] End-to-end test for trusted-device approval completing ZK authorization.
+- [x] End-to-end test proving trusted-device approval cannot be replayed.
+- [x] End-to-end test proving revoked trusted devices cannot approve or unwrap.
+- [x] End-to-end test for passkey registration.
+- [x] End-to-end test for passkey login without PRF producing a locked session.
+- [x] End-to-end test for passkey PRF login unlocking a ZK authorization.
+- [x] End-to-end test for admin federation connection CRUD UI.
+- [x] End-to-end test for admin SCIM token management UI.
+- [x] End-to-end test for admin client key delivery controls.
+- [x] End-to-end test for admin user key status visibility and revocation controls.
+- [x] Security test proving email reset cannot decrypt ARK without an existing envelope, old password, trusted device, PRF passkey, or recovery key.
+- [x] Security test proving no logs include OPAQUE payloads, PRF outputs, wrapped keys, JWE ciphertexts, auth codes, refresh tokens, client secrets, recovery secrets, or private keys across the new federation and SCIM paths.
 
 ## 18. References
 

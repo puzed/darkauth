@@ -321,6 +321,10 @@ test("token redeems public authorization code clients with none auth", async () 
     assert.equal(json.token_type, "Bearer");
     assert.equal(typeof json.access_token, "string");
     assert.equal(typeof json.id_token, "string");
+    assert.equal(json.zk_drk_hash, undefined);
+    assert.equal(json.zk_key_hash, undefined);
+    assert.equal(json.zk_key_kind, undefined);
+    assert.equal(json.zk_key_version, undefined);
   } finally {
     await cleanup();
   }

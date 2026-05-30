@@ -36,6 +36,7 @@ test("createPendingAuth stores nonce in pending auth record", async () => {
   assert.equal(insertedValues?.scope, "openid profile");
   assert.equal(insertedValues?.keyDeliveryVersion, "v2");
   assert.equal(insertedValues?.deliveredKeyKind, "client_app_key");
+  assert.equal(insertedValues?.clientKeyScope, "organization");
 });
 
 test("createPendingAuth stores requested key delivery metadata", async () => {
@@ -62,6 +63,7 @@ test("createPendingAuth stores requested key delivery metadata", async () => {
     zkPubKid: "zk-pub-kid",
     keyDeliveryVersion: "v1-drk",
     deliveredKeyKind: "root_key",
+    clientKeyScope: "account",
     origin: "https://issuer.example",
     expiresAt: new Date("2026-02-15T00:00:00.000Z"),
   });
@@ -69,6 +71,7 @@ test("createPendingAuth stores requested key delivery metadata", async () => {
   assert.equal(insertedValues?.zkPubKid, "zk-pub-kid");
   assert.equal(insertedValues?.keyDeliveryVersion, "v1-drk");
   assert.equal(insertedValues?.deliveredKeyKind, "root_key");
+  assert.equal(insertedValues?.clientKeyScope, "account");
 });
 
 test("createPendingAuth explains pending auth schema drift", async () => {

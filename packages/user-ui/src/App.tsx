@@ -46,6 +46,7 @@ interface AuthRequest {
   hasZk: boolean;
   keyDeliveryVersion?: "v1-drk" | "v2";
   deliveredKeyKind?: "root_key" | "client_app_key";
+  clientKeyScope?: "account" | "organization";
   clientId?: string;
   redirectUri?: string;
   state?: string;
@@ -147,6 +148,8 @@ function AppContent() {
     const keyDeliveryVersion = params.get("key_delivery_version") === "v1-drk" ? "v1-drk" : "v2";
     const deliveredKeyKind =
       params.get("delivered_key_kind") === "root_key" ? "root_key" : "client_app_key";
+    const clientKeyScope =
+      params.get("client_key_scope") === "account" ? "account" : "organization";
     const clientId = params.get("client_id") || undefined;
     const redirectUri = params.get("redirect_uri") || undefined;
     const state = params.get("state") || undefined;
@@ -162,6 +165,7 @@ function AppContent() {
         current.hasZk === hasZk &&
         current.keyDeliveryVersion === keyDeliveryVersion &&
         current.deliveredKeyKind === deliveredKeyKind &&
+        current.clientKeyScope === clientKeyScope &&
         current.clientId === clientId &&
         current.redirectUri === redirectUri &&
         current.state === state &&
@@ -179,6 +183,7 @@ function AppContent() {
         hasZk,
         keyDeliveryVersion,
         deliveredKeyKind,
+        clientKeyScope,
         clientId,
         redirectUri,
         state,

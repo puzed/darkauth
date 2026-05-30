@@ -1,5 +1,6 @@
 import { fromBase64Url, toBase64Url } from "./crypto";
 import { logger } from "./logger";
+import { normalizeUnlockPolicy, type UnlockPolicy } from "./unlockPolicy";
 
 export interface ApiError {
   error: string;
@@ -181,6 +182,7 @@ export interface RecoveryKeyCreateRequest {
   aad: string;
   verifier: string;
   metadata?: Record<string, unknown>;
+  revokeExisting?: boolean;
 }
 
 export interface RecoveryKeyResponse {
@@ -239,6 +241,24 @@ export interface WebAuthnLoginFinishResponse {
     prf_salt: string;
     envelope: KeyEnvelopeResponse;
   } | null;
+}
+
+export interface ConnectedIdentityResponse {
+  id: string;
+  connection_id?: string | null;
+  connectionId?: string | null;
+  connection_name?: string | null;
+  connectionName?: string | null;
+  issuer?: string | null;
+  external_subject?: string | null;
+  externalSubject?: string | null;
+  email?: string | null;
+  email_verified?: boolean | null;
+  emailVerified?: boolean | null;
+  created_at?: string | null;
+  createdAt?: string | null;
+  last_used_at?: string | null;
+  lastUsedAt?: string | null;
 }
 
 export interface FederationConnectionRoute {
@@ -929,6 +949,7 @@ class ApiService {
           aad: request.aad,
           verifier: request.verifier,
           metadata: request.metadata,
+          revoke_existing: request.revokeExisting,
         }),
       }
     );
@@ -1070,6 +1091,22 @@ class ApiService {
       `/federation/route?${query.toString()}`
     );
     return data.connection;
+  }
+
+  async getUnlockPolicy(): Promise<UnlockPolicy> {
+    const data = await this.request<unknown>("/crypto/unlock-policy");
+    return normalizeUnlockPolicy(data);
+  }
+
+  async getConnectedIdentities(): Promise<ConnectedIdentityResponse[]> {
+    const data = await this.request<
+      | {
+          identities?: ConnectedIdentityResponse[];
+          connected_identities?: ConnectedIdentityResponse[];
+        }
+      | ConnectedIdentityResponse[]
+    >("/federation/identities");
+    return Array.isArray(data) ? data : data.identities || data.connected_identities || [];
   }
 
   async getUserApps(): Promise<{

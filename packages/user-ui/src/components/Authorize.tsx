@@ -8,6 +8,12 @@ import opaqueService from "../services/opaque";
 import { loadExportKey, saveExportKey } from "../services/sessionKey";
 import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
 import {
+  defaultUnlockPolicy,
+  isUnlockMethodAllowed,
+  type UnlockMethod,
+  type UnlockPolicy,
+} from "../services/unlockPolicy";
+import {
   browserSupportsWebAuthn,
   derivePasskeyPrfWrapKey,
   getPasskeyCredential,
@@ -59,11 +65,13 @@ interface AuthorizeProps {
     hasZk: boolean;
     keyDeliveryVersion?: "v1-drk" | "v2";
     deliveredKeyKind?: "root_key" | "client_app_key";
+    clientKeyScope?: "account" | "organization";
     clientId?: string;
     redirectUri?: string;
     state?: string;
     zkPub?: string;
     organizationId?: string;
+    unlockPolicy?: UnlockPolicy;
   };
   sessionData: {
     sub: string;
@@ -85,9 +93,7 @@ export default function Authorize({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recoveryVisible, setRecoveryVisible] = useState(false);
-  const [unlockMethod, setUnlockMethod] = useState<
-    "password" | "passkey" | "trusted_device" | "recovery" | "new_key"
-  >("password");
+  const [unlockMethod, setUnlockMethod] = useState<UnlockMethod>("password");
   const [currentPassword, setCurrentPassword] = useState("");
   const [recoverySecret, setRecoverySecret] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
@@ -95,6 +101,9 @@ export default function Authorize({
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(true);
   const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
+  const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(
+    authRequest.unlockPolicy || defaultUnlockPolicy
+  );
   const [deviceApproval, setDeviceApproval] = useState<DeviceApprovalResponse | null>(null);
   const [deviceApprovalCode, setDeviceApprovalCode] = useState<string | null>(null);
   const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
@@ -124,7 +133,20 @@ export default function Authorize({
   const selectedOrganizationLocked = !!explicitOrganizationId;
   const showOrganizationSummary = activeOrganizations.length === 1 || selectedOrganizationLocked;
   const keyLockedForZk = authRequest.hasZk && !keyUnlocked;
-  const hasTrustedDevices = trustedDeviceCount > 0;
+  const allUnlockOptions: Array<{ value: UnlockMethod; label: string }> = [
+    { value: "password", label: "Password" },
+    { value: "passkey", label: "PRF passkey" },
+    { value: "trusted_device", label: "This trusted browser" },
+    { value: "recovery", label: "Recovery key" },
+    { value: "new_key", label: "Create new keys" },
+  ];
+  const unlockOptions = allUnlockOptions.filter((option) =>
+    isUnlockMethodAllowed(unlockPolicy, option.value)
+  );
+  const firstUnlockMethod = unlockOptions[0]?.value || "recovery";
+  const hasTrustedDevices =
+    trustedDeviceCount > 0 && isUnlockMethodAllowed(unlockPolicy, "trusted_device");
+  const primaryLockedAction = hasTrustedDevices ? "Accept on another device" : "Unlock keys";
 
   const generateZkKeyPair = useCallback(async () => {
     try {
@@ -214,6 +236,31 @@ export default function Authorize({
     };
   }, []);
 
+  useEffect(() => {
+    if (!authRequest.hasZk) {
+      setUnlockPolicy(authRequest.unlockPolicy || defaultUnlockPolicy);
+      return;
+    }
+    let cancelled = false;
+    apiService
+      .getUnlockPolicy()
+      .then((policy) => {
+        if (!cancelled) setUnlockPolicy(policy);
+      })
+      .catch(() => {
+        if (!cancelled) setUnlockPolicy(authRequest.unlockPolicy || defaultUnlockPolicy);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authRequest.hasZk, authRequest.unlockPolicy]);
+
+  useEffect(() => {
+    if (!isUnlockMethodAllowed(unlockPolicy, unlockMethod)) {
+      setUnlockMethod(firstUnlockMethod);
+    }
+  }, [firstUnlockMethod, unlockMethod, unlockPolicy]);
+
   const getScopeInfo = (scope: string): ScopeInfo => {
     const info = SCOPE_DESCRIPTIONS[scope];
     if (info) {
@@ -277,11 +324,13 @@ export default function Authorize({
     }
 
     const keyId = await resolveAccountKeyId();
+    const scopedOrganizationId =
+      authRequest.clientKeyScope === "account" ? undefined : selectedOrganizationId || undefined;
     const cak = await cryptoService.deriveClientAppKey(ark, {
       sub: sessionData.sub,
       keyId,
       clientId,
-      organizationId: selectedOrganizationId || undefined,
+      organizationId: scopedOrganizationId,
       audience: clientId,
     });
     try {
@@ -292,7 +341,7 @@ export default function Authorize({
         sub: sessionData.sub,
         client_id: clientId,
         aud: clientId,
-        ...(selectedOrganizationId ? { org_id: selectedOrganizationId } : {}),
+        ...(scopedOrganizationId ? { org_id: scopedOrganizationId } : {}),
         request_id: authRequest.requestId,
         state_hash: await sha256Base64Url(authRequest.state || ""),
         redirect_uri_hash: await sha256Base64Url(authRequest.redirectUri || ""),
@@ -430,9 +479,20 @@ export default function Authorize({
   };
 
   const requestDeviceApproval = async () => {
+    if (!isUnlockMethodAllowed(unlockPolicy, "trusted_device")) {
+      setRecoveryVisible(true);
+      setUnlockMethod(firstUnlockMethod);
+      setError("Trusted-device approval is disabled by your organization policy.");
+      return;
+    }
     if (!hasTrustedDevices) {
       setRecoveryVisible(true);
-      setError("No trusted devices are available. Enter your password to continue.");
+      setUnlockMethod(firstUnlockMethod);
+      setError(
+        isUnlockMethodAllowed(unlockPolicy, "password")
+          ? "No trusted devices are available. Enter your password to continue."
+          : "No trusted devices are available. Choose another unlock method to continue."
+      );
       return;
     }
     setDeviceApprovalLoading(true);
@@ -490,6 +550,7 @@ export default function Authorize({
           await requestDeviceApproval();
         } else {
           setRecoveryVisible(true);
+          setUnlockMethod(firstUnlockMethod);
           setError("Unlock your encryption keys to continue.");
         }
         return;
@@ -580,6 +641,10 @@ export default function Authorize({
 
   const generateNewKeys = async () => {
     logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys start");
+    if (!isUnlockMethodAllowed(unlockPolicy, "new_key")) {
+      setError("Creating password-based encryption keys is disabled by your organization policy.");
+      return;
+    }
     if (!sessionData.email) {
       setError("Email is required to initialize keys");
       return;
@@ -719,6 +784,10 @@ export default function Authorize({
   };
 
   const unlockWithTrustedDevice = async () => {
+    if (!isUnlockMethodAllowed(unlockPolicy, "trusted_device")) {
+      setError("Trusted-browser encryption unlock is disabled by your organization policy.");
+      return;
+    }
     setRecoveryLoading(true);
     setError(null);
     let ark: Uint8Array | null = null;
@@ -754,6 +823,10 @@ export default function Authorize({
   };
 
   const unlockWithPasskey = async () => {
+    if (!isUnlockMethodAllowed(unlockPolicy, "passkey")) {
+      setError("Passkey encryption unlock is disabled by your organization policy.");
+      return;
+    }
     if (!browserSupportsWebAuthn()) {
       setError("This browser does not support passkey unlock.");
       return;
@@ -800,6 +873,10 @@ export default function Authorize({
   };
 
   const unlockWithCurrentPassword = async () => {
+    if (!isUnlockMethodAllowed(unlockPolicy, "password")) {
+      setError("Password encryption unlock is disabled by your organization policy.");
+      return;
+    }
     if (!sessionData.email) {
       setError("Email is required to unlock keys");
       return;
@@ -1002,30 +1079,28 @@ export default function Authorize({
             <h3>Unlock encryption keys</h3>
             <p>You are signed in, but this app needs zero-knowledge key delivery.</p>
             <div className="authorize-unlock-methods">
-              {[
-                ["password", "Password"],
-                ["passkey", "PRF passkey"],
-                ["trusted_device", "This trusted browser"],
-                ["recovery", "Recovery key"],
-                ["new_key", "Create new keys"],
-              ].map(([value, label]) => (
+              {unlockOptions.map(({ value, label }) => (
                 <label className="authorize-unlock-option" key={value}>
                   <input
                     type="radio"
                     name="unlock_method"
                     value={value}
                     checked={unlockMethod === value}
-                    onChange={() =>
-                      setUnlockMethod(
-                        value as "password" | "passkey" | "trusted_device" | "recovery" | "new_key"
-                      )
-                    }
+                    onChange={() => setUnlockMethod(value)}
                   />
                   <span>{label}</span>
                 </label>
               ))}
             </div>
-            {unlockMethod === "password" && (
+            {unlockPolicy.managed && (
+              <p className="help-text">
+                Your organization manages which encryption unlock methods are available.
+              </p>
+            )}
+            {unlockOptions.length === 0 && (
+              <p className="help-text">No encryption unlock methods are currently available.</p>
+            )}
+            {unlockMethod === "password" && isUnlockMethodAllowed(unlockPolicy, "password") && (
               <div className="form-group">
                 <label htmlFor={currentPasswordId}>Password</label>
                 <input
@@ -1038,7 +1113,7 @@ export default function Authorize({
                 />
               </div>
             )}
-            {unlockMethod === "recovery" && (
+            {unlockMethod === "recovery" && isUnlockMethodAllowed(unlockPolicy, "recovery") && (
               <div className="form-group">
                 <label htmlFor={recoverySecretId}>Recovery key</label>
                 <input
@@ -1051,17 +1126,18 @@ export default function Authorize({
                 />
               </div>
             )}
-            {unlockMethod === "passkey" && (
+            {unlockMethod === "passkey" && isUnlockMethodAllowed(unlockPolicy, "passkey") && (
               <p className="help-text">
                 Use a passkey that was registered with encryption unlock support.
               </p>
             )}
-            {unlockMethod === "trusted_device" && (
-              <p className="help-text">
-                Use the key stored in this browser when it was marked as trusted.
-              </p>
-            )}
-            {unlockMethod === "new_key" && (
+            {unlockMethod === "trusted_device" &&
+              isUnlockMethodAllowed(unlockPolicy, "trusted_device") && (
+                <p className="help-text">
+                  Use the key stored in this browser when it was marked as trusted.
+                </p>
+              )}
+            {unlockMethod === "new_key" && isUnlockMethodAllowed(unlockPolicy, "new_key") && (
               <p className="help-text">
                 This creates a new account root key. Existing encrypted app data that depends on the
                 old key may no longer be readable.
@@ -1082,7 +1158,7 @@ export default function Authorize({
                           ? unlockWithRecoveryKey
                           : generateNewKeys
                 }
-                disabled={recoveryLoading}
+                disabled={recoveryLoading || unlockOptions.length === 0}
               >
                 {recoveryLoading ? (
                   <>
@@ -1119,7 +1195,7 @@ export default function Authorize({
               }}
               disabled={loading || deviceApprovalLoading}
             >
-              Enter password
+              Choose another method
             </Button>
           )}
 
@@ -1147,7 +1223,7 @@ export default function Authorize({
             ) : keyLockedForZk && hasTrustedDevices ? (
               "Accept on another device"
             ) : keyLockedForZk ? (
-              "Enter password"
+              primaryLockedAction
             ) : (
               branding.getText("authorize", "Authorize")
             )}

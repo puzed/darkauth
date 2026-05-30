@@ -167,6 +167,7 @@ describe("admin clientCreate controller", () => {
     assert.equal(json.appUrl, null);
     assert.equal(json.dashboardIconMode, "letter");
     assert.equal(json.requirePkce, true);
+    assert.equal(json.clientKeyScope, "organization");
     assert.deepEqual(json.allowedJweAlgs, []);
     assert.deepEqual(json.allowedJweEncs, []);
     assert.deepEqual(json.redirectUris, []);

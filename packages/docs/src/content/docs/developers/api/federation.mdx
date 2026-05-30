@@ -26,6 +26,7 @@ The supported account-linking policies are `disabled`, `email_verified`, and `em
 - `GET /federation/route` resolves an email address to the configured federation route for its domain.
 - `GET /federation/oidc/start` starts an upstream OIDC authorization-code flow with PKCE, state, and nonce.
 - `GET /federation/oidc/callback` completes the upstream OIDC callback, validates tokens and userinfo, and creates a locked DarkAuth session.
+- `GET /federation/identities` lists the signed-in user's linked upstream federation identities for account security display.
 
 If no route exists, clients should continue with the local DarkAuth sign-in path.
 
@@ -42,3 +43,5 @@ Discovery rejects localhost, loopback, private, link-local, and internal hosts. 
 ## Key-custody boundary
 
 Federation authenticates the user; it does not unlock zero-knowledge keys by itself. Federated users who authorize a ZK client still need an unlocked DarkAuth keybag through password-derived material, passkey PRF, recovery key, trusted-device approval, or another supported envelope.
+
+Account linking is based on verified upstream identity claims and configured policy. Email-only linking is not a key-unlock path and must not be treated as proof that the browser has access to encrypted account material.

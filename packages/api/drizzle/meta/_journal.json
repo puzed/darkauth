@@ -211,6 +211,13 @@
       "when": 1780088400000,
       "tag": "0031_scim_policy_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1780174800000,
+      "tag": "0032_client_key_scope",
+      "breakpoints": true
     }
   ]
 }

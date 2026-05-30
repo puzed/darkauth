@@ -1,5 +1,5 @@
 import { hash as argonHash, verify as argonVerify } from "argon2";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { keyEnvelopes, recoveryKeys } from "../db/schema.ts";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
@@ -26,6 +26,7 @@ export async function createRecoveryKey(
     aad: Buffer;
     verifier: Buffer;
     metadata?: Record<string, unknown>;
+    revokeExisting?: boolean;
   }
 ): Promise<RecoveryKeyWithEnvelope> {
   validateIdentifier(data.sub, "sub");
@@ -70,6 +71,35 @@ export async function createRecoveryKey(
       })
       .returning();
     if (!recoveryKey) throw new ConflictError("Recovery key could not be created");
+    if (data.revokeExisting) {
+      const now = new Date();
+      const replaced = await tx
+        .update(recoveryKeys)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(recoveryKeys.sub, data.sub),
+            ne(recoveryKeys.recoveryKeyId, recoveryKeyId),
+            isNull(recoveryKeys.revokedAt)
+          )
+        )
+        .returning();
+      const envelopeIds = replaced.map((item) => item.envelopeId);
+      if (envelopeIds.length > 0) {
+        for (const oldEnvelopeId of envelopeIds) {
+          await tx
+            .update(keyEnvelopes)
+            .set({ revokedAt: now })
+            .where(
+              and(
+                eq(keyEnvelopes.envelopeId, oldEnvelopeId),
+                eq(keyEnvelopes.sub, data.sub),
+                isNull(keyEnvelopes.revokedAt)
+              )
+            );
+        }
+      }
+    }
     return { recoveryKey, envelope };
   });
   return row;

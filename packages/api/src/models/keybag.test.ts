@@ -15,6 +15,7 @@ import {
   listKeyEnvelopes,
   migrateLegacyWrappedDrkToKeybag,
   revokeKeyEnvelope,
+  rotateAccountKey,
 } from "./keybag.ts";
 
 function createLogger() {
@@ -138,6 +139,46 @@ test("migrateLegacyWrappedDrkToKeybag creates deterministic legacy account key a
       version: "v1-drk",
       migrated_from: "wrapped_root_keys",
     });
+  } finally {
+    await cleanup();
+  }
+});
+
+test("rotateAccountKey marks old keys rotated and optionally retires old envelopes", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createAccountKey(context, {
+      keyId: "ark_user-sub_1",
+      sub: "user-sub",
+    });
+    await createKeyEnvelope(context, {
+      envelopeId: "env_user-sub_password_1",
+      keyId: "ark_user-sub_1",
+      sub: "user-sub",
+      type: "password",
+      wrappingAlg: "OPAQUE-HKDF-SHA256+A256GCM",
+      wrappedKey: Buffer.from("wrapped-key"),
+      aad: Buffer.from("aad"),
+    });
+
+    const rotation = await rotateAccountKey(context, {
+      sub: "user-sub",
+      keyId: "ark_user-sub_2",
+      retireOldEnvelopes: true,
+      rotatedAt: new Date("2026-05-30T00:00:00.000Z"),
+    });
+
+    const active = await getActiveAccountKey(context, "user-sub");
+    const allEnvelopes = await listKeyEnvelopes(context, "user-sub", { includeRevoked: true });
+
+    assert.equal(rotation.accountKey.keyId, "ark_user-sub_2");
+    assert.equal(rotation.previousKeys.length, 1);
+    assert.equal(rotation.previousKeys[0]?.keyId, "ark_user-sub_1");
+    assert.equal(rotation.previousKeys[0]?.status, "rotated");
+    assert.equal(rotation.retiredEnvelopeCount, 1);
+    assert.equal(active.keyId, "ark_user-sub_2");
+    assert.equal(allEnvelopes[0]?.revokedAt?.toISOString(), "2026-05-30T00:00:00.000Z");
   } finally {
     await cleanup();
   }

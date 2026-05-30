@@ -59,7 +59,7 @@ const ConnectionRequestSchema = z.object({
   userinfoEndpoint: z.string().url().nullable().optional(),
   scopes: z.array(z.string().min(1)).optional(),
   claimMapping: ClaimMappingSchema,
-  accountLinkingPolicy: z.enum(["disabled", "email_verified", "email"]).optional(),
+  accountLinkingPolicy: z.enum(["disabled", "email_verified"]).optional(),
   domains: z.array(z.string().min(1)).optional(),
   enabled: z.boolean().optional(),
 });

@@ -97,6 +97,7 @@ export const clients = pgTable("clients", {
   zkRequired: boolean("zk_required").default(false).notNull(),
   keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
+  clientKeyScope: text("client_key_scope").default("organization").notNull(),
   allowedJweAlgs: text("allowed_jwe_algs").array().default([]).notNull(),
   allowedJweEncs: text("allowed_jwe_encs").array().default([]).notNull(),
   redirectUris: text("redirect_uris").array().default([]).notNull(),
@@ -526,6 +527,7 @@ export const pendingAuth = pgTable("pending_auth", {
   zkPubKid: text("zk_pub_kid"),
   keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
+  clientKeyScope: text("client_key_scope").default("organization").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   userSub: text("user_sub").references(() => users.sub, {

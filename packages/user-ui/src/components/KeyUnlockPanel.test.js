@@ -14,3 +14,24 @@ test("key unlock panel uses password proof before marking keys unlocked", () => 
   assert.notEqual(source.indexOf("saveUnlockedArk"), -1);
   assert.equal(source.indexOf("session/key-unlock"), -1);
 });
+
+test("key unlock panel can request and consume another-browser approval", () => {
+  const requestStart = source.indexOf("const requestDeviceApproval = async () => {");
+  const pollingStart = source.indexOf("const startDeviceApprovalPolling = useCallback(");
+
+  assert.notEqual(requestStart, -1);
+  assert.notEqual(pollingStart, -1);
+  assert.notEqual(source.indexOf("Accept on Another Browser"), -1);
+  assert.notEqual(source.indexOf("Approve from a trusted browser"), -1);
+  assert.notEqual(source.indexOf("Use password instead"), -1);
+  assert.notEqual(source.indexOf("api.createDeviceApproval({", requestStart), -1);
+  assert.notEqual(source.indexOf("newDevicePublicJwk: publicJwk", requestStart), -1);
+  const keyUnlockStateHash = "stateHash: await sha256Base64Url(`key-unlock:" + "$" + "{sub}:";
+  assert.notEqual(source.indexOf(keyUnlockStateHash, requestStart), -1);
+  assert.notEqual(
+    source.indexOf("verificationCodeHash: await sha256Base64Url(code)", requestStart),
+    -1
+  );
+  assert.notEqual(source.indexOf("api.consumeDeviceApproval", pollingStart), -1);
+  assert.notEqual(source.indexOf("cryptoService.decryptDeviceApprovalJWE(encryptedApproval"), -1);
+});
