@@ -1,3 +1,4 @@
+import type { webcrypto } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { deviceApprovalRequests, keyEnvelopes, trustedDevices } from "../db/schema.ts";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
@@ -138,6 +139,7 @@ export async function approveDeviceApprovalRequest(
     approvedByDeviceId: string;
     encryptedApproval: Buffer;
     approvalAad: Buffer;
+    approvalProof: Buffer;
   }
 ) {
   validateIdentifier(data.sub, "sub");
@@ -162,6 +164,7 @@ export async function approveDeviceApprovalRequest(
   });
   if (!request) throw new ConflictError("Approval request is not pending");
   assertApprovalAad(data.approvalAad, request);
+  await assertTrustedDeviceApprovalProof(device.publicJwk, data.approvalAad, data.approvalProof);
   const rows = await context.db
     .update(deviceApprovalRequests)
     .set({
@@ -186,9 +189,30 @@ export async function approveDeviceApprovalRequest(
   return row;
 }
 
+export async function getDeviceApprovalRequestAad(
+  context: Context,
+  data: { sub: string; requestId: string }
+) {
+  validateIdentifier(data.sub, "sub");
+  validateIdentifier(data.requestId, "requestId");
+  const request = await context.db.query.deviceApprovalRequests.findFirst({
+    where: and(
+      eq(deviceApprovalRequests.requestId, data.requestId),
+      eq(deviceApprovalRequests.sub, data.sub)
+    ),
+  });
+  if (!request) throw new ConflictError("Approval request is not pending");
+  return approvalAadForRequest(request);
+}
+
 export async function consumeDeviceApprovalRequest(
   context: Context,
-  data: { sub: string; requestId: string; newDeviceProof: string }
+  data: {
+    sub: string;
+    requestId: string;
+    newDeviceProof: string;
+    requesterSessionId?: string | null;
+  }
 ) {
   validateIdentifier(data.sub, "sub");
   await assertScimTrustedDeviceApprovalPolicy(context, data.sub);
@@ -201,6 +225,9 @@ export async function consumeDeviceApprovalRequest(
     ),
   });
   if (!request) throw new ConflictError("Approval request cannot be consumed");
+  if (request.requesterSessionId && data.requesterSessionId !== request.requesterSessionId) {
+    throw new ForbiddenError("Approval request belongs to another session");
+  }
   assertNewDeviceProof(data.newDeviceProof, request);
   const rows = await context.db
     .update(deviceApprovalRequests)
@@ -312,10 +339,7 @@ function normalizeApprovalMetadata(
     typeof input.verification_code_hash === "string"
       ? input.verification_code_hash
       : sha256Base64Url(binding.verificationCode);
-  const newDevicePublicJwkHash =
-    typeof input.new_device_public_jwk_hash === "string"
-      ? input.new_device_public_jwk_hash
-      : sha256Base64Url(JSON.stringify(binding.newDevicePublicJwk));
+  const newDevicePublicJwkHash = sha256Base64Url(JSON.stringify(binding.newDevicePublicJwk));
   return {
     ...input,
     client_id: clientId,
@@ -336,6 +360,39 @@ function normalizeApprovalMetadata(
   };
 }
 
+async function assertTrustedDeviceApprovalProof(
+  publicJwk: unknown,
+  approvalAad: Buffer,
+  approvalProof: Buffer
+) {
+  if (!publicJwk || typeof publicJwk !== "object" || Array.isArray(publicJwk)) {
+    throw new ForbiddenError("Trusted device approval proof is required");
+  }
+  const jwk = publicJwk as webcrypto.JsonWebKey;
+  if (jwk.kty !== "EC" || jwk.crv !== "P-256") {
+    throw new ForbiddenError("Trusted device approval proof is required");
+  }
+  let key: webcrypto.CryptoKey;
+  try {
+    key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, [
+      "verify",
+    ]);
+  } catch {
+    throw new ForbiddenError("Trusted device approval proof is invalid");
+  }
+  const valid = await crypto.subtle.verify(
+    { name: "ECDSA", hash: "SHA-256" },
+    key,
+    toArrayBuffer(approvalProof),
+    toArrayBuffer(approvalAad)
+  );
+  if (!valid) throw new ForbiddenError("Trusted device approval proof is invalid");
+}
+
+function toArrayBuffer(value: Buffer) {
+  return Uint8Array.from(value).buffer;
+}
+
 function assertNewDeviceProof(proof: string, request: typeof deviceApprovalRequests.$inferSelect) {
   const metadata =
     request.metadata && typeof request.metadata === "object" && !Array.isArray(request.metadata)
@@ -349,6 +406,11 @@ function assertNewDeviceProof(proof: string, request: typeof deviceApprovalReque
 }
 
 function assertApprovalAad(aad: Buffer, request: typeof deviceApprovalRequests.$inferSelect) {
+  const expected = approvalAadForRequest(request);
+  if (!aad.equals(expected)) throw new ValidationError("Invalid approval AAD");
+}
+
+function approvalAadForRequest(request: typeof deviceApprovalRequests.$inferSelect) {
   const metadata =
     request.metadata && typeof request.metadata === "object" && !Array.isArray(request.metadata)
       ? (request.metadata as Record<string, unknown>)
@@ -357,8 +419,18 @@ function assertApprovalAad(aad: Buffer, request: typeof deviceApprovalRequests.$
     typeof metadata.new_device_public_jwk_hash === "string"
       ? metadata.new_device_public_jwk_hash
       : sha256Base64Url(JSON.stringify(request.newDevicePublicJwk));
-  const expected = Buffer.from(
-    `DarkAuth|device-approval|${request.sub}|${request.requestId}|${publicKeyHash}`
+  const requestBindingHash =
+    typeof metadata.request_binding_hash === "string" ? metadata.request_binding_hash : null;
+  return Buffer.from(
+    [
+      "DarkAuth",
+      "device-approval",
+      request.sub,
+      request.requestId,
+      publicKeyHash,
+      requestBindingHash,
+    ]
+      .filter((value): value is string => typeof value === "string")
+      .join("|")
   );
-  if (!aad.equals(expected)) throw new ValidationError("Invalid approval AAD");
 }
