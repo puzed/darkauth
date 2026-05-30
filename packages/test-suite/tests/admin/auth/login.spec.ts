@@ -145,7 +145,7 @@ test.describe('Authentication - Login', () => {
     await waitForLoginForm(page);
     await expect(page.locator('input[name="password"], input[type="password"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="password"], input[type="password"]', FIXED_TEST_ADMIN.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     const emailField = page.locator('input[name="email"], input[type="email"]');
     await expect(emailField).toBeVisible();
     const isRequired = await emailField.getAttribute('required');
@@ -162,7 +162,7 @@ test.describe('Authentication - Login', () => {
     await waitForLoginForm(page);
     await expect(page.locator('input[name="email"], input[type="email"]').first()).toBeVisible({ timeout: 20000 });
     await page.fill('input[name="email"], input[type="email"]', FIXED_TEST_ADMIN.email);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     const passwordField = page.locator('input[name="password"], input[type="password"]');
     await expect(passwordField).toBeVisible();
     const isRequired = await passwordField.getAttribute('required');

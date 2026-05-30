@@ -40,7 +40,7 @@ test.describe('User - OTP - Forced setup UI', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
 
     await page.waitForURL(/\/otp\/setup/i, { timeout: 10000 });
     const url = new URL(page.url());
