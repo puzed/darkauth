@@ -55,7 +55,7 @@ test.describe('Authentication - User Login', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     try {
       await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
     } catch {
@@ -67,7 +67,7 @@ test.describe('Authentication - User Login', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', 'WrongPassword123!');
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/invalid|error|incorrect|wrong|failed|rate\s*limit|exceeded|slow\s*down/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
@@ -76,7 +76,7 @@ test.describe('Authentication - User Login', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', 'wrong-user@example.com');
     await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/no account found|not found|invalid|error|incorrect|rate\s*limit|exceeded|slow\s*down/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
@@ -85,7 +85,7 @@ test.describe('Authentication - User Login', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', 'wrong-user@example.com');
     await page.fill('input[name="password"], input[type="password"]', 'WrongPassword123!');
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('body')).toContainText(/no account found|not found|invalid|error|incorrect/i);
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
   });
@@ -93,7 +93,7 @@ test.describe('Authentication - User Login', () => {
   test('empty email field shows validation error', async ({ page }) => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     const emailField = page.locator('input[name="email"], input[type="email"]');
     await expect(emailField).toBeVisible();
     const isRequired = await emailField.getAttribute('required');
@@ -107,7 +107,7 @@ test.describe('Authentication - User Login', () => {
   test('empty password field shows validation error', async ({ page }) => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     const passwordField = page.locator('input[name="password"], input[type="password"]');
     await expect(passwordField).toBeVisible();
     const isRequired = await passwordField.getAttribute('required');
@@ -120,7 +120,7 @@ test.describe('Authentication - User Login', () => {
 
   test('empty form shows validation errors', async ({ page }) => {
     await page.goto(`${servers.userUrl}/`);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await expect(page.locator('input[name="email"], input[type="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"], input[type="password"]')).toBeVisible();
   });
