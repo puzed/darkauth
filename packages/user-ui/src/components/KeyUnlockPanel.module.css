@@ -44,6 +44,46 @@
   margin-top: 1rem;
 }
 
+.approval {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #fbbf24;
+}
+
+.approval h4 {
+  margin: 0;
+  color: #92400e;
+  font-size: 0.95rem;
+}
+
+.approval p {
+  margin: 0;
+  color: #78350f;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.code {
+  display: inline-flex;
+  justify-content: center;
+  justify-self: start;
+  min-width: 11rem;
+  border-radius: 0.5rem;
+  background: white;
+  padding: 0.75rem 1rem;
+  color: #111827;
+  font-family: monospace;
+  font-size: 1.5rem;
+  letter-spacing: 0.35rem;
+}
+
+.status {
+  color: #78350f;
+  font-size: 0.875rem;
+}
+
 .field {
   display: grid;
   gap: 0.375rem;
@@ -125,6 +165,21 @@
 
 [data-da-theme="dark"] .field input {
   border-color: #92400e;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-da-theme="dark"] .approval {
+  border-color: #92400e;
+}
+
+[data-da-theme="dark"] .approval h4,
+[data-da-theme="dark"] .approval p,
+[data-da-theme="dark"] .status {
+  color: #fde68a;
+}
+
+[data-da-theme="dark"] .code {
   background: #0f172a;
   color: #e2e8f0;
 }

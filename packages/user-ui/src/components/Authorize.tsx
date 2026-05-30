@@ -371,7 +371,10 @@ export default function Authorize({
     if (!encryptedApproval) return false;
     let ark: Uint8Array | null = null;
     try {
-      ark = await cryptoService.decryptDeviceApprovalJWE(encryptedApproval, privateKey);
+      ark = await cryptoService.decryptDeviceApprovalJWE(encryptedApproval, privateKey, {
+        sub: sessionData.sub,
+        requestId: approval.request_id,
+      });
       stopDeviceApprovalPolling();
       setDeviceApprovalStatus("Approved. Finalizing authorization...");
       setKeyUnlocked(true);
@@ -446,6 +449,7 @@ export default function Authorize({
       const code = generateVerificationCode();
       const approval = await apiService.createDeviceApproval({
         newDevicePublicJwk: publicJwk,
+        authorizationRequestId: authRequest.requestId,
         clientId,
         stateHash: await sha256Base64Url(authRequest.state || ""),
         verificationCodeHash: await sha256Base64Url(code),

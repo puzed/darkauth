@@ -25,6 +25,8 @@ test("Settings security manages trusted devices and approval requests", () => {
 test("Settings security approval encrypts the ARK to the requesting device", () => {
   assert.notEqual(source.indexOf("cryptoService.createDeviceApprovalJWE"), -1);
   assert.notEqual(source.indexOf("api.approveDeviceApproval"), -1);
+  assert.notEqual(source.indexOf("deviceKeyStore.getApprovalPrivateKey"), -1);
+  assert.notEqual(source.indexOf("approvalProof"), -1);
   assert.notEqual(source.indexOf("approval.new_device_public_jwk"), -1);
 });
 
@@ -64,6 +66,15 @@ test("dashboard and settings expose password unlock for locked key state", () =>
   assert.notEqual(unlockSource.indexOf("unlockArkWithExportKey"), -1);
   assert.notEqual(unlockSource.indexOf("saveUnlockedArk"), -1);
   assert.notEqual(unlockSource.indexOf('type === "password"'), -1);
+});
+
+test("key-locked dashboard and settings can request another-browser approval", () => {
+  assert.notEqual(unlockSource.indexOf("Accept on Another Browser"), -1);
+  assert.notEqual(unlockSource.indexOf("api.createDeviceApproval"), -1);
+  assert.notEqual(unlockSource.indexOf("api.consumeDeviceApproval"), -1);
+  assert.notEqual(unlockSource.indexOf("cryptoService.decryptDeviceApprovalJWE"), -1);
+  assert.notEqual(unlockSource.indexOf("Accept on Another Browser"), -1);
+  assert.notEqual(source.indexOf("Refresh approvals"), -1);
 });
 
 test("trusted device actions use unlocked ARK instead of requiring export key", () => {

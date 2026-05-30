@@ -7,7 +7,7 @@ import api, {
   type TrustedDeviceResponse,
   type WebAuthnCredentialResponse,
 } from "../services/api";
-import cryptoService, { toBase64Url } from "../services/crypto";
+import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
 import {
   createPasskeyCredential,
@@ -91,9 +91,29 @@ export default function SettingsSecurity({
     }
   }, []);
 
+  const refreshDeviceApprovals = useCallback(async () => {
+    try {
+      setDeviceApprovals(await api.getDeviceApprovals());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to refresh device approvals");
+    }
+  }, []);
+
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    const activeDeviceCount = trustedDevices.filter((device) => !device.revoked_at).length;
+    if (loading || activeDeviceCount < 1) return undefined;
+    const interval = window.setInterval(() => {
+      void api
+        .getDeviceApprovals()
+        .then(setDeviceApprovals)
+        .catch(() => {});
+    }, 10000);
+    return () => window.clearInterval(interval);
+  }, [loading, trustedDevices]);
 
   useEffect(() => {
     const credentialApi = window.PublicKeyCredential as
@@ -419,7 +439,7 @@ export default function SettingsSecurity({
       });
       await api.createTrustedDevice({
         label: "This browser",
-        publicKeyJwk: { kty: "local", kid: handle } as JsonWebKey,
+        publicKeyJwk: localKey.approvalPublicJwk,
         keyHandle: handle,
         envelopeId,
       });
@@ -451,7 +471,7 @@ export default function SettingsSecurity({
       setDeviceActionLoading(requestId);
       setError(null);
       await api.denyDeviceApproval(requestId);
-      setDeviceApprovals(await api.getDeviceApprovals());
+      await refreshDeviceApprovals();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to deny approval request");
     } finally {
@@ -466,9 +486,17 @@ export default function SettingsSecurity({
       setError("This approval request is missing the new device public key.");
       return;
     }
-    const approvingDevice = trustedDevices.find((device) => !device.revoked_at);
+    const approvingDevice = trustedDevices.find(
+      (device) => !device.revoked_at && (device.public_jwk || device.public_key_jwk)?.kty === "EC"
+    );
     if (!approvingDevice) {
-      setError("No trusted device is available to approve this request.");
+      setError("No trusted browser with approval proof support is available.");
+      return;
+    }
+    const handle = approvingDevice.key_handle;
+    const approvalAad = approval.approval_aad;
+    if (!handle || !approvalAad) {
+      setError("This approval request cannot be approved by this browser.");
       return;
     }
 
@@ -480,6 +508,12 @@ export default function SettingsSecurity({
       if (!ark) {
         throw new Error("Unlock this browser before approving another device.");
       }
+      const approvalPrivateKey = await deviceKeyStore.getApprovalPrivateKey(handle);
+      if (!approvalPrivateKey) {
+        throw new Error(
+          "This browser is missing its approval key. Trust it again before approving."
+        );
+      }
       const encryptedApproval = await cryptoService.createDeviceApprovalJWE(
         ark,
         recipientPublicJwk,
@@ -488,11 +522,18 @@ export default function SettingsSecurity({
           requestId,
         }
       );
+      const approvalProof = await crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        approvalPrivateKey,
+        fromBase64Url(approvalAad) as BufferSource
+      );
       await api.approveDeviceApproval(requestId, {
         encryptedApproval,
+        approvalAad,
+        approvalProof: toBase64Url(approvalProof),
         approvedDeviceId: approvingDevice.device_id,
       });
-      setDeviceApprovals(await api.getDeviceApprovals());
+      await refreshDeviceApprovals();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to approve device");
     } finally {
@@ -1010,6 +1051,16 @@ export default function SettingsSecurity({
         <h3>Pending Device Approvals</h3>
         <div className="help-text">
           Approve only requests that show the same verification code on the new device.
+        </div>
+        <div style={{ display: "flex", marginTop: 12 }}>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={refreshDeviceApprovals}
+            disabled={!!deviceActionLoading}
+          >
+            Refresh approvals
+          </Button>
         </div>
         {pendingApprovals.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>

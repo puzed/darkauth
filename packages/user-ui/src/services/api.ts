@@ -1,3 +1,4 @@
+import { fromBase64Url, toBase64Url } from "./crypto";
 import { logger } from "./logger";
 
 export interface ApiError {
@@ -160,11 +161,13 @@ export interface DeviceApprovalResponse {
   new_device_public_jwk?: JsonWebKey | null;
   client_id?: string | null;
   state_hash?: string | null;
+  verification_code_hash?: string | null;
   verification_code?: string | null;
   status?: string | null;
   expires_at?: string | null;
   approved_by_device_id?: string | null;
   encrypted_approval?: string | null;
+  approval_aad?: string | null;
   created_at?: string | null;
 }
 
@@ -263,6 +266,30 @@ export interface PasswordResetStartResponse {
   message: string;
   serverPublicKey: string;
   identityU: string;
+}
+
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+
+function encodeDeviceApprovalEnvelope(value: string): string {
+  return value.includes(".") ? toBase64Url(textEncoder.encode(value)) : value;
+}
+
+function decodeDeviceApprovalEnvelope(value?: string | null): string | null | undefined {
+  if (!value || value.includes(".")) return value;
+  try {
+    const decoded = textDecoder.decode(fromBase64Url(value));
+    return decoded.includes(".") ? decoded : value;
+  } catch {
+    return value;
+  }
+}
+
+function normalizeDeviceApproval(approval: DeviceApprovalResponse): DeviceApprovalResponse {
+  return {
+    ...approval,
+    encrypted_approval: decodeDeviceApprovalEnvelope(approval.encrypted_approval),
+  };
 }
 
 class ApiService {
@@ -795,6 +822,7 @@ class ApiService {
 
   async createDeviceApproval(request: {
     newDevicePublicJwk: JsonWebKey;
+    authorizationRequestId?: string;
     clientId: string;
     stateHash: string;
     verificationCodeHash: string;
@@ -806,13 +834,16 @@ class ApiService {
       method: "POST",
       body: JSON.stringify({
         new_device_public_jwk: request.newDevicePublicJwk,
+        authorization_request_id: request.authorizationRequestId,
         client_id: request.clientId,
         state_hash: request.stateHash,
         verification_code_hash: request.verificationCodeHash,
       }),
     });
     const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
-    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+    return normalizeDeviceApproval(
+      wrapped.approval || wrapped.request || (data as DeviceApprovalResponse)
+    );
   }
 
   async getDeviceApprovals(): Promise<DeviceApprovalResponse[]> {
@@ -824,13 +855,20 @@ class ApiService {
         }
       | DeviceApprovalResponse[]
     >("/crypto/device-approvals");
-    if (Array.isArray(data)) return data;
-    return data.approvals || data.requests || data.device_approval_requests || [];
+    const approvals = Array.isArray(data)
+      ? data
+      : data.approvals || data.requests || data.device_approval_requests || [];
+    return approvals.map(normalizeDeviceApproval);
   }
 
   async approveDeviceApproval(
     requestId: string,
-    request: { encryptedApproval: string; approvedDeviceId?: string }
+    request: {
+      encryptedApproval: string;
+      approvalAad: string;
+      approvalProof: string;
+      approvedDeviceId?: string;
+    }
   ): Promise<DeviceApprovalResponse> {
     const data = await this.request<
       | { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse }
@@ -838,12 +876,16 @@ class ApiService {
     >(`/crypto/device-approvals/${encodeURIComponent(requestId)}/approve`, {
       method: "POST",
       body: JSON.stringify({
-        encrypted_approval: request.encryptedApproval,
+        encrypted_approval: encodeDeviceApprovalEnvelope(request.encryptedApproval),
         approved_device_id: request.approvedDeviceId,
+        approval_aad: request.approvalAad,
+        approval_proof: request.approvalProof,
       }),
     });
     const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
-    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+    return normalizeDeviceApproval(
+      wrapped.approval || wrapped.request || (data as DeviceApprovalResponse)
+    );
   }
 
   async consumeDeviceApproval(
@@ -861,7 +903,9 @@ class ApiService {
       }),
     });
     const wrapped = data as { approval?: DeviceApprovalResponse; request?: DeviceApprovalResponse };
-    return wrapped.approval || wrapped.request || (data as DeviceApprovalResponse);
+    return normalizeDeviceApproval(
+      wrapped.approval || wrapped.request || (data as DeviceApprovalResponse)
+    );
   }
 
   async denyDeviceApproval(requestId: string): Promise<void> {
