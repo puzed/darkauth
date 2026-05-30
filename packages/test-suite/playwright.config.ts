@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 const reporter = process.env.PW_REPORTER || 'dot';
 const artifacts = process.env.PW_ARTIFACTS || 'off';
+const video = process.env.PW_VIDEO || 'off';
 const outputDir = process.env.PW_OUTPUT_DIR || 'test-results';
 const browserChannel = process.env.PW_BROWSER_CHANNEL;
 
@@ -15,7 +16,7 @@ export default defineConfig({
   use: {
     trace: artifacts === 'on' ? 'retain-on-failure' : 'off',
     screenshot: artifacts === 'on' ? 'on' : 'off',
-    video: artifacts === 'on' ? 'retain-on-failure' : 'off',
+    video: video === 'on' ? 'retain-on-failure' : 'off',
     viewport: { width: 1400, height: 800 },
     colorScheme: process.env.COLOR_SCHEME === 'dark' ? 'dark' : process.env.COLOR_SCHEME === 'light' ? 'light' : undefined,
   },
