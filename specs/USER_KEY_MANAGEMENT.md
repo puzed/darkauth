@@ -918,6 +918,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Remove or rework the old-password recovery flow so email/password reset cannot be treated as equivalent to an offline recovery key.
 - [x] Make authenticated-but-key-locked state obvious outside the authorization screen, including the dashboard and settings surfaces.
 - [x] Add dashboard/settings password unlock for authenticated key-locked sessions.
+- [x] Add dashboard/settings trusted-browser approval unlock for authenticated key-locked sessions.
 - [ ] Enforce SCIM/SSO unlock-method policy in the user UI.
 - [ ] Add user-visible connected identity and enterprise SSO management.
 - [ ] Add user-visible password sign-in method management separate from encryption unlock methods.
@@ -933,10 +934,12 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Add authorization-screen polling for device approval.
 - [x] Add verification code display in the authorization flow.
 - [x] Add encrypted approval handoff from an existing trusted device.
-- [ ] Bind approval requests to `client_id`, OAuth state, and verification code hash server-side.
+- [x] Bind approval requests to `client_id`, OAuth state, and verification code hash server-side.
+- [x] Require approval proof from the registered trusted browser key before accepting encrypted approval handoff.
+- [x] Bind approval consumption to the original requester session.
 - [x] Verify the `new_device_proof` server-side instead of only requiring a non-empty value.
 - [x] Update the requester session to `keyState = "unlocked"` after successful trusted-device approval, or add a dedicated finalize path that validates the encrypted handoff without relying on stale server key state.
-- [ ] Add replay and mismatch tests for approval proof, state binding, client binding, and verification code binding.
+- [x] Add replay and mismatch tests for approval proof, state binding, client binding, and verification code binding.
 - [x] Add admin device visibility and revoke controls.
 - [x] Add policy controls for whether trusted-device approval is allowed.
 
