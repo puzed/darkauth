@@ -65,7 +65,7 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     await page.goto(`${servers.userUrl}/otp/verify`);
     await page.waitForURL(/\/otp\/verify/i, { timeout: 15000 });
 
-    await page.getByRole('button', { name: /use a backup code/i }).click();
+    await page.getByRole('button', { name: /^Backup code$/i }).click();
     await page.fill('input[placeholder="1234-5678-9ABC"]', backupCode!.trim());
     await page.getByRole('button', { name: /^Verify$/i }).click();
     await page.waitForURL(/apps/i, { timeout: 10000 });

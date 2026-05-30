@@ -39,6 +39,6 @@ test.describe('User Dashboard', () => {
     await page.getByRole('link', { name: /profile/i }).click()
     await page.waitForURL(/\/profile/i, { timeout: 15000 })
     await expect(page.getByRole('heading', { name: user.name })).toBeVisible()
-    await expect(page.getByText(user.email, { exact: false })).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Account details' }).getByText(user.email, { exact: false })).toBeVisible()
   })
 })

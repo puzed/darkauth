@@ -289,7 +289,7 @@ export async function openDemoDashboard(
       await authorizeButton.click();
     }
   }
-  const recoveryHeading = demoPage.getByRole('heading', { name: 'Unlock encryption keys' });
+  const recoveryHeading = demoPage.getByRole('heading', { name: /Unlock encrypt(?:ed|ion)/ });
   await Promise.race([
     recoveryHeading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
     demoPage
@@ -299,7 +299,7 @@ export async function openDemoDashboard(
       .catch(() => undefined),
   ]);
   if (await recoveryHeading.isVisible().catch(() => false)) {
-    const unlockPanel = demoPage.locator('.authorize-recovery').filter({ hasText: 'Unlock encryption keys' }).first();
+    const unlockPanel = demoPage.locator('.authorize-recovery').filter({ hasText: /Unlock encrypt(?:ed|ion)/ }).first();
     await unlockPanel.getByRole('textbox', { name: 'Password' }).fill(user.password);
     await unlockPanel.getByRole('button', { name: 'Continue' }).click();
   }
