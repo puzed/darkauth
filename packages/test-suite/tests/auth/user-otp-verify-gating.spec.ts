@@ -40,7 +40,7 @@ test.describe('Auth - OTP verification gating (UI)', () => {
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
-    await page.click('button[type="submit"], button:has-text("Sign In")');
+    await page.click('button[type="submit"]');
     await page.waitForURL(/\/otp\/setup/i, { timeout: 10000 });
     const url1 = new URL(page.url());
     expect(url1.pathname).toBe('/otp/setup');

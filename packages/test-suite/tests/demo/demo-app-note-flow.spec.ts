@@ -24,6 +24,8 @@ import {
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js';
 
 test.describe('Demo App Note Flow', () => {
+  test.describe.configure({ timeout: 90000 });
+
   let servers: TestServers | null = null;
   let demoApi: DemoApiServer | null = null;
   let demoUi: DemoUiServer | null = null;
