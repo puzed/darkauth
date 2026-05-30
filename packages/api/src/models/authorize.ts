@@ -17,6 +17,7 @@ export async function createPendingAuth(
     zkPubKid?: string;
     keyDeliveryVersion?: string;
     deliveredKeyKind?: string;
+    clientKeyScope?: string;
     userSub?: string;
     organizationId?: string;
     origin: string;
@@ -36,6 +37,7 @@ export async function createPendingAuth(
       zkPubKid: data.zkPubKid,
       keyDeliveryVersion: data.keyDeliveryVersion ?? "v2",
       deliveredKeyKind: data.deliveredKeyKind ?? "client_app_key",
+      clientKeyScope: data.clientKeyScope ?? "organization",
       userSub: data.userSub,
       organizationId: data.organizationId,
       origin: data.origin,

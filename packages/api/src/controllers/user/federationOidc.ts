@@ -13,6 +13,7 @@ import {
   resolveFederatedUserForClaims,
 } from "../../models/federation.ts";
 import { getUserBySub } from "../../models/users.ts";
+import { getClientIp, logAuditEvent } from "../../services/audit.ts";
 import {
   createSession,
   getRefreshTokenTtlSeconds,
@@ -79,6 +80,13 @@ export async function getFederationStart(
   authorizationUrl.searchParams.set("code_challenge_method", "S256");
 
   setCallbackCookie(response, { state: state.state, nonce, codeVerifier });
+  await auditFederationEvent(context, request, {
+    eventType: "FEDERATION_LOGIN_START",
+    success: true,
+    statusCode: 302,
+    resourceId: connection.id,
+    details: { issuer: connection.issuer, return_to: normalizeReturnTo(context, parsed.return_to) },
+  });
   redirect(response, authorizationUrl.toString(), 302);
 }
 
@@ -93,66 +101,147 @@ export async function getFederationCallback(
   const providerError = url.searchParams.get("error");
   const cookie = getCallbackCookie(request);
   clearCallbackCookie(response);
+  let auditConnectionId: string | undefined;
+  let auditUserSub: string | undefined;
+  let auditIdentityId: string | undefined;
+  try {
+    if (!state || !cookie || cookie.state !== state) {
+      throw new ValidationError("Invalid OIDC state");
+    }
+    if (providerError) {
+      const rejectedState = await consumeOidcCallbackState(context, {
+        state,
+        nonce: cookie.nonce,
+        codeVerifier: cookie.codeVerifier,
+      });
+      auditConnectionId = rejectedState.connectionId;
+      throw new UnauthorizedError("Federation provider rejected the request");
+    }
+    if (!code) throw new ValidationError("code is required");
 
-  if (!state || !cookie || cookie.state !== state) {
-    throw new ValidationError("Invalid OIDC state");
-  }
-  if (providerError) {
-    await consumeOidcCallbackState(context, {
+    const stateRow = await consumeOidcCallbackState(context, {
       state,
       nonce: cookie.nonce,
       codeVerifier: cookie.codeVerifier,
     });
-    throw new UnauthorizedError("Federation provider rejected the request");
+    auditConnectionId = stateRow.connectionId;
+    const connection = await getFederationConnectionSecret(context, stateRow.connectionId);
+    if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
+
+    const tokenResponse = await exchangeCode(context, connection, code, cookie.codeVerifier);
+    const idTokenClaims = await validateIdToken(connection, tokenResponse.id_token, cookie.nonce);
+    const claims = tokenResponse.access_token
+      ? await mergeUserinfoClaims(connection, idTokenClaims, tokenResponse.access_token)
+      : idTokenClaims;
+    const resolved = await resolveFederatedUserForClaims(context, connection.id, claims);
+    auditIdentityId = resolved.identityId;
+    if (!resolved.userSub) throw new UnauthorizedError("Federation account is not linked");
+    auditUserSub = resolved.userSub;
+    const user = await getUserBySub(context, resolved.userSub);
+    if (!user) throw new UnauthorizedError("Federation account is not linked");
+
+    const { getUserOrganizations } = await import("../../models/rbac.ts");
+    const activeMemberships = (await getUserOrganizations(context, user.sub)).filter(
+      (membership) => membership.status === "active"
+    );
+    if (activeMemberships.length === 0) throw new UnauthorizedError("Authentication not permitted");
+    const sessionOrganization =
+      activeMemberships.length === 1
+        ? {
+            organizationId: activeMemberships[0]?.organizationId,
+            organizationSlug: activeMemberships[0]?.slug,
+          }
+        : {};
+    const userClientId = await getUserClientId(context);
+    const { sessionId, refreshToken } = await createSession(context, "user", {
+      sub: user.sub,
+      email: user.email || undefined,
+      name: user.name || undefined,
+      ...sessionOrganization,
+      clientId: userClientId,
+      keyState: "locked",
+      otpRequired: activeMemberships.some((membership) => membership.forceOtp),
+      otpVerified: false,
+    });
+    const ttlSeconds = await getSessionTtlSeconds(context, "user");
+    const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+    issueSessionCookies(response, sessionId, ttlSeconds, false);
+    issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
+    if (resolved.created) {
+      await auditFederationEvent(context, request, {
+        eventType: "FEDERATION_ACCOUNT_LINK",
+        success: true,
+        statusCode: 302,
+        resourceId: connection.id,
+        userId: user.sub,
+        details: { identity_id: auditIdentityId, issuer: connection.issuer },
+      });
+    }
+    await auditFederationEvent(context, request, {
+      eventType: "FEDERATION_CALLBACK",
+      success: true,
+      statusCode: 302,
+      resourceId: connection.id,
+      userId: user.sub,
+      details: { identity_id: auditIdentityId, issuer: connection.issuer },
+    });
+    await auditFederationEvent(context, request, {
+      eventType: "FEDERATION_LOGIN",
+      success: true,
+      statusCode: 302,
+      resourceId: connection.id,
+      userId: user.sub,
+      details: { key_state: "locked", issuer: connection.issuer },
+    });
+    redirect(response, stateRow.returnTo || "/dashboard", 302);
+  } catch (error) {
+    const err = error as { statusCode?: number; code?: string; message?: string };
+    await auditFederationEvent(context, request, {
+      eventType: "FEDERATION_LOGIN_FAILURE",
+      success: false,
+      statusCode: err.statusCode ?? 500,
+      errorCode: err.code ?? "INTERNAL_ERROR",
+      errorMessage: err.message,
+      resourceId: auditConnectionId,
+      userId: auditUserSub,
+      details: { identity_id: auditIdentityId },
+    });
+    throw error;
   }
-  if (!code) throw new ValidationError("code is required");
+}
 
-  const stateRow = await consumeOidcCallbackState(context, {
-    state,
-    nonce: cookie.nonce,
-    codeVerifier: cookie.codeVerifier,
+async function auditFederationEvent(
+  context: Context,
+  request: IncomingMessage,
+  data: {
+    eventType: string;
+    success: boolean;
+    statusCode: number;
+    resourceId?: string;
+    userId?: string;
+    errorCode?: string;
+    errorMessage?: string;
+    details?: Record<string, unknown>;
+  }
+) {
+  const userAgent = request.headers["user-agent"];
+  await logAuditEvent(context, {
+    eventType: data.eventType,
+    method: request.method || "GET",
+    path: request.url || "/",
+    cohort: "user",
+    userId: data.userId,
+    ipAddress: getClientIp(request),
+    userAgent: Array.isArray(userAgent) ? userAgent[0] : userAgent,
+    success: data.success,
+    statusCode: data.statusCode,
+    errorCode: data.errorCode,
+    errorMessage: data.errorMessage,
+    resourceType: "federation_connection",
+    resourceId: data.resourceId,
+    action: "login",
+    details: data.details,
   });
-  const connection = await getFederationConnectionSecret(context, stateRow.connectionId);
-  if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
-
-  const tokenResponse = await exchangeCode(context, connection, code, cookie.codeVerifier);
-  const idTokenClaims = await validateIdToken(connection, tokenResponse.id_token, cookie.nonce);
-  const claims = tokenResponse.access_token
-    ? await mergeUserinfoClaims(connection, idTokenClaims, tokenResponse.access_token)
-    : idTokenClaims;
-  const resolved = await resolveFederatedUserForClaims(context, connection.id, claims);
-  if (!resolved.userSub) throw new UnauthorizedError("Federation account is not linked");
-  const user = await getUserBySub(context, resolved.userSub);
-  if (!user) throw new UnauthorizedError("Federation account is not linked");
-
-  const { getUserOrganizations } = await import("../../models/rbac.ts");
-  const activeMemberships = (await getUserOrganizations(context, user.sub)).filter(
-    (membership) => membership.status === "active"
-  );
-  if (activeMemberships.length === 0) throw new UnauthorizedError("Authentication not permitted");
-  const sessionOrganization =
-    activeMemberships.length === 1
-      ? {
-          organizationId: activeMemberships[0]?.organizationId,
-          organizationSlug: activeMemberships[0]?.slug,
-        }
-      : {};
-  const userClientId = await getUserClientId(context);
-  const { sessionId, refreshToken } = await createSession(context, "user", {
-    sub: user.sub,
-    email: user.email || undefined,
-    name: user.name || undefined,
-    ...sessionOrganization,
-    clientId: userClientId,
-    keyState: "locked",
-    otpRequired: activeMemberships.some((membership) => membership.forceOtp),
-    otpVerified: false,
-  });
-  const ttlSeconds = await getSessionTtlSeconds(context, "user");
-  const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
-  issueSessionCookies(response, sessionId, ttlSeconds, false);
-  issueRefreshTokenCookie(response, refreshToken, refreshTtlSeconds, false);
-  redirect(response, stateRow.returnTo || "/dashboard", 302);
 }
 
 async function findConnectionForEmail(context: Context, email: string) {

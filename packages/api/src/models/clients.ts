@@ -161,6 +161,7 @@ export async function createClient(
     zkRequired?: boolean;
     keyDeliveryVersion?: "v1-drk" | "v2";
     deliveredKeyKind?: "root_key" | "client_app_key";
+    clientKeyScope?: "account" | "organization";
     allowedJweAlgs?: string[];
     allowedJweEncs?: string[];
     redirectUris?: string[];
@@ -181,6 +182,7 @@ export async function createClient(
   const deliveredKeyKind =
     data.deliveredKeyKind ?? (keyDeliveryVersion === "v1-drk" ? "root_key" : "client_app_key");
   validateKeyDelivery(keyDeliveryVersion, deliveredKeyKind);
+  const clientKeyScope = validateClientKeyScope(data.clientKeyScope ?? "organization");
   if (data.type === "confidential" || tokenEndpointAuthMethod === "client_secret_basic") {
     clientSecret = (await import("node:crypto")).randomBytes(32).toString("base64url");
     if (context.services.kek?.isAvailable()) {
@@ -209,6 +211,7 @@ export async function createClient(
     zkRequired: data.zkRequired ?? false,
     keyDeliveryVersion,
     deliveredKeyKind,
+    clientKeyScope,
     allowedJweAlgs: data.allowedJweAlgs ?? [],
     allowedJweEncs: data.allowedJweEncs ?? [],
     redirectUris: data.redirectUris ?? [],
@@ -255,6 +258,7 @@ export async function updateClient(
     (updates.deliveredKeyKind as "root_key" | "client_app_key" | undefined) ??
     (existing.deliveredKeyKind as "root_key" | "client_app_key");
   validateKeyDelivery(nextKeyDeliveryVersion, nextDeliveredKeyKind);
+  if (updates.clientKeyScope) validateClientKeyScope(updates.clientKeyScope as string);
 
   const patch: Partial<typeof clients.$inferInsert> = {
     ...baseUpdates,
@@ -283,6 +287,13 @@ export async function updateClient(
     .set({ ...patch, updatedAt: new Date() })
     .where(eq(clients.clientId, clientId));
   return { success: true } as const;
+}
+
+function validateClientKeyScope(value: string) {
+  if (value !== "account" && value !== "organization") {
+    throw new ValidationError("Invalid client key scope");
+  }
+  return value;
 }
 
 export async function getClient(context: Context, clientId: string) {

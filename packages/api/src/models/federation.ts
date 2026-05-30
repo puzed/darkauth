@@ -42,7 +42,7 @@ const DEFAULT_CLAIM_MAPPING = {
   emailVerified: "email_verified",
   name: "name",
 };
-const LINKING_POLICIES = new Set(["disabled", "email_verified", "email"]);
+const LINKING_POLICIES = new Set(["disabled", "email_verified"]);
 
 export async function listFederationConnections(
   context: Context,
@@ -317,9 +317,7 @@ export async function resolveFederatedUserForClaims(
   if (connection.accountLinkingPolicy === "disabled")
     return { userSub: null, linked: false, created: false };
   if (!mapped.email) return { userSub: null, linked: false, created: false };
-  if (!mapped.emailVerified && !allowsUnverifiedEmailLinking(connection.metadata)) {
-    return { userSub: null, linked: false, created: false };
-  }
+  if (!mapped.emailVerified) return { userSub: null, linked: false, created: false };
   const user = await context.db.query.users.findFirst({
     where: eq(users.email, mapped.email),
   });
@@ -360,6 +358,28 @@ export async function resolveFederatedUserForClaims(
     claims,
   });
   return { userSub: user.sub, identityId: created.id, linked: true, created: true };
+}
+
+export async function listFederationIdentitiesForUser(context: Context, userSub: string) {
+  return await context.db
+    .select({
+      id: federationIdentities.id,
+      connectionId: federationIdentities.connectionId,
+      connectionName: federationConnections.name,
+      issuer: federationIdentities.issuer,
+      externalSubject: federationIdentities.externalSubject,
+      email: federationIdentities.email,
+      emailVerified: federationIdentities.emailVerified,
+      linkedAt: federationIdentities.linkedAt,
+      lastLoginAt: federationIdentities.lastLoginAt,
+    })
+    .from(federationIdentities)
+    .innerJoin(
+      federationConnections,
+      eq(federationIdentities.connectionId, federationConnections.id)
+    )
+    .where(eq(federationIdentities.userSub, userSub))
+    .orderBy(asc(federationConnections.name), asc(federationIdentities.linkedAt));
 }
 
 export async function decryptFederationClientSecret(context: Context, encrypted: Buffer | null) {
@@ -716,15 +736,6 @@ function isEmailAllowedForConnection(email: string, domains: string[]) {
   if (!domains || domains.length === 0) return true;
   const domain = extractDomain(email);
   return !!domain && domains.includes(domain);
-}
-
-function allowsUnverifiedEmailLinking(metadata: unknown) {
-  return (
-    !!metadata &&
-    typeof metadata === "object" &&
-    !Array.isArray(metadata) &&
-    (metadata as Record<string, unknown>).allow_unverified_email_linking === true
-  );
 }
 
 function validateText(value: string | undefined | null, name: string) {

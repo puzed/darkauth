@@ -57,6 +57,7 @@ const RecoveryKeyCreateRequest = z
     aad: Base64UrlString,
     verifier: Base64UrlString,
     metadata: z.record(z.string(), z.unknown()).optional(),
+    revoke_existing: z.boolean().optional(),
   })
   .strict();
 
@@ -119,6 +120,7 @@ export const postRecoveryKey = withRateLimit("key_management")(
       aad,
       verifier,
       metadata: parsed.metadata ?? {},
+      revokeExisting: parsed.revoke_existing ?? false,
     });
     sendJsonValidated(
       response,

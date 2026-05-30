@@ -15,6 +15,7 @@ import {
   getKeyEnvelopes,
   postAccountKey,
   postKeyEnvelope,
+  postRotateAccountKey,
 } from "./keybag.ts";
 
 function createLogger() {
@@ -339,6 +340,69 @@ test("keybag endpoints reject malformed ciphertext encoding", async () => {
           createResponse()
         ),
       /Invalid request format/
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("keybag rotate endpoint creates a new active account key and retires old envelopes on request", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const sessionId = await createUserSession(context, "user-a");
+    await postAccountKey(
+      context,
+      createRequest({
+        method: "POST",
+        url: "/crypto/keybag/account-key",
+        sessionId,
+        body: { key_id: "ark_user-a_1" },
+      }),
+      createResponse()
+    );
+    await postKeyEnvelope(
+      context,
+      createRequest({
+        method: "POST",
+        url: "/crypto/keybag/envelopes",
+        sessionId,
+        body: {
+          envelope_id: "env_user-a_password_1",
+          key_id: "ark_user-a_1",
+          type: "password",
+          wrapping_alg: "OPAQUE-HKDF-SHA256+A256GCM",
+          wrapped_key: toBase64Url(Buffer.from("wrapped-key")),
+          aad: toBase64Url(Buffer.from("aad")),
+        },
+      }),
+      createResponse()
+    );
+
+    const rotateResponse = createResponse();
+    await postRotateAccountKey(
+      context,
+      createRequest({
+        method: "POST",
+        url: "/crypto/keybag/rotate",
+        sessionId,
+        body: { key_id: "ark_user-a_2", retire_old_envelopes: true },
+      }),
+      rotateResponse
+    );
+
+    assert.equal(rotateResponse.statusCode, 201);
+    assert.equal(
+      (rotateResponse.json as { account_key: { key_id: string } }).account_key.key_id,
+      "ark_user-a_2"
+    );
+    assert.equal(
+      (rotateResponse.json as { previous_account_keys: Array<{ key_id: string }> })
+        .previous_account_keys[0]?.key_id,
+      "ark_user-a_1"
+    );
+    assert.equal(
+      (rotateResponse.json as { retired_envelope_count: number }).retired_envelope_count,
+      1
     );
   } finally {
     await cleanup();

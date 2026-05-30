@@ -6,8 +6,56 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const sourceExtensions = new Set([".ts"]);
+const forbiddenSecretFieldNames = [
+  "request",
+  "finish",
+  "message",
+  "record",
+  "opaquePayload",
+  "opaqueRecord",
+  "wrapped_drk",
+  "wrappedDrk",
+  "wrapped_key",
+  "wrappedKey",
+  "drk_jwe",
+  "drkJwe",
+  "darkauth_key_jwe",
+  "darkauthKeyJwe",
+  "zk_pub",
+  "zkPub",
+  "exportKey",
+  "password",
+  "ark",
+  "cak",
+  "prf",
+  "prf_output",
+  "prfOutput",
+  "recoveryKey",
+  "recoverySecret",
+  "privateKey",
+  "privateJwk",
+  "refreshToken",
+  "refresh_token",
+  "accessToken",
+  "access_token",
+  "idToken",
+  "id_token",
+  "authorizationCode",
+  "authCode",
+  "oauthCode",
+  "codeVerifier",
+  "code_verifier",
+  "clientSecret",
+  "client_secret",
+  "scimToken",
+  "scim_token",
+  "bearerToken",
+  "bearer_token",
+];
 const forbiddenLoggerPayloads = [
-  /\.(debug|info|warn|error|trace|fatal)\(\s*\{\s*(request|finish|message|record|opaquePayload|opaqueRecord|wrapped_drk|wrappedDrk|wrapped_key|wrappedKey|drk_jwe|darkauth_key_jwe|zk_pub|zkPub|exportKey|password|ark|cak|prf|prfOutput|recoveryKey|privateKey|privateJwk|refreshToken|accessToken|idToken|authorizationCode|codeVerifier|clientSecret)\s*:/,
+  new RegExp(
+    `\\.(debug|info|warn|error|trace|fatal)\\(\\s*\\{\\s*(${forbiddenSecretFieldNames.join("|")})\\s*:`
+  ),
   /\.(debug|info|warn|error|trace|fatal)\(\s*\{\s*(postgresUri|uri|smtpPassword|cookie|authorization)\s*:/,
 ];
 

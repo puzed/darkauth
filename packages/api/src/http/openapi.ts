@@ -91,6 +91,7 @@ import { schema as userEmailVerificationResendSchema } from "../controllers/user
 import { schema as userEmailVerificationVerifySchema } from "../controllers/user/emailVerificationVerify.ts";
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
 import { schema as userEncPublicPutSchema } from "../controllers/user/encPublicPut.ts";
+import { schema as userFederationIdentitiesSchema } from "../controllers/user/federationIdentities.ts";
 import {
   callbackSchema as userFederationCallbackSchema,
   startSchema as userFederationStartSchema,
@@ -145,6 +146,7 @@ import {
   postTrustedDeviceSchema as userTrustedDeviceSchema,
   getTrustedDevicesSchema as userTrustedDevicesSchema,
 } from "../controllers/user/trustedDevices.ts";
+import { schema as userUnlockPolicySchema } from "../controllers/user/unlockPolicy.ts";
 import {
   postSchema as userUserinfoPostSchema,
   schema as userUserinfoSchema,
@@ -278,6 +280,7 @@ const documentedSchemas: ControllerSchema[] = [
   userRecoveryKeySchema,
   userRecoveryKeyRevokeSchema,
   userRecoveryKeyUseSchema,
+  userUnlockPolicySchema,
   userTrustedDevicesSchema,
   userTrustedDeviceSchema,
   userTrustedDeviceRevokeSchema,
@@ -307,6 +310,7 @@ const documentedSchemas: ControllerSchema[] = [
   userEncPublicGetSchema,
   userEncPublicPutSchema,
   userFederationRouteSchema,
+  userFederationIdentitiesSchema,
   userFederationStartSchema,
   userFederationCallbackSchema,
   userWrappedDrkSchema,

@@ -231,16 +231,19 @@ test("createClient and updateClient enforce key delivery version and delivered k
     assert.ok(created);
     assert.equal(created.keyDeliveryVersion, "v2");
     assert.equal(created.deliveredKeyKind, "client_app_key");
+    assert.equal(created.clientKeyScope, "organization");
 
     await updateClient(context, "v2-client", {
       keyDeliveryVersion: "v1-drk",
       deliveredKeyKind: "root_key",
+      clientKeyScope: "account",
     });
 
     const updated = await getClient(context, "v2-client");
     assert.ok(updated);
     assert.equal(updated.keyDeliveryVersion, "v1-drk");
     assert.equal(updated.deliveredKeyKind, "root_key");
+    assert.equal(updated.clientKeyScope, "account");
 
     await assert.rejects(
       () =>

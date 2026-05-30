@@ -112,6 +112,45 @@ test("revokeRecoveryKey hides recovery keys and revokes their envelope", async (
   });
 });
 
+test("createRecoveryKey can replace active recovery keys and revoke old envelopes", async () => {
+  await withContext(async (context) => {
+    await createUserAndAccountKey(context);
+    await createRecoveryKey(context, {
+      recoveryKeyId: "rk_user_1",
+      envelopeId: "env_user_recovery_1",
+      keyId: "ark_user-sub_1",
+      sub: "user-sub",
+      wrappingAlg: "HKDF-SHA256+A256GCM/v2",
+      wrappedKey: Buffer.from("wrapped-recovery-envelope-1"),
+      aad: Buffer.from("canonical-aad-1"),
+      verifier: verifier("first verifier material"),
+    });
+
+    await createRecoveryKey(context, {
+      recoveryKeyId: "rk_user_2",
+      envelopeId: "env_user_recovery_2",
+      keyId: "ark_user-sub_1",
+      sub: "user-sub",
+      wrappingAlg: "HKDF-SHA256+A256GCM/v2",
+      wrappedKey: Buffer.from("wrapped-recovery-envelope-2"),
+      aad: Buffer.from("canonical-aad-2"),
+      verifier: verifier("second verifier material"),
+      revokeExisting: true,
+    });
+
+    const active = await listRecoveryKeys(context, "user-sub");
+    const all = await listRecoveryKeys(context, "user-sub", { includeRevoked: true });
+    const oldEnvelope = await context.db.query.keyEnvelopes.findFirst({
+      where: eq(keyEnvelopes.envelopeId, "env_user_recovery_1"),
+    });
+
+    assert.equal(active.length, 1);
+    assert.equal(active[0]?.recoveryKey.recoveryKeyId, "rk_user_2");
+    assert.equal(all.length, 2);
+    assert.ok(oldEnvelope?.revokedAt);
+  });
+});
+
 test("recordRecoveryKeyUse verifies the hash and updates recovery key and envelope usage", async () => {
   await withContext(async (context) => {
     await createUserAndAccountKey(context);

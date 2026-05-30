@@ -85,6 +85,69 @@ test("SCIM bearer tokens are hashed, accepted, and revoked", async () => {
   });
 });
 
+test("SCIM bearer tokens reject expiry and list inputs reject malformed filters while capping pagination", async () => {
+  await withContext(async (context) => {
+    const expired = await createScimBearerToken(context, {
+      name: "Expired",
+      expiresAt: new Date("2000-01-01T00:00:00.000Z"),
+    });
+    await assert.rejects(
+      () => requireScimBearerToken(context, expired.token),
+      (error: unknown) => error instanceof UnauthorizedError
+    );
+
+    for (let index = 0; index < 105; index += 1) {
+      await createScimUser(context, {
+        userName: `page-${index}@example.com`,
+        displayName: `Page ${index}`,
+      });
+    }
+
+    await assert.rejects(
+      () => listScimUsers(context, { filter: 'userName sw "page"' }),
+      /Unsupported SCIM filter/
+    );
+
+    const listed = await listScimUsers(context, { startIndex: 1, count: 10_000 });
+    assert.equal(listed.totalResults, 105);
+    assert.equal(listed.itemsPerPage, 100);
+    assert.equal(listed.Resources.length, 100);
+  });
+});
+
+test("SCIM user conformance accepts common IdP payload shapes", async () => {
+  await withContext(async (context) => {
+    const oktaUser = await createScimUser(context, {
+      schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
+      externalId: "00u123",
+      userName: "okta@example.com",
+      name: { givenName: "Okta", familyName: "User" },
+      emails: [{ value: "okta@example.com", primary: true, type: "work" }],
+      active: true,
+    } as never);
+    const azureUser = await createScimUser(context, {
+      schemas: [
+        "urn:ietf:params:scim:schemas:core:2.0:User",
+        "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User",
+      ],
+      externalId: "azure-123",
+      userName: "azure@example.com",
+      displayName: "Azure User",
+      emails: [{ value: "azure@example.com" }],
+      active: true,
+      "urn:ietf:params:scim:schemas:extension:enterprise:2.0:User": {
+        department: "Engineering",
+      },
+    } as never);
+
+    assert.equal(oktaUser.userName, "okta@example.com");
+    assert.equal(oktaUser.displayName, "Okta User");
+    assert.equal(oktaUser.emails[0]?.value, "okta@example.com");
+    assert.equal(azureUser.userName, "azure@example.com");
+    assert.equal(azureUser.displayName, "Azure User");
+  });
+});
+
 test("SCIM users support create, get, list, filter, patch, and deactivation revocation", async () => {
   await withContext(async (context) => {
     const user = await createScimUser(context, {

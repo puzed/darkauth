@@ -10,6 +10,7 @@ import {
   listAccountKeys,
   listKeyEnvelopes,
   revokeKeyEnvelope,
+  rotateAccountKey,
 } from "../../models/keybag.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -23,6 +24,14 @@ const AccountKeyRequest = z.object({
   key_id: z.string().trim().min(1).max(256).optional(),
   version: z.string().trim().min(1).max(64).optional(),
 });
+
+const RotateAccountKeyRequest = z
+  .object({
+    key_id: z.string().trim().min(1).max(256).optional(),
+    version: z.string().trim().min(1).max(64).optional(),
+    retire_old_envelopes: z.boolean().optional(),
+  })
+  .strict();
 
 const KeyEnvelopeRequest = z.object({
   envelope_id: z.string().trim().min(1).max(256).optional(),
@@ -143,6 +152,33 @@ export const postKeyEnvelope = withAudit({
   })
 );
 
+export const postRotateAccountKey = withAudit({
+  eventType: "ACCOUNT_KEY_ROTATE",
+  resourceType: "account_key",
+  extractResourceId: (body) =>
+    body && typeof body === "object" && "account_key" in body
+      ? (body as { account_key?: { key_id?: string } }).account_key?.key_id
+      : undefined,
+  skipBodyCapture: true,
+})(
+  withRateLimit("key_management")(async (context, request, response): Promise<void> => {
+    const sub = await requireUserSub(context, request);
+    const parsed = parseBody(RotateAccountKeyRequest, await readBody(request));
+    const rotation = await rotateAccountKey(context, {
+      sub,
+      keyId: parsed.key_id ?? `ark_${generateRandomString(24)}`,
+      version: parsed.version ?? "v2",
+      retireOldEnvelopes: parsed.retire_old_envelopes ?? false,
+    });
+
+    sendJson(response, 201, {
+      account_key: serializeAccountKey(rotation.accountKey),
+      previous_account_keys: rotation.previousKeys.map(serializeAccountKey),
+      retired_envelope_count: rotation.retiredEnvelopeCount,
+    });
+  })
+);
+
 export const deleteKeyEnvelope = withAudit({
   eventType: "KEY_ENVELOPE_REVOKE",
   resourceType: "key_envelope",
@@ -189,6 +225,22 @@ export const postKeyEnvelopeSchema = {
   path: "/crypto/keybag/envelopes",
   tags: ["Crypto"],
   summary: "createKeyEnvelope",
+  responses: { 201: { description: "Created" }, ...genericErrors },
+} as const satisfies ControllerSchema;
+
+export const postRotateAccountKeySchema = {
+  method: "POST",
+  path: "/crypto/keybag/rotate",
+  tags: ["Crypto"],
+  summary: "rotateAccountKey",
+  responses: { 201: { description: "Created" }, ...genericErrors },
+} as const satisfies ControllerSchema;
+
+export const postKeybagRecoverySchema = {
+  method: "POST",
+  path: "/crypto/keybag/recovery",
+  tags: ["Crypto"],
+  summary: "createRecoveryKeyCompatibility",
   responses: { 201: { description: "Created" }, ...genericErrors },
 } as const satisfies ControllerSchema;
 

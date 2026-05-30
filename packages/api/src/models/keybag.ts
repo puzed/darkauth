@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { accountKeys, keyEnvelopes } from "../db/schema.ts";
 import { NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
@@ -59,6 +59,67 @@ export async function listAccountKeys(context: Context, sub: string) {
   validateIdentifier(sub, "sub");
   return await context.db.query.accountKeys.findMany({
     where: eq(accountKeys.sub, sub),
+  });
+}
+
+export async function rotateAccountKey(
+  context: Context,
+  data: {
+    sub: string;
+    keyId: string;
+    version?: string;
+    retireOldEnvelopes?: boolean;
+    rotatedAt?: Date;
+  }
+) {
+  validateIdentifier(data.sub, "sub");
+  validateIdentifier(data.keyId, "keyId");
+  const now = data.rotatedAt ?? new Date();
+  return await context.db.transaction(async (tx) => {
+    const activeKeys = await tx
+      .select()
+      .from(accountKeys)
+      .where(and(eq(accountKeys.sub, data.sub), eq(accountKeys.status, "active")));
+    if (activeKeys.some((key) => key.keyId === data.keyId)) {
+      throw new ValidationError("New account key must differ from the active key");
+    }
+    const activeKeyIds = activeKeys.map((key) => key.keyId);
+    let previousKeys = activeKeys;
+    if (activeKeyIds.length > 0) {
+      previousKeys = await tx
+        .update(accountKeys)
+        .set({ status: "rotated", rotatedAt: now })
+        .where(and(eq(accountKeys.sub, data.sub), inArray(accountKeys.keyId, activeKeyIds)))
+        .returning();
+    }
+    let retiredEnvelopeCount = 0;
+    if (data.retireOldEnvelopes && activeKeyIds.length > 0) {
+      const retired = await tx
+        .update(keyEnvelopes)
+        .set({ revokedAt: now })
+        .where(
+          and(
+            eq(keyEnvelopes.sub, data.sub),
+            inArray(keyEnvelopes.keyId, activeKeyIds),
+            isNull(keyEnvelopes.revokedAt)
+          )
+        )
+        .returning();
+      retiredEnvelopeCount = retired.length;
+    }
+    const [newKey] = await tx
+      .insert(accountKeys)
+      .values({
+        keyId: data.keyId,
+        sub: data.sub,
+        version: data.version ?? "v2",
+        status: "active",
+        createdAt: now,
+        rotatedAt: null,
+      })
+      .returning();
+    if (!newKey) throw new ValidationError("Account key could not be rotated");
+    return { previousKeys, accountKey: newKey, retiredEnvelopeCount };
   });
 }
 

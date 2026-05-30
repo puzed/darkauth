@@ -7,6 +7,7 @@ import { postEmailVerificationResend } from "../../controllers/user/emailVerific
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
+import { getFederationIdentities } from "../../controllers/user/federationIdentities.ts";
 import {
   getFederationCallback,
   getFederationStart,
@@ -20,6 +21,7 @@ import {
   getKeyEnvelopes,
   postAccountKey,
   postKeyEnvelope,
+  postRotateAccountKey,
 } from "../../controllers/user/keybag.ts";
 import { postLogout } from "../../controllers/user/logout.ts";
 import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.ts";
@@ -71,6 +73,7 @@ import {
   postTrustedDevice,
   postTrustedDeviceRevoke,
 } from "../../controllers/user/trustedDevices.ts";
+import { getUnlockPolicy } from "../../controllers/user/unlockPolicy.ts";
 import { handleUserinfo } from "../../controllers/user/userinfo.ts";
 import {
   getUserDirectoryEntry,
@@ -197,6 +200,10 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/federation/route") {
         return await getFederationRoute(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/federation/identities") {
+        return await getFederationIdentities(context, request, response);
       }
 
       if (
@@ -499,6 +506,10 @@ export function createUserRouter(context: Context) {
         return await getKeybag(context, request, response);
       }
 
+      if (method === "GET" && pathname === "/crypto/unlock-policy") {
+        return await getUnlockPolicy(context, request, response);
+      }
+
       if (method === "POST" && pathname === "/crypto/keybag/account-key") {
         return await postAccountKey(context, request, response);
       }
@@ -509,6 +520,14 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/crypto/keybag/envelopes") {
         return await postKeyEnvelope(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/keybag/rotate") {
+        return await postRotateAccountKey(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/keybag/recovery") {
+        return await postRecoveryKey(context, request, response);
       }
 
       if (method === "GET" && pathname === "/crypto/recovery-keys") {
