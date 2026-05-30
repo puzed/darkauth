@@ -55,7 +55,7 @@ test.describe('Auth - OTP verification gating (UI)', () => {
     await page.getByRole('button', { name: /^Verify$/i }).click();
     await expect(page.getByText('Backup Codes', { exact: true })).toBeVisible({ timeout: 15000 });
     await page.getByRole('button', { name: /^Continue$/i }).click();
-    await page.waitForURL(/dashboard/i, { timeout: 10000 });
+    await page.waitForURL(/apps/i, { timeout: 10000 });
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
   });
 });
