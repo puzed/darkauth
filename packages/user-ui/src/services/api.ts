@@ -86,11 +86,37 @@ export interface SessionResponse {
   name?: string;
   email?: string;
   passwordResetRequired?: boolean;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string | null;
+  pendingEmail?: string | null;
+  pendingEmailSetAt?: string | null;
+  signInEmail?: string | null;
   otpRequired?: boolean;
   otpVerified?: boolean;
   keyState?: "locked" | "unlocked" | "setup_required";
   organizationId?: string;
   organizationSlug?: string;
+}
+
+export interface UserProfile {
+  sub: string;
+  email?: string | null;
+  name?: string | null;
+  emailVerified?: boolean;
+  pendingEmail?: string | null;
+  pendingEmailSetAt?: string | null;
+  signInEmail?: string | null;
+}
+
+export interface ProfileUpdateRequest {
+  name: string;
+}
+
+export interface EmailChangeResponse {
+  success: boolean;
+  message: string;
+  pendingEmail?: string | null;
+  pendingEmailSetAt?: string | null;
 }
 
 export interface UserOrganization {
@@ -503,17 +529,44 @@ class ApiService {
     });
   }
 
-  async verifyEmailToken(token: string): Promise<{ success: boolean; message: string }> {
+  async verifyEmailToken(token: string): Promise<{
+    success: boolean;
+    message: string;
+    purpose?: "signup_verify" | "email_change_verify";
+  }> {
     return this.request("/email/verification/verify", {
       method: "POST",
       body: JSON.stringify({ token }),
     });
   }
 
-  async requestEmailChange(email: string): Promise<{ success: boolean; message: string }> {
+  async getProfile(): Promise<UserProfile> {
+    return this.request("/profile");
+  }
+
+  async updateProfile(request: ProfileUpdateRequest): Promise<UserProfile> {
+    return this.request("/profile", {
+      method: "PUT",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async requestEmailChange(email: string): Promise<EmailChangeResponse> {
     return this.request("/profile/email", {
       method: "PUT",
       body: JSON.stringify({ email }),
+    });
+  }
+
+  async resendPendingEmailChange(): Promise<EmailChangeResponse> {
+    return this.request("/profile/email/resend", {
+      method: "POST",
+    });
+  }
+
+  async cancelPendingEmailChange(): Promise<UserProfile> {
+    return this.request("/profile/email/pending", {
+      method: "DELETE",
     });
   }
 
@@ -524,6 +577,16 @@ class ApiService {
 
   async getOrganizations(): Promise<{ organizations: UserOrganization[] }> {
     return this.request("/organizations");
+  }
+
+  async createOrganization(request: {
+    name: string;
+    slug?: string;
+  }): Promise<{ organization: UserOrganization }> {
+    return this.request("/organizations", {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
   }
 
   async setSessionOrganization(

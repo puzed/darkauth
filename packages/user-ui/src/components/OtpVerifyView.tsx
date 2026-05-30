@@ -1,16 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useBranding } from "../hooks/useBranding";
+import { useNavigate } from "react-router-dom";
 import api from "../services/api";
+import AuthViewFrame from "./AuthViewFrame";
 import Button from "./Button";
 import btnStyles from "./Login.module.css";
-import styles from "./LoginView.module.css";
-import ThemeToggle from "./ThemeToggle";
 
 export default function OtpVerifyView() {
-  const branding = useBranding();
-  const logoUrl = branding.getLogoUrl();
-  const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
   const navigate = useNavigate();
   const uid = useId();
   const [code, setCode] = useState("");
@@ -31,7 +26,7 @@ export default function OtpVerifyView() {
       } catch {}
       try {
         const session = await api.getSession();
-        if (!session.otpRequired) navigate("/dashboard");
+        if (!session.otpRequired) navigate("/apps");
       } catch {}
     })();
   }, [navigate]);
@@ -52,7 +47,7 @@ export default function OtpVerifyView() {
     setError(null);
     try {
       await api.otpVerify(code);
-      window.location.replace("/dashboard");
+      window.location.replace("/apps");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
@@ -61,98 +56,84 @@ export default function OtpVerifyView() {
   };
 
   return (
-    <div className={styles.app}>
-      <div className={styles.container}>
-        <div className={styles.authHeader}>
-          <div className={styles.headerTop}>
-            <Link to="/" className={styles.brand}>
-              <span className={styles.brandIcon}>
-                <img
-                  src={logoUrl}
-                  alt={branding.getTitle()}
-                  className={isDefaultLogo ? styles.defaultLogo : ""}
-                />
-              </span>
-              <h1 className={styles.brandTitle}>{branding.getTitle()}</h1>
-            </Link>
-            <ThemeToggle />
-          </div>
-          <p className={styles.tagline}>{branding.getTagline()}</p>
-        </div>
-
-        <div className={btnStyles.authContainer}>
-          <h2 className={btnStyles.formTitle}>Two-Factor Verification</h2>
-          <form ref={formRef} className={btnStyles.form} onSubmit={handleSubmit}>
-            <div className={btnStyles.formGroup}>
-              <label className={btnStyles.formLabel} htmlFor={`${uid}-otp`}>
-                {useBackup ? "Enter backup code" : "Enter the code from your authentication app"}
-              </label>
-              <input
-                id={`${uid}-otp`}
-                className={btnStyles.formInput}
-                ref={inputRef}
-                value={code}
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (useBackup) {
-                    const cleaned = value
-                      .replace(/[^0-9A-Za-z]/g, "")
-                      .toUpperCase()
-                      .slice(0, 12);
-                    const formatted =
-                      cleaned.length <= 4
-                        ? cleaned
-                        : cleaned.length <= 8
-                          ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`
-                          : `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
-                    setCode(formatted);
-                  } else {
-                    const digits = value.replace(/[^0-9]/g, "").slice(0, 6);
-                    setCode(digits);
-                    if (!loading && digits.length === 6) {
-                      formRef.current?.requestSubmit();
-                    }
-                  }
-                }}
-                placeholder={useBackup ? "1234-5678-9ABC" : "123456"}
-                maxLength={useBackup ? 14 : 6}
-                inputMode={useBackup ? "text" : "numeric"}
-                style={{
-                  fontSize: useBackup ? 18 : 32,
-                  textAlign: "center",
-                  letterSpacing: useBackup ? undefined : 8,
-                }}
-              />
-            </div>
-            <div className={btnStyles.formFooter}>
-              <Button
-                type="button"
-                variant="secondary"
-                fullWidth
-                onClick={() => {
-                  setCode("");
-                  setUseBackup((v) => !v);
-                }}
-              >
-                {useBackup ? "Use a 6-digit code" : "Use a backup code"}
-              </Button>
-            </div>
-            {error && <div className={btnStyles.errorMessage}>{error}</div>}
-            <Button
-              type="submit"
-              variant="primary"
-              fullWidth
-              disabled={
-                loading ||
-                (!useBackup && code.length < 6) ||
-                (useBackup && code.replace(/-/g, "").length < 12)
-              }
+    <AuthViewFrame>
+      <div className={btnStyles.authContainer}>
+        <h2 className={btnStyles.formTitle}>Two-Factor Verification</h2>
+        <form ref={formRef} className={btnStyles.form} onSubmit={handleSubmit}>
+          <fieldset className={btnStyles.segmented} aria-label="Verification method">
+            <button
+              type="button"
+              className={!useBackup ? btnStyles.segmentActive : btnStyles.segment}
+              onClick={() => {
+                setCode("");
+                setUseBackup(false);
+              }}
             >
-              Verify
-            </Button>
-          </form>
-        </div>
+              Authenticator code
+            </button>
+            <button
+              type="button"
+              className={useBackup ? btnStyles.segmentActive : btnStyles.segment}
+              onClick={() => {
+                setCode("");
+                setUseBackup(true);
+              }}
+            >
+              Backup code
+            </button>
+          </fieldset>
+          <div className={btnStyles.formGroup}>
+            <label className={btnStyles.formLabel} htmlFor={`${uid}-otp`}>
+              {useBackup ? "Enter backup code" : "Enter the code from your authentication app"}
+            </label>
+            <input
+              id={`${uid}-otp`}
+              className={btnStyles.formInput}
+              ref={inputRef}
+              value={code}
+              onChange={(event) => {
+                const value = event.target.value;
+                if (useBackup) {
+                  const cleaned = value
+                    .replace(/[^0-9A-Za-z]/g, "")
+                    .toUpperCase()
+                    .slice(0, 12);
+                  const formatted =
+                    cleaned.length <= 4
+                      ? cleaned
+                      : cleaned.length <= 8
+                        ? `${cleaned.slice(0, 4)}-${cleaned.slice(4)}`
+                        : `${cleaned.slice(0, 4)}-${cleaned.slice(4, 8)}-${cleaned.slice(8)}`;
+                  setCode(formatted);
+                } else {
+                  const digits = value.replace(/[^0-9]/g, "").slice(0, 6);
+                  setCode(digits);
+                  if (!loading && digits.length === 6) {
+                    formRef.current?.requestSubmit();
+                  }
+                }
+              }}
+              placeholder={useBackup ? "1234-5678-9ABC" : "123456"}
+              maxLength={useBackup ? 14 : 6}
+              inputMode={useBackup ? "text" : "numeric"}
+              data-mode={useBackup ? "backup" : "code"}
+            />
+          </div>
+          {error && <div className={btnStyles.errorMessage}>{error}</div>}
+          <Button
+            type="submit"
+            variant="primary"
+            fullWidth
+            disabled={
+              loading ||
+              (!useBackup && code.length < 6) ||
+              (useBackup && code.replace(/-/g, "").length < 12)
+            }
+          >
+            Verify
+          </Button>
+        </form>
       </div>
-    </div>
+    </AuthViewFrame>
   );
 }

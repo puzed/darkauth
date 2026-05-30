@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import apiService from "../services/api";
 import { logger } from "../services/logger";
 import { loadUnlockedArk } from "../services/unlockedArk";
 import styles from "./Dashboard.module.css";
 import KeyUnlockPanel from "./KeyUnlockPanel";
+import { EmptyState, PortalHeader, PortalPage } from "./Portal";
 import UserLayout from "./UserLayout";
 
 type KeyState = "locked" | "unlocked" | "setup_required";
@@ -39,9 +39,27 @@ function resolveKeyState(sessionData: SessionData): KeyState {
     : sessionData.keyState || "locked";
 }
 
-export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
-  const navigate = useNavigate();
+function appInitial(app: App) {
+  if (app.iconMode === "letter" && app.iconLetter) return app.iconLetter.slice(0, 1).toUpperCase();
+  return app.name.slice(0, 1).toUpperCase();
+}
+
+function AppIcon({ app }: { app: App }) {
+  if (app.iconMode === "upload" && app.iconUrl) {
+    return <img src={app.iconUrl} alt="" />;
+  }
+  if (app.logoUrl) {
+    return <img src={app.logoUrl} alt="" />;
+  }
+  if (app.iconMode === "emoji" && app.iconEmoji) {
+    return <span>{app.iconEmoji}</span>;
+  }
+  return <span>{appInitial(app)}</span>;
+}
+
+export default function Dashboard({ sessionData }: DashboardProps) {
   const [apps, setApps] = useState<App[]>([]);
+  const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [keyState, setKeyState] = useState<KeyState>(resolveKeyState(sessionData));
 
@@ -65,179 +83,102 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
     setKeyState(resolveKeyState(sessionData));
   }, [sessionData]);
 
+  const filteredApps = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return apps;
+    return apps.filter((app) =>
+      `${app.name} ${app.description || ""}`.toLowerCase().includes(normalized)
+    );
+  }, [apps, query]);
+
+  const showSearch = apps.length >= 7;
+
   return (
-    <UserLayout
-      userName={sessionData.name || null}
-      userEmail={sessionData.email || null}
-      onChangePassword={() => navigate("/change-password")}
-      onManageSecurity={() => navigate("/settings")}
-      onLogout={onLogout}
-    >
-      <div className={styles.container}>
+    <UserLayout userName={sessionData.name || null} userEmail={sessionData.email || null}>
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Apps"
+          title="Your apps"
+          description={
+            apps.length === 1
+              ? "1 app is available for this account."
+              : `${apps.length} apps are available for this account.`
+          }
+        />
+
         {keyState !== "unlocked" ? (
-          <section className={styles.keyStateBanner}>
+          <section className={styles.unlockBanner} aria-label="Encrypted app access">
             <KeyUnlockPanel
               sub={sessionData.sub}
               email={sessionData.email}
               inline
               onUnlocked={(session) => setKeyState(session?.keyState || "unlocked")}
             />
-            <button
-              type="button"
-              className={styles.appsActionButton}
-              onClick={() => navigate("/settings")}
-            >
-              Manage unlock methods
-            </button>
           </section>
         ) : null}
-        <div className={styles.mainGrid}>
-          <section className={styles.appsSection}>
-            <h3>Your Applications</h3>
-            {loading ? (
-              <div className={styles.loadingState}>
-                <div className={styles.spinner} />
-                <p>Loading applications...</p>
-              </div>
-            ) : apps.length > 0 ? (
-              <div className={styles.appsGrid}>
-                {apps.map((app) =>
-                  app.url ? (
-                    <a
-                      key={app.id}
-                      href={app.url}
-                      className={styles.appCard}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <div className={styles.appIcon}>
-                        {app.iconMode === "upload" && app.iconUrl ? (
-                          <img src={app.iconUrl} alt={app.name} />
-                        ) : app.logoUrl ? (
-                          <img src={app.logoUrl} alt={app.name} />
-                        ) : app.iconMode === "emoji" && app.iconEmoji ? (
-                          <div className={styles.appInitial}>{app.iconEmoji}</div>
-                        ) : app.iconMode === "letter" && app.iconLetter ? (
-                          <div className={styles.appInitial}>
-                            {app.iconLetter.slice(0, 1).toUpperCase()}
-                          </div>
-                        ) : (
-                          <div className={styles.appInitial}>{app.name[0].toUpperCase()}</div>
-                        )}
-                      </div>
-                      <div className={styles.appInfo}>
-                        <h4>{app.name}</h4>
-                        {app.description && <p>{app.description}</p>}
-                      </div>
-                      <div className={styles.appArrow}>
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <title>Open application</title>
-                          <path d="M7 17L17 7M17 7H7M17 7V17" />
-                        </svg>
-                      </div>
-                    </a>
-                  ) : (
-                    <div key={app.id} className={styles.appCard}>
-                      <div className={styles.appIcon}>
-                        {app.iconMode === "upload" && app.iconUrl ? (
-                          <img src={app.iconUrl} alt={app.name} />
-                        ) : app.logoUrl ? (
-                          <img src={app.logoUrl} alt={app.name} />
-                        ) : app.iconMode === "emoji" && app.iconEmoji ? (
-                          <div className={styles.appInitial}>{app.iconEmoji}</div>
-                        ) : app.iconMode === "letter" && app.iconLetter ? (
-                          <div className={styles.appInitial}>
-                            {app.iconLetter.slice(0, 1).toUpperCase()}
-                          </div>
-                        ) : (
-                          <div className={styles.appInitial}>{app.name[0].toUpperCase()}</div>
-                        )}
-                      </div>
-                      <div className={styles.appInfo}>
-                        <h4>{app.name}</h4>
-                        {app.description && <p>{app.description}</p>}
-                      </div>
-                      <div className={styles.appArrow}>
-                        <svg
-                          width="20"
-                          height="20"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                        >
-                          <title>Open application</title>
-                          <path d="M7 17L17 7M17 7H7M17 7V17" />
-                        </svg>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            ) : (
-              <div className={styles.emptyState}>
-                <svg
-                  width="48"
-                  height="48"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                >
-                  <title>No applications</title>
-                  <rect x="3" y="3" width="7" height="7" rx="1" />
-                  <rect x="14" y="3" width="7" height="7" rx="1" />
-                  <rect x="3" y="14" width="7" height="7" rx="1" />
-                  <rect x="14" y="14" width="7" height="7" rx="1" />
-                </svg>
-                <p>No applications available</p>
-                <span>Applications you have access to will appear here</span>
-              </div>
-            )}
-            <div className={styles.appsActions}>
-              <button
-                type="button"
-                className={styles.appsActionButton}
-                onClick={() => navigate("/change-password")}
-              >
-                Change Password
-              </button>
-              <button
-                type="button"
-                className={styles.appsActionButton}
-                onClick={() => navigate("/settings")}
-              >
-                Passkeys & Security
-              </button>
-            </div>
-          </section>
 
-          <section className={styles.accountSection}>
-            <h3>Account Information</h3>
-            <div className={styles.accountInfo}>
-              <div className={styles.infoRow}>
-                <span className={styles.label}>Name</span>
-                <span className={styles.value}>{sessionData.name || "Not provided"}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.label}>Email</span>
-                <span className={styles.value}>{sessionData.email || "Not provided"}</span>
-              </div>
-              <div className={styles.infoRow}>
-                <span className={styles.label}>User ID</span>
-                <code className={styles.userId}>{sessionData.sub}</code>
-              </div>
-            </div>
+        {showSearch ? (
+          <label className={styles.search}>
+            <span>Search apps</span>
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search by name or description"
+              type="search"
+            />
+          </label>
+        ) : null}
+
+        {loading ? (
+          <div className={styles.loadingState}>
+            <div className={styles.spinner} />
+            <p>Loading apps...</p>
+          </div>
+        ) : filteredApps.length > 0 ? (
+          <section className={styles.appGrid} aria-label="Available apps">
+            {filteredApps.map((app) => {
+              const content = (
+                <>
+                  <span className={styles.appIcon} aria-hidden="true">
+                    <AppIcon app={app} />
+                  </span>
+                  <span className={styles.appCopy}>
+                    <strong>{app.name}</strong>
+                    {app.description ? <small>{app.description}</small> : null}
+                  </span>
+                  <span className={styles.openIndicator} aria-hidden="true">
+                    Open
+                  </span>
+                </>
+              );
+              return app.url ? (
+                <a
+                  key={app.id}
+                  href={app.url}
+                  className={styles.appTile}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {content}
+                </a>
+              ) : (
+                <div key={app.id} className={styles.appTileDisabled}>
+                  {content}
+                </div>
+              );
+            })}
           </section>
-        </div>
-      </div>
+        ) : (
+          <EmptyState
+            title={query ? "No apps match your search" : "No apps available"}
+            text={
+              query
+                ? "Try a different search term."
+                : "Apps assigned to this account will appear here."
+            }
+          />
+        )}
+      </PortalPage>
     </UserLayout>
   );
 }

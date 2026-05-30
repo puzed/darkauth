@@ -80,7 +80,11 @@ export const postOpaqueLoginStart = withRateLimit("opaque", (body) =>
           envelope: new Uint8Array(envelopeBuf),
           serverPublicKey: new Uint8Array(serverPubkeyBuf),
         };
-        loginResponse = await opaque.startLogin(requestBuffer, opaqueRecord, parsed.email);
+        loginResponse = await opaque.startLogin(
+          requestBuffer,
+          opaqueRecord,
+          userLookup.identityU || parsed.email
+        );
       }
     }
     context.logger.debug(

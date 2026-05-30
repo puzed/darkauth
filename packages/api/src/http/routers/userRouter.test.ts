@@ -157,8 +157,13 @@ test("user router exposes page background CSS variables for branded user pages",
   assert.equal(response.statusCode, 200);
   assert.equal(response.getHeader("content-type"), "text/css; charset=utf-8");
   assert.match(response.body, /:root\{[^}]*--da-page-bg:#123456/);
+  assert.match(response.body, /:root\{[^}]*--da-color-page:#123456/);
+  assert.match(response.body, /:root\{[^}]*--da-color-brand:#654321/);
+  assert.match(response.body, /:root\{[^}]*--da-color-action:#fedcba/);
   assert.match(response.body, /:root\[data-da-theme='light'\]\{[^}]*--da-page-bg:#123456/);
+  assert.match(response.body, /:root\[data-da-theme='light'\]\{[^}]*--da-color-page:#123456/);
   assert.match(response.body, /:root\[data-da-theme='dark'\]\{[^}]*--da-page-bg:#0a0b0c/);
+  assert.match(response.body, /:root\[data-da-theme='dark'\]\{[^}]*--da-color-page:#0a0b0c/);
   assert.match(
     response.body,
     /:root\[data-da-theme='dark'\]\{[^}]*--da-card-bg:rgba\(255,255,255,0\.05\)/

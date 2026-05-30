@@ -92,7 +92,7 @@ export async function userPasswordChangeFinish(
       .values({ userSub: params.userSub, exportKeyHash: params.exportKeyHash });
     await tx
       .update(users)
-      .set({ passwordResetRequired: false })
+      .set({ passwordResetRequired: false, opaqueLoginIdentity: params.email })
       .where(eq(users.sub, params.userSub));
   });
   return { success: true as const };
@@ -176,7 +176,7 @@ export async function finishUserPasswordSetForAdmin(
       .values({ userSub: params.userSub, exportKeyHash: params.exportKeyHash });
     await tx
       .update(users)
-      .set({ passwordResetRequired: true })
+      .set({ passwordResetRequired: true, opaqueLoginIdentity: user.email })
       .where(eq(users.sub, params.userSub));
   });
   return { success: true as const };

@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { AppWindow, ShieldCheck, UserRound } from "lucide-react";
+import type { ReactNode } from "react";
+import { Link, NavLink } from "react-router-dom";
 import { useBranding } from "../hooks/useBranding";
 import ThemeToggle from "./ThemeToggle";
 import styles from "./UserLayout.module.css";
@@ -13,34 +14,38 @@ interface UserLayoutProps {
   children: ReactNode;
 }
 
-export default function UserLayout({
-  userName,
-  userEmail,
-  onChangePassword,
-  onManageSecurity,
-  onLogout,
-  children,
-}: UserLayoutProps) {
+export default function UserLayout({ userName, userEmail, children }: UserLayoutProps) {
   const branding = useBranding();
   const logoUrl = branding.getLogoUrl();
   const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, []);
+  const displayName = userName || userEmail || "Account";
+  const navItems = [
+    { to: "/apps", label: "Apps", Icon: AppWindow },
+    { to: "/security", label: "Security", Icon: ShieldCheck },
+    { to: "/profile", label: "Profile", Icon: UserRound },
+  ];
+  const renderNav = (className: string) => (
+    <nav className={className} aria-label="User portal">
+      {navItems.map((item) => (
+        <NavLink
+          key={item.to}
+          to={item.to}
+          className={({ isActive }) => (isActive ? styles.navItemActive : styles.navItem)}
+        >
+          <span className={styles.navGlyph} aria-hidden="true">
+            <item.Icon size={18} strokeWidth={2.2} />
+          </span>
+          <span>{item.label}</span>
+        </NavLink>
+      ))}
+    </nav>
+  );
 
   return (
     <div className={styles.app}>
       <header className={styles.header}>
         <div className={styles.headerContent}>
-          <Link to="/" className={styles.brand}>
+          <Link to="/apps" className={styles.brand}>
             <img
               src={logoUrl}
               alt={branding.getTitle()}
@@ -48,66 +53,21 @@ export default function UserLayout({
             />
             <h1>{branding.getTitle()}</h1>
           </Link>
+          {renderNav(styles.desktopNav)}
           <div className={styles.headerActions}>
             <ThemeToggle />
             {(userName || userEmail) && (
-              <div className={styles.userMenu} ref={menuRef}>
-                <button
-                  type="button"
-                  className={styles.userButton}
-                  onClick={() => setOpen((v) => !v)}
-                >
-                  <span className={styles.userPrimary}>{userName || userEmail}</span>
+              <Link to="/profile" className={styles.userButton}>
+                <span className={styles.avatar} aria-hidden="true">
+                  {displayName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className={styles.userCopy}>
+                  <span className={styles.userPrimary}>{displayName}</span>
                   {userName && userEmail && (
                     <span className={styles.userSecondary}>{userEmail}</span>
                   )}
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <title>User menu</title>
-                    <path d="M6 9l6 6 6-6" />
-                  </svg>
-                </button>
-                {open && (
-                  <div className={styles.dropdown}>
-                    <button
-                      type="button"
-                      className={styles.dropdownItem}
-                      onClick={() => {
-                        setOpen(false);
-                        onChangePassword?.();
-                      }}
-                    >
-                      Change Password
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.dropdownItem}
-                      onClick={() => {
-                        setOpen(false);
-                        onManageSecurity?.();
-                      }}
-                    >
-                      Passkeys & Security
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.dropdownItemDanger}
-                      onClick={() => {
-                        setOpen(false);
-                        onLogout?.();
-                      }}
-                    >
-                      Logout
-                    </button>
-                  </div>
-                )}
-              </div>
+                </span>
+              </Link>
             )}
           </div>
         </div>
@@ -116,6 +76,7 @@ export default function UserLayout({
       <main className={styles.main}>
         <div className={styles.container}>{children}</div>
       </main>
+      {renderNav(styles.mobileNav)}
     </div>
   );
 }

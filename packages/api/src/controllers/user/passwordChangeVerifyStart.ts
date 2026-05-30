@@ -34,7 +34,10 @@ async function postUserPasswordVerifyStartHandler(
     throw new ValidationError("Invalid base64url encoding in request");
   }
 
-  const { user, envelope, serverPubkey } = await getUserOpaqueRecordByEmail(context, email);
+  const { user, envelope, serverPubkey, identityU } = await getUserOpaqueRecordByEmail(
+    context,
+    email
+  );
   if (!user || !envelope || !serverPubkey) {
     throw new ValidationError("User has no authentication record");
   }
@@ -74,7 +77,7 @@ async function postUserPasswordVerifyStartHandler(
         envelope: new Uint8Array(envelopeBuf),
         serverPublicKey: new Uint8Array(serverPubkeyBuf),
       },
-      email
+      identityU || email
     );
   } catch (err) {
     context.logger.error(

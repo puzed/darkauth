@@ -14,8 +14,15 @@ export const postEmailVerificationVerify = withRateLimit("auth")(
     const raw = parseJsonSafely(body);
     const parsed = BodySchema.parse(raw);
 
-    await consumeVerificationTokenAndApply(context, parsed.token);
-    sendJson(response, 200, { success: true, message: "Email verification successful" });
+    const result = await consumeVerificationTokenAndApply(context, parsed.token);
+    sendJson(response, 200, {
+      success: true,
+      message:
+        result.purpose === "email_change_verify"
+          ? "Email address changed successfully"
+          : "Email verification successful",
+      purpose: result.purpose,
+    });
   }
 );
 

@@ -30,7 +30,7 @@ test.describe('Auth - User OTP setup and verify (UI)', () => {
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/dashboard|^\/$/, { timeout: 10000 });
+    await page.waitForURL(/apps|^\/$/, { timeout: 10000 });
 
     await page.goto(`${servers.userUrl}/otp/setup`);
     await page.getByRole('button', { name: /show secret/i }).click();

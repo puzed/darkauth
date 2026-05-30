@@ -126,6 +126,12 @@ import { schema as userPasswordResetFinishSchema } from "../controllers/user/pas
 import { schema as userPasswordResetRequestSchema } from "../controllers/user/passwordResetRequest.ts";
 import { schema as userPasswordResetStartSchema } from "../controllers/user/passwordResetStart.ts";
 import { schema as userPasswordResetTokenSchema } from "../controllers/user/passwordResetToken.ts";
+import {
+  deleteProfilePendingEmailSchema as userDeleteProfilePendingEmailSchema,
+  postProfileEmailResendSchema as userProfileEmailResendSchema,
+  getProfileSchema as userProfileSchema,
+  putProfileSchema as userProfileUpdateSchema,
+} from "../controllers/user/profile.ts";
 import { schema as userProfileEmailSchema } from "../controllers/user/profileEmailUpdate.ts";
 import {
   postRecoveryKeyRevokeSchema as userRecoveryKeyRevokeSchema,
@@ -306,7 +312,11 @@ const documentedSchemas: ControllerSchema[] = [
   userPasswordResetTokenSchema,
   userPasswordResetStartSchema,
   userPasswordResetFinishSchema,
+  userProfileSchema,
+  userProfileUpdateSchema,
   userProfileEmailSchema,
+  userProfileEmailResendSchema,
+  userDeleteProfilePendingEmailSchema,
   userEncPublicGetSchema,
   userEncPublicPutSchema,
   userFederationRouteSchema,

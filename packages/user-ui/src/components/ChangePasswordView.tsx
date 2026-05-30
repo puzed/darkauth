@@ -7,6 +7,7 @@ interface ChangePasswordViewProps {
   sessionData: {
     sub: string;
     email?: string | null;
+    signInEmail?: string | null;
     name?: string | null;
   };
   onLogout: () => void;
@@ -16,14 +17,14 @@ export default function ChangePasswordView({ sessionData, onLogout }: ChangePass
   const navigate = useNavigate();
 
   const handleSuccess = () => {
-    navigate("/dashboard");
+    navigate("/security");
   };
 
   return (
     <UserLayout
       userName={sessionData.name || null}
       userEmail={sessionData.email || null}
-      onChangePassword={() => navigate("/change-password")}
+      onChangePassword={() => navigate("/security/password")}
       onLogout={onLogout}
     >
       <div className={styles.content}>
@@ -36,6 +37,7 @@ export default function ChangePasswordView({ sessionData, onLogout }: ChangePass
           <ChangePassword
             sub={sessionData.sub}
             email={sessionData.email}
+            signInEmail={sessionData.signInEmail}
             onSuccess={handleSuccess}
           />
         </div>

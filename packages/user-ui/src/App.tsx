@@ -15,6 +15,7 @@ import ForgotPasswordView from "./components/ForgotPasswordView";
 import LoginView from "./components/LoginView";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
+import Profile from "./components/Profile";
 import RegisterView from "./components/RegisterView";
 import SettingsSecurityView from "./components/SettingsSecurityView";
 import SwitchOrg from "./components/SwitchOrg";
@@ -32,6 +33,11 @@ interface SessionData {
   sub: string;
   name?: string;
   email?: string;
+  signInEmail?: string | null;
+  emailVerified?: boolean;
+  emailVerifiedAt?: string | null;
+  pendingEmail?: string | null;
+  pendingEmailSetAt?: string | null;
   passwordResetRequired?: boolean;
   keyState?: "locked" | "unlocked" | "setup_required";
   organizationId?: string;
@@ -259,12 +265,29 @@ function AppContent() {
     );
   };
 
+  const updateSessionProfile = (profile: {
+    name?: string | null;
+    email?: string | null;
+    signInEmail?: string | null;
+  }) => {
+    setSessionData((current) =>
+      current
+        ? {
+            ...current,
+            name: profile.name ?? undefined,
+            email: profile.email ?? undefined,
+            signInEmail: profile.signInEmail ?? current.signInEmail,
+          }
+        : current
+    );
+  };
+
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
     if (hasPendingRequest || authRequest) {
       navigate(appendSearch("/authorize"));
     } else {
-      navigate("/dashboard");
+      navigate("/apps");
     }
   };
 
@@ -273,7 +296,7 @@ function AppContent() {
     if (hasPendingRequest || authRequest) {
       navigate(appendSearch("/authorize"));
     } else {
-      navigate("/dashboard");
+      navigate("/apps");
     }
   };
 
@@ -309,7 +332,7 @@ function AppContent() {
             hasPendingRequest || authRequest ? (
               <Navigate to={appendSearch("/authorize")} replace />
             ) : (
-              <Navigate to="/dashboard" replace />
+              <Navigate to="/apps" replace />
             )
           ) : (
             <Navigate to={appendSearch("/login")} replace />
@@ -321,7 +344,7 @@ function AppContent() {
         element={
           sessionData ? (
             <Navigate
-              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/dashboard"}
+              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/apps"}
               replace
             />
           ) : (
@@ -339,7 +362,7 @@ function AppContent() {
         element={
           sessionData ? (
             <Navigate
-              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/dashboard"}
+              to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/apps"}
               replace
             />
           ) : selfRegistrationEnabled ? (
@@ -395,9 +418,9 @@ function AppContent() {
               <p>Loading...</p>
             </div>
           ) : !authRequest ? (
-            <Navigate to="/dashboard" replace />
+            <Navigate to="/apps" replace />
           ) : sessionData.passwordResetRequired ? (
-            <Navigate to="/change-password" replace />
+            <Navigate to="/security/password" replace />
           ) : (
             <div className="app da-app">
               <div className="container da-container">
@@ -433,7 +456,7 @@ function AppContent() {
           ) : !sessionData ? (
             <Navigate to={`/login${location.search}`} replace />
           ) : sessionData.passwordResetRequired ? (
-            <Navigate to="/change-password" replace />
+            <Navigate to="/security/password" replace />
           ) : (
             <div className="app da-app">
               <div className="container da-container">
@@ -458,7 +481,7 @@ function AppContent() {
         }
       />
       <Route
-        path="/dashboard"
+        path="/apps"
         element={
           loading ? (
             <div className="app da-app">
@@ -472,7 +495,7 @@ function AppContent() {
           ) : !sessionData ? (
             <Navigate to="/login" replace />
           ) : sessionData.passwordResetRequired ? (
-            <Navigate to="/change-password" replace />
+            <Navigate to="/security/password" replace />
           ) : hasPendingRequest || authRequest ? (
             <Navigate to={appendSearch("/authorize")} replace />
           ) : (
@@ -482,8 +505,9 @@ function AppContent() {
           )
         }
       />
+      <Route path="/dashboard" element={<Navigate to="/apps" replace />} />
       <Route
-        path="/settings"
+        path="/security"
         element={
           loading ? (
             <div className="app da-app">
@@ -503,8 +527,35 @@ function AppContent() {
           )
         }
       />
+      <Route path="/settings" element={<Navigate to="/security" replace />} />
       <Route
-        path="/change-password"
+        path="/profile"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <OtpGate>
+              <Profile
+                sessionData={sessionData}
+                onLogout={handleLogout}
+                onOrganizationChanged={updateSessionOrganization}
+                onProfileChanged={updateSessionProfile}
+              />
+            </OtpGate>
+          )
+        }
+      />
+      <Route
+        path="/security/password"
         element={
           loading ? (
             <div className="app da-app">
@@ -524,6 +575,7 @@ function AppContent() {
           )
         }
       />
+      <Route path="/change-password" element={<Navigate to="/security/password" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

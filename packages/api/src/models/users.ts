@@ -196,7 +196,13 @@ export async function createUser(
   if (existing) throw new ConflictError("Unable to create user");
   const sub = subInput || (await (await import("../utils/crypto.ts")).generateRandomString(16));
   await context.db.transaction(async (tx) => {
-    await tx.insert(users).values({ sub, email, name: name || null, createdAt: new Date() });
+    await tx.insert(users).values({
+      sub,
+      email,
+      opaqueLoginIdentity: email,
+      name: name || null,
+      createdAt: new Date(),
+    });
     const defaultOrg = await tx.query.organizations.findFirst({
       where: eq(organizations.slug, "default"),
     });
@@ -229,6 +235,47 @@ export async function deleteUser(context: Context, sub: string) {
   if (!existing) throw new NotFoundError("User not found");
   await context.db.delete(users).where(eq(users.sub, sub));
   return { success: true } as const;
+}
+
+export function toUserProfileResponse(user: {
+  sub: string;
+  email: string | null;
+  opaqueLoginIdentity?: string | null;
+  name: string | null;
+  emailVerifiedAt: Date | null;
+  pendingEmail: string | null;
+  pendingEmailSetAt: Date | null;
+}) {
+  return {
+    sub: user.sub,
+    email: user.email,
+    name: user.name,
+    emailVerified: !!user.emailVerifiedAt,
+    emailVerifiedAt: user.emailVerifiedAt ? user.emailVerifiedAt.toISOString() : null,
+    pendingEmail: user.pendingEmail,
+    pendingEmailSetAt: user.pendingEmailSetAt ? user.pendingEmailSetAt.toISOString() : null,
+    signInEmail: user.opaqueLoginIdentity || user.email,
+  };
+}
+
+export async function getUserProfile(context: Context, sub: string) {
+  const user = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
+  if (!user) throw new NotFoundError("User not found");
+  return toUserProfileResponse(user);
+}
+
+export async function updateUserProfileName(
+  context: Context,
+  sub: string,
+  data: { name: string | null }
+) {
+  const existing = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
+  if (!existing) throw new NotFoundError("User not found");
+  const trimmed = typeof data.name === "string" ? data.name.trim() : "";
+  const name = trimmed.length > 0 ? trimmed : null;
+  await context.db.update(users).set({ name }).where(eq(users.sub, sub));
+  const updated = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
+  return toUserProfileResponse(updated || { ...existing, name });
 }
 
 export async function getUserBySub(context: Context, sub: string) {
@@ -266,12 +313,17 @@ export async function getUserBySubWithAccess(context: Context, sub: string) {
 }
 
 export async function getUserBySubOrEmail(context: Context, subOrEmail: string) {
-  const { eq } = await import("drizzle-orm");
   const isEmail = subOrEmail.includes("@");
   const user = await context.db.query.users.findFirst({
     where: isEmail ? eq(users.email, subOrEmail) : eq(users.sub, subOrEmail),
   });
   return user;
+}
+
+export async function getUserByOpaqueLoginIdentity(context: Context, identity: string) {
+  return await context.db.query.users.findFirst({
+    where: or(eq(users.email, identity), eq(users.opaqueLoginIdentity, identity)),
+  });
 }
 
 export async function updateUserBasic(
@@ -281,7 +333,11 @@ export async function updateUserBasic(
 ) {
   const existing = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
   if (!existing) throw new NotFoundError("User not found");
-  const updates: { email?: string | null; name?: string | null } = {};
+  const updates: {
+    email?: string | null;
+    name?: string | null;
+    opaqueLoginIdentity?: string | null;
+  } = {};
   if ("email" in data) {
     if (data.email === null || data.email === "") {
       updates.email = null;
@@ -305,6 +361,10 @@ export async function updateUserBasic(
     else throw new ValidationError("Invalid name value");
   }
   if (Object.keys(updates).length === 0) return existing;
+  if ("email" in updates && updates.email) {
+    const existingIdentity = existing.opaqueLoginIdentity || existing.email;
+    if (!existingIdentity) updates.opaqueLoginIdentity = updates.email;
+  }
   await context.db.update(users).set(updates).where(eq(users.sub, sub));
   const updated = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
   return updated || existing;
@@ -322,11 +382,10 @@ export async function setUserPasswordResetRequired(
 }
 
 export async function getUserOpaqueRecordByEmail(context: Context, email: string) {
-  const { eq } = await import("drizzle-orm");
   const { opaqueRecords, users } = await import("../db/schema.ts");
   const { NotFoundError } = await import("../errors.ts");
   const user = await context.db.query.users.findFirst({
-    where: eq(users.email, email),
+    where: or(eq(users.email, email), eq(users.opaqueLoginIdentity, email)),
     with: { opaqueRecord: true },
   });
   if (!user) throw new NotFoundError("User not found");
@@ -343,7 +402,12 @@ export async function getUserOpaqueRecordByEmail(context: Context, email: string
     envelope = rec?.envelope ?? envelope;
     serverPubkey = rec?.serverPubkey ?? serverPubkey;
   }
-  return { user, envelope, serverPubkey };
+  return {
+    user,
+    envelope,
+    serverPubkey,
+    identityU: user.opaqueLoginIdentity || user.email || email,
+  };
 }
 
 export async function getUserOpaqueRecordHistoryByEmail(context: Context, email: string) {

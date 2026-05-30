@@ -33,25 +33,25 @@ const SCOPE_DESCRIPTIONS: Record<string, ScopeInfo> = {
   openid: {
     scope: "openid",
     description: "Authenticate you",
-    icon: "👤",
+    icon: "ID",
     textKey: "scopeOpenid",
   },
   profile: {
     scope: "profile",
     description: "Access your profile information",
-    icon: "📋",
+    icon: "P",
     textKey: "scopeProfile",
   },
   email: {
     scope: "email",
     description: "Access your email address",
-    icon: "📧",
+    icon: "@",
     textKey: "scopeEmail",
   },
   offline_access: {
     scope: "offline_access",
     description: "Maintain access when you are offline",
-    icon: "🔄",
+    icon: "O",
     textKey: "scopeOffline",
   },
 };
@@ -77,6 +77,7 @@ interface AuthorizeProps {
     sub: string;
     name?: string;
     email?: string;
+    signInEmail?: string | null;
     organizationId?: string;
     organizationSlug?: string;
     keyState?: "locked" | "unlocked" | "setup_required";
@@ -276,7 +277,7 @@ export default function Authorize({
     return {
       scope,
       description: customDescription || `Access your ${scope} information`,
-      icon: "🔐",
+      icon: "K",
     };
   };
 
@@ -284,11 +285,11 @@ export default function Authorize({
     return text.replace(/\{(\w+)\}/g, (match, key) => values[key] || match);
   };
 
-  const authorizeTitle = interpolateText(branding.getText("authorizeTitle", "Authorize {app}"), {
+  const authorizeTitle = interpolateText(branding.getText("authorizeTitle", "Continue to {app}"), {
     app: appName,
   });
   const authorizeDescription = interpolateText(
-    branding.getText("authorizeDescription", "{app} would like to:"),
+    branding.getText("authorizeDescription", "Review what this app can access before continuing."),
     { app: appName }
   );
   const signedInAs = branding.getText("signedInAs", "Signed in as");
@@ -877,7 +878,8 @@ export default function Authorize({
       setError("Password encryption unlock is disabled by your organization policy.");
       return;
     }
-    if (!sessionData.email) {
+    const passwordSignInEmail = sessionData.signInEmail || sessionData.email;
+    if (!passwordSignInEmail) {
       setError("Email is required to unlock keys");
       return;
     }
@@ -891,7 +893,7 @@ export default function Authorize({
     let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     let ark: Uint8Array | null = null;
     try {
-      const currentStart = await opaqueService.startLogin(sessionData.email, currentPassword);
+      const currentStart = await opaqueService.startLogin(passwordSignInEmail, currentPassword);
       const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
       const currentFinish = await opaqueService.finishLogin(
         currentStartResp.message,
@@ -935,14 +937,16 @@ export default function Authorize({
       <div className="authorize-card da-container">
         <div className="authorize-header">
           <div className="authorize-app">
-            <div className="authorize-app-icon">🏢</div>
+            <div className="authorize-app-icon">{appName.slice(0, 1).toUpperCase()}</div>
             <div className="authorize-app-text">
               <h2 className="authorize-title da-auth-title">{authorizeTitle}</h2>
               <p className="authorize-description">{authorizeDescription}</p>
             </div>
           </div>
           <div className="authorize-account">
-            <div className="authorize-avatar">👤</div>
+            <div className="authorize-avatar">
+              {(sessionData.name || sessionData.email || "A").slice(0, 1).toUpperCase()}
+            </div>
             <div className="authorize-account-text">
               <p className="authorize-account-label">{signedInAs}</p>
               <p className="authorize-account-name">{sessionData.name || sessionData.email}</p>
@@ -963,7 +967,7 @@ export default function Authorize({
             </p>
           ) : showOrganizationSummary ? (
             <div className="authorize-organization-summary">
-              <span className="authorize-scope-icon">🏢</span>
+              <span className="authorize-scope-icon">O</span>
               <div className="authorize-scope-text">
                 <span className="authorize-scope-name">
                   {selectedOrganization?.name || "Selected organization"}
@@ -1014,16 +1018,19 @@ export default function Authorize({
         </div>
 
         <div className="authorize-scopes da-authorize-scopes">
-          <h3>Scopes</h3>
+          <h3>Permissions</h3>
           {authRequest.scopes.length === 0 && !hasZkDeliveryScope ? (
             <p className="authorize-empty">No additional permissions requested.</p>
           ) : (
             <ul className="authorize-scope-list">
               {hasZkDeliveryScope && (
                 <li className="authorize-scope-item da-authorize-scope">
-                  <span className="authorize-scope-icon">🔐</span>
+                  <span className="authorize-scope-icon">K</span>
                   <div className="authorize-scope-text">
-                    <span className="authorize-scope-description">Access your encryption keys</span>
+                    <span className="authorize-scope-name">Encrypted app key</span>
+                    <span className="authorize-scope-description">
+                      Share an encrypted app key with {appName}
+                    </span>
                   </div>
                 </li>
               )}
@@ -1042,42 +1049,26 @@ export default function Authorize({
           )}
         </div>
 
-        {error && (
-          <div className="error-message da-error-message">
-            <span className="error-icon">⚠️</span>
-            {error}
-          </div>
-        )}
+        {error && <div className="error-message da-error-message">{error}</div>}
 
         {deviceApproval && (
           <div className="authorize-recovery">
-            <h3>Accept on another device</h3>
+            <h3>Accept on another trusted browser</h3>
             <p>
-              Open Security Settings on a trusted device, approve this request, and confirm the
-              verification code matches.
+              Open Security on a trusted browser, approve this request, and confirm the verification
+              code matches.
             </p>
-            <div
-              style={{
-                fontFamily: "monospace",
-                fontSize: 28,
-                letterSpacing: 6,
-                textAlign: "center",
-                padding: 12,
-                borderRadius: 8,
-                background: "hsl(var(--muted))",
-                margin: "12px 0",
-              }}
-            >
-              {deviceApprovalCode}
-            </div>
+            <div className="authorize-code">{deviceApprovalCode}</div>
             {deviceApprovalStatus && <div className="help-text">{deviceApprovalStatus}</div>}
           </div>
         )}
 
         {recoveryVisible && (
           <div className="authorize-recovery">
-            <h3>Unlock encryption keys</h3>
-            <p>You are signed in, but this app needs zero-knowledge key delivery.</p>
+            <h3>Unlock encrypted app access</h3>
+            <p>
+              You are signed in, but {appName} needs a zero-knowledge app key from this browser.
+            </p>
             <div className="authorize-unlock-methods">
               {unlockOptions.map(({ value, label }) => (
                 <label className="authorize-unlock-option" key={value}>
@@ -1221,19 +1212,19 @@ export default function Authorize({
                   : branding.getText("authorizing", "Authorizing...")}
               </>
             ) : keyLockedForZk && hasTrustedDevices ? (
-              "Accept on another device"
+              "Accept on another trusted browser"
             ) : keyLockedForZk ? (
               primaryLockedAction
             ) : (
-              branding.getText("authorize", "Authorize")
+              branding.getText("authorize", "Continue")
             )}
           </Button>
         </div>
 
         <div className="authorize-footnote">
           <p>
-            By clicking "Authorize", you allow {authRequest.clientName} to access the requested
-            information. You can revoke this access at any time in your account settings.
+            By continuing, you allow {authRequest.clientName} to access the requested information.
+            You can revoke this access later.
           </p>
         </div>
       </div>

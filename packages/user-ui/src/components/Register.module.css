@@ -76,7 +76,7 @@
 }
 
 .errorText::before {
-  content: "⚠";
+  content: "!";
   font-size: 1rem;
 }
 
@@ -95,7 +95,7 @@
 }
 
 .errorMessage::before {
-  content: "⚠";
+  content: "!";
   font-size: 1.25rem;
   color: var(--error-500);
   flex-shrink: 0;

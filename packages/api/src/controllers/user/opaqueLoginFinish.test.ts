@@ -151,6 +151,9 @@ describe("User OPAQUE Login Finish", () => {
               })
             ),
           },
+          scimUsers: {
+            findFirst: mock.fn(() => Promise.resolve(null)),
+          },
           jwks: {
             findFirst: mock.fn(() =>
               Promise.resolve({
@@ -170,7 +173,9 @@ describe("User OPAQUE Login Finish", () => {
         })),
         from: mock.fn(),
         where: mock.fn(),
-        update: mock.fn(),
+        update: mock.fn(() => ({
+          set: mock.fn(() => ({ where: mock.fn(() => Promise.resolve()) })),
+        })),
         delete: mock.fn(() => ({ where: mock.fn(() => Promise.resolve()) })),
         transaction: mock.fn(),
       } as unknown as Context["db"],

@@ -51,8 +51,8 @@ test.describe('User Dashboard - Apps Visibility', () => {
     await page.fill('input[name="password"], input[type="password"]', user.password)
     await page.click('button[type="submit"]')
 
-    const appsSection = page.locator('section:has(h3:has-text("Your Applications"))')
-    await expect(appsSection).toBeVisible({ timeout: 15000 })
-    await expect(appsSection.getByText('Demo Public Client', { exact: false })).toBeVisible()
+    await page.waitForURL(/\/apps/i, { timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Your apps' })).toBeVisible()
+    await expect(page.getByText('Demo Public Client', { exact: false })).toBeVisible()
   })
 })

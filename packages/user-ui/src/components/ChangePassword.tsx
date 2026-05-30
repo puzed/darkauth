@@ -4,14 +4,21 @@ import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../s
 import opaqueService from "../services/opaque";
 import { saveExportKey } from "../services/sessionKey";
 import Button from "./Button";
+import styles from "./ChangePassword.module.css";
 
 interface ChangePasswordProps {
   sub: string;
   email?: string | null;
+  signInEmail?: string | null;
   onSuccess?: () => void;
 }
 
-export default function ChangePassword({ sub, email, onSuccess }: ChangePasswordProps) {
+export default function ChangePassword({
+  sub,
+  email,
+  signInEmail,
+  onSuccess,
+}: ChangePasswordProps) {
   const uid = useId();
   const [oldPassword, setOldPassword] = useState("");
   const [password, setPassword] = useState("");
@@ -21,6 +28,8 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
   const [loading, setLoading] = useState(false);
   const [needsKeyRegen, setNeedsKeyRegen] = useState(false);
   const [pendingNewExportKey, setPendingNewExportKey] = useState<Uint8Array | null>(null);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const getOrCreateAccountKeyId = async () => {
     try {
@@ -96,8 +105,9 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
 
     setLoading(true);
     try {
-      if (!email) throw new Error("Missing email for verification");
-      const loginStart = await opaqueService.startLogin(email, oldPassword);
+      const currentSignInEmail = signInEmail || email;
+      if (!currentSignInEmail) throw new Error("Missing email for verification");
+      const loginStart = await opaqueService.startLogin(currentSignInEmail, oldPassword);
       const verifyStart = await apiService.passwordVerifyStart(loginStart.request);
       const verifyFinish = await opaqueService.finishLogin(verifyStart.message, loginStart.state);
       const verifyResult = await apiService.passwordVerifyFinish(
@@ -184,72 +194,82 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
   };
 
   return (
-    <div className="auth-container">
-      <h2 className="form-title">Change your password</h2>
+    <div className={styles.passwordPanel}>
+      <div className={styles.intro}>
+        <h3>Change password</h3>
+        <p>
+          DarkAuth will update your sign-in password and preserve encrypted app access when your
+          current password can unlock it.
+        </p>
+      </div>
 
-      <form onSubmit={handleSubmit} noValidate>
-        <div className="form-group">
+      <form className={styles.form} onSubmit={handleSubmit} noValidate>
+        <div className={styles.formGroup}>
           <label htmlFor={`${uid}-old`}>Current password</label>
-          <input
-            type="password"
-            id={`${uid}-old`}
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            placeholder="Enter your current password"
-            className={error?.includes("Current password") ? "error" : ""}
-            disabled={loading}
-            autoComplete="current-password"
-            required
-          />
+          <div className={styles.passwordField}>
+            <input
+              type={showOldPassword ? "text" : "password"}
+              id={`${uid}-old`}
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder="Enter your current password"
+              className={error?.includes("Current password") ? styles.inputError : ""}
+              disabled={loading}
+              autoComplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              className={styles.toggle}
+              onClick={() => setShowOldPassword((value) => !value)}
+            >
+              {showOldPassword ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
 
-        <div className="form-group">
+        <div className={styles.formGroup}>
           <label htmlFor={`${uid}-new`}>New password</label>
-          <input
-            type="password"
-            id={`${uid}-new`}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a new password"
-            className={error?.includes("Password must") ? "error" : ""}
-            disabled={loading}
-            autoComplete="new-password"
-            required
-          />
-          <div className="help-text">Must be at least 12 characters</div>
+          <div className={styles.passwordField}>
+            <input
+              type={showNewPassword ? "text" : "password"}
+              id={`${uid}-new`}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Create a new password"
+              className={error?.includes("Password must") ? styles.inputError : ""}
+              disabled={loading}
+              autoComplete="new-password"
+              required
+            />
+            <button
+              type="button"
+              className={styles.toggle}
+              onClick={() => setShowNewPassword((value) => !value)}
+            >
+              {showNewPassword ? "Hide" : "Show"}
+            </button>
+          </div>
+          <div className={styles.helpText}>Must be at least 12 characters</div>
         </div>
 
-        <div className="form-group">
+        <div className={styles.formGroup}>
           <label htmlFor={`${uid}-confirm`}>Confirm new password</label>
           <input
-            type="password"
+            type={showNewPassword ? "text" : "password"}
             id={`${uid}-confirm`}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             placeholder="Re-enter your new password"
-            className={error?.includes("match") ? "error" : ""}
+            className={error?.includes("match") ? styles.inputError : ""}
             disabled={loading}
             autoComplete="new-password"
             required
           />
         </div>
 
-        {error && <div className="error-message">{error}</div>}
-        {info && !needsKeyRegen && (
-          <div
-            style={{
-              padding: "0.875rem",
-              background: "var(--success-50)",
-              border: "1px solid var(--success-500)",
-              borderRadius: "var(--radius-md)",
-              marginBottom: "1.25rem",
-              fontSize: "0.875rem",
-              color: "var(--success-700)",
-            }}
-          >
-            {info}
-          </div>
-        )}
+        {error && <div className={styles.errorMessage}>{error}</div>}
+        {info && !needsKeyRegen && <div className={styles.successMessage}>{info}</div>}
 
         <Button type="submit" variant="primary" fullWidth disabled={loading}>
           {loading ? (
@@ -264,16 +284,14 @@ export default function ChangePassword({ sub, email, onSuccess }: ChangePassword
       </form>
 
       {needsKeyRegen && (
-        <div className="form-footer" style={{ borderTop: "1px solid var(--gray-200)" }}>
-          <p style={{ marginBottom: "1rem" }}>
-            Your encryption key could not be recovered. You can generate new keys to continue.
-          </p>
-          <div className="actions">
+        <div className={styles.recoveryChoice}>
+          <p>Your encryption key could not be recovered. You can generate new keys to continue.</p>
+          <div className={styles.actions}>
             <Button type="button" variant="secondary" onClick={() => setNeedsKeyRegen(false)}>
-              Try Again
+              Try again
             </Button>
             <Button type="button" variant="success" onClick={handleGenerateNew}>
-              Generate New Keys
+              Generate new keys
             </Button>
           </div>
         </div>

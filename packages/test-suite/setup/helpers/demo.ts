@@ -170,19 +170,14 @@ export async function registerDemoUser(
     async () => {
       const href = userPage.url();
       const appsVisible = await userPage
-        .locator('section:has(h3:has-text("Your Applications"))')
+        .getByRole('heading', { name: 'Your apps' })
         .isVisible()
         .catch(() => false);
-      return appsVisible || href.includes('/dashboard');
+      return appsVisible || href.includes('/apps');
     },
     { timeout: 20000 }
   ).toBe(true);
-  await expect(userPage.locator('section:has(h3:has-text("Your Applications"))')).toBeVisible({
-    timeout: 20000,
-  });
-  await expect(userPage.locator('section:has(h3:has-text("Account Information"))')).toBeVisible({
-    timeout: 20000,
-  });
+  await expect(userPage.getByRole('heading', { name: 'Your apps' })).toBeVisible({ timeout: 20000 });
   const snapshot = await userPage.evaluate(() => {
     const sessionEntries: Array<[string, string | null]> = [];
     for (let index = 0; index < window.sessionStorage.length; index += 1) {
@@ -294,7 +289,7 @@ export async function openDemoDashboard(
       await authorizeButton.click();
     }
   }
-  const recoveryHeading = demoPage.getByRole('heading', { name: 'Unlock encryption keys' });
+  const recoveryHeading = demoPage.getByRole('heading', { name: /Unlock encrypt(?:ed|ion)/ });
   await Promise.race([
     recoveryHeading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
     demoPage
@@ -304,7 +299,7 @@ export async function openDemoDashboard(
       .catch(() => undefined),
   ]);
   if (await recoveryHeading.isVisible().catch(() => false)) {
-    const unlockPanel = demoPage.locator('.authorize-recovery').filter({ hasText: 'Unlock encryption keys' }).first();
+    const unlockPanel = demoPage.locator('.authorize-recovery').filter({ hasText: /Unlock encrypt(?:ed|ion)/ }).first();
     await unlockPanel.getByRole('textbox', { name: 'Password' }).fill(user.password);
     await unlockPanel.getByRole('button', { name: 'Continue' }).click();
   }

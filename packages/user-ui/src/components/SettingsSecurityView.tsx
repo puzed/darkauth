@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { loadUnlockedArk } from "../services/unlockedArk";
-import styles from "./ChangePasswordView.module.css";
 import KeyUnlockPanel from "./KeyUnlockPanel";
+import { PortalHeader, PortalPage, PortalSection } from "./Portal";
 import SettingsSecurity from "./SettingsSecurity";
 import UserLayout from "./UserLayout";
 
@@ -41,30 +41,34 @@ export default function SettingsSecurityView({
     <UserLayout
       userName={sessionData.name}
       userEmail={sessionData.email}
-      onChangePassword={() => navigate("/change-password")}
-      onManageSecurity={() => navigate("/settings")}
+      onChangePassword={() => navigate("/security/password")}
+      onManageSecurity={() => navigate("/security")}
       onLogout={onLogout}
     >
-      <div className={styles.content}>
-        <div className={styles.formHeader}>
-          <h2>Security Settings</h2>
-          <p className={styles.subtitle}>
-            {keyState !== "unlocked"
-              ? "You are signed in, but encryption keys are locked for zero-knowledge clients."
-              : "Manage two-factor authentication, passkeys, recovery keys, and trusted devices"}
-          </p>
-        </div>
-        <div className={styles.formWrapper}>
-          {keyState !== "unlocked" ? (
+      <PortalPage>
+        <PortalHeader
+          eyebrow="Security"
+          title="Security"
+          description={
+            keyState !== "unlocked"
+              ? "You are signed in, but encrypted app access is locked for zero-knowledge clients."
+              : "Manage sign-in, encrypted app access, recovery, trusted browsers, and two-factor authentication."
+          }
+        />
+        {keyState !== "unlocked" ? (
+          <PortalSection
+            title="Encrypted app access is locked"
+            description="Unlock this browser before setting up trusted browsers, recovery, or passkey encryption unlock."
+          >
             <KeyUnlockPanel
               sub={sessionData.sub}
               email={sessionData.email}
               onUnlocked={(session) => setKeyState(session?.keyState || "unlocked")}
             />
-          ) : null}
-          <SettingsSecurity sessionData={effectiveSessionData} />
-        </div>
-      </div>
+          </PortalSection>
+        ) : null}
+        <SettingsSecurity sessionData={effectiveSessionData} />
+      </PortalPage>
     </UserLayout>
   );
 }

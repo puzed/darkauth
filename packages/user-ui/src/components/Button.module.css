@@ -1,20 +1,25 @@
 .button {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  line-height: 1;
+  min-height: 44px;
   padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  font-weight: 600;
-  border: none;
+  border: 1px solid transparent;
+  border-radius: var(--da-control-radius, 0.5rem);
+  color: var(--da-color-text, var(--gray-900));
+  font-size: 0.9375rem;
+  font-weight: 750;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     background-color 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease,
     opacity 0.2s ease;
-  font-size: 1rem;
 }
 
 .fullWidth {
@@ -22,33 +27,38 @@
 }
 
 .primary {
-  background: var(--da-primary, var(--primary-600));
-  color: var(--primary-button-text, white);
+  border-color: color-mix(in srgb, var(--da-color-action, var(--primary-600)) 78%, black);
+  background: var(--da-color-action, var(--da-primary, var(--primary-600)));
+  color: var(--da-color-action-text, var(--primary-button-text, white));
 }
 
 .primary:hover:not(:disabled) {
-  background: var(--da-primary-hover, var(--primary-700));
+  background: color-mix(in srgb, var(--da-color-action, var(--primary-600)) 88%, black);
 }
 
 .secondary {
   background: transparent;
-  border: 1px solid var(--da-border, var(--gray-300));
-  color: var(--da-text-secondary, var(--gray-700));
+  border-color: var(--da-color-border, var(--da-border, var(--gray-300)));
+  color: var(--da-color-text, var(--da-text-secondary, var(--gray-700)));
 }
 
 .secondary:hover:not(:disabled) {
-  background: var(--da-input-bg, var(--gray-50));
-  border-color: var(--da-primary, var(--gray-400));
+  background: var(--da-color-surface-raised, var(--da-input-bg, var(--gray-50)));
+  border-color: color-mix(
+    in srgb,
+    var(--da-color-action, var(--da-primary, var(--gray-400))) 42%,
+    var(--da-color-border, var(--gray-300))
+  );
 }
 
 .success {
-  background: var(--da-primary, var(--primary-600));
-  border: 1px solid color-mix(in srgb, var(--da-primary, var(--primary-600)) 90%, black);
-  color: var(--primary-button-text, white);
+  border-color: color-mix(in srgb, var(--da-color-success, var(--primary-600)) 70%, black);
+  background: var(--da-color-success, var(--da-primary, var(--primary-600)));
+  color: white;
 }
 
 .success:hover:not(:disabled) {
-  background: var(--da-primary-hover, color-mix(in srgb, var(--primary-600) 90%, white));
+  background: color-mix(in srgb, var(--da-color-success, var(--primary-600)) 88%, black);
 }
 
 .danger {
@@ -63,35 +73,6 @@
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-[data-da-theme="dark"] .primary {
-  background: var(--da-primary, var(--primary-600));
-  color: var(--primary-button-text, #1f2937);
-}
-
-[data-da-theme="dark"] .primary:hover:not(:disabled) {
-  background: var(--da-primary-hover, var(--primary-700));
-  color: var(--primary-button-text, #1f2937);
-}
-
-[data-da-theme="dark"] .secondary {
-  border-color: var(--da-border, #334155);
-  color: var(--da-text-secondary, #cbd5e1);
-}
-
-[data-da-theme="dark"] .secondary:hover:not(:disabled) {
-  background: var(--da-input-bg, #1f2937);
-  border-color: var(--da-primary, #475569);
-}
-
-[data-da-theme="dark"] .success {
-  background: var(--da-primary, var(--primary-600));
-  border-color: color-mix(in srgb, var(--da-primary, var(--primary-600)) 90%, black);
-}
-
-[data-da-theme="dark"] .success:hover:not(:disabled) {
-  background: var(--da-primary-hover, color-mix(in srgb, var(--primary-600) 90%, black));
 }
 
 [data-da-theme="dark"] .danger {

@@ -38,7 +38,7 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);
     await page.click('button[type="submit"]');
-    await page.waitForURL(/dashboard|^\/$/, { timeout: 10000 });
+    await page.waitForURL(/apps|^\/$/, { timeout: 10000 });
 
     await page.goto(`${servers.userUrl}/otp/setup`);
     await page.getByRole('button', { name: /show secret/i }).click();
@@ -65,10 +65,10 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     await page.goto(`${servers.userUrl}/otp/verify`);
     await page.waitForURL(/\/otp\/verify/i, { timeout: 15000 });
 
-    await page.getByRole('button', { name: /use a backup code/i }).click();
+    await page.getByRole('button', { name: /^Backup code$/i }).click();
     await page.fill('input[placeholder="1234-5678-9ABC"]', backupCode!.trim());
     await page.getByRole('button', { name: /^Verify$/i }).click();
-    await page.waitForURL(/dashboard/i, { timeout: 10000 });
+    await page.waitForURL(/apps/i, { timeout: 10000 });
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
   });
 });

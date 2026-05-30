@@ -59,7 +59,7 @@ test.describe('Authentication - User Login', () => {
     try {
       await page.getByRole('heading', { name: /Successfully authenticated/i }).waitFor({ state: 'visible', timeout: 5000 });
     } catch {
-      await page.waitForURL(/\/dashboard/i, { timeout: 8000 });
+      await page.waitForURL(/\/apps/i, { timeout: 8000 });
     }
   });
 
