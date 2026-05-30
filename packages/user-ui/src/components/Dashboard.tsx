@@ -2,14 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import apiService from "../services/api";
 import { logger } from "../services/logger";
+import { loadUnlockedArk } from "../services/unlockedArk";
 import styles from "./Dashboard.module.css";
+import KeyUnlockPanel from "./KeyUnlockPanel";
 import UserLayout from "./UserLayout";
+
+type KeyState = "locked" | "unlocked" | "setup_required";
 
 interface SessionData {
   sub: string;
   name?: string;
   email?: string;
-  keyState?: "locked" | "unlocked" | "setup_required";
+  keyState?: KeyState;
 }
 
 interface App {
@@ -29,10 +33,17 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
+function resolveKeyState(sessionData: SessionData): KeyState {
+  return sessionData.keyState === "unlocked" || loadUnlockedArk(sessionData.sub)
+    ? "unlocked"
+    : sessionData.keyState || "locked";
+}
+
 export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
   const navigate = useNavigate();
   const [apps, setApps] = useState<App[]>([]);
   const [loading, setLoading] = useState(true);
+  const [keyState, setKeyState] = useState<KeyState>(resolveKeyState(sessionData));
 
   const loadUserApps = useCallback(async () => {
     try {
@@ -50,6 +61,10 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
     loadUserApps();
   }, [loadUserApps]);
 
+  useEffect(() => {
+    setKeyState(resolveKeyState(sessionData));
+  }, [sessionData]);
+
   return (
     <UserLayout
       userName={sessionData.name || null}
@@ -59,15 +74,14 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
       onLogout={onLogout}
     >
       <div className={styles.container}>
-        {sessionData.keyState && sessionData.keyState !== "unlocked" ? (
+        {keyState !== "unlocked" ? (
           <section className={styles.keyStateBanner}>
-            <div>
-              <h3>Encryption keys locked</h3>
-              <p>
-                You are signed in, but zero-knowledge app access needs a password, passkey, recovery
-                key, or trusted-device unlock.
-              </p>
-            </div>
+            <KeyUnlockPanel
+              sub={sessionData.sub}
+              email={sessionData.email}
+              inline
+              onUnlocked={(session) => setKeyState(session?.keyState || "unlocked")}
+            />
             <button
               type="button"
               className={styles.appsActionButton}
@@ -200,7 +214,7 @@ export default function Dashboard({ sessionData, onLogout }: DashboardProps) {
                 className={styles.appsActionButton}
                 onClick={() => navigate("/settings")}
               >
-                Reset OTP
+                Passkeys & Security
               </button>
             </div>
           </section>
