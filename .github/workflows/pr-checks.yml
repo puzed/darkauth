@@ -1,0 +1,109 @@
+name: PR Checks
+
+on:
+  pull_request:
+
+concurrency:
+  group: pr-checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots-light:
+    name: Screenshots Light - ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    env:
+      PW_BROWSER_CHANNEL: chrome
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm --workspace @DarkAuth/test-suite run pretest
+      - run: |
+          cd packages/test-suite
+          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-light-${{ matrix.suite }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-light-${{ matrix.suite }}
+          path: packages/test-suite/test-results-light-${{ matrix.suite }}
+          if-no-files-found: ignore
+          retention-days: 7
+
+  screenshots-dark:
+    name: Screenshots Dark - ${{ matrix.suite }}
+    runs-on: ubuntu-24.04
+    env:
+      PW_BROWSER_CHANNEL: chrome
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [admin, api, auth, demo, security, user]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm --workspace @DarkAuth/test-suite run pretest
+      - run: |
+          cd packages/test-suite
+          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-dark-${{ matrix.suite }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-dark-${{ matrix.suite }}
+          path: packages/test-suite/test-results-dark-${{ matrix.suite }}
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test-brochureware:
+    name: Brochureware Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: |
+          cd packages/brochureware
+          npm run build
+
+  test-docs:
+    name: Docs Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - run: |
+          cd packages/docs
+          npm run build
