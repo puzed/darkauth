@@ -917,6 +917,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Add a true offline recovery-key unlock path during authorization.
 - [x] Remove or rework the old-password recovery flow so email/password reset cannot be treated as equivalent to an offline recovery key.
 - [x] Make authenticated-but-key-locked state obvious outside the authorization screen, including the dashboard and settings surfaces.
+- [x] Add dashboard/settings password unlock for authenticated key-locked sessions.
 - [ ] Enforce SCIM/SSO unlock-method policy in the user UI.
 - [ ] Add user-visible connected identity and enterprise SSO management.
 - [ ] Add user-visible password sign-in method management separate from encryption unlock methods.
@@ -951,8 +952,8 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Add browser compatibility messaging in user settings.
 - [x] Add passkey registration UI.
 - [x] Add passkey login UI.
-- [ ] Add passkey management UI listing registered credentials.
-- [ ] Add passkey revoke UI and API.
+- [x] Add passkey management UI listing registered credentials.
+- [x] Add passkey revoke UI and API.
 - [x] Add PRF envelope setup UI that performs the WebAuthn PRF ceremony and wraps the ARK.
 - [x] Replace the disabled `Passkey setup unavailable` settings control with a working setup flow.
 - [x] Update server-side session state to unlocked after successful passkey PRF unlock, or add an authorization finalize path that accepts the verified PRF unlock result.
@@ -1057,7 +1058,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Ensure SSO login to ZK clients prompts for a separate key unlock or setup journey.
 - [ ] Ensure account linking never trusts an unverified upstream email alone. Default and admin-UI-created paths now reject unverified upstream email, but a metadata escape hatch still exists in the model/API.
 - [x] Enforce all SCIM enterprise sign-in and unlock-method policies.
-- [ ] Label actual registered passkeys as auth-only versus auth-and-unlock in user UI.
+- [x] Label actual registered passkeys as auth-only versus auth-and-unlock in user UI.
 
 ### Audit And Abuse Prevention
 

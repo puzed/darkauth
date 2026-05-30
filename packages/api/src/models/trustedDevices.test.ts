@@ -267,6 +267,61 @@ test("device approval consume verifies proof against requested public key hash",
   });
 });
 
+test("device approval AAD cannot be replayed across approval requests", async () => {
+  await withContext(async (context) => {
+    await createUser(context);
+    await createTrustedDeviceEnvelope(context);
+    const device = await createTrustedDevice(context, {
+      sub: "user-sub",
+      publicJwk: { kty: "EC", crv: "P-256", x: "x", y: "y" },
+      envelopeId: "env_user-sub_device_1",
+    });
+    const firstRequest = await createDeviceApprovalRequest(context, {
+      sub: "user-sub",
+      requesterSessionId: "session-1",
+      newDevicePublicJwk: { kty: "EC", crv: "P-256", x: "nx", y: "ny" },
+      metadata: {
+        client_id: "client-one",
+        state_hash: "state-hash-one",
+        verification_code_hash: "code-hash-one",
+      },
+    });
+    const secondRequest = await createDeviceApprovalRequest(context, {
+      sub: "user-sub",
+      requesterSessionId: "session-2",
+      newDevicePublicJwk: { kty: "EC", crv: "P-256", x: "nx", y: "ny" },
+      metadata: {
+        client_id: "client-two",
+        state_hash: "state-hash-two",
+        verification_code_hash: "code-hash-two",
+      },
+    });
+
+    await assert.rejects(
+      () =>
+        approveDeviceApprovalRequest(context, {
+          sub: "user-sub",
+          requestId: secondRequest.requestId,
+          approvedByDeviceId: device.deviceId,
+          encryptedApproval: Buffer.from("encrypted-for-first-request"),
+          approvalAad: approvalAadFor(firstRequest),
+        }),
+      (error: unknown) => error instanceof ValidationError
+    );
+
+    const approved = await approveDeviceApprovalRequest(context, {
+      sub: "user-sub",
+      requestId: secondRequest.requestId,
+      approvedByDeviceId: device.deviceId,
+      encryptedApproval: Buffer.from("encrypted-for-second-request"),
+      approvalAad: approvalAadFor(secondRequest),
+    });
+
+    assert.equal(approved.status, "approved");
+    assert.equal(approved.requestId, secondRequest.requestId);
+  });
+});
+
 test("SCIM policy disables trusted-device approval", async () => {
   await withContext(async (context) => {
     await createUser(context);

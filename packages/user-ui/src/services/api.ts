@@ -1004,6 +1004,22 @@ class ApiService {
     return data.envelope;
   }
 
+  async getWebAuthnCredentials(): Promise<WebAuthnCredentialResponse[]> {
+    const data = await this.request<
+      { credentials: WebAuthnCredentialResponse[] } | WebAuthnCredentialResponse[]
+    >("/webauthn/credentials");
+    return Array.isArray(data) ? data : data.credentials;
+  }
+
+  async revokeWebAuthnCredential(credentialId: string): Promise<WebAuthnCredentialResponse> {
+    const data = await this.request<
+      { credential: WebAuthnCredentialResponse } | WebAuthnCredentialResponse
+    >(`/webauthn/credentials/${encodeURIComponent(credentialId)}/revoke`, {
+      method: "POST",
+    });
+    return "credential" in data ? data.credential : data;
+  }
+
   async getFederationRoute(email: string): Promise<FederationConnectionRoute | null> {
     const query = new URLSearchParams({ email });
     const data = await this.request<{ connection: FederationConnectionRoute | null }>(

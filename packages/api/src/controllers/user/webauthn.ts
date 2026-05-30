@@ -21,6 +21,7 @@ import {
   getWebAuthnCredential,
   listPasskeyPrfUnlockCandidates,
   listWebAuthnCredentials,
+  revokeWebAuthnCredential,
   updateWebAuthnCredentialUsage,
 } from "../../models/webauthn.ts";
 import {
@@ -342,6 +343,50 @@ export const postPasskeyPrfEnvelope = withAudit({
   })
 );
 
+export const getWebAuthnCredentials = withRateLimit("webauthn")(
+  async function getWebAuthnCredentials(
+    context: Context,
+    request: IncomingMessage,
+    response: ServerResponse
+  ) {
+    const session = await requireSession(context, request, false);
+    if (!session.sub) throw new UnauthorizedError("User session required");
+    const credentials = await listWebAuthnCredentials(context, session.sub);
+
+    sendJson(response, 200, {
+      credentials: credentials.map(serializePasskeyCredential),
+    });
+  }
+);
+
+export const postWebAuthnCredentialRevoke = withAudit({
+  eventType: "WEBAUTHN_CREDENTIAL_REVOKE",
+  resourceType: "webauthn_credential",
+  extractResourceId: (_body, params) => params[0],
+  skipBodyCapture: true,
+})(
+  withRateLimit("webauthn")(
+    async (
+      context: Context,
+      request: IncomingMessage,
+      response: ServerResponse,
+      credentialId?: string
+    ): Promise<void> => {
+      const session = await requireSession(context, request, false);
+      if (!session.sub) throw new UnauthorizedError("User session required");
+      if (!credentialId) throw new ValidationError("credential_id is required");
+      const credential = await revokeWebAuthnCredential(context, {
+        credentialId,
+        sub: session.sub,
+      });
+
+      sendJson(response, 200, {
+        credential: serializePasskeyCredential(credential),
+      });
+    }
+  )
+);
+
 export function serializePasskeyCredential(row: {
   credentialId: string;
   sub: string;
@@ -445,6 +490,22 @@ export const postPasskeyPrfEnvelopeSchema = {
   tags: ["WebAuthn"],
   summary: "createPasskeyPrfEnvelope",
   responses: { 201: { description: "Created" }, ...genericErrors },
+} as const satisfies ControllerSchema;
+
+export const getWebAuthnCredentialsSchema = {
+  method: "GET",
+  path: "/webauthn/credentials",
+  tags: ["WebAuthn"],
+  summary: "listWebAuthnCredentials",
+  responses: { 200: { description: "OK" }, ...genericErrors },
+} as const satisfies ControllerSchema;
+
+export const postWebAuthnCredentialRevokeSchema = {
+  method: "POST",
+  path: "/webauthn/credentials/{credential_id}/revoke",
+  tags: ["WebAuthn"],
+  summary: "revokeWebAuthnCredential",
+  responses: { 200: { description: "OK" }, ...genericErrors },
 } as const satisfies ControllerSchema;
 
 function parseBody<T>(schema: z.ZodType<T>, body: string): T {

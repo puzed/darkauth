@@ -5,11 +5,10 @@ import api, {
   type KeybagResponse,
   type RecoveryKeyResponse,
   type TrustedDeviceResponse,
+  type WebAuthnCredentialResponse,
 } from "../services/api";
-import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
+import cryptoService, { toBase64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
-import { loadExportKey } from "../services/sessionKey";
-import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
 import {
   createPasskeyCredential,
   derivePasskeyPrfWrapKey,
@@ -18,11 +17,16 @@ import {
   serializeRegistrationResponse,
 } from "../services/webauthn";
 import Button from "./Button";
+import { loadArkFromAvailableLocalUnlocks } from "./KeyUnlockPanel";
 
 export default function SettingsSecurity({
   sessionData,
 }: {
-  sessionData: { sub: string; email?: string };
+  sessionData: {
+    sub: string;
+    email?: string;
+    keyState?: "locked" | "unlocked" | "setup_required";
+  };
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,11 +47,14 @@ export default function SettingsSecurity({
   const [deviceApprovals, setDeviceApprovals] = useState<DeviceApprovalResponse[]>([]);
   const [deviceActionLoading, setDeviceActionLoading] = useState<string | null>(null);
   const [trustDeviceLoading, setTrustDeviceLoading] = useState(false);
+  const [trustedDeviceMessage, setTrustedDeviceMessage] = useState<string | null>(null);
   const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKeyResponse[]>([]);
   const [recoverySecret, setRecoverySecret] = useState<string | null>(null);
   const [recoveryActionLoading, setRecoveryActionLoading] = useState<string | null>(null);
   const [passkeyActionLoading, setPasskeyActionLoading] = useState(false);
+  const [passkeyRevokeLoading, setPasskeyRevokeLoading] = useState<string | null>(null);
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
+  const [passkeys, setPasskeys] = useState<WebAuthnCredentialResponse[]>([]);
   const [passkeyCompatibility, setPasskeyCompatibility] = useState<{
     webauthn: boolean;
     platformAuthenticator: boolean | null;
@@ -61,18 +68,20 @@ export default function SettingsSecurity({
       setLoading(true);
       setError(null);
       setBackupCodes(null);
-      const [s, keys, devices, approvals, recovery] = await Promise.all([
+      const [s, keys, devices, approvals, recovery, credentials] = await Promise.all([
         api.getOtpStatus(),
         api.getKeybag().catch(() => null),
         api.getTrustedDevices(),
         api.getDeviceApprovals(),
         api.getRecoveryKeys().catch(() => []),
+        api.getWebAuthnCredentials().catch(() => []),
       ]);
       setStatus(s);
       setKeybag(keys);
       setTrustedDevices(devices);
       setDeviceApprovals(approvals);
       setRecoveryKeys(recovery);
+      setPasskeys(credentials);
       setProvisioningUri(null);
       setSecret(null);
     } catch (e) {
@@ -167,25 +176,7 @@ export default function SettingsSecurity({
     return accountKey.key_id;
   };
 
-  const getUnlockedArk = async () => {
-    const existing = loadUnlockedArk(sessionData.sub);
-    if (existing) return existing;
-    const exportKey = await loadExportKey(sessionData.sub);
-    if (!exportKey) return null;
-    try {
-      const wrappedDrk = fromBase64Url(await api.getWrappedDrk());
-      const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-      try {
-        const ark = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
-        saveUnlockedArk(sessionData.sub, ark);
-        return ark;
-      } finally {
-        cryptoService.clearSensitiveData(keys.masterKey, keys.wrapKey, keys.deriveKey);
-      }
-    } finally {
-      cryptoService.clearSensitiveData(exportKey);
-    }
-  };
+  const getUnlockedArk = async () => loadArkFromAvailableLocalUnlocks(sessionData.sub);
 
   const registerPasskey = async () => {
     let ark: Uint8Array | null = null;
@@ -259,7 +250,12 @@ export default function SettingsSecurity({
           "Passkey registered for sign-in. This authenticator did not return PRF unlock material."
         );
       }
-      setKeybag(await api.getKeybag().catch(() => null));
+      const [keysAfterRegister, passkeysAfterRegister] = await Promise.all([
+        api.getKeybag().catch(() => null),
+        api.getWebAuthnCredentials().catch(() => []),
+      ]);
+      setKeybag(keysAfterRegister);
+      setPasskeys(passkeysAfterRegister);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to register passkey");
     } finally {
@@ -273,10 +269,28 @@ export default function SettingsSecurity({
     }
   };
 
+  const revokePasskey = async (credentialId: string) => {
+    try {
+      setPasskeyRevokeLoading(credentialId);
+      setPasskeyMessage(null);
+      setError(null);
+      await api.revokeWebAuthnCredential(credentialId);
+      const [keysAfterRevoke, passkeysAfterRevoke] = await Promise.all([
+        api.getKeybag().catch(() => null),
+        api.getWebAuthnCredentials().catch(() => []),
+      ]);
+      setKeybag(keysAfterRevoke);
+      setPasskeys(passkeysAfterRevoke);
+      setPasskeyMessage("Passkey revoked.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke passkey");
+    } finally {
+      setPasskeyRevokeLoading(null);
+    }
+  };
+
   const createRecoveryKey = async () => {
-    let exportKey: Uint8Array | null = null;
     let ark: Uint8Array | null = null;
-    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     let secretBytes: Uint8Array | null = null;
     let recoveryWrapKey: Uint8Array | null = null;
     let verifier: Uint8Array | null = null;
@@ -285,14 +299,11 @@ export default function SettingsSecurity({
       setRecoveryActionLoading("create");
       setRecoverySecret(null);
       setError(null);
-      exportKey = await loadExportKey(sessionData.sub);
-      if (!exportKey) {
-        throw new Error("Unlock this browser with your password before creating a recovery key.");
+      ark = await getUnlockedArk();
+      if (!ark) {
+        throw new Error("Unlock this browser before creating a recovery key.");
       }
       const keyId = await getOrCreateAccountKeyId();
-      const wrappedDrk = fromBase64Url(await api.getWrappedDrk());
-      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-      ark = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
       secretBytes = new Uint8Array(32);
       crypto.getRandomValues(secretBytes);
       const secret = toBase64Url(secretBytes);
@@ -330,17 +341,9 @@ export default function SettingsSecurity({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create recovery key");
     } finally {
-      const arraysToClear = [
-        exportKey,
-        ark,
-        keys?.masterKey,
-        keys?.wrapKey,
-        keys?.deriveKey,
-        secretBytes,
-        recoveryWrapKey,
-        verifier,
-        wrappedKey,
-      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      const arraysToClear = [ark, secretBytes, recoveryWrapKey, verifier, wrappedKey].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
       if (arraysToClear.length > 0) {
         cryptoService.clearSensitiveData(...arraysToClear);
       }
@@ -380,22 +383,18 @@ export default function SettingsSecurity({
   };
 
   const trustCurrentDevice = async () => {
-    let exportKey: Uint8Array | null = null;
     let ark: Uint8Array | null = null;
-    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     let wrappedKey: Uint8Array | null = null;
     let handle: string | null = null;
     try {
       setTrustDeviceLoading(true);
       setError(null);
-      exportKey = await loadExportKey(sessionData.sub);
-      if (!exportKey) {
-        throw new Error("Unlock this browser with your password before trusting this device.");
+      setTrustedDeviceMessage(null);
+      ark = await getUnlockedArk();
+      if (!ark) {
+        throw new Error("Unlock this browser before trusting this device.");
       }
       const keyId = await getOrCreateAccountKeyId();
-      const wrappedDrk = fromBase64Url(await api.getWrappedDrk());
-      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-      ark = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
       const localKey = await deviceKeyStore.createKeyHandle(sessionData.sub);
       handle = localKey.handle;
       const envelopeId = `env_${crypto.randomUUID()}`;
@@ -430,20 +429,16 @@ export default function SettingsSecurity({
       ]);
       setKeybag(keysAfterTrust);
       setTrustedDevices(devicesAfterTrust);
+      setTrustedDeviceMessage("This browser is trusted for encrypted key approvals.");
     } catch (e) {
       if (handle) {
         await deviceKeyStore.deleteKey(handle).catch(() => {});
       }
       setError(e instanceof Error ? e.message : "Failed to trust this device");
     } finally {
-      const arraysToClear = [
-        exportKey,
-        ark,
-        keys?.masterKey,
-        keys?.wrapKey,
-        keys?.deriveKey,
-        wrappedKey,
-      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      const arraysToClear = [ark, wrappedKey].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
       if (arraysToClear.length > 0) {
         cryptoService.clearSensitiveData(...arraysToClear);
       }
@@ -477,19 +472,14 @@ export default function SettingsSecurity({
       return;
     }
 
-    let exportKey: Uint8Array | null = null;
     let ark: Uint8Array | null = null;
-    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     try {
       setDeviceActionLoading(requestId);
       setError(null);
-      exportKey = await loadExportKey(sessionData.sub);
-      if (!exportKey) {
-        throw new Error("Unlock this browser with your password before approving another device.");
+      ark = await getUnlockedArk();
+      if (!ark) {
+        throw new Error("Unlock this browser before approving another device.");
       }
-      const wrappedDrk = fromBase64Url(await api.getWrappedDrk());
-      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-      ark = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
       const encryptedApproval = await cryptoService.createDeviceApprovalJWE(
         ark,
         recipientPublicJwk,
@@ -506,13 +496,9 @@ export default function SettingsSecurity({
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to approve device");
     } finally {
-      const arraysToClear = [
-        exportKey,
-        ark,
-        keys?.masterKey,
-        keys?.wrapKey,
-        keys?.deriveKey,
-      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      const arraysToClear = [ark].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
       if (arraysToClear.length > 0) {
         cryptoService.clearSensitiveData(...arraysToClear);
       }
@@ -522,7 +508,9 @@ export default function SettingsSecurity({
 
   const activeTrustedDevices = trustedDevices.filter((device) => !device.revoked_at);
   const activeEnvelopes = keybag?.envelopes.filter((envelope) => !envelope.revoked_at) ?? [];
-  const passkeyPrfEnvelopes = activeEnvelopes.filter((envelope) => envelope.type === "passkey_prf");
+  const activePasskeys = passkeys.filter((passkey) => !passkey.revoked_at);
+  const unlockPasskeys = activePasskeys.filter((passkey) => passkey.can_unlock);
+  const authOnlyPasskeys = activePasskeys.filter((passkey) => !passkey.can_unlock);
   const recoveryEnvelopes = activeEnvelopes.filter((envelope) => envelope.type === "recovery");
   const activeRecoveryKeys = recoveryKeys.filter((key) => !key.revoked_at);
   const pendingApprovals = deviceApprovals.filter((approval) => {
@@ -762,9 +750,50 @@ export default function SettingsSecurity({
           unavailable, use password unlock, a recovery key, or trusted-device approval.
         </div>
         <div className="help-text" style={{ marginTop: 12 }}>
-          Auth + unlock passkeys: {passkeyPrfEnvelopes.length}. Auth-only passkeys are sign-in
-          methods, not encryption unlock methods.
+          Auth + unlock passkeys: {unlockPasskeys.length}. Auth-only passkeys:{" "}
+          {authOnlyPasskeys.length}. Auth-only passkeys are sign-in methods, not encryption unlock
+          methods.
         </div>
+        {activePasskeys.length > 0 ? (
+          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
+            {activePasskeys.map((passkey) => (
+              <li
+                key={passkey.credential_id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "center",
+                  padding: "10px 0",
+                  borderTop: "1px solid hsl(var(--border))",
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600 }}>{passkey.label || "Passkey"}</div>
+                  <div className="help-text">
+                    {passkey.can_unlock ? "Sign-in and encryption unlock" : "Sign-in only"} · Last
+                    used {formatDate(passkey.last_used_at)} · Added {formatDate(passkey.created_at)}
+                  </div>
+                  {passkey.transports && passkey.transports.length > 0 && (
+                    <div className="help-text">{passkey.transports.join(", ")}</div>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => revokePasskey(passkey.credential_id)}
+                  disabled={passkeyRevokeLoading === passkey.credential_id}
+                >
+                  Revoke
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="help-text" style={{ marginTop: 12 }}>
+            No passkeys are registered for this account.
+          </div>
+        )}
         {passkeyMessage && (
           <div className="help-text" style={{ marginTop: 8 }}>
             {passkeyMessage}
@@ -919,16 +948,26 @@ export default function SettingsSecurity({
         <div className="help-text" style={{ marginTop: 8 }}>
           This browser stores only a local key handle; DarkAuth stores the encrypted envelope.
         </div>
+        {sessionData.keyState !== "unlocked" && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            Unlock encryption keys before trusting this browser.
+          </div>
+        )}
         <div style={{ display: "flex", marginTop: 12 }}>
           <Button
             type="button"
             variant="secondary"
             onClick={trustCurrentDevice}
-            disabled={trustDeviceLoading}
+            disabled={trustDeviceLoading || sessionData.keyState !== "unlocked"}
           >
-            Trust this browser
+            {trustDeviceLoading ? "Trusting browser..." : "Trust this browser"}
           </Button>
         </div>
+        {trustedDeviceMessage && (
+          <div className="help-text" style={{ marginTop: 8 }}>
+            {trustedDeviceMessage}
+          </div>
+        )}
         {activeTrustedDevices.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0" }}>
             {activeTrustedDevices.map((device) => (

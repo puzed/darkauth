@@ -278,6 +278,47 @@ test("authorize finalize allows locked SCIM sessions for ZK when policy disables
   }
 });
 
+test("authorize finalize does not store key delivery metadata for non-ZK requests", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const organizationId = await createUserWithSessionAndOrg(context);
+    await createPendingAuth(context, {
+      requestId: "request-non-zk",
+      clientId: "client-id",
+      redirectUri: "https://client.example/callback",
+      scope: "openid",
+      state: "state",
+      origin: "https://auth.example.com",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    await postAuthorizeFinalize(
+      context,
+      createRequest(
+        new URLSearchParams({
+          request_id: "request-non-zk",
+          approve: "true",
+          zk_key_hash: "unexpected-hash",
+          drk_hash: "unexpected-drk-hash",
+          organization_id: organizationId,
+        })
+      ),
+      createResponse()
+    );
+
+    const code = await context.db.query.authCodes.findFirst();
+    assert.ok(code);
+    assert.equal(code.hasZk, false);
+    assert.equal(code.zkPubKid, null);
+    assert.equal(code.zkKeyHash, null);
+    assert.equal(code.zkKeyKind, null);
+    assert.equal(code.zkKeyVersion, null);
+    assert.equal(code.drkHash, null);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("authorize finalize keeps explicit v1 drk hash binding", async () => {
   const { context, cleanup } = await createContext();
   try {

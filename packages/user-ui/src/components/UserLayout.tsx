@@ -93,7 +93,7 @@ export default function UserLayout({
                         onManageSecurity?.();
                       }}
                     >
-                      Resetup OTP
+                      Passkeys & Security
                     </button>
                     <button
                       type="button"

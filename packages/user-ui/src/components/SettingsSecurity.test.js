@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = readFileSync(resolve(here, "SettingsSecurity.tsx"), "utf8");
+const settingsViewSource = readFileSync(resolve(here, "SettingsSecurityView.tsx"), "utf8");
+const unlockSource = readFileSync(resolve(here, "KeyUnlockPanel.tsx"), "utf8");
 const apiSource = readFileSync(resolve(here, "../services/api.ts"), "utf8");
 
 test("Settings security manages trusted devices and approval requests", () => {
@@ -31,6 +33,10 @@ test("Settings security distinguishes passkey authentication from PRF unlock", (
   assert.notEqual(source.indexOf("verified WebAuthn PRF support"), -1);
   assert.notEqual(source.indexOf("Auth + unlock passkeys"), -1);
   assert.notEqual(source.indexOf("Auth-only passkeys"), -1);
+  assert.notEqual(source.indexOf("api.getWebAuthnCredentials"), -1);
+  assert.notEqual(source.indexOf("api.revokeWebAuthnCredential"), -1);
+  assert.notEqual(source.indexOf("Sign-in and encryption unlock"), -1);
+  assert.notEqual(source.indexOf("Sign-in only"), -1);
   assert.notEqual(source.indexOf("registerPasskey"), -1);
   assert.notEqual(source.indexOf("api.webAuthnRegisterStart"), -1);
   assert.notEqual(source.indexOf("api.createPasskeyPrfEnvelope"), -1);
@@ -48,4 +54,22 @@ test("Settings security creates high entropy recovery key envelopes", () => {
   assert.notEqual(apiSource.indexOf("RecoveryKeyCreateRequest"), -1);
   assert.notEqual(apiSource.indexOf("/crypto/recovery-keys"), -1);
   assert.equal(apiSource.indexOf("/crypto/keybag/recovery"), -1);
+});
+
+test("dashboard and settings expose password unlock for locked key state", () => {
+  assert.notEqual(settingsViewSource.indexOf("KeyUnlockPanel"), -1);
+  assert.notEqual(unlockSource.indexOf("Unlock with Password"), -1);
+  assert.notEqual(unlockSource.indexOf("opaqueService.startLogin"), -1);
+  assert.notEqual(unlockSource.indexOf("api.passwordVerifyFinish"), -1);
+  assert.notEqual(unlockSource.indexOf("unlockArkWithExportKey"), -1);
+  assert.notEqual(unlockSource.indexOf("saveUnlockedArk"), -1);
+  assert.notEqual(unlockSource.indexOf('type === "password"'), -1);
+});
+
+test("trusted device actions use unlocked ARK instead of requiring export key", () => {
+  assert.notEqual(source.indexOf("loadArkFromAvailableLocalUnlocks"), -1);
+  assert.equal(source.indexOf("loadExportKey"), -1);
+  assert.notEqual(unlockSource.indexOf("unlockArkWithLocalTrustedDevice"), -1);
+  assert.notEqual(unlockSource.indexOf("deviceKeyStore.getKey"), -1);
+  assert.notEqual(source.indexOf("This browser is trusted for encrypted key approvals."), -1);
 });
