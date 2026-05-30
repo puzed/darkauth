@@ -133,6 +133,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     zkDelivery: "none" as Client["zkDelivery"],
     zkRequired: false,
     keyDeliveryVersion: "v2" as Client["keyDeliveryVersion"],
+    clientKeyScope: "organization" as Client["clientKeyScope"],
     showOnUserDashboard: false,
     dashboardAutoLogin: false,
     dashboardPosition: "0",
@@ -216,6 +217,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         zkDelivery: c.zkDelivery,
         zkRequired: c.zkRequired,
         keyDeliveryVersion: c.keyDeliveryVersion || "v2",
+        clientKeyScope: c.clientKeyScope || "organization",
         redirectUris: joinList(c.redirectUris),
         postLogoutRedirectUris: joinList(c.postLogoutRedirectUris),
         grantTypes: joinList(c.grantTypes),
@@ -257,6 +259,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         zkRequired: form.zkRequired,
         keyDeliveryVersion: form.keyDeliveryVersion,
         deliveredKeyKind: deliveredKeyKindFor(form.keyDeliveryVersion),
+        clientKeyScope: form.clientKeyScope,
         showOnUserDashboard: form.showOnUserDashboard,
         dashboardAutoLogin: form.dashboardAutoLogin,
         dashboardPosition: Number(form.dashboardPosition || "0"),
@@ -951,6 +954,37 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     <Input value={deliveredKeyKindFor(form.keyDeliveryVersion)} readOnly />
                     <FieldHint>
                       v1-drk maps to <code>root_key</code>; v2 maps to <code>client_app_key</code>.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Client Key Scope"
+                        tooltip="Controls whether v2 client app keys are stable for the account or distinct per organization."
+                      />
+                    }
+                  >
+                    <Select
+                      value={form.clientKeyScope}
+                      onValueChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          clientKeyScope: v as Client["clientKeyScope"],
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="organization">Organization scoped</SelectItem>
+                        <SelectItem value="account">Account scoped</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldHint>
+                      Organization scoped keys differ by selected organization. Account scoped keys
+                      stay stable across organizations.
                     </FieldHint>
                   </FormField>
                 </FormGrid>

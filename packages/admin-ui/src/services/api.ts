@@ -208,6 +208,7 @@ export interface Client {
   zkRequired: boolean;
   keyDeliveryVersion: "v1-drk" | "v2";
   deliveredKeyKind: "root_key" | "client_app_key";
+  clientKeyScope: "account" | "organization";
   allowedJweAlgs: string[];
   allowedJweEncs: string[];
   redirectUris: string[];
@@ -247,6 +248,7 @@ export interface CreateClientRequest {
   zkRequired?: boolean;
   keyDeliveryVersion?: "v1-drk" | "v2";
   deliveredKeyKind?: "root_key" | "client_app_key";
+  clientKeyScope?: "account" | "organization";
   allowedJweAlgs?: string[];
   allowedJweEncs?: string[];
   redirectUris: string[];
@@ -343,6 +345,15 @@ export interface AdminSetting {
   updatedAt: string;
 }
 
+export interface FederationPolicyControls {
+  jitProvisioning: boolean;
+  requireScimPreProvisioning: boolean;
+  requirePasswordForZk: boolean;
+  allowPasskeyPrf: boolean;
+  allowTrustedDeviceApproval: boolean;
+  allowNonZkKeySetupBypass: boolean;
+}
+
 export interface FederationConnection {
   id: string;
   type: "oidc";
@@ -359,7 +370,7 @@ export interface FederationConnection {
   accountLinkingPolicy: "disabled" | "email_verified" | "email";
   domains: string[];
   enabled: boolean;
-  metadata: Record<string, unknown>;
+  metadata: Record<string, unknown> & { darkauth_policy?: Partial<FederationPolicyControls> };
   createdAt: string;
   updatedAt: string;
   hasClientSecret: boolean;
@@ -387,14 +398,14 @@ export interface FederationConnectionRequest {
   clientId: string;
   clientSecret?: string | null;
   discoveryUrl?: string;
-  metadata?: OidcDiscoveryMetadata;
+  metadata?: OidcDiscoveryMetadata & { darkauth_policy?: Partial<FederationPolicyControls> };
   authorizationEndpoint?: string;
   tokenEndpoint?: string;
   jwksUri?: string;
   userinfoEndpoint?: string | null;
   scopes?: string[];
   claimMapping?: Record<string, string>;
-  accountLinkingPolicy?: "disabled" | "email_verified" | "email";
+  accountLinkingPolicy?: "disabled" | "email_verified";
   domains?: string[];
   enabled?: boolean;
 }

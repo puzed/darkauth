@@ -41,6 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import adminApiService, {
   type FederationConnection,
   type FederationConnectionRequest,
+  type FederationPolicyControls,
   type SortOrder,
 } from "@/services/api";
 
@@ -50,6 +51,15 @@ const parseList = (value: string) =>
     .split(/\r?\n|,\s*/)
     .map((part) => part.trim())
     .filter(Boolean);
+
+const defaultFederationPolicy: FederationPolicyControls = {
+  jitProvisioning: true,
+  requireScimPreProvisioning: false,
+  requirePasswordForZk: false,
+  allowPasskeyPrf: true,
+  allowTrustedDeviceApproval: true,
+  allowNonZkKeySetupBypass: true,
+};
 
 type FormState = {
   name: string;
@@ -64,13 +74,19 @@ type FormState = {
   userinfoEndpoint: string;
   scopes: string;
   domains: string;
-  accountLinkingPolicy: FederationConnection["accountLinkingPolicy"];
+  accountLinkingPolicy: "disabled" | "email_verified";
   enabled: boolean;
   subjectClaim: string;
   emailClaim: string;
   emailVerifiedClaim: string;
   nameClaim: string;
   groupsClaim: string;
+  jitProvisioning: boolean;
+  requireScimPreProvisioning: boolean;
+  requirePasswordForZk: boolean;
+  allowPasskeyPrf: boolean;
+  allowTrustedDeviceApproval: boolean;
+  allowNonZkKeySetupBypass: boolean;
   metadata: Record<string, unknown> | undefined;
 };
 
@@ -94,10 +110,12 @@ const emptyForm: FormState = {
   emailVerifiedClaim: "email_verified",
   nameClaim: "name",
   groupsClaim: "groups",
+  ...defaultFederationPolicy,
   metadata: undefined,
 };
 
 function formFromConnection(connection: FederationConnection): FormState {
+  const policy = { ...defaultFederationPolicy, ...(connection.metadata?.darkauth_policy || {}) };
   return {
     name: connection.name,
     issuer: connection.issuer,
@@ -111,18 +129,52 @@ function formFromConnection(connection: FederationConnection): FormState {
     userinfoEndpoint: connection.userinfoEndpoint || "",
     scopes: joinList(connection.scopes),
     domains: joinList(connection.domains),
-    accountLinkingPolicy: connection.accountLinkingPolicy,
+    accountLinkingPolicy:
+      connection.accountLinkingPolicy === "disabled" ? "disabled" : "email_verified",
     enabled: connection.enabled,
     subjectClaim: String(connection.claimMapping.subject || "sub"),
     emailClaim: String(connection.claimMapping.email || "email"),
     emailVerifiedClaim: String(connection.claimMapping.emailVerified || "email_verified"),
     nameClaim: String(connection.claimMapping.name || "name"),
     groupsClaim: String(connection.claimMapping.groups || "groups"),
+    jitProvisioning: !!policy.jitProvisioning,
+    requireScimPreProvisioning: !!policy.requireScimPreProvisioning,
+    requirePasswordForZk: !!policy.requirePasswordForZk,
+    allowPasskeyPrf: !!policy.allowPasskeyPrf,
+    allowTrustedDeviceApproval: !!policy.allowTrustedDeviceApproval,
+    allowNonZkKeySetupBypass: !!policy.allowNonZkKeySetupBypass,
     metadata: connection.metadata,
   };
 }
 
 function buildPayload(form: FormState, isEdit: boolean): FederationConnectionRequest {
+  const darkauthPolicy: FederationPolicyControls = {
+    jitProvisioning: form.jitProvisioning,
+    requireScimPreProvisioning: form.requireScimPreProvisioning,
+    requirePasswordForZk: form.requirePasswordForZk,
+    allowPasskeyPrf: form.allowPasskeyPrf,
+    allowTrustedDeviceApproval: form.allowTrustedDeviceApproval,
+    allowNonZkKeySetupBypass: form.allowNonZkKeySetupBypass,
+  };
+  const providerMetadata =
+    form.metadata ||
+    (form.authorizationEndpoint.trim() && form.tokenEndpoint.trim() && form.jwksUri.trim()
+      ? {
+          issuer: form.issuer.trim(),
+          authorization_endpoint: form.authorizationEndpoint.trim(),
+          token_endpoint: form.tokenEndpoint.trim(),
+          jwks_uri: form.jwksUri.trim(),
+          ...(form.userinfoEndpoint.trim()
+            ? { userinfo_endpoint: form.userinfoEndpoint.trim() }
+            : {}),
+        }
+      : undefined);
+  const metadata = providerMetadata
+    ? ({
+        ...providerMetadata,
+        darkauth_policy: darkauthPolicy,
+      } as FederationConnectionRequest["metadata"])
+    : undefined;
   const payload: FederationConnectionRequest = {
     name: form.name.trim(),
     issuer: form.issuer.trim(),
@@ -143,7 +195,7 @@ function buildPayload(form: FormState, isEdit: boolean): FederationConnectionReq
       name: form.nameClaim.trim(),
       groups: form.groupsClaim.trim(),
     },
-    metadata: form.metadata,
+    metadata,
   };
   if (!isEdit || form.replaceSecret) {
     payload.clientSecret = form.clientSecret.trim() || null;
@@ -624,7 +676,7 @@ export default function FederationConnections() {
                 onValueChange={(value) =>
                   setForm((current) => ({
                     ...current,
-                    accountLinkingPolicy: value as FederationConnection["accountLinkingPolicy"],
+                    accountLinkingPolicy: value as "disabled" | "email_verified",
                   }))
                 }
               >
@@ -634,7 +686,111 @@ export default function FederationConnections() {
                 <SelectContent>
                   <SelectItem value="disabled">Disabled</SelectItem>
                   <SelectItem value="email_verified">Verified email</SelectItem>
-                  <SelectItem value="email">Email</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>JIT User Creation</Label>}>
+              <Select
+                value={form.jitProvisioning ? "allow" : "block"}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, jitProvisioning: value === "allow" }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="allow">Allow JIT creation</SelectItem>
+                  <SelectItem value="block">Require existing user link</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>SCIM Pre-provisioning</Label>}>
+              <Select
+                value={form.requireScimPreProvisioning ? "required" : "optional"}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    requireScimPreProvisioning: value === "required",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="required">Required</SelectItem>
+                  <SelectItem value="optional">Optional</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>ZK Password Setup</Label>}>
+              <Select
+                value={form.requirePasswordForZk ? "required" : "optional"}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, requirePasswordForZk: value === "required" }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="required">Require password envelope</SelectItem>
+                  <SelectItem value="optional">Use any allowed unlock method</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>Passkey PRF Unlock</Label>}>
+              <Select
+                value={form.allowPasskeyPrf ? "allow" : "block"}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, allowPasskeyPrf: value === "allow" }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="allow">Allowed</SelectItem>
+                  <SelectItem value="block">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>Trusted-device Approval</Label>}>
+              <Select
+                value={form.allowTrustedDeviceApproval ? "allow" : "block"}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    allowTrustedDeviceApproval: value === "allow",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="allow">Allowed</SelectItem>
+                  <SelectItem value="block">Disabled</SelectItem>
+                </SelectContent>
+              </Select>
+            </FormField>
+            <FormField label={<Label>Non-ZK Key Setup Bypass</Label>}>
+              <Select
+                value={form.allowNonZkKeySetupBypass ? "allow" : "block"}
+                onValueChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    allowNonZkKeySetupBypass: value === "allow",
+                  }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="allow">Allow non-ZK bypass</SelectItem>
+                  <SelectItem value="block">Require key setup for all sign-ins</SelectItem>
                 </SelectContent>
               </Select>
             </FormField>
