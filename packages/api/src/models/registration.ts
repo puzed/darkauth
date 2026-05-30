@@ -55,6 +55,7 @@ export async function userOpaqueRegisterFinish(
     await tx.insert(users).values({
       sub,
       email: data.email,
+      opaqueLoginIdentity: data.email,
       name: data.name,
       emailVerifiedAt: requireEmailVerification ? null : new Date(),
       createdAt: new Date(),

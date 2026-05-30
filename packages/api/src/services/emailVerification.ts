@@ -5,11 +5,13 @@ import {
   consumeEmailVerificationToken,
   createEmailVerificationToken,
   type EmailVerificationPurpose,
+  invalidateActiveEmailVerificationTokens,
 } from "../models/emailVerificationTokens.ts";
 import type { Context } from "../types.ts";
 import { logAuditEvent } from "./audit.ts";
 import { isEmailSendingAvailable, sendTemplatedEmail } from "./email.ts";
 import { isPasswordResetEmailEnabled } from "./passwordReset.ts";
+import { updateUserSessionsProfile } from "./sessions.ts";
 import { getSetting } from "./settings.ts";
 
 function getVerificationLink(context: Context, token: string): string {
@@ -88,6 +90,74 @@ export async function sendSignupVerification(
   });
 }
 
+export async function resendPendingEmailChangeVerification(
+  context: Context,
+  params: { userSub: string }
+): Promise<{ pendingEmail: string; pendingEmailSetAt: string | null }> {
+  const user = await context.db.query.users.findFirst({ where: eq(users.sub, params.userSub) });
+  if (!user) {
+    throw new ValidationError("User not found");
+  }
+  if (!user.pendingEmail) {
+    throw new ValidationError("No pending email change");
+  }
+
+  const available = await isEmailSendingAvailable(context);
+  if (!available) {
+    throw new ValidationError("Email transport is not available");
+  }
+
+  await issueVerificationEmail(context, {
+    userSub: user.sub,
+    name: user.name || "",
+    targetEmail: user.pendingEmail,
+    purpose: "email_change_verify",
+  });
+
+  await logAuditEvent(context, {
+    eventType: "USER_EMAIL_CHANGE_VERIFICATION_RESENT",
+    cohort: "user",
+    userId: params.userSub,
+    ipAddress: "system",
+    success: true,
+    resourceType: "user",
+    resourceId: params.userSub,
+  });
+
+  return {
+    pendingEmail: user.pendingEmail,
+    pendingEmailSetAt: user.pendingEmailSetAt ? user.pendingEmailSetAt.toISOString() : null,
+  };
+}
+
+export async function cancelPendingEmailChange(
+  context: Context,
+  params: { userSub: string }
+): Promise<{ success: true; pendingEmail: null; pendingEmailSetAt: null }> {
+  const user = await context.db.query.users.findFirst({ where: eq(users.sub, params.userSub) });
+  if (!user) {
+    throw new ValidationError("User not found");
+  }
+
+  await invalidateActiveEmailVerificationTokens(context, params.userSub, "email_change_verify");
+  await context.db
+    .update(users)
+    .set({ pendingEmail: null, pendingEmailSetAt: null })
+    .where(eq(users.sub, params.userSub));
+
+  await logAuditEvent(context, {
+    eventType: "USER_EMAIL_CHANGE_CANCELLED",
+    cohort: "user",
+    userId: params.userSub,
+    ipAddress: "system",
+    success: true,
+    resourceType: "user",
+    resourceId: params.userSub,
+  });
+
+  return { success: true, pendingEmail: null, pendingEmailSetAt: null };
+}
+
 export async function sendSignupExistingAccountNotice(
   context: Context,
   params: { email: string; name: string }
@@ -140,7 +210,7 @@ export async function resendSignupVerificationByEmail(
 export async function consumeVerificationTokenAndApply(
   context: Context,
   token: string
-): Promise<void> {
+): Promise<{ purpose: EmailVerificationPurpose; userSub: string; targetEmail: string }> {
   const consumed = await consumeEmailVerificationToken(context, token);
 
   if (consumed.purpose === "signup_verify") {
@@ -159,9 +229,14 @@ export async function consumeVerificationTokenAndApply(
       resourceId: consumed.userSub,
     });
 
-    return;
+    return {
+      purpose: consumed.purpose,
+      userSub: consumed.userSub,
+      targetEmail: consumed.targetEmail,
+    };
   }
 
+  let updatedProfile: { email: string | null; name: string | null } | null = null;
   await context.db.transaction(async (tx) => {
     const conflict = await tx.query.users.findFirst({
       where: and(eq(users.email, consumed.targetEmail), ne(users.sub, consumed.userSub)),
@@ -170,16 +245,28 @@ export async function consumeVerificationTokenAndApply(
       throw new ValidationError("Email is already in use");
     }
 
+    const user = await tx.query.users.findFirst({ where: eq(users.sub, consumed.userSub) });
+    if (!user) {
+      throw new ValidationError("User not found");
+    }
+    const opaqueLoginIdentity = user.opaqueLoginIdentity || user.email || consumed.targetEmail;
+
     await tx
       .update(users)
       .set({
         email: consumed.targetEmail,
+        opaqueLoginIdentity,
         pendingEmail: null,
         pendingEmailSetAt: null,
         emailVerifiedAt: new Date(),
       })
       .where(eq(users.sub, consumed.userSub));
+    updatedProfile = { email: consumed.targetEmail, name: user.name };
   });
+
+  if (updatedProfile) {
+    await updateUserSessionsProfile(context, consumed.userSub, updatedProfile);
+  }
 
   await logAuditEvent(context, {
     eventType: "USER_EMAIL_CHANGE_VERIFIED",
@@ -190,12 +277,18 @@ export async function consumeVerificationTokenAndApply(
     resourceType: "user",
     resourceId: consumed.userSub,
   });
+
+  return {
+    purpose: consumed.purpose,
+    userSub: consumed.userSub,
+    targetEmail: consumed.targetEmail,
+  };
 }
 
 export async function requestEmailChangeVerification(
   context: Context,
   params: { userSub: string; email: string }
-): Promise<void> {
+): Promise<{ pendingEmail: string; pendingEmailSetAt: string }> {
   const user = await context.db.query.users.findFirst({ where: eq(users.sub, params.userSub) });
   if (!user) {
     throw new ValidationError("User not found");
@@ -215,9 +308,10 @@ export async function requestEmailChangeVerification(
     throw new ValidationError("Email transport is not available");
   }
 
+  const pendingEmailSetAt = new Date();
   await context.db
     .update(users)
-    .set({ pendingEmail: params.email, pendingEmailSetAt: new Date() })
+    .set({ pendingEmail: params.email, pendingEmailSetAt })
     .where(eq(users.sub, params.userSub));
 
   await issueVerificationEmail(context, {
@@ -236,4 +330,6 @@ export async function requestEmailChangeVerification(
     resourceType: "user",
     resourceId: params.userSub,
   });
+
+  return { pendingEmail: params.email, pendingEmailSetAt: pendingEmailSetAt.toISOString() };
 }

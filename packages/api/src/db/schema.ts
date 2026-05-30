@@ -147,17 +147,26 @@ export const federationConnections = pgTable(
   })
 );
 
-export const users = pgTable("users", {
-  sub: text("sub").primaryKey(),
-  email: text("email").unique(),
-  name: text("name"),
-  emailVerifiedAt: timestamp("email_verified_at"),
-  pendingEmail: text("pending_email"),
-  pendingEmailSetAt: timestamp("pending_email_set_at"),
-  passwordResetRequired: boolean("password_reset_required").default(false).notNull(),
-  lastActivityAt: timestamp("last_activity_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const users = pgTable(
+  "users",
+  {
+    sub: text("sub").primaryKey(),
+    email: text("email").unique(),
+    opaqueLoginIdentity: text("opaque_login_identity"),
+    name: text("name"),
+    emailVerifiedAt: timestamp("email_verified_at"),
+    pendingEmail: text("pending_email"),
+    pendingEmailSetAt: timestamp("pending_email_set_at"),
+    passwordResetRequired: boolean("password_reset_required").default(false).notNull(),
+    lastActivityAt: timestamp("last_activity_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    opaqueLoginIdentityIdx: uniqueIndex("users_opaque_login_identity_idx").on(
+      table.opaqueLoginIdentity
+    ),
+  })
+);
 
 export const federationIdentities = pgTable(
   "federation_identities",

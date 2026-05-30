@@ -199,7 +199,7 @@ test("getSession returns current organization context", async () => {
     await createUserSession(context, "session-context-id", {
       sub: "user-session-context",
       email: "user-session-context@example.com",
-      name: "Session User",
+      name: "user-session-context",
       organizationId: organization.id,
       organizationSlug: organization.slug,
     });
@@ -212,7 +212,12 @@ test("getSession returns current organization context", async () => {
     assert.deepEqual(response.json, {
       sub: "user-session-context",
       email: "user-session-context@example.com",
-      name: "Session User",
+      name: "user-session-context",
+      emailVerified: false,
+      emailVerifiedAt: null,
+      pendingEmail: null,
+      pendingEmailSetAt: null,
+      signInEmail: "user-session-context@example.com",
       authenticated: true,
       passwordResetRequired: false,
       otpRequired: false,

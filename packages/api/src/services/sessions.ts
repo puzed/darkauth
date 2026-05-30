@@ -292,6 +292,38 @@ export async function updateSession(
   await context.db.update(sessions).set({ data }).where(eq(sessions.id, sessionId));
 }
 
+export async function updateUserSessionsProfile(
+  context: Context,
+  sub: string,
+  profile: { email?: string | null; name?: string | null }
+): Promise<void> {
+  const rows = await context.db.query.sessions.findMany({
+    where: and(eq(sessions.userSub, sub), eq(sessions.cohort, "user")),
+  });
+
+  for (const row of rows) {
+    let data =
+      row.data && typeof row.data === "object" && !Array.isArray(row.data)
+        ? ({ ...(row.data as SessionData) } as SessionData)
+        : ({} as SessionData);
+    if ("email" in profile) {
+      if (profile.email) data.email = profile.email;
+      else {
+        const { email: _email, ...rest } = data;
+        data = rest as SessionData;
+      }
+    }
+    if ("name" in profile) {
+      if (profile.name) data.name = profile.name;
+      else {
+        const { name: _name, ...rest } = data;
+        data = rest as SessionData;
+      }
+    }
+    await updateSession(context, row.id, data);
+  }
+}
+
 export async function deleteSession(context: Context, sessionId: string): Promise<void> {
   try {
     if (!sessionId || typeof sessionId !== "string") {

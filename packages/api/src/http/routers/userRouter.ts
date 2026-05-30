@@ -52,6 +52,12 @@ import { postPasswordResetFinish } from "../../controllers/user/passwordResetFin
 import { postPasswordResetRequest } from "../../controllers/user/passwordResetRequest.ts";
 import { postPasswordResetStart } from "../../controllers/user/passwordResetStart.ts";
 import { getPasswordResetToken } from "../../controllers/user/passwordResetToken.ts";
+import {
+  deleteUserProfilePendingEmail,
+  getUserProfileController,
+  postUserProfileEmailResend,
+  putUserProfile,
+} from "../../controllers/user/profile.ts";
 import { putUserProfileEmail } from "../../controllers/user/profileEmailUpdate.ts";
 import {
   getRecoveryKeys,
@@ -111,6 +117,69 @@ function readColor(
 ): string {
   const value = colors[primaryKey] || (legacyKey ? colors[legacyKey] : undefined) || fallback;
   return String(value);
+}
+
+function parseCssColor(value: string): { r: number; g: number; b: number } | null {
+  const trimmed = value.trim();
+  const hex = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    const raw = hex[1] || "";
+    if (!raw) return null;
+    const expanded =
+      raw.length === 3
+        ? raw
+            .split("")
+            .map((part) => part + part)
+            .join("")
+        : raw;
+    return {
+      r: Number.parseInt(expanded.slice(0, 2), 16),
+      g: Number.parseInt(expanded.slice(2, 4), 16),
+      b: Number.parseInt(expanded.slice(4, 6), 16),
+    };
+  }
+  const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/i);
+  if (!rgb) return null;
+  const r = rgb[1] || "";
+  const g = rgb[2] || "";
+  const b = rgb[3] || "";
+  if (!r || !g || !b) return null;
+  return {
+    r: Math.min(255, Number.parseInt(r, 10)),
+    g: Math.min(255, Number.parseInt(g, 10)),
+    b: Math.min(255, Number.parseInt(b, 10)),
+  };
+}
+
+function channelLuminance(value: number): number {
+  const normalized = value / 255;
+  if (normalized <= 0.03928) return normalized / 12.92;
+  return ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function relativeLuminance(color: { r: number; g: number; b: number }): number {
+  return (
+    0.2126 * channelLuminance(color.r) +
+    0.7152 * channelLuminance(color.g) +
+    0.0722 * channelLuminance(color.b)
+  );
+}
+
+function colorContrast(foreground: string, background: string): number | null {
+  const fg = parseCssColor(foreground);
+  const bg = parseCssColor(background);
+  if (!fg || !bg) return null;
+  const fgLum = relativeLuminance(fg);
+  const bgLum = relativeLuminance(bg);
+  const lighter = Math.max(fgLum, bgLum);
+  const darker = Math.min(fgLum, bgLum);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function readableTextColor(foreground: string, background: string, fallback: string): string {
+  const ratio = colorContrast(foreground, background);
+  if (ratio !== null && ratio < 4.5) return fallback;
+  return foreground;
 }
 
 export function createUserRouter(context: Context) {
@@ -237,24 +306,74 @@ export function createUserRouter(context: Context) {
         const lightPrimaryLight = readColor(c, "primaryLightColor", lightPrimaryBg, "primaryLight");
         const lightPrimaryDark = readColor(c, "primaryDarkColor", lightPrimaryBg, "primaryDark");
         const lightText = readColor(c, "textColor", "#111827", "text");
-        const lightTextSecondary = readColor(c, "textSecondaryColor", "#6b7280", "textSecondary");
-        const lightTextMuted = readColor(c, "textMutedColor", "#9ca3af", "textMuted");
         const lightBorder = readColor(c, "borderColor", "#e5e7eb", "border");
         const lightBg = readColor(c, "backgroundColor", "#f3f4f6", "backgroundGradientStart");
         const lightCardBg = String(c.cardBackground || "#ffffff");
         const lightInputBg = String(c.inputBackground || "#ffffff");
+        const lightTextSecondary = readableTextColor(
+          readColor(c, "textSecondaryColor", "#334155", "textSecondary"),
+          lightCardBg,
+          "#334155"
+        );
+        const lightTextMuted = readableTextColor(
+          readColor(c, "textMutedColor", "#475569", "textMuted"),
+          lightCardBg,
+          "#475569"
+        );
         const darkBrand = readColor(cd, "brandColor", "#aec1e0", "primary");
         const darkPrimaryBg = readColor(cd, "primaryBackgroundColor", darkBrand);
         const darkPrimaryHover = readColor(cd, "primaryHoverColor", darkBrand, "primaryHover");
         const darkPrimaryLight = readColor(cd, "primaryLightColor", darkPrimaryBg, "primaryLight");
         const darkText = readColor(cd, "textColor", "#f9fafb", "text");
-        const darkTextSecondary = readColor(cd, "textSecondaryColor", "#d1d5db", "textSecondary");
-        const darkTextMuted = readColor(cd, "textMutedColor", "#9ca3af", "textMuted");
         const darkBorder = readColor(cd, "borderColor", "#374151", "border");
         const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
         const darkCardBg = String(cd.cardBackground || "rgba(255,255,255,0.05)");
         const darkInputBg = String(cd.inputBackground || "rgba(0,0,0,0.2)");
+        const darkTextSecondary = readableTextColor(
+          readColor(cd, "textSecondaryColor", "#e2e8f0", "textSecondary"),
+          darkCardBg,
+          "#e2e8f0"
+        );
+        const darkTextMuted = readableTextColor(
+          readColor(cd, "textMutedColor", "#cbd5e1", "textMuted"),
+          darkCardBg,
+          "#cbd5e1"
+        );
         const cssVarsLight: Record<string, string> = {
+          "--da-color-page": lightBg,
+          "--da-color-page-gradient-start": lightBg,
+          "--da-color-page-gradient-end": String(c.backgroundGradientEnd || lightBg),
+          "--da-color-brand": lightBrand,
+          "--da-color-action": lightPrimaryBg,
+          "--da-color-action-hover": lightPrimaryHover,
+          "--da-color-action-text": String(c.primaryForegroundColor || "#ffffff"),
+          "--da-color-focus-ring": String(c.inputFocus || lightBrand),
+          "--da-focus-ring": String(c.inputFocus || lightBrand),
+          "--da-color-surface": lightCardBg,
+          "--da-color-surface-raised": String(c.surfaceRaised || "#f8fafc"),
+          "--da-color-surface-muted": String(c.surfaceMuted || "#f1f5f9"),
+          "--da-color-border": lightBorder,
+          "--da-color-border-strong": String(c.borderStrong || lightBorder),
+          "--da-color-text": lightText,
+          "--da-color-text-secondary": lightTextSecondary,
+          "--da-color-text-muted": lightTextMuted,
+          "--da-color-text-inverse": String(c.textInverse || "#ffffff"),
+          "--da-color-input-bg": lightInputBg,
+          "--da-color-input-border": String(c.inputBorder || lightBorder),
+          "--da-color-input-focus": String(c.inputFocus || lightBrand),
+          "--da-color-input-placeholder": String(c.inputPlaceholder || lightTextMuted),
+          "--da-color-success": String(c.success || "#16a34a"),
+          "--da-color-success-bg": String(c.successBg || "#f0fdf4"),
+          "--da-color-warning": String(c.warning || "#d97706"),
+          "--da-color-warning-bg": String(c.warningBg || "#fffbeb"),
+          "--da-color-danger": String(c.error || "#dc2626"),
+          "--da-color-danger-bg": String(c.errorBg || "#fef2f2"),
+          "--da-color-info": String(c.info || lightBrand),
+          "--da-color-info-bg": String(c.infoBg || lightPrimaryLight),
+          "--da-radius-sm": "0.375rem",
+          "--da-radius-md": "0.5rem",
+          "--da-radius-lg": "0.75rem",
+          "--da-radius-full": "999px",
           "--da-page-bg": lightBg,
           "--da-bg-gradient-start": lightBg,
           "--da-bg-gradient-end": String(c.backgroundGradientEnd || lightBg),
@@ -300,6 +419,40 @@ export function createUserRouter(context: Context) {
           "--gray-50": lightBg,
         };
         const cssVarsDark: Record<string, string> = {
+          "--da-color-page": darkBg,
+          "--da-color-page-gradient-start": darkBg,
+          "--da-color-page-gradient-end": String(cd.backgroundGradientEnd || darkBg),
+          "--da-color-brand": darkBrand,
+          "--da-color-action": darkPrimaryBg,
+          "--da-color-action-hover": darkPrimaryHover,
+          "--da-color-action-text": String(cd.primaryForegroundColor || "#1f2937"),
+          "--da-color-focus-ring": String(cd.inputFocus || darkBrand),
+          "--da-focus-ring": String(cd.inputFocus || darkBrand),
+          "--da-color-surface": darkCardBg,
+          "--da-color-surface-raised": String(cd.surfaceRaised || "#1f2937"),
+          "--da-color-surface-muted": String(cd.surfaceMuted || "#0f172a"),
+          "--da-color-border": darkBorder,
+          "--da-color-border-strong": String(cd.borderStrong || darkBorder),
+          "--da-color-text": darkText,
+          "--da-color-text-secondary": darkTextSecondary,
+          "--da-color-text-muted": darkTextMuted,
+          "--da-color-text-inverse": String(cd.textInverse || "#0f172a"),
+          "--da-color-input-bg": darkInputBg,
+          "--da-color-input-border": String(cd.inputBorder || darkBorder),
+          "--da-color-input-focus": String(cd.inputFocus || darkBrand),
+          "--da-color-input-placeholder": String(cd.inputPlaceholder || darkTextMuted),
+          "--da-color-success": String(cd.success || "#22c55e"),
+          "--da-color-success-bg": String(cd.successBg || "#052e16"),
+          "--da-color-warning": String(cd.warning || "#f59e0b"),
+          "--da-color-warning-bg": String(cd.warningBg || "#451a03"),
+          "--da-color-danger": String(cd.error || "#f87171"),
+          "--da-color-danger-bg": String(cd.errorBg || "#450a0a"),
+          "--da-color-info": String(cd.info || darkBrand),
+          "--da-color-info-bg": String(cd.infoBg || darkPrimaryLight),
+          "--da-radius-sm": "0.375rem",
+          "--da-radius-md": "0.5rem",
+          "--da-radius-lg": "0.75rem",
+          "--da-radius-full": "999px",
           "--da-page-bg": darkBg,
           "--da-bg-gradient-start": darkBg,
           "--da-bg-gradient-end": String(cd.backgroundGradientEnd || darkBg),
@@ -408,6 +561,18 @@ export function createUserRouter(context: Context) {
       }
       if (method === "PUT" && pathname === "/profile/email") {
         return await putUserProfileEmail(context, request, response);
+      }
+      if (method === "POST" && pathname === "/profile/email/resend") {
+        return await postUserProfileEmailResend(context, request, response);
+      }
+      if (method === "DELETE" && pathname === "/profile/email/pending") {
+        return await deleteUserProfilePendingEmail(context, request, response);
+      }
+      if (method === "GET" && pathname === "/profile") {
+        return await getUserProfileController(context, request, response);
+      }
+      if (method === "PUT" && pathname === "/profile") {
+        return await putUserProfile(context, request, response);
       }
 
       if (method === "POST" && pathname === "/password/change/start") {

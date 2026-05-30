@@ -218,6 +218,13 @@
       "when": 1780174800000,
       "tag": "0032_client_key_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1780261200000,
+      "tag": "0033_user_opaque_login_identity",
+      "breakpoints": true
     }
   ]
 }

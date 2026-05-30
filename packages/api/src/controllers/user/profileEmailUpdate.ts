@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { requestEmailChangeVerification } from "../../services/emailVerification.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -11,7 +12,7 @@ const BodySchema = z.object({
   email: z.string().email(),
 });
 
-export async function putUserProfileEmail(
+async function putUserProfileEmailHandler(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
@@ -25,7 +26,7 @@ export async function putUserProfileEmail(
   const raw = parseJsonSafely(body);
   const parsed = BodySchema.parse(raw);
 
-  await requestEmailChangeVerification(context, {
+  const result = await requestEmailChangeVerification(context, {
     userSub: session.sub,
     email: parsed.email.trim().toLowerCase(),
   });
@@ -33,8 +34,11 @@ export async function putUserProfileEmail(
   sendJson(response, 200, {
     success: true,
     message: "Please verify your new email to complete the change",
+    ...result,
   });
 }
+
+export const putUserProfileEmail = withRateLimit("auth")(putUserProfileEmailHandler);
 
 export const schema = {
   method: "PUT",

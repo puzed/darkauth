@@ -6,7 +6,7 @@ import { AppError, UnauthorizedError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
 import { isScimPasswordUnlockAllowed } from "../../models/scimPolicy.ts";
-import { getUserBySubOrEmail } from "../../models/users.ts";
+import { getUserByOpaqueLoginIdentity } from "../../models/users.ts";
 import { signJWT } from "../../services/jwks.ts";
 import { requireOpaqueService } from "../../services/opaque.ts";
 import {
@@ -101,7 +101,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
       }
 
       // Look up user by the email from the server session only
-      const user = await getUserBySubOrEmail(context, userEmail);
+      const user = await getUserByOpaqueLoginIdentity(context, userEmail);
       if (!user) {
         throw new UnauthorizedError("Authentication failed");
       }
