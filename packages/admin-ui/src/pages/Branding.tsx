@@ -27,6 +27,7 @@ declare global {
 
 type ThemeMode = "light" | "dark";
 type BrandingTab = ThemeMode | "language";
+type PreviewScreen = "login" | "apps" | "security" | "authorize" | "profile";
 type BrandingImage = { data: string | null; mimeType: string | null };
 type BrandingIdentity = { title: string; tagline: string };
 
@@ -134,6 +135,66 @@ function toDataSvg(svg: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+function expandHex(value: string) {
+  const trimmed = value.trim().replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
+    return trimmed
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("");
+  }
+  return trimmed;
+}
+
+function parseHexColor(value: string) {
+  const hex = expandHex(value);
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
+  return {
+    r: Number.parseInt(hex.slice(0, 2), 16) / 255,
+    g: Number.parseInt(hex.slice(2, 4), 16) / 255,
+    b: Number.parseInt(hex.slice(4, 6), 16) / 255,
+  };
+}
+
+function channelToLinear(value: number) {
+  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+function luminance(value: { r: number; g: number; b: number }) {
+  return (
+    0.2126 * channelToLinear(value.r) +
+    0.7152 * channelToLinear(value.g) +
+    0.0722 * channelToLinear(value.b)
+  );
+}
+
+function contrastRatio(foreground: string, background: string) {
+  const fg = parseHexColor(foreground);
+  const bg = parseHexColor(background);
+  if (!fg || !bg) return null;
+  const lighter = Math.max(luminance(fg), luminance(bg));
+  const darker = Math.min(luminance(fg), luminance(bg));
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+function getContrastChecks(colorValues: Record<string, string>) {
+  return [
+    {
+      label: "Button text",
+      ratio: contrastRatio(
+        colorValues.primaryForegroundColor || "",
+        colorValues.primaryBackgroundColor || ""
+      ),
+      minimum: 4.5,
+    },
+    {
+      label: "Page text",
+      ratio: contrastRatio(colorValues.textColor || "", colorValues.backgroundColor || ""),
+      minimum: 4.5,
+    },
+  ];
+}
+
 export default function Branding() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -164,6 +225,7 @@ export default function Branding() {
   } | null>(null);
 
   const [previewWidth, setPreviewWidth] = useState<number>(420);
+  const [previewScreen, setPreviewScreen] = useState<PreviewScreen>("login");
   const [previewUrl, setPreviewUrl] = useState("");
   const previewCacheBustRef = useRef<string>(`${Date.now()}`);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -286,10 +348,14 @@ export default function Branding() {
         { type: "da:theme", theme: activeMode },
         window.location.origin
       );
+      iframeRef.current?.contentWindow?.postMessage(
+        { type: "da:preview-screen", screen: previewScreen },
+        window.location.origin
+      );
     } catch {
       return;
     }
-  }, [activeMode]);
+  }, [activeMode, previewScreen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -414,6 +480,33 @@ export default function Branding() {
           </div>
         </div>
       ))}
+
+      <div style={{ display: "grid", gap: 8 }}>
+        <Label>Contrast</Label>
+        {getContrastChecks(colorValues).map((check) => {
+          const passes = check.ratio !== null && check.ratio >= check.minimum;
+          return (
+            <div
+              key={`${mode}-${check.label}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 12,
+                border: "1px solid hsl(var(--border))",
+                borderRadius: 8,
+                padding: "10px 12px",
+              }}
+            >
+              <span>{check.label}</span>
+              <strong
+                style={{ color: passes ? "hsl(var(--foreground))" : "hsl(var(--destructive))" }}
+              >
+                {check.ratio === null ? "Invalid color" : `${check.ratio.toFixed(2)}:1`}
+              </strong>
+            </div>
+          );
+        })}
+      </div>
 
       <div>
         <Label>Logo</Label>
@@ -644,7 +737,7 @@ export default function Branding() {
               <div
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
               >
-                <CardTitle>Sign-in preview</CardTitle>
+                <CardTitle>Branding preview</CardTitle>
                 <div style={{ display: "flex", gap: 8 }}>
                   <Button variant="outline" onClick={reloadPreview} size="sm">
                     Reload Preview
@@ -667,6 +760,34 @@ export default function Branding() {
               </div>
             </CardHeader>
             <CardContent>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}
+              >
+                {(
+                  [
+                    ["login", "Sign in"],
+                    ["apps", "Apps"],
+                    ["security", "Security"],
+                    ["authorize", "Authorize"],
+                    ["profile", "Profile"],
+                  ] as const
+                ).map(([screen, label]) => (
+                  <Button
+                    key={screen}
+                    variant={previewScreen === screen ? "default" : "outline"}
+                    onClick={() => setPreviewScreen(screen)}
+                    size="sm"
+                  >
+                    {label}
+                  </Button>
+                ))}
+              </div>
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <iframe
                   ref={iframeRef}
@@ -680,6 +801,10 @@ export default function Branding() {
                       );
                       iframeRef.current?.contentWindow?.postMessage(
                         { type: "da:branding", payload: previewPayload },
+                        window.location.origin
+                      );
+                      iframeRef.current?.contentWindow?.postMessage(
+                        { type: "da:preview-screen", screen: previewScreen },
                         window.location.origin
                       );
                     } catch {

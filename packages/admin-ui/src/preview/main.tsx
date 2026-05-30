@@ -1,8 +1,10 @@
+import UserLayout from "@DarkAuth/user-ui/src/components/UserLayout";
 import { LoginView } from "@DarkAuth/user-ui/src/exports";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import "@DarkAuth/user-ui/src/index.css";
 import "@DarkAuth/user-ui/src/App.css";
+import "./preview.css";
 
 type BrandingConfig = {
   identity?: { title?: string; tagline?: string };
@@ -51,11 +53,26 @@ type BrandingMessage = {
     defaultTheme?: "light" | "dark" | null;
   };
 };
+type PreviewScreen = "login" | "apps" | "security" | "authorize" | "profile";
+type PreviewScreenMessage = { type: "da:preview-screen"; screen: PreviewScreen };
 
 const isBrandingMessage = (v: unknown): v is BrandingMessage => {
   if (typeof v !== "object" || v === null) return false;
   const obj = v as { type?: unknown; payload?: unknown };
   return obj.type === "da:branding" && typeof obj.payload === "object" && obj.payload !== null;
+};
+
+const isPreviewScreenMessage = (v: unknown): v is PreviewScreenMessage => {
+  if (typeof v !== "object" || v === null) return false;
+  const obj = v as { type?: unknown; screen?: unknown };
+  return (
+    obj.type === "da:preview-screen" &&
+    (obj.screen === "login" ||
+      obj.screen === "apps" ||
+      obj.screen === "security" ||
+      obj.screen === "authorize" ||
+      obj.screen === "profile")
+  );
 };
 
 function decodeBase64Url(input: string) {
@@ -219,6 +236,7 @@ localStorage.setItem = ((key: string, value: string) => {
 const { issuer, overrides: initialOverrides } = parseOptions();
 let overrides = initialOverrides;
 let revision = 0;
+let previewScreen: PreviewScreen = "login";
 
 const w = window as ThemedWindow;
 if (w.__APP_CONFIG__?.branding) {
@@ -237,10 +255,154 @@ if (initialOverrides) {
   applyBranding(initialOverrides, issuer);
 }
 
+function PreviewApps() {
+  return (
+    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
+      <div className="preview-screen">
+        <p className="preview-kicker">Apps</p>
+        <h2>Your apps</h2>
+        <p className="preview-muted">2 apps are available for this account.</p>
+        <div className="preview-app-grid">
+          <a className="preview-app-tile" href="/">
+            <span className="preview-app-icon">A</span>
+            <span>
+              <strong>Atlas</strong>
+              <small>Customer operations workspace</small>
+            </span>
+            <b>Open</b>
+          </a>
+          <a className="preview-app-tile" href="/">
+            <span className="preview-app-icon">N</span>
+            <span>
+              <strong>Notes</strong>
+              <small>Encrypted team notes</small>
+            </span>
+            <b>Open</b>
+          </a>
+        </div>
+      </div>
+    </UserLayout>
+  );
+}
+
+function PreviewSecurity() {
+  return (
+    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
+      <div className="preview-screen preview-narrow">
+        <p className="preview-kicker">Security</p>
+        <h2>Security overview</h2>
+        <p className="preview-muted">Review sign-in, encrypted access, and recovery.</p>
+        <div className="preview-status-list">
+          {[
+            ["Sign-in", "Password and enterprise identity", "Ready"],
+            ["Encrypted app access", "Passkey unlock and trusted browser", "Ready"],
+            ["Recovery", "Offline recovery key", "Action needed"],
+          ].map(([title, detail, state]) => (
+            <button className="preview-status-row" type="button" key={title}>
+              <span>
+                <strong>{title}</strong>
+                <small>{detail}</small>
+              </span>
+              <b>{state}</b>
+            </button>
+          ))}
+        </div>
+      </div>
+    </UserLayout>
+  );
+}
+
+function PreviewAuthorize() {
+  return (
+    <div className="app da-app">
+      <div className="container da-container">
+        <div className="authorize-container da-authorize-container">
+          <div className="authorize-card da-container">
+            <div className="authorize-header">
+              <div className="authorize-app">
+                <div className="authorize-app-icon">A</div>
+                <div className="authorize-app-text">
+                  <h2 className="authorize-title da-auth-title">Continue to Atlas</h2>
+                  <p className="authorize-description">
+                    Review what this app can access before continuing.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="authorize-scopes da-authorize-scopes">
+              <h3>Permissions</h3>
+              <ul className="authorize-scope-list">
+                <li className="authorize-scope-item da-authorize-scope">
+                  <span className="authorize-scope-icon">K</span>
+                  <div className="authorize-scope-text">
+                    <span className="authorize-scope-name">Encrypted app key</span>
+                    <span className="authorize-scope-description">
+                      Share an encrypted app key with Atlas
+                    </span>
+                  </div>
+                </li>
+                <li className="authorize-scope-item da-authorize-scope">
+                  <span className="authorize-scope-icon">@</span>
+                  <div className="authorize-scope-text">
+                    <span className="authorize-scope-name">Email address</span>
+                    <span className="authorize-scope-description">Access your email address</span>
+                  </div>
+                </li>
+              </ul>
+            </div>
+            <div className="actions da-authorize-actions">
+              <button className="secondary-button" type="button">
+                Deny
+              </button>
+              <button className="primary-button" type="button">
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewProfile() {
+  return (
+    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
+      <div className="preview-screen preview-narrow">
+        <p className="preview-kicker">Profile</p>
+        <h2>Avery Stone</h2>
+        <p className="preview-muted">Manage account details and organization context.</p>
+        <div className="preview-status-list">
+          <div className="preview-profile-row">
+            <span>Name</span>
+            <strong>Avery Stone</strong>
+          </div>
+          <div className="preview-profile-row">
+            <span>Email</span>
+            <strong>avery@example.com</strong>
+          </div>
+          <div className="preview-profile-row">
+            <span>Current organization</span>
+            <strong>Acme Labs</strong>
+          </div>
+        </div>
+      </div>
+    </UserLayout>
+  );
+}
+
+function PreviewRoot() {
+  if (previewScreen === "apps") return <PreviewApps />;
+  if (previewScreen === "security") return <PreviewSecurity />;
+  if (previewScreen === "authorize") return <PreviewAuthorize />;
+  if (previewScreen === "profile") return <PreviewProfile />;
+  return <LoginView />;
+}
+
 const render = () => {
   root.render(
     <MemoryRouter key={`preview-${revision}`}>
-      <LoginView />
+      <PreviewRoot />
     </MemoryRouter>
   );
 };
@@ -251,6 +413,12 @@ window.addEventListener("message", (e: MessageEvent) => {
   const data: unknown = e.data;
   if (isThemeMessage(data)) {
     document.documentElement.setAttribute("data-da-theme", data.theme);
+    revision += 1;
+    render();
+    return;
+  }
+  if (isPreviewScreenMessage(data)) {
+    previewScreen = data.screen;
     revision += 1;
     render();
     return;
