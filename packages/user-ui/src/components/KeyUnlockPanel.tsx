@@ -208,7 +208,6 @@ export default function KeyUnlockPanel({
   const [expanded, setExpanded] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
   const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(defaultUnlockPolicy);
   const [deviceApproval, setDeviceApproval] = useState<DeviceApprovalResponse | null>(null);
   const [deviceApprovalCode, setDeviceApprovalCode] = useState<string | null>(null);
@@ -234,28 +233,6 @@ export default function KeyUnlockPanel({
       })
       .catch(() => {
         if (!cancelled) setUnlockPolicy(defaultUnlockPolicy);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    api
-      .getTrustedDevices()
-      .then((devices) => {
-        if (!cancelled) {
-          setTrustedDeviceCount(
-            devices.filter(
-              (device) =>
-                !device.revoked_at && (device.public_jwk || device.public_key_jwk)?.kty === "EC"
-            ).length
-          );
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setTrustedDeviceCount(0);
       });
     return () => {
       cancelled = true;
@@ -344,14 +321,6 @@ export default function KeyUnlockPanel({
   const requestDeviceApproval = async () => {
     if (!isUnlockMethodAllowed(unlockPolicy, "trusted_device")) {
       setError("Trusted-browser approval is disabled by your organization policy.");
-      return;
-    }
-    if (trustedDeviceCount < 1) {
-      setError(
-        passwordAllowed
-          ? "No trusted browsers are available. Unlock with your password instead."
-          : "No trusted browsers are available."
-      );
       return;
     }
     setDeviceApprovalLoading(true);
@@ -454,20 +423,20 @@ export default function KeyUnlockPanel({
           </p>
         </div>
         <div className={styles.actions}>
-          {trustedDeviceAllowed && trustedDeviceCount > 0 && !deviceApproval && (
+          {trustedDeviceAllowed && !deviceApproval && (
             <Button
               type="button"
               variant="primary"
               onClick={requestDeviceApproval}
               disabled={deviceApprovalLoading}
             >
-              {deviceApprovalLoading ? "Requesting..." : "Accept on Another Browser"}
+              {deviceApprovalLoading ? "Requesting..." : "Unlock with Another Device"}
             </Button>
           )}
           {passwordAllowed && !expanded && (
             <Button
               type="button"
-              variant={trustedDeviceAllowed && trustedDeviceCount > 0 ? "secondary" : "primary"}
+              variant={trustedDeviceAllowed ? "secondary" : "primary"}
               onClick={() => setExpanded(true)}
               disabled={deviceApprovalLoading}
             >

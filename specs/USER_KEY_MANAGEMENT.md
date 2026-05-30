@@ -655,7 +655,7 @@ Authorization screen behavior:
 
 - If the client is non-ZK, do not show key unlock controls.
 - If the client is ZK and ARK is unlocked, show normal consent/authorization.
-- If the client is ZK and ARK is locked, primary action SHOULD be "Accept on another device" when trusted devices exist, with "Enter password" as fallback.
+- If the client is ZK and ARK is locked, primary action SHOULD be "Unlock with Another Device" when trusted-device approval is allowed, with "Enter password" as fallback.
 - If no unlock method exists, show key setup.
 - If the user is SCIM/SSO managed and policy disallows password envelopes, hide password setup and show allowed methods.
 
@@ -953,7 +953,7 @@ A checked item means the repository contains an implemented, wired code path for
 - [x] Remove or rework the old-password recovery flow so email/password reset cannot be treated as equivalent to an offline recovery key.
 - [x] Make authenticated-but-key-locked state obvious outside the authorization screen, including the dashboard and settings surfaces.
 - [x] Add dashboard/settings password unlock for authenticated key-locked sessions.
-- [x] Add dashboard/settings trusted-browser approval unlock for authenticated key-locked sessions.
+- [x] Add dashboard/settings trusted-browser approval unlock for authenticated key-locked sessions, with the requester action visible whenever trusted-device approval is allowed.
 - [x] Enforce SCIM/SSO unlock-method policy in the user UI.
 - [x] Add user-visible connected identity and enterprise SSO management.
 - [x] Add user-visible password sign-in method management separate from encryption unlock methods.
