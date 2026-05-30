@@ -24,6 +24,8 @@ Authentication and key unlock are separate state. A password login can authentic
 
 Zero-knowledge authorization requests require an unlocked session before the frontend can derive and deliver a client app key. If the session is locked, the user UI should offer an unlock path rather than finalizing key delivery.
 
+The available unlock paths come from the user's effective unlock policy. The policy combines account state, SCIM policy, envelope availability, and client requirements so the UI can offer only valid choices. A user can be signed in by federation or an auth-only passkey and still need a separate password, recovery-key, PRF passkey, trusted-device approval, or setup flow before a ZK client can receive key material.
+
 ## Passkeys
 
 Passkeys can be registered and used for sign-in. When a credential supports PRF, the client can create a passkey envelope so the account key can be recovered from the authenticator without exposing the passkey secret to the server.
@@ -35,6 +37,8 @@ Applications should treat PRF support as capability-dependent. Auth-only passkey
 Trusted devices let an already trusted browser approve a new device. The approving device creates an encrypted envelope for the requesting device, and the requester consumes that approval to unwrap the account key.
 
 Approvals are short-lived and user scoped. Users should revoke devices they no longer control.
+
+Trusted-device approval is an explicit unlock method. The new browser starts the approval request, the trusted browser approves the matching request, and the requester finalizes the handoff before DarkAuth marks that session key-unlocked.
 
 ## Recovery keys
 

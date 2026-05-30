@@ -11,6 +11,10 @@ Crypto endpoints support zero-knowledge storage and user encryption-key discover
 
 `GET /crypto/keybag/envelopes`, `POST /crypto/keybag/envelopes`, and `DELETE /crypto/keybag/envelopes/{id}` manage encrypted key envelopes. Envelopes can be password, passkey PRF, trusted-device, or recovery-key based. The server stores ciphertext and metadata, not plaintext ARK, CAK, export-key, PRF, or recovery-key material.
 
+`POST /crypto/keybag/rotate` rotates account-key material and writes the replacement encrypted envelopes supplied by the browser. Rotation is a client-side custody operation: the browser derives or unwraps keys locally, then sends only encrypted envelope records and metadata.
+
+`GET /crypto/unlock-policy` returns the effective unlock policy for the signed-in user. User interfaces use it to decide which unlock methods to offer, such as password, recovery key, PRF passkey, trusted-device approval, or new-key setup. The policy response is metadata only and does not include key material.
+
 Legacy `wrapped-drk` endpoints may exist for older clients, but current integrations should use keybag and v2 ZK delivery.
 
 ## Public encryption keys
