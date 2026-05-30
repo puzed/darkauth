@@ -32,7 +32,7 @@ test.describe('User Dashboard', () => {
   test('shows user name and email after login', async ({ page }) => {
     await page.fill('input[name="email"], input[type="email"]', user.email)
     await page.fill('input[name="password"], input[type="password"]', user.password)
-    await page.click('button[type="submit"], button:has-text("Sign In")')
+    await page.click('button[type="submit"]')
 
     await page.waitForURL(/\/dashboard/i, { timeout: 15000 })
     const appsSection = page.locator('section:has(h3:has-text("Your Applications"))')

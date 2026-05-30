@@ -49,7 +49,7 @@ test.describe('User Dashboard - Apps Visibility', () => {
     await page.goto(`${servers.userUrl}/`)
     await page.fill('input[name="email"], input[type="email"]', user.email)
     await page.fill('input[name="password"], input[type="password"]', user.password)
-    await page.click('button[type="submit"], button:has-text("Sign In")')
+    await page.click('button[type="submit"]')
 
     const appsSection = page.locator('section:has(h3:has-text("Your Applications"))')
     await expect(appsSection).toBeVisible({ timeout: 15000 })

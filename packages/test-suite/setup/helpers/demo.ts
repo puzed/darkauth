@@ -270,7 +270,7 @@ export async function openDemoDashboard(
   if (demoPage.url().includes('/login')) {
     await demoPage.fill('input[name="email"], input[type="email"]', user.email);
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);
-    await demoPage.click('button[type="submit"], button:has-text("Continue")');
+    await demoPage.click('button[type="submit"]');
   }
   await expect.poll(
     () => {
@@ -294,7 +294,7 @@ export async function openDemoDashboard(
       await authorizeButton.click();
     }
   }
-  const recoveryHeading = demoPage.getByRole('heading', { name: 'Key Recovery' });
+  const recoveryHeading = demoPage.getByRole('heading', { name: 'Unlock encryption keys' });
   await Promise.race([
     recoveryHeading.waitFor({ state: 'visible', timeout: 15000 }).catch(() => undefined),
     demoPage
@@ -304,8 +304,9 @@ export async function openDemoDashboard(
       .catch(() => undefined),
   ]);
   if (await recoveryHeading.isVisible().catch(() => false)) {
-    await demoPage.getByLabel('Current Password').fill(user.password);
-    await demoPage.getByRole('button', { name: 'Unlock with current password' }).click();
+    const unlockPanel = demoPage.locator('.authorize-recovery').filter({ hasText: 'Unlock encryption keys' }).first();
+    await unlockPanel.getByRole('textbox', { name: 'Password' }).fill(user.password);
+    await unlockPanel.getByRole('button', { name: 'Continue' }).click();
   }
   await expect.poll(
     () => {
@@ -418,7 +419,7 @@ export async function verifyNoteAfterRelogin(
   if (demoPage.url().includes('/login')) {
     await demoPage.fill('input[name="email"], input[type="email"]', user.email);
     await demoPage.fill('input[name="password"], input[type="password"]', user.password);
-    await demoPage.click('button[type="submit"], button:has-text("Continue")');
+    await demoPage.click('button[type="submit"]');
   }
   await expect.poll(
     () => {
