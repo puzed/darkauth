@@ -1,6 +1,10 @@
-import { useId, useState } from "react";
-import api, { type KeyEnvelopeResponse, type SessionResponse } from "../services/api";
-import cryptoService, { fromBase64Url } from "../services/crypto";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import api, {
+  type DeviceApprovalResponse,
+  type KeyEnvelopeResponse,
+  type SessionResponse,
+} from "../services/api";
+import cryptoService, { fromBase64Url, sha256Base64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
 import opaqueService from "../services/opaque";
 import { loadExportKey, saveExportKey } from "../services/sessionKey";
@@ -199,8 +203,157 @@ export default function KeyUnlockPanel({
   const [expanded, setExpanded] = useState(false);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
+  const [deviceApproval, setDeviceApproval] = useState<DeviceApprovalResponse | null>(null);
+  const [deviceApprovalCode, setDeviceApprovalCode] = useState<string | null>(null);
+  const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
+  const [deviceApprovalStatus, setDeviceApprovalStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const deviceApprovalPollRef = useRef<number | null>(null);
+
+  const stopDeviceApprovalPolling = useCallback(() => {
+    if (deviceApprovalPollRef.current) {
+      window.clearInterval(deviceApprovalPollRef.current);
+      deviceApprovalPollRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getTrustedDevices()
+      .then((devices) => {
+        if (!cancelled) {
+          setTrustedDeviceCount(
+            devices.filter(
+              (device) =>
+                !device.revoked_at && (device.public_jwk || device.public_key_jwk)?.kty === "EC"
+            ).length
+          );
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTrustedDeviceCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => stopDeviceApprovalPolling, [stopDeviceApprovalPolling]);
+
+  const generateVerificationCode = () => {
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
+    const value = ((bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3]) >>> 0;
+    return String(value % 1000000).padStart(6, "0");
+  };
+
+  const consumeDeviceApproval = useCallback(
+    async (approval: DeviceApprovalResponse, privateKey: CryptoKey) => {
+      const encryptedApproval = approval.encrypted_approval;
+      if (!encryptedApproval) return false;
+      let ark: Uint8Array | null = null;
+      try {
+        ark = await cryptoService.decryptDeviceApprovalJWE(encryptedApproval, privateKey, {
+          sub,
+          requestId: approval.request_id,
+        });
+        saveUnlockedArk(sub, ark);
+        stopDeviceApprovalPolling();
+        setDeviceApprovalStatus("Approved. Encryption keys unlocked for this browser.");
+        setDeviceApproval(null);
+        setDeviceApprovalCode(null);
+        setExpanded(false);
+        setSuccess("Encryption keys unlocked for this browser session.");
+        const session = await api.getSession().catch(() => null);
+        onUnlocked?.({ ...(session ?? { authenticated: true, sub }), keyState: "unlocked" });
+        return true;
+      } finally {
+        if (ark) cryptoService.clearSensitiveData(ark);
+      }
+    },
+    [onUnlocked, stopDeviceApprovalPolling, sub]
+  );
+
+  const startDeviceApprovalPolling = useCallback(
+    (approval: DeviceApprovalResponse, privateKey: CryptoKey, publicJwk: JsonWebKey) => {
+      stopDeviceApprovalPolling();
+      let attempts = 0;
+      const tick = async () => {
+        attempts += 1;
+        try {
+          const consumed = await api.consumeDeviceApproval(approval.request_id, {
+            newDeviceProof: await sha256Base64Url(JSON.stringify(publicJwk)),
+          });
+          const status = consumed.status || "pending";
+          if (consumed.encrypted_approval) {
+            await consumeDeviceApproval(consumed, privateKey);
+          } else if (status === "denied" || status === "expired") {
+            stopDeviceApprovalPolling();
+            setDeviceApprovalStatus(
+              status === "denied"
+                ? "The approval request was denied."
+                : "The approval request expired."
+            );
+          } else if (attempts > 40) {
+            stopDeviceApprovalPolling();
+            setDeviceApprovalStatus(
+              "Approval timed out. You can try again or enter your password."
+            );
+          } else {
+            setDeviceApprovalStatus("Waiting for approval on another trusted browser...");
+          }
+        } catch {
+          if (attempts > 40) {
+            stopDeviceApprovalPolling();
+            setDeviceApprovalStatus(
+              "Approval timed out. You can try again or enter your password."
+            );
+          }
+        }
+      };
+      void tick();
+      deviceApprovalPollRef.current = window.setInterval(tick, 3000);
+    },
+    [consumeDeviceApproval, stopDeviceApprovalPolling]
+  );
+
+  const requestDeviceApproval = async () => {
+    if (trustedDeviceCount < 1) {
+      setError("No trusted browsers are available. Unlock with your password instead.");
+      return;
+    }
+    setDeviceApprovalLoading(true);
+    setError(null);
+    setSuccess(null);
+    setDeviceApprovalStatus(null);
+    try {
+      const keyPair = await cryptoService.generateECDHKeyPair();
+      const publicJwk = await cryptoService.exportPublicKeyJWK(keyPair.publicKey);
+      const code = generateVerificationCode();
+      const approval = await api.createDeviceApproval({
+        newDevicePublicJwk: publicJwk,
+        clientId: "user-ui",
+        stateHash: await sha256Base64Url(`key-unlock:${sub}:${crypto.randomUUID()}`),
+        verificationCodeHash: await sha256Base64Url(code),
+      });
+      const nextApproval = {
+        ...approval,
+        verification_code: approval.verification_code || code,
+      };
+      setDeviceApproval(nextApproval);
+      setDeviceApprovalCode(nextApproval.verification_code || code);
+      setDeviceApprovalStatus("Waiting for approval on another trusted browser...");
+      setExpanded(false);
+      startDeviceApprovalPolling(nextApproval, keyPair.privateKey, publicJwk);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Failed to request device approval");
+    } finally {
+      setDeviceApprovalLoading(false);
+    }
+  };
 
   const unlockWithPassword = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -229,6 +382,10 @@ export default function KeyUnlockPanel({
       await api.passwordVerifyFinish(finish.request, verifyStart.sessionId);
       await saveExportKey(sub, exportKey);
       saveUnlockedArk(sub, ark);
+      stopDeviceApprovalPolling();
+      setDeviceApproval(null);
+      setDeviceApprovalCode(null);
+      setDeviceApprovalStatus(null);
       setPassword("");
       setExpanded(false);
       setSuccess("Encryption keys unlocked for this browser session.");
@@ -260,12 +417,55 @@ export default function KeyUnlockPanel({
             You are signed in, but encrypted app access and key management need a local key unlock.
           </p>
         </div>
-        {!expanded && (
-          <Button type="button" variant="primary" onClick={() => setExpanded(true)}>
-            Unlock with Password
-          </Button>
-        )}
+        <div className={styles.actions}>
+          {trustedDeviceCount > 0 && !deviceApproval && (
+            <Button
+              type="button"
+              variant="primary"
+              onClick={requestDeviceApproval}
+              disabled={deviceApprovalLoading}
+            >
+              {deviceApprovalLoading ? "Requesting..." : "Accept on Another Browser"}
+            </Button>
+          )}
+          {!expanded && (
+            <Button
+              type="button"
+              variant={trustedDeviceCount > 0 ? "secondary" : "primary"}
+              onClick={() => setExpanded(true)}
+              disabled={deviceApprovalLoading}
+            >
+              Unlock with Password
+            </Button>
+          )}
+        </div>
       </div>
+      {deviceApproval && (
+        <div className={styles.approval}>
+          <h4>Approve from a trusted browser</h4>
+          <p>
+            Open Security Settings on a browser you already trusted, approve this request, and
+            confirm the verification code matches.
+          </p>
+          <div className={styles.code}>{deviceApprovalCode}</div>
+          {deviceApprovalStatus && <div className={styles.status}>{deviceApprovalStatus}</div>}
+          <div className={styles.actions}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                stopDeviceApprovalPolling();
+                setDeviceApproval(null);
+                setDeviceApprovalCode(null);
+                setDeviceApprovalStatus(null);
+                setExpanded(true);
+              }}
+            >
+              Use password instead
+            </Button>
+          </div>
+        </div>
+      )}
       {expanded && (
         <form className={styles.form} onSubmit={unlockWithPassword}>
           <div className={styles.field}>

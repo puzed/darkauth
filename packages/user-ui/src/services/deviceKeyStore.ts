@@ -2,21 +2,29 @@ const databaseName = "darkauth-device-keys";
 const storeName = "device_keys";
 
 class DeviceKeyStore {
-  async createKeyHandle(sub: string): Promise<{ handle: string; key: CryptoKey }> {
+  async createKeyHandle(sub: string): Promise<{
+    handle: string;
+    key: CryptoKey;
+    approvalPrivateKey: CryptoKey;
+    approvalPublicJwk: JsonWebKey;
+  }> {
     const handle = `dk_${crypto.randomUUID()}`;
-    const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, [
-      "encrypt",
-      "decrypt",
+    const [key, approvalKeyPair] = await Promise.all([
+      crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]),
+      crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]),
     ]);
+    const approvalPublicJwk = await crypto.subtle.exportKey("jwk", approvalKeyPair.publicKey);
     const db = await this.open();
     await this.put(db, {
       handle,
       sub,
       key,
+      approvalPrivateKey: approvalKeyPair.privateKey,
+      approvalPublicJwk,
       created_at: new Date().toISOString(),
     });
     db.close();
-    return { handle, key };
+    return { handle, key, approvalPrivateKey: approvalKeyPair.privateKey, approvalPublicJwk };
   }
 
   async getKey(handle: string): Promise<CryptoKey | null> {
@@ -29,6 +37,22 @@ class DeviceKeyStore {
     });
     db.close();
     return value?.key ?? null;
+  }
+
+  async getApprovalPrivateKey(handle: string): Promise<CryptoKey | null> {
+    const db = await this.open();
+    const value = await new Promise<{ approvalPrivateKey?: CryptoKey } | undefined>(
+      (resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const request = tx.objectStore(storeName).get(handle);
+        request.onsuccess = () =>
+          resolve(request.result as { approvalPrivateKey?: CryptoKey } | undefined);
+        request.onerror = () =>
+          reject(request.error ?? new Error("Failed to load device approval key"));
+      }
+    );
+    db.close();
+    return value?.approvalPrivateKey ?? null;
   }
 
   async deleteKey(handle: string): Promise<void> {

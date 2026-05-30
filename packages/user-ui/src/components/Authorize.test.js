@@ -78,6 +78,55 @@ test("Authorize offers trusted device approval before password unlock", () => {
   assert.notEqual(source.indexOf("cryptoService.decryptDeviceApprovalJWE"), -1);
 });
 
+test("Authorize starts another-device approval with OAuth and verification binding", () => {
+  const requestStart = source.indexOf("const requestDeviceApproval = async () => {");
+  const createIndex = source.indexOf("apiService.createDeviceApproval({", requestStart);
+  const pollIndex = source.indexOf("startDeviceApprovalPolling", createIndex);
+
+  assert.notEqual(requestStart, -1);
+  assert.notEqual(createIndex, -1);
+  assert.notEqual(pollIndex, -1);
+  assert.notEqual(source.indexOf("const code = generateVerificationCode();", requestStart), -1);
+  assert.notEqual(source.indexOf("authorizationRequestId: authRequest.requestId", createIndex), -1);
+  assert.notEqual(source.indexOf("clientId,", createIndex), -1);
+  assert.notEqual(
+    source.indexOf('stateHash: await sha256Base64Url(authRequest.state || "")', createIndex),
+    -1
+  );
+  assert.notEqual(
+    source.indexOf("verificationCodeHash: await sha256Base64Url(code)", createIndex),
+    -1
+  );
+});
+
+test("Authorize consumes another-device approval with the requested public key proof", () => {
+  const consumeHelperStart = source.indexOf("const consumeDeviceApproval = async (");
+  const decryptIndex = source.indexOf("cryptoService.decryptDeviceApprovalJWE", consumeHelperStart);
+  const finalizeIndex = source.indexOf("await finalizeWithZk(ark);", decryptIndex);
+  const pollingStart = source.indexOf("const startDeviceApprovalPolling = (");
+  const consumeIndex = source.indexOf("apiService.consumeDeviceApproval", pollingStart);
+  const helperCallIndex = source.indexOf(
+    "await consumeDeviceApproval(consumed, privateKey);",
+    consumeIndex
+  );
+
+  assert.notEqual(consumeHelperStart, -1);
+  assert.notEqual(decryptIndex, -1);
+  assert.notEqual(finalizeIndex, -1);
+  assert.notEqual(pollingStart, -1);
+  assert.notEqual(consumeIndex, -1);
+  assert.notEqual(helperCallIndex, -1);
+  assert.notEqual(
+    source.indexOf(
+      "newDeviceProof: await sha256Base64Url(JSON.stringify(publicJwk))",
+      consumeIndex
+    ),
+    -1
+  );
+  assert.ok(decryptIndex < finalizeIndex);
+  assert.ok(consumeIndex < helperCallIndex);
+});
+
 test("Authorize uses distinct unlock methods instead of old-password recovery", () => {
   assert.notEqual(source.indexOf("Unlock encryption keys"), -1);
   assert.notEqual(source.indexOf("unlockMethod"), -1);

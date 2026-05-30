@@ -484,7 +484,11 @@ class CryptoService {
       .encrypt(key);
   }
 
-  async decryptDeviceApprovalJWE(jwe: string, privateKey: CryptoKey): Promise<Uint8Array> {
+  async decryptDeviceApprovalJWE(
+    jwe: string,
+    privateKey: CryptoKey,
+    expected: { sub?: string; requestId?: string } = {}
+  ): Promise<Uint8Array> {
     const { compactDecrypt } = await import("jose");
     const result = await compactDecrypt(jwe, privateKey);
     const payload = JSON.parse(
@@ -492,6 +496,15 @@ class CryptoService {
     ) as Partial<DeviceApprovalPayload>;
     if (payload.typ !== "DarkAuth-Device-Approval" || payload.version !== "v2" || !payload.ark) {
       throw new Error("Invalid device approval payload");
+    }
+    if (expected.sub && payload.sub !== expected.sub) {
+      throw new Error("Invalid device approval subject");
+    }
+    if (expected.requestId && payload.request_id !== expected.requestId) {
+      throw new Error("Invalid device approval request");
+    }
+    if (typeof payload.exp !== "number" || payload.exp < Math.floor(Date.now() / 1000)) {
+      throw new Error("Device approval has expired");
     }
     return fromBase64Url(payload.ark);
   }
