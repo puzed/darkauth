@@ -177,7 +177,7 @@ test.describe('Admin - user key management UI', () => {
     await expect(row).toBeVisible();
     await page.getByPlaceholder('user@example.com').fill(`user@${domain}`);
     await page.getByRole('button', { name: 'Preview' }).click();
-    await expect(page.getByText(new RegExp(name))).toBeVisible();
+    await expect(page.getByText(`${name} (${issuer})`, { exact: true })).toBeVisible();
 
     await row.locator('button').first().click();
     const editDialog = page.getByRole('dialog');
