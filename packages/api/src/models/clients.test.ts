@@ -9,6 +9,7 @@ import {
   createClient,
   getClient,
   getClientDashboardIcon,
+  listClients,
   listVisibleApps,
   updateClient,
 } from "./clients.ts";
@@ -233,6 +234,9 @@ test("createClient and updateClient enforce key delivery version and delivered k
     assert.equal(created.deliveredKeyKind, "client_app_key");
     assert.equal(created.clientKeyScope, "organization");
 
+    const listedCreated = await listClients(context, { search: "v2-client" });
+    assert.equal(listedCreated.clients[0]?.clientKeyScope, "organization");
+
     await updateClient(context, "v2-client", {
       keyDeliveryVersion: "v1-drk",
       deliveredKeyKind: "root_key",
@@ -244,6 +248,9 @@ test("createClient and updateClient enforce key delivery version and delivered k
     assert.equal(updated.keyDeliveryVersion, "v1-drk");
     assert.equal(updated.deliveredKeyKind, "root_key");
     assert.equal(updated.clientKeyScope, "account");
+
+    const listedUpdated = await listClients(context, { search: "v2-client" });
+    assert.equal(listedUpdated.clients[0]?.clientKeyScope, "account");
 
     await assert.rejects(
       () =>
