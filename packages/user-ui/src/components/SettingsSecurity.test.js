@@ -70,11 +70,11 @@ test("dashboard and settings expose password unlock for locked key state", () =>
 });
 
 test("key-locked dashboard and settings can request another-browser approval", () => {
-  assert.notEqual(unlockSource.indexOf("Accept on Another Browser"), -1);
+  assert.notEqual(unlockSource.indexOf("Unlock with Another Device"), -1);
   assert.notEqual(unlockSource.indexOf("api.createDeviceApproval"), -1);
   assert.notEqual(unlockSource.indexOf("api.consumeDeviceApproval"), -1);
   assert.notEqual(unlockSource.indexOf("cryptoService.decryptDeviceApprovalJWE"), -1);
-  assert.notEqual(unlockSource.indexOf("Accept on Another Browser"), -1);
+  assert.equal(unlockSource.indexOf("trustedDeviceCount"), -1);
   assert.notEqual(source.indexOf("Refresh approvals"), -1);
 });
 

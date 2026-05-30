@@ -21,9 +21,10 @@ test("key unlock panel can request and consume another-browser approval", () => 
 
   assert.notEqual(requestStart, -1);
   assert.notEqual(pollingStart, -1);
-  assert.notEqual(source.indexOf("Accept on Another Browser"), -1);
+  assert.notEqual(source.indexOf("Unlock with Another Device"), -1);
   assert.notEqual(source.indexOf("Approve from a trusted browser"), -1);
   assert.notEqual(source.indexOf("Use password instead"), -1);
+  assert.equal(source.indexOf("trustedDeviceCount"), -1);
   assert.notEqual(source.indexOf("api.createDeviceApproval({", requestStart), -1);
   assert.notEqual(source.indexOf("newDevicePublicJwk: publicJwk", requestStart), -1);
   const keyUnlockStateHash = "stateHash: await sha256Base64Url(`key-unlock:" + "$" + "{sub}:";
