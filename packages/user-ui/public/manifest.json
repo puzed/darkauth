@@ -1,7 +1,7 @@
 {
-  "name": "App",
-  "short_name": "App",
-  "description": "App - Progressive Web App",
+  "name": "DarkAuth",
+  "short_name": "DarkAuth",
+  "description": "DarkAuth zero-knowledge authentication",
   "icons": [
     {
       "src": "icons/icon-16x16.png",
@@ -96,13 +96,13 @@
   ],
   "start_url": "/",
   "display": "standalone",
-  "theme_color": "#4A90E2",
+  "theme_color": "#26212B",
   "background_color": "#ffffff",
   "orientation": "portrait-primary",
   "scope": "/",
   "lang": "en",
   "categories": [
-    "productivity"
+    "security"
   ],
   "prefer_related_applications": false,
   "related_applications": []
