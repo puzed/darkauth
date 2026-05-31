@@ -36,6 +36,7 @@
 
 .stepDesc {
   font-size: 0.95rem;
+  color: var(--text);
   margin-bottom: 0.75rem;
 }
 
@@ -49,12 +50,12 @@
 
 .bullets li {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
 }
 
 .note {
   font-size: 0.875rem;
-  color: var(--text-dim);
+  color: var(--text);
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 }
@@ -70,6 +71,7 @@
 
 .devMode p {
   font-size: 0.95rem;
+  color: var(--text);
   margin-bottom: 0.75rem;
 }
 

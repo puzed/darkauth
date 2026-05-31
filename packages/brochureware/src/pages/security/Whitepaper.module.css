@@ -6,7 +6,6 @@
   align-items: start;
 }
 
-/* TOC */
 .toc {
   position: sticky;
   top: 80px;
@@ -20,8 +19,8 @@
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-muted);
+  letter-spacing: 0;
+  color: var(--text);
   margin-bottom: 0.75rem;
 }
 
@@ -33,7 +32,7 @@
 
 .tocLink {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: var(--text);
   padding: 0.3rem 0.5rem;
   border-radius: var(--radius);
   transition: color var(--transition), background var(--transition);
@@ -45,7 +44,6 @@
   background: var(--primary-dim);
 }
 
-/* Article */
 .article {
   min-width: 0;
 }
@@ -56,7 +54,7 @@
   border-radius: 0 var(--radius) var(--radius) 0;
   padding: 1.25rem 1.5rem;
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.7;
   margin-bottom: 2.5rem;
 }
@@ -100,11 +98,10 @@
 
 .section li {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.6;
 }
 
-/* ELI5 callout */
 .eli5 {
   background: var(--secondary-dim);
   border: 1px solid rgba(242, 177, 13, 0.25);
@@ -118,7 +115,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   color: var(--secondary);
   margin-bottom: 0.5rem;
 }
@@ -128,7 +125,40 @@
   margin: 0;
 }
 
-/* Glossary */
+.flow {
+  display: grid;
+  gap: 0.5rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.flowStep {
+  display: grid;
+  grid-template-columns: minmax(11rem, 0.9fr) auto minmax(11rem, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.875rem 1rem;
+}
+
+.flowActor {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.flowArrow {
+  color: var(--primary-light);
+  font-weight: 800;
+}
+
+.flowNote {
+  grid-column: 1 / -1;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 0.625rem;
+}
+
 .dl {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -146,8 +176,21 @@
 
 .dl dd {
   font-size: 0.875rem;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.6;
+}
+
+@media (max-width: 640px) {
+  .flowStep {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+  }
+
+  .flowArrow {
+    transform: rotate(90deg);
+    transform-origin: center;
+    width: max-content;
+  }
 }
 
 @media (max-width: 900px) {

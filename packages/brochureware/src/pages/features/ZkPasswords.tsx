@@ -1,15 +1,5 @@
 import FeatureDeepDive from "../../components/FeatureDeepDive";
-import CodeBlock from "../../components/CodeBlock";
-
-const keySchedule = `export_key  (from OPAQUE — never sent to the server)
-    |
-    | HKDF-SHA256(salt=H("DarkAuth|v1|tenant=default|user="+sub), info="mk")
-    v
-    MK
-    |
-    |-- HKDF-SHA256(info="wrap-key")  --> KW  --> wraps DRK  --> WRAPPED_DRK (server stores only this)
-    |
-    +-- HKDF-SHA256(info="data-derive") --> KDerive  (for app data encryption)`;
+import KeyScheduleDiagram from "../../components/KeyScheduleDiagram";
 
 export default function ZkPasswords() {
   return (
@@ -36,7 +26,7 @@ export default function ZkPasswords() {
             <li><strong>Login:</strong> Client runs the OPAQUE login sub-protocol. On success, the client obtains a stable <code>export_key</code> that is deterministic per (user, password). The server validates the protocol completion; no password material is transmitted.</li>
             <li><strong>Key schedule:</strong> The client uses <code>export_key</code> to derive further keys via HKDF-SHA256:</li>
           </ol>
-          <CodeBlock code={keySchedule} lang="Key schedule" />
+          <KeyScheduleDiagram />
           <p>Enumeration resistance and rate limits are applied to the login endpoint. Separate OPAQUE flows exist for users and admin users.</p>
         </div>
       }

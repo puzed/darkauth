@@ -88,9 +88,8 @@ const Features = () => {
   ];
 
   return (
-    <section id="features" className="py-20 bg-gradient-subtle">
+    <section id="features" className="py-20 bg-background">
       <div className="container max-w-7xl">
-        {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4 border-primary/20 text-primary">
             <Zap className="mr-2 h-4 w-4" />
@@ -105,7 +104,6 @@ const Features = () => {
           </p>
         </div>
 
-        {/* Features Grid */}
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, index) => (
             <Card key={index} className="group hover:shadow-card transition-smooth bg-background/50 backdrop-blur border-border/50">
@@ -129,7 +127,6 @@ const Features = () => {
           ))}
         </div>
 
-        {/* Technical Specs */}
         <div className="mt-16 bg-secondary/20 rounded-2xl p-8 border border-border/30">
           <h3 className="text-2xl font-bold text-foreground mb-6 text-center">Technical Specifications</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 text-center">

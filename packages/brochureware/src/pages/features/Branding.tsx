@@ -19,13 +19,13 @@ export default function Branding() {
       }
       howItWorksPrecise={
         <p>
-          Branding configuration is stored in the database and served to the auth UI and user portal via <code>/config.js</code> with appropriate caching headers. The branding payload includes: brand title and tagline, logo and favicon URLs, full color palette (primary, secondary, background, card, gradients, semantic colors), typography (font family, sizes, weights), all UI copy (page titles, button labels, links, error messages, authorization scope descriptions), and a sanitized custom CSS blob. The admin panel includes a live preview iframe that reflects changes in real time before saving.
+          Branding configuration is stored in the database and served to the auth UI and user portal via <code>/config.js</code> with appropriate caching headers. The branding payload includes: brand title and tagline, logo and favicon URLs, full color palette (primary, secondary, background, card, semantic colors), typography (font family, sizes, weights), all UI copy (page titles, button labels, links, error messages, authorization scope descriptions), and a sanitized custom CSS blob. The admin panel includes a live preview iframe that reflects changes in real time before saving.
         </p>
       }
       details={[
         "Brand title, tagline, and custom domain support",
         "Logo and favicon: URL or file upload",
-        "Full color palette: primary, secondary, background, card, gradients, semantic colors",
+        "Full color palette: primary, secondary, background, card, semantic colors",
         "Typography: font family, base size, heading and body weights",
         "All UI copy: page titles, button labels, links, error messages, authorization/scope text",
         "Sanitized custom CSS: add or override any styles safely",

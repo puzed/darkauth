@@ -75,7 +75,7 @@ export default function OpenSource() {
                 ))}
               </tbody>
             </table>
-            <p style={{ marginTop: "1rem", fontSize: "0.875rem" }}>
+            <p className={styles.licenseNote}>
               For most users — running DarkAuth for their own users, integrating the client SDK, or building an app on top of the demo — the licenses create no friction. The AGPL-3.0 requirement on the core only applies if you're distributing modified versions.
             </p>
           </section>

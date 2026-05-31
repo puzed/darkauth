@@ -1,18 +1,21 @@
 .wrapper {
   position: relative;
   margin: 1rem 0;
+  min-width: 0;
 }
 
 .pre {
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
   overflow-x: auto;
   font-family: var(--font-mono);
   font-size: 0.875rem;
-  line-height: 1.6;
-  color: var(--text);
+  line-height: 1.65;
+  color: var(--code-fg);
+  box-shadow: var(--shadow-card);
+  max-width: 100%;
 }
 
 .pre code {
@@ -53,7 +56,14 @@
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-dim);
+  letter-spacing: 0;
+  color: var(--text-muted);
   margin-bottom: 0.25rem;
+}
+
+@media (max-width: 640px) {
+  .pre {
+    font-size: 0.78rem;
+    padding: 1rem;
+  }
 }

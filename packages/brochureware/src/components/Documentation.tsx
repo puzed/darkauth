@@ -137,9 +137,8 @@ spec:
   }, [tab]);
 
   return (
-    <section id="docs" className="py-20 bg-gradient-subtle">
+    <section id="docs" className="py-20 bg-background">
       <div className="container max-w-7xl">
-        {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4 border-primary/20 text-primary">
             <BookOpen className="mr-2 h-4 w-4" />
@@ -154,7 +153,6 @@ spec:
           </p>
         </div>
 
-        {/* Quick Start */}
         <div className="mb-16">
           <h3 className="text-2xl font-bold text-foreground mb-8 text-center">Quick Start Guide</h3>
           <Tabs value={tab} onValueChange={setTab} defaultValue="compose" className="w-full">
@@ -170,7 +168,7 @@ spec:
               <Card className="group hover:shadow-card transition-smooth bg-background/80 backdrop-blur">
                 <CardHeader>
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="bg-gradient-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
+                    <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
                     <CardTitle className="text-lg">Run with Docker</CardTitle>
                   </div>
                 </CardHeader>
@@ -195,7 +193,7 @@ spec:
               <Card className="group hover:shadow-card transition-smooth bg-background/80 backdrop-blur">
                 <CardHeader>
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="bg-gradient-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">2</div>
+                    <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">2</div>
                     <CardTitle className="text-lg">Run with Docker Compose</CardTitle>
                   </div>
                 </CardHeader>
@@ -220,7 +218,7 @@ spec:
               <Card className="group hover:shadow-card transition-smooth bg-background/80 backdrop-blur">
                 <CardHeader>
                   <div className="flex items-center space-x-3 mb-3">
-                    <div className="bg-gradient-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
+                    <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
                     <CardTitle className="text-lg">Run with Kubernetes</CardTitle>
                   </div>
                 </CardHeader>
@@ -243,7 +241,6 @@ spec:
           </Tabs>
         </div>
 
-        {/* Interactive Demo */}
         <div className="text-center bg-background rounded-2xl p-8 shadow-card border border-border/30">
           <Zap className="h-12 w-12 text-primary mx-auto mb-4" />
           <h3 className="text-2xl font-bold text-foreground mb-4">

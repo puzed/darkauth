@@ -13,7 +13,7 @@ export default function CodeBlock({ code, lang }: CodeBlockProps) {
     navigator.clipboard.writeText(code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    }).catch(() => { /* ignore */ });
+    }).catch(() => {});
   };
 
   return (

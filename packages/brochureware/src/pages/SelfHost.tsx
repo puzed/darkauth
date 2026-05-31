@@ -94,7 +94,7 @@ export default function SelfHost() {
             <p>Without the correct passphrase, the server cannot start (cannot decrypt keys). Use a strong passphrase and store it in a secrets manager — not version control.</p>
             <div className={styles.guidance}>
               <strong>Deployment guidance:</strong>
-              <ul className={styles.list} style={{ marginTop: "0.5rem" }}>
+              <ul className={`${styles.list} ${styles.guidanceList}`}>
                 <li>Enforce HTTPS for both user (<code>:9080</code>) and admin (<code>:9081</code>) ports</li>
                 <li>Restrict admin port to internal network or VPN if possible</li>
                 <li>Set <code>allowedZkOrigins</code> to your exact RP origins in production</li>

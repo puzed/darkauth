@@ -1,7 +1,7 @@
 .hero {
   padding: 5rem 0 3.5rem;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(to bottom, var(--bg-alt), var(--bg));
+  background: var(--bg-alt);
 }
 
 .eyebrow {
@@ -9,7 +9,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   color: var(--primary-light);
   margin-bottom: 1rem;
 }

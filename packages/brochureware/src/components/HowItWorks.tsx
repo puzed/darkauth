@@ -38,7 +38,6 @@ const HowItWorks = () => {
   return (
     <section id="how-it-works" className="py-20 bg-background">
       <div className="container max-w-7xl">
-        {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4 border-accent/20 text-accent">
             <Shield className="mr-2 h-4 w-4" />
@@ -53,21 +52,18 @@ const HowItWorks = () => {
           </p>
         </div>
 
-        {/* Steps */}
         <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-16">
           {steps.map((step, index) => (
             <div key={index} className="relative">
               <Card className="h-full group hover:shadow-elegant transition-smooth bg-card border-border/50">
                 <CardContent className="p-6">
-                  {/* Step number */}
                   <div className="flex items-center justify-between mb-4">
-                    <div className="bg-gradient-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
+                    <div className="bg-primary text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
                       {step.step}
                     </div>
                     <step.icon className="h-6 w-6 text-primary group-hover:scale-110 transition-bounce" />
                   </div>
                   
-                  {/* Title and description */}
                   <h3 className="text-lg font-semibold text-foreground mb-2 group-hover:text-primary transition-smooth">
                     {step.title}
                   </h3>
@@ -75,14 +71,12 @@ const HowItWorks = () => {
                     {step.description}
                   </p>
                   
-                  {/* Technical detail */}
                   <div className="text-xs text-muted-foreground border-t border-border/30 pt-3">
                     {step.detail}
                   </div>
                 </CardContent>
               </Card>
               
-              {/* Arrow connector */}
               {index < steps.length - 1 && (
                 <div className="hidden xl:block absolute top-1/2 -right-3 transform -translate-y-1/2 z-10">
                   <ArrowRight className="h-6 w-6 text-primary" />
@@ -92,8 +86,7 @@ const HowItWorks = () => {
           ))}
         </div>
 
-        {/* Comparison Table */}
-        <div className="bg-gradient-subtle rounded-2xl p-8 shadow-card">
+        <div className="bg-background rounded-2xl p-8 shadow-card">
           <h3 className="text-2xl font-bold text-foreground mb-8 text-center">
             Traditional Auth vs. DarkAuth
           </h3>
@@ -138,7 +131,6 @@ const HowItWorks = () => {
           </div>
         </div>
 
-        {/* CTA */}
         <div className="text-center mt-12">
           <Button variant="hero" size="lg">
             See DarkAuth in Action

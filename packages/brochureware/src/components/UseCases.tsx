@@ -97,7 +97,6 @@ const UseCases = () => {
   return (
     <section className="py-20 bg-background">
       <div className="container max-w-7xl">
-        {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4 border-accent/20 text-accent">
             <Building2 className="mr-2 h-4 w-4" />
@@ -112,10 +111,9 @@ const UseCases = () => {
           </p>
         </div>
 
-        {/* Industries Grid */}
         <div className="grid lg:grid-cols-2 gap-8 mb-20">
           {industries.map((industry, index) => (
-            <Card key={index} className="group hover:shadow-elegant transition-smooth bg-gradient-subtle border-border/30">
+            <Card key={index} className="group hover:shadow-elegant transition-smooth bg-background border-border/30">
               <CardHeader>
                 <div className="flex items-center justify-between mb-4">
                   <industry.icon className={`h-8 w-8 ${industry.color} group-hover:scale-110 transition-bounce`} />
@@ -144,7 +142,6 @@ const UseCases = () => {
           ))}
         </div>
 
-        {/* Use Cases */}
         <div>
           <h3 className="text-2xl font-bold text-foreground mb-8 text-center">
             Common Implementation Scenarios
@@ -181,9 +178,8 @@ const UseCases = () => {
           </div>
         </div>
 
-        {/* Enterprise CTA */}
         <div className="mt-16 text-center">
-          <div className="bg-gradient-primary p-8 rounded-2xl shadow-glow max-w-4xl mx-auto">
+          <div className="bg-primary p-8 rounded-2xl shadow-glow max-w-4xl mx-auto">
             <Shield className="h-12 w-12 text-white mx-auto mb-4" />
             <h3 className="text-2xl font-bold text-white mb-4">
               Ready to Eliminate Password Breaches?

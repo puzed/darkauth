@@ -17,8 +17,8 @@
 }
 
 .card:hover {
-  border-color: rgba(102, 0, 204, 0.4);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-card);
   background: var(--card-hover);
 }
 
@@ -40,12 +40,12 @@
   font-weight: 600;
   color: var(--primary-light);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0;
 }
 
 .cardDesc {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
   flex: 1;
   margin-bottom: 1rem;
 }
@@ -54,6 +54,11 @@
   font-size: 0.875rem;
   color: var(--primary-light);
   font-weight: 600;
+}
+
+:global(:root:not([data-theme="light"])) .cardSub,
+:global(:root:not([data-theme="light"])) .cardArrow {
+  color: #c9adff;
 }
 
 @media (max-width: 900px) {

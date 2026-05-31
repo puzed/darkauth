@@ -1,0 +1,98 @@
+.diagram {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-card);
+}
+
+.root,
+.node {
+  display: grid;
+  gap: 0.2rem;
+  justify-items: center;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  background: var(--bg-alt);
+  text-align: center;
+}
+
+.root span,
+.node span {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.root small,
+.node small,
+.branch small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.derivation {
+  max-width: 360px;
+  margin: 0.85rem auto;
+  padding: 0.6rem 0.8rem;
+  color: var(--secondary);
+  border: 1px solid rgba(242, 177, 13, 0.28);
+  border-radius: var(--radius);
+  background: var(--secondary-dim);
+  text-align: center;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.branches {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.branch {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-alt);
+  padding: 1rem;
+}
+
+.branchLabel {
+  width: fit-content;
+  padding: 0.2rem 0.5rem;
+  color: var(--primary-light);
+  background: var(--primary-dim);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.branch strong {
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 1rem;
+}
+
+.branch p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.branch code {
+  width: fit-content;
+}
+
+@media (max-width: 640px) {
+  .branches {
+    grid-template-columns: 1fr;
+  }
+}

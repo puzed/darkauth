@@ -21,7 +21,7 @@
 }
 
 .card:hover {
-  border-color: rgba(102, 0, 204, 0.4);
+  border-color: var(--border-light);
   background: var(--card-hover);
 }
 
@@ -39,6 +39,7 @@
 
 .cardDesc {
   font-size: 0.875rem;
+  color: var(--text);
   flex: 1;
   margin-bottom: 1rem;
 }
@@ -66,6 +67,7 @@
 
 .section p {
   font-size: 0.95rem;
+  color: var(--text);
   margin-bottom: 0.75rem;
 }
 
@@ -90,6 +92,7 @@
 
 .integCard p {
   font-size: 0.875rem;
+  color: var(--text);
   margin: 0;
 }
 
@@ -103,7 +106,7 @@
 
 .list li {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text);
   line-height: 1.6;
 }
 
@@ -133,7 +136,6 @@
 .btnPrimary:hover {
   background: var(--primary-light);
   color: #fff;
-  box-shadow: 0 0 16px rgba(102, 0, 204, 0.4);
 }
 
 .btnSecondary {
@@ -141,11 +143,15 @@
   align-items: center;
   padding: 0.6rem 1.25rem;
   font-size: 0.95rem;
-  color: var(--text-muted);
+  color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   text-decoration: none;
   transition: color var(--transition), border-color var(--transition);
+}
+
+:global(:root:not([data-theme="light"])) .cardArrow {
+  color: #c9adff;
 }
 
 .btnSecondary:hover {

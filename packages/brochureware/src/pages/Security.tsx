@@ -81,8 +81,6 @@ export default function Security() {
       />
       <div className="container">
         <div className={styles.page}>
-
-          {/* What the server never stores */}
           <section className={styles.section}>
             <h2>What the server never stores</h2>
             <div className={styles.storeGrid}>
@@ -105,7 +103,6 @@ export default function Security() {
             </div>
           </section>
 
-          {/* Cryptographic primitives */}
           <section className={styles.section}>
             <h2>Cryptographic primitives</h2>
             <table className={styles.table}>
@@ -126,10 +123,9 @@ export default function Security() {
             </table>
           </section>
 
-          {/* Threat model */}
           <section className={styles.section}>
             <h2>Threat model</h2>
-            <p style={{ marginBottom: "1rem" }}>
+            <p className={styles.assumption}>
               Assumptions: TLS for all transports. Trusted user device and browser. Auth UI and RP frontend origins serving trusted JavaScript. RP applications correctly verifying <code>zk_drk_hash</code>.
             </p>
             <table className={styles.table}>
@@ -156,7 +152,6 @@ export default function Security() {
             </table>
           </section>
 
-          {/* Operational security */}
           <section className={styles.section}>
             <h2>Operational security</h2>
             <ul className={styles.bulletList}>
@@ -170,7 +165,6 @@ export default function Security() {
             </ul>
           </section>
 
-          {/* Privacy posture */}
           <section className={styles.section}>
             <h2>Privacy posture</h2>
             <ul className={styles.bulletList}>

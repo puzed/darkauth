@@ -16,12 +16,19 @@
 }
 
 .stepNum {
-  font-size: 3rem;
+  width: 58px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  font-size: 1.45rem;
   font-weight: 900;
-  color: var(--primary-dim);
+  color: var(--primary-light);
   line-height: 1;
-  min-width: 70px;
-  text-align: right;
+  min-width: 58px;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
@@ -46,7 +53,7 @@
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1rem 1.25rem;
+  padding: 1.25rem;
 }
 
 .eli5Badge,
@@ -55,7 +62,7 @@
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   padding: 0.2rem 0.5rem;
   border-radius: 999px;
   margin-bottom: 0.625rem;
@@ -77,7 +84,6 @@
   line-height: 1.6;
 }
 
-/* Diagrams section */
 .diagrams {
   border-top: 1px solid var(--border);
   padding-top: 2.5rem;
@@ -92,7 +98,15 @@
   margin-bottom: 1rem;
 }
 
-/* Next step */
+.diagramGroup {
+  margin-top: 1.5rem;
+}
+
+.diagramGroup h3 {
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
 .nextStep {
   border-top: 1px solid var(--border);
   padding-top: 2rem;
@@ -127,7 +141,7 @@
 .btnPrimary:hover {
   background: var(--primary-light);
   color: #fff;
-  box-shadow: 0 0 16px rgba(102, 0, 204, 0.4);
+  box-shadow: var(--shadow-glow);
 }
 
 .btnSecondary {
@@ -154,9 +168,10 @@
   }
 
   .stepNum {
-    font-size: 2rem;
-    text-align: left;
-    min-width: auto;
+    width: 46px;
+    height: 46px;
+    font-size: 1.15rem;
+    min-width: 46px;
   }
 
   .explanations {

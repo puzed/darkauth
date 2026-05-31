@@ -68,9 +68,8 @@ const Security = () => {
   ];
 
   return (
-    <section id="security" className="py-20 bg-gradient-subtle">
+    <section id="security" className="py-20 bg-background">
       <div className="container max-w-7xl">
-        {/* Header */}
         <div className="text-center mb-16">
           <Badge variant="outline" className="mb-4 border-primary/20 text-primary">
             <Shield className="mr-2 h-4 w-4" />
@@ -85,7 +84,6 @@ const Security = () => {
           </p>
         </div>
 
-        {/* Security Guarantees */}
         <div className="grid md:grid-cols-2 gap-8 mb-16">
           <Card className="shadow-elegant border-primary/20">
             <CardHeader>
@@ -142,7 +140,6 @@ const Security = () => {
           </Card>
         </div>
 
-        {/* Threat Protection */}
         <div className="mb-16">
           <h3 className="text-2xl font-bold text-foreground mb-8 text-center">
             Protection Against Real-World Threats
@@ -179,7 +176,6 @@ const Security = () => {
           </div>
         </div>
 
-        {/* Certifications */}
         <div className="mb-16">
           <h3 className="text-2xl font-bold text-foreground mb-8 text-center">
             Security Certifications & Compliance
@@ -204,7 +200,6 @@ const Security = () => {
           </div>
         </div>
 
-        {/* Technical Deep Dive */}
         <div className="bg-secondary/10 rounded-2xl p-8 border border-border/30">
           <div className="grid lg:grid-cols-2 gap-8 items-center">
             <div>
@@ -252,7 +247,7 @@ const Security = () => {
             </div>
             
             <div className="text-center">
-              <div className="bg-gradient-primary p-8 rounded-xl shadow-glow">
+              <div className="bg-primary p-8 rounded-xl shadow-glow">
                 <Shield className="h-16 w-16 text-white mx-auto mb-4" />
                 <h4 className="text-xl font-bold text-white mb-2">Ready for Audit?</h4>
                 <p className="text-white/80 text-sm mb-4">

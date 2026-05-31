@@ -1,20 +1,19 @@
 import FeatureDeepDive from "../../components/FeatureDeepDive";
-import CodeBlock from "../../components/CodeBlock";
+import FlowDiagram from "../../components/FlowDiagram";
 
-const fragmentFlow = `1. App generates ephemeral ECDH P-256 keypair  { zk_priv, zk_pub }
-2. App calls GET /api/authorize?zk_pub=base64url(JSON.stringify(JWK))&...PKCE params
-3. User authenticates via OPAQUE in the auth UI
-4. Browser derives: MK → KW  (HKDF from export_key)
-5. Browser unwraps DRK from WRAPPED_DRK using KW
-6. Browser builds: drk_jwe = ECDH-ES + A256GCM(DRK, zk_pub)
-   AAD includes { sub, client_id }
-7. Browser computes: drk_hash = base64url(SHA-256(drk_jwe))
-8. Browser calls POST /api/authorize/finalize { request_id, drk_hash }
-   — Server stores ONLY drk_hash, never the JWE
-9. Browser redirects to: redirect_uri?code=...#drk_jwe=<compact JWE>
-10. App calls POST /api/token → receives { id_token, zk_drk_hash, ... }
-11. App verifies: base64url(SHA-256(fragment drk_jwe)) === zk_drk_hash
-12. App decrypts JWE with zk_priv → obtains DRK`;
+const fragmentFlow = [
+  { from: 0, to: 0, label: "Generate ephemeral ECDH P-256 keypair", note: "zk_priv stays in the app; zk_pub goes to DarkAuth" },
+  { from: 0, to: 1, label: "GET /api/authorize?zk_pub=...", note: "with normal PKCE parameters" },
+  { from: 1, to: 0, label: "OPAQUE login UI" },
+  { from: 0, to: 0, label: "Derive MK -> KW and unwrap DRK" },
+  { from: 0, to: 0, label: "Build drk_jwe", note: "ECDH-ES + A256GCM(DRK, zk_pub)" },
+  { from: 0, to: 1, label: "POST /api/authorize/finalize", note: "request_id + drk_hash only" },
+  { from: 1, to: 0, label: "Redirect with code" },
+  { from: 0, to: 0, label: "Attach #drk_jwe in the URL fragment" },
+  { from: 0, to: 1, label: "POST /api/token" },
+  { from: 1, to: 0, label: "{ id_token, zk_drk_hash, ... }" },
+  { from: 0, to: 0, label: "Verify hash and decrypt JWE with zk_priv" },
+] as const;
 
 export default function ZkKeys() {
   return (
@@ -36,7 +35,7 @@ export default function ZkKeys() {
       howItWorksPrecise={
         <div>
           <p style={{ marginBottom: "0.75rem" }}>The full ZK fragment flow:</p>
-          <CodeBlock code={fragmentFlow} lang="ZK delivery flow" />
+          <FlowDiagram lanes={["RP App (Browser)", "DarkAuth (User Port)"]} steps={fragmentFlow} />
           <p style={{ marginTop: "0.75rem" }}>
             The JWE uses ECDH-ES (P-256) with A256GCM. The AAD binds the key to <code>sub</code> and <code>client_id</code>. The server stores <code>zk_drk_hash</code> — the SHA-256 of the JWE ciphertext — for integrity verification. The JWE itself is never stored or transmitted by the server: it travels only in the URL fragment, which does not reach the server per HTTP spec.
           </p>

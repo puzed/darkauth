@@ -1,44 +1,32 @@
 import Layout from "../../components/Layout";
 import PageHero from "../../components/PageHero";
-import CodeBlock from "../../components/CodeBlock";
+import KeyScheduleDiagram from "../../components/KeyScheduleDiagram";
 import RelatedLinks from "../../components/RelatedLinks";
 import styles from "./Whitepaper.module.css";
 
-const keySchedule = `export_key  (OPAQUE — never sent to the server)
-    |
-    | HKDF-SHA256(salt=H("DarkAuth|v1|tenant=default|user="+sub), info="mk")
-    v
-    MK
-    |
-    |-- HKDF-SHA256(salt="DarkAuth|v1", info="wrap-key")    --> KW
-    |                                                             |
-    |                                                             | AEAD-Encrypt(KW, DRK, aad=sub)
-    |                                                             v
-    |                                                        WRAPPED_DRK  (server stores only this)
-    |
-    +-- HKDF-SHA256(salt="DarkAuth|v1", info="data-derive") --> KDerive`;
+const standardFlow = [
+  { from: "RP App (Browser)", to: "DarkAuth (User Port)", detail: "GET /api/authorize with PKCE S256" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "Login UI using OPAQUE" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "OPAQUE finish creates the user session" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "POST /api/authorize/finalize" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "{ code, state?, redirect_uri }" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "POST /api/token with code, verifier, and client credentials" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "{ id_token, expires_in, refresh_token? }" },
+];
 
-const standardFlow = `sequenceDiagram
-  RP App (Browser)  →  DarkAuth (User Port): GET /api/authorize (PKCE S256)
-  DarkAuth          →  RP App (Browser): Login UI (OPAQUE)
-  RP App (Browser)  →  DarkAuth: OPAQUE finish (user session)
-  RP App (Browser)  →  DarkAuth: POST /api/authorize/finalize
-  DarkAuth          →  RP App (Browser): { code, state?, redirect_uri }
-  RP App (Browser)  →  DarkAuth: POST /api/token { code, code_verifier, client_id/auth }
-  DarkAuth          →  RP App (Browser): { id_token, expires_in, refresh_token? }`;
-
-const zkFlow = `sequenceDiagram
-  RP App (Browser)  →  DarkAuth: GET /api/authorize?zk_pub=base64url(JSON.stringify(JWK))
-  DarkAuth          →  RP App (Browser): Login UI (OPAQUE)
-  RP App (Browser)  →  DarkAuth: OPAQUE finish (user session)
-  [Browser]            Derive KW, unwrap DRK
-  [Browser]            drk_jwe = ECDH-ES+A256GCM(DRK, zk_pub)  [AAD = { sub, client_id }]
-  RP App (Browser)  →  DarkAuth: POST /api/authorize/finalize { request_id, drk_hash }
-  DarkAuth          →  RP App (Browser): { code, state?, redirect_uri }
-  [Browser]            Redirect to redirect_uri#drk_jwe=<compact JWE>
-  RP App (Browser)  →  DarkAuth: POST /api/token { code, code_verifier, client_id/auth }
-  DarkAuth          →  RP App (Browser): { id_token, zk_drk_hash, ... }
-  [Browser]            Verify sha256(fragment drk_jwe) == zk_drk_hash`;
+const zkFlow = [
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "GET /api/authorize with zk_pub" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "Login UI using OPAQUE" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "OPAQUE finish creates the user session" },
+  { from: "Browser", to: "Browser", detail: "Derive KW and unwrap DRK" },
+  { from: "Browser", to: "Browser", detail: "Build drk_jwe with ECDH-ES + A256GCM" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "POST /api/authorize/finalize with request_id and drk_hash" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "{ code, state?, redirect_uri }" },
+  { from: "Browser", to: "Browser", detail: "Redirect to redirect_uri#drk_jwe=<compact JWE>" },
+  { from: "RP App (Browser)", to: "DarkAuth", detail: "POST /api/token with code and verifier" },
+  { from: "DarkAuth", to: "RP App (Browser)", detail: "{ id_token, zk_drk_hash, ... }" },
+  { from: "Browser", to: "Browser", detail: "Verify sha256(fragment drk_jwe) == zk_drk_hash" },
+];
 
 const TOC = [
   { id: "exec-summary", label: "1. Executive Summary" },
@@ -58,6 +46,19 @@ const TOC = [
 ];
 
 export default function Whitepaper() {
+  const renderFlow = (items: typeof standardFlow) => (
+    <div className={styles.flow}>
+      {items.map((item) => (
+        <div key={`${item.from}-${item.to}-${item.detail}`} className={styles.flowStep}>
+          <span className={styles.flowActor}>{item.from}</span>
+          <span className={styles.flowArrow}>→</span>
+          <span className={styles.flowActor}>{item.to}</span>
+          <span className={styles.flowNote}>{item.detail}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <Layout>
       <PageHero
@@ -67,7 +68,6 @@ export default function Whitepaper() {
       />
       <div className="container">
         <div className={styles.layout}>
-          {/* TOC Sidebar */}
           <aside className={styles.toc}>
             <p className={styles.tocHead}>Table of Contents</p>
             <nav>
@@ -79,7 +79,6 @@ export default function Whitepaper() {
             </nav>
           </aside>
 
-          {/* Main content */}
           <article className={styles.article}>
             <div className={styles.abstract}>
               <strong>Abstract:</strong> DarkAuth is an OpenID Connect (OIDC) provider that integrates a zero-knowledge (ZK) extension for client-side key delivery. Users authenticate with OPAQUE (RFC 9380), so passwords are not sent to the server in the OPAQUE flow. A per-user Data Root Key (DRK) is wrapped under a device-derived key and persisted server-side only as ciphertext. ZK-enabled relying parties (clients) receive the DRK via a compact JWE placed in the URL fragment; the authorization server stores and returns only its hash for verification.
@@ -122,7 +121,7 @@ export default function Whitepaper() {
               <p>Password-authenticated key exchange. Server stores an opaque verifier and cannot recover the password from that verifier alone. Client obtains an <code>export_key</code> deterministically per (user, password). P-256 OPAQUE ciphersuite.</p>
 
               <h3>Key schedule (client)</h3>
-              <CodeBlock code={keySchedule} lang="Key schedule" />
+              <KeyScheduleDiagram />
 
               <h3>Data Root Key (DRK)</h3>
               <p>32-byte random, generated client-side on first login. Server only stores <code>WRAPPED_DRK = AEAD_Encrypt(KW, DRK, aad=sub)</code>.</p>
@@ -141,10 +140,10 @@ export default function Whitepaper() {
               <h2>4. Protocol Flows</h2>
 
               <h3>Standard Authorization Code + PKCE</h3>
-              <CodeBlock code={standardFlow} lang="Standard OIDC flow" />
+              {renderFlow(standardFlow)}
 
               <h3>ZK Fragment JWE Delivery</h3>
-              <CodeBlock code={zkFlow} lang="ZK key delivery flow" />
+              {renderFlow(zkFlow)}
 
               <p><strong>Implementation note:</strong> Code TTL is ≤ 60s and codes are single-use. Code redemption is consumed atomically at the token endpoint using a compare-and-set update.</p>
               <p><strong>ZK delivery:</strong> The server stores and returns only the DRK JWE hash, not the JWE. The fragment is available to browser/app code on the redirect origin per HTTP spec.</p>
