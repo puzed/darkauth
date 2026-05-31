@@ -1,5 +1,5 @@
 .footer {
-  background: var(--bg-alt);
+  background: var(--card);
   border-top: 1px solid var(--border);
   padding: 3rem 0 2rem;
   margin-top: 4rem;
@@ -22,8 +22,8 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
+  letter-spacing: 0;
+  color: var(--text);
   margin-bottom: 0.25rem;
 }
 
@@ -37,6 +37,7 @@
   font-size: 0.9rem;
   color: var(--text-muted);
   transition: color var(--transition);
+  width: fit-content;
 }
 
 .footLink:hover {
@@ -54,6 +55,7 @@
 .bottomText {
   font-size: 0.875rem;
   color: var(--text-muted);
+  max-width: 68ch;
 }
 
 .bottomText strong {
@@ -63,13 +65,16 @@
 .dockerPull {
   font-family: var(--font-mono);
   font-size: 0.8rem;
-  color: var(--secondary);
+  color: var(--code-fg);
   background: var(--code-bg);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 0.5rem 0.75rem;
   display: inline-block;
   width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 @media (max-width: 768px) {

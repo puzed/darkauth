@@ -1,16 +1,13 @@
 .hero {
-  padding: 6rem 0 5rem;
+  padding: 5rem 0 4rem;
   text-align: center;
   position: relative;
   overflow: hidden;
 }
 
-.hero::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(102, 0, 204, 0.25) 0%, transparent 70%);
-  pointer-events: none;
+.heroContent {
+  max-width: 980px;
+  margin: 0 auto;
 }
 
 .heroEyebrow {
@@ -18,7 +15,7 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0;
   color: var(--primary-light);
   margin-bottom: 1.25rem;
   padding: 0.3rem 0.75rem;
@@ -34,7 +31,7 @@
 
 .heroSub {
   font-size: 1.2rem;
-  max-width: 640px;
+  max-width: 760px;
   margin: 0 auto 2.5rem;
   color: var(--text-muted);
 }
@@ -44,6 +41,66 @@
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 3rem;
+}
+
+.heroShot {
+  max-width: 1080px;
+  margin: 0 auto;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glow);
+  text-align: left;
+}
+
+.heroShot img {
+  width: 100%;
+  aspect-ratio: 7 / 4;
+  object-fit: cover;
+  object-position: top left;
+}
+
+.browserBar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2.25rem;
+  padding: 0.55rem 0.8rem;
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.browserBar span {
+  width: 0.68rem;
+  height: 0.68rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.browserBar span:nth-child(1) {
+  background: #ff5f57;
+}
+
+.browserBar span:nth-child(2) {
+  background: #ffbd2e;
+}
+
+.browserBar span:nth-child(3) {
+  background: #28c840;
+}
+
+.browserBar strong {
+  min-width: 0;
+  margin-left: 0.45rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .btnPrimary {
@@ -63,7 +120,7 @@
 .btnPrimary:hover {
   background: var(--primary-light);
   color: #fff;
-  box-shadow: 0 0 24px rgba(102, 0, 204, 0.5);
+  box-shadow: var(--shadow-glow);
 }
 
 .btnSecondary {
@@ -83,7 +140,6 @@
   border-color: var(--border-light);
 }
 
-/* Sections */
 .section {
   padding: 4.5rem 0;
   border-top: 1px solid var(--border);
@@ -103,7 +159,11 @@
   margin: 0 auto;
 }
 
-/* Pillars */
+.centerAction {
+  text-align: center;
+  margin-top: 1.5rem;
+}
+
 .pillars {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -144,7 +204,6 @@
   font-size: 0.9rem;
 }
 
-/* Feature cards */
 .featureGrid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -182,7 +241,6 @@
   color: var(--primary-light);
 }
 
-/* How it works */
 .steps {
   display: flex;
   flex-direction: column;
@@ -228,7 +286,6 @@
   margin-top: 1.5rem;
 }
 
-/* Use case teasers */
 .useCaseGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -251,7 +308,37 @@
   font-size: 0.875rem;
 }
 
-/* Dev strip */
+.screenshotGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.screenshotCard {
+  display: block;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  text-align: left;
+  text-decoration: none;
+  transition: border-color var(--transition), transform var(--transition);
+}
+
+.screenshotCard:hover {
+  border-color: var(--border-light);
+  color: var(--primary-light);
+  transform: translateY(-2px);
+}
+
+.screenshotCard img {
+  width: 100%;
+  aspect-ratio: 7 / 4;
+  object-fit: cover;
+  object-position: top left;
+}
+
 .devStrip {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -259,7 +346,25 @@
   align-items: center;
 }
 
-/* Trust strip */
+.devStrip > * {
+  min-width: 0;
+}
+
+.devCopy {
+  margin-bottom: 1rem;
+}
+
+.inlineActions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.portNote {
+  font-size: 0.85rem;
+  margin-top: 0.75rem;
+}
+
 .trustStrip {
   display: flex;
   align-items: center;
@@ -322,7 +427,6 @@
   flex-shrink: 0;
 }
 
-/* Open source band */
 .osBand {
   background: var(--primary-dim);
   border-top: 1px solid rgba(102, 0, 204, 0.3);
@@ -347,7 +451,6 @@
   flex-wrap: wrap;
 }
 
-/* Final CTA band */
 .finalCta {
   padding: 4rem 0;
   text-align: center;
@@ -390,6 +493,10 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .screenshotGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
   .devStrip {
     grid-template-columns: 1fr;
   }
@@ -397,7 +504,8 @@
 
 @media (max-width: 600px) {
   .featureGrid,
-  .useCaseGrid {
+  .useCaseGrid,
+  .screenshotGrid {
     grid-template-columns: 1fr;
   }
 

@@ -39,6 +39,7 @@ export default function Footer() {
             <nav>
               <Link to="/security/whitepaper" className={styles.footLink}>Security whitepaper</Link>
               <Link to="/security/zero-knowledge" className={styles.footLink}>ZK extension</Link>
+              <Link to="/screenshots" className={styles.footLink}>Screenshots</Link>
               <a href="https://github.com/puzed/darkauth/tree/main/docs" className={styles.footLink} target="_blank" rel="noopener noreferrer">Docs</a>
               <a href="https://github.com/puzed/darkauth/security" className={styles.footLink} target="_blank" rel="noopener noreferrer">Security contact</a>
             </nav>

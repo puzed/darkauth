@@ -1,82 +1,82 @@
-import { useEffect, useMemo, useState } from "react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { useTheme } from "next-themes";
-
-type Shot = {
-  file: string;
-  scenario: string;
-  step: number;
-  title: string;
-  group1?: string;
-  group2?: string;
-  feature?: string;
-};
+import { useEffect, useState } from "react";
+import Layout from "../components/Layout";
+import { cleanShotTitle, getScreenshotUrl, SCREENSHOT_MANIFEST_URL, type ScreenshotManifest, type Shot } from "../lib/screenshots";
+import { useBrochureTheme } from "../hooks/useBrochureTheme";
+import styles from "./Screenshots.module.css";
 
 const Screenshots = () => {
   const [shots, setShots] = useState<Shot[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selected, setSelected] = useState<{ src: string; alt: string } | null>(null);
-  const { theme, resolvedTheme } = useTheme();
-  const effective = useMemo(() => (theme === "system" ? resolvedTheme : theme) || "light", [theme, resolvedTheme]);
-  const basePath = useMemo(() => `https://release.darkauth.com/screenshots/${effective}`, [effective]);
+  const effective = useBrochureTheme();
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      const response = await fetch("https://release.darkauth.com/screenshots.json", { cache: "no-store" });
-      const payload: { themes?: Record<string, unknown> } = response.ok ? await response.json() : {};
+      setLoaded(false);
+      const response = await fetch(SCREENSHOT_MANIFEST_URL, { cache: "no-store" });
+      const payload: ScreenshotManifest = response.ok ? await response.json() : {};
       const themeShots = payload.themes?.[effective];
       if (!cancelled) {
         setShots(Array.isArray(themeShots) ? (themeShots as Shot[]) : []);
         setLoaded(true);
       }
     };
-    load();
+    load().catch(() => {
+      if (!cancelled) {
+        setShots([]);
+        setLoaded(true);
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, [basePath]);
+  }, [effective]);
 
   useEffect(() => {
     if (!selected) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelected(null);
+      if (e.key === "Escape") setSelected(null);
     };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [selected]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main className="container max-w-7xl px-4 md:px-6 py-10">
-        <h1 className="text-3xl font-bold mb-6">Screenshots</h1>
+    <Layout>
+      <section className={styles.page}>
+        <div className="container">
+          <div className={styles.hero}>
+            <span className={styles.eyebrow}>Automated screenshots</span>
+            <h1>Screenshots</h1>
+            <p>Release-captured admin, user, auth, and demo flows. The gallery follows the current theme.</p>
+          </div>
         {!loaded && (
-          <div className="text-muted-foreground">Loading…</div>
+            <div className={styles.status}>Loading...</div>
         )}
         {loaded && shots.length === 0 && (
-          <div className="text-muted-foreground">No screenshots found.</div>
+            <div className={styles.status}>No screenshots found.</div>
         )}
         {shots.length > 0 && (
-          <Groups basePath={basePath} shots={shots} onSelect={(src, alt) => setSelected({ src, alt })} />
+          <Groups theme={effective} shots={shots} onSelect={(src, alt) => setSelected({ src, alt })} />
         )}
-      </main>
+        </div>
+      </section>
       {selected && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+          className={styles.modal}
           onClick={() => setSelected(null)}
           role="dialog"
           aria-modal="true"
         >
           <div
-            className="relative max-w-6xl w-full max-h-[90vh]"
+            className={styles.modalBody}
             onClick={(e) => e.stopPropagation()}
           >
             <button
               type="button"
               aria-label="Close"
-              className="absolute -top-3 -right-3 bg-card text-foreground border border-border rounded-full w-8 h-8 grid place-items-center shadow"
+              className={styles.close}
               onClick={() => setSelected(null)}
             >
               ×
@@ -84,20 +84,17 @@ const Screenshots = () => {
             <img
               src={selected.src}
               alt={selected.alt}
-              className="w-full h-auto object-contain rounded-md shadow"
-              style={{ maxHeight: '90vh' }}
             />
           </div>
         </div>
       )}
-      <Footer />
-    </div>
+    </Layout>
   );
 };
 
 export default Screenshots;
 
-function Groups({ basePath, shots, onSelect }: { basePath: string; shots: Shot[]; onSelect: (src: string, alt: string) => void }) {
+function Groups({ theme, shots, onSelect }: { theme: "dark" | "light"; shots: Shot[]; onSelect: (src: string, alt: string) => void }) {
   const [sectionStates, setSectionStates] = useState<Record<string, number>>({});
   const groups = new Map<string, Map<string, Shot[]>>();
   for (const s of shots) {
@@ -110,13 +107,13 @@ function Groups({ basePath, shots, onSelect }: { basePath: string; shots: Shot[]
   }
   const g1Keys = Array.from(groups.keys()).sort((a, b) => a.localeCompare(b));
   return (
-    <div className="space-y-10">
+    <div className={styles.groups}>
       {g1Keys.map((g1) => {
         const sub = groups.get(g1)!;
         const g2Keys = Array.from(sub.keys()).sort((a, b) => a.localeCompare(b));
         return (
-          <section key={g1} className="mb-10">
-            <h2 className="text-2xl font-semibold mb-4">{g1}</h2>
+          <section key={g1}>
+            <h2 className={styles.groupTitle}>{g1}</h2>
             {g2Keys.map((g2) => {
               const sectionKey = `${g1}::${g2}`;
               const phase = sectionStates[sectionKey] ?? 0;
@@ -129,25 +126,25 @@ function Groups({ basePath, shots, onSelect }: { basePath: string; shots: Shot[]
               const onToggle = () =>
                 setSectionStates((prev) => ({ ...prev, [sectionKey]: ((phase + 1) % 3) }));
               return (
-                <div key={`${g1}-${g2}`} className="mb-8">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-medium">{g2}</h3>
+                <div key={`${g1}-${g2}`} className={styles.subgroup}>
+                  <div className={styles.subgroupHead}>
+                    <h3>{g2}</h3>
                     <button
                       type="button"
                       onClick={onToggle}
-                      className="text-sm px-3 py-1.5 rounded-md border hover:bg-muted/50 transition-smooth"
+                      className={styles.toggle}
                     >
                       {nextLabel}
                     </button>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className={styles.grid}>
                     {visible.map((s) => (
-                      <figure key={`${s.scenario}-${s.step}`} className="rounded-lg bg-card">
+                      <figure key={`${s.scenario}-${s.step}`} className={styles.figure}>
                         <BrowserThumb
-                          src={`${basePath}/${s.file}`}
+                          src={getScreenshotUrl(theme, s.file)}
                           alt={s.title}
-                          titleText={s.title.replace(/\s#\d+$/, "")}
-                          onClick={() => onSelect(`${basePath}/${s.file}`, s.title)}
+                          titleText={cleanShotTitle(s.title)}
+                          onClick={() => onSelect(getScreenshotUrl(theme, s.file), s.title)}
                         />
                       </figure>
                     ))}
@@ -164,16 +161,16 @@ function Groups({ basePath, shots, onSelect }: { basePath: string; shots: Shot[]
 
 function BrowserThumb({ src, alt, titleText, onClick }: { src: string; alt: string; titleText?: string; onClick?: () => void }) {
   return (
-    <button type="button" onClick={onClick} className="rounded-md overflow-hidden bg-background border text-left w-full cursor-pointer">
-      <div className="h-7 px-2 flex items-center gap-1 bg-muted/50">
-        <span className="inline-block h-2 w-2 rounded-full bg-red-400" />
-        <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
-        <span className="inline-block h-2 w-2 rounded-full bg-green-400" />
-        <div className="ml-2 h-4 flex-1 rounded bg-muted/70 flex items-center px-2 text-[10px] leading-none text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis">
+    <button type="button" onClick={onClick} className={styles.thumb}>
+      <div className={styles.bar}>
+        <span />
+        <span />
+        <span />
+        <strong>
           {titleText || ""}
-        </div>
+        </strong>
       </div>
-      <img src={src} alt={alt} className="w-full h-auto block" loading="lazy" />
+      <img src={src} alt={alt} loading="lazy" />
     </button>
   );
 }

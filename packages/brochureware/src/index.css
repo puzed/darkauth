@@ -1,31 +1,66 @@
-/* ===== Brand tokens ===== */
 :root {
   --bg: #26212B;
-  --bg-alt: #1e1a24;
-  --card: #1a1520;
-  --card-hover: #201b27;
+  --bg-alt: #211C27;
+  --card: #17131D;
+  --card-hover: #211A2A;
   --primary: #6600CC;
-  --primary-light: #7a14e0;
-  --primary-dim: rgba(102, 0, 204, 0.15);
+  --primary-light: #B789FF;
+  --primary-dim: rgba(139, 71, 255, 0.22);
   --secondary: #F2B10D;
-  --secondary-dim: rgba(242, 177, 13, 0.15);
+  --secondary-dim: rgba(242, 177, 13, 0.18);
   --text: #F7FAFC;
-  --text-muted: #8892a4;
-  --text-dim: #5a6478;
-  --border: #2d2538;
-  --border-light: #3a3048;
-  --code-bg: #0f0d14;
+  --text-muted: #B6BECC;
+  --text-dim: #96A0B3;
+  --border: #3A3147;
+  --border-light: #564666;
+  --code-bg: #0D0B12;
+  --code-fg: #F8FAFC;
+  --inline-code-bg: rgba(242, 177, 13, 0.12);
+  --inline-code-fg: #F6C64B;
   --success: #1FB85A;
+  --danger: #FF7A70;
+  --danger-dim: rgba(255, 122, 112, 0.15);
+  --logo-mark: #FFFFFF;
+  --header-bg: rgba(38, 33, 43, 0.96);
   --font-sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "SF Mono", "Fira Code", "Cascadia Code", "Consolas", monospace;
   --radius: 0.5rem;
   --radius-lg: 0.75rem;
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 40px rgba(102, 0, 204, 0.2);
+  --shadow-glow: 0 16px 40px rgba(0, 0, 0, 0.24);
   --transition: 0.18s ease;
+  color-scheme: dark;
 }
 
-/* ===== CSS Reset ===== */
+:root[data-theme="light"] {
+  --bg: #F7F8FB;
+  --bg-alt: #EEF1F6;
+  --card: #FFFFFF;
+  --card-hover: #F1F4F9;
+  --primary: #6600CC;
+  --primary-light: #4E009E;
+  --primary-dim: rgba(102, 0, 204, 0.1);
+  --secondary: #9B6900;
+  --secondary-dim: rgba(242, 177, 13, 0.18);
+  --text: #111827;
+  --text-muted: #4B5565;
+  --text-dim: #667085;
+  --border: #D8DEE8;
+  --border-light: #B7C0CE;
+  --code-bg: #101017;
+  --code-fg: #F8FAFC;
+  --inline-code-bg: rgba(155, 105, 0, 0.12);
+  --inline-code-fg: #744B00;
+  --success: #117A37;
+  --danger: #B42318;
+  --danger-dim: rgba(180, 35, 24, 0.1);
+  --logo-mark: #6600CC;
+  --header-bg: rgba(247, 248, 251, 0.96);
+  --shadow-card: 0 16px 40px rgba(15, 23, 42, 0.08);
+  --shadow-glow: 0 18px 40px rgba(102, 0, 204, 0.12);
+  color-scheme: light;
+}
+
 *,
 *::before,
 *::after {
@@ -35,7 +70,6 @@
 }
 
 html {
-  scroll-behavior: smooth;
   font-size: 16px;
 }
 
@@ -96,7 +130,14 @@ code {
   border-radius: 0.25rem;
   padding: 0.1em 0.4em;
   font-size: 0.9em;
-  color: var(--secondary);
+  color: var(--inline-code-fg);
+}
+
+p code,
+li code,
+td code,
+dd code {
+  background: var(--inline-code-bg);
 }
 
 ul,
@@ -104,7 +145,6 @@ ol {
   padding-left: 1.5rem;
 }
 
-/* ===== Utility ===== */
 .container {
   max-width: 1120px;
   margin: 0 auto;
@@ -123,7 +163,6 @@ ol {
   border-width: 0;
 }
 
-/* ===== Focus styles ===== */
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;

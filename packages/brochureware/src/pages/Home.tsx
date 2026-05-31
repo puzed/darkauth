@@ -1,6 +1,17 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "../components/Layout";
 import CodeBlock from "../components/CodeBlock";
+import { useBrochureTheme } from "../hooks/useBrochureTheme";
+import {
+  cleanShotTitle,
+  findAdminDashboardShot,
+  getFeaturedShots,
+  getScreenshotUrl,
+  SCREENSHOT_MANIFEST_URL,
+  type ScreenshotManifest,
+  type Shot,
+} from "../lib/screenshots";
 import styles from "./Home.module.css";
 
 const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
@@ -62,24 +73,60 @@ const HOW_STEPS = [
 ];
 
 export default function Home() {
+  const theme = useBrochureTheme();
+  const [shots, setShots] = useState<Shot[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const response = await fetch(SCREENSHOT_MANIFEST_URL, { cache: "no-store" });
+      const payload: ScreenshotManifest = response.ok ? await response.json() : {};
+      const nextShots = payload.themes?.[theme] ?? [];
+      if (!cancelled) {
+        setShots(Array.isArray(nextShots) ? nextShots : []);
+      }
+    };
+    load().catch(() => {
+      if (!cancelled) setShots([]);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [theme]);
+
+  const adminShot = useMemo(() => findAdminDashboardShot(shots), [shots]);
+  const featuredShots = useMemo(() => getFeaturedShots(shots), [shots]);
+  const previewShots = featuredShots.length > 0 ? featuredShots : adminShot ? [adminShot] : [];
+
   return (
     <Layout>
-      {/* Hero */}
       <section className={styles.hero}>
         <div className="container">
-          <span className={styles.heroEyebrow}>Open source · Self-hosted · AGPL-3.0</span>
-          <h1 className={styles.heroTitle}>Authentication that can't leak what it never had.</h1>
-          <p className={styles.heroSub}>
-            Drop-in OpenID Connect for your apps, with a zero-knowledge core. Passwords are verified using OPAQUE, so they never reach the server. And with optional zero-knowledge key delivery, your app can offer true end-to-end encryption — keys are derived on the user's device and never touch the database.
-          </p>
-          <div className={styles.heroCtas}>
-            <Link to="/developers/quickstart" className={styles.btnPrimary}>Run it with Docker</Link>
-            <Link to="/how-it-works" className={styles.btnSecondary}>How it works →</Link>
+          <div className={styles.heroContent}>
+            <span className={styles.heroEyebrow}>Open source · Self-hosted · AGPL-3.0</span>
+            <h1 className={styles.heroTitle}>Authentication that can't leak what it never had.</h1>
+            <p className={styles.heroSub}>
+              Drop-in OpenID Connect for your apps, with a zero-knowledge core. Passwords are verified using OPAQUE, so they never reach the server. And with optional zero-knowledge key delivery, your app can offer true end-to-end encryption — keys are derived on the user's device and never touch the database.
+            </p>
+            <div className={styles.heroCtas}>
+              <Link to="/developers/quickstart" className={styles.btnPrimary}>Run it with Docker</Link>
+              <Link to="/how-it-works" className={styles.btnSecondary}>How it works →</Link>
+            </div>
           </div>
+          {adminShot && (
+            <div className={styles.heroShot}>
+              <div className={styles.browserBar}>
+                <span />
+                <span />
+                <span />
+                <strong>Admin dashboard</strong>
+              </div>
+              <img src={getScreenshotUrl(theme, adminShot.file)} alt="DarkAuth admin dashboard" />
+            </div>
+          )}
         </div>
       </section>
 
-      {/* 3 Pillars */}
       <section className={styles.section}>
         <div className="container">
           <div className={styles.sectionHead}>
@@ -97,7 +144,31 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Feature teaser grid */}
+      <section className={styles.section}>
+        <div className="container">
+          <div className={styles.sectionHead}>
+            <h2>Real screens from the automated test suite.</h2>
+            <p>Admin, user, and demo flows captured from the release build.</p>
+          </div>
+          <div className={styles.screenshotGrid}>
+            {previewShots.map((shot) => (
+              <Link key={shot.file} to="/screenshots" className={styles.screenshotCard}>
+                <div className={styles.browserBar}>
+                  <span />
+                  <span />
+                  <span />
+                  <strong>{cleanShotTitle(shot.title)}</strong>
+                </div>
+                <img src={getScreenshotUrl(theme, shot.file)} alt={cleanShotTitle(shot.title)} loading="lazy" />
+              </Link>
+            ))}
+          </div>
+          <div className={styles.centerAction}>
+            <Link to="/screenshots" className={styles.btnSecondary}>Open screenshot library →</Link>
+          </div>
+        </div>
+      </section>
+
       <section className={styles.section}>
         <div className="container">
           <div className={styles.sectionHead}>
@@ -113,13 +184,12 @@ export default function Home() {
               </Link>
             ))}
           </div>
-          <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+          <div className={styles.centerAction}>
             <Link to="/features" className={styles.btnSecondary}>See all features →</Link>
           </div>
         </div>
       </section>
 
-      {/* What you can build */}
       <section className={styles.section}>
         <div className="container">
           <div className={styles.sectionHead}>
@@ -134,13 +204,12 @@ export default function Home() {
               </div>
             ))}
           </div>
-          <div style={{ textAlign: "center", marginTop: "1.5rem" }}>
+          <div className={styles.centerAction}>
             <Link to="/use-cases" className={styles.btnSecondary}>Explore use cases →</Link>
           </div>
         </div>
       </section>
 
-      {/* How it works (compressed) */}
       <section className={styles.section}>
         <div className="container">
           <div className={styles.sectionHead}>
@@ -163,23 +232,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Developer strip */}
       <section className={styles.section}>
         <div className="container">
           <div className={styles.devStrip}>
             <div>
               <h2>OIDC-compatible. SDK optional.</h2>
-              <p style={{ marginBottom: "1rem" }}>
+              <p className={styles.devCopy}>
                 Any library that speaks OIDC works out of the box. The <code>@darkauth/client</code> SDK adds optional ZK crypto helpers for apps that need key delivery.
               </p>
-              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+              <div className={styles.inlineActions}>
                 <Link to="/developers/quickstart" className={styles.btnPrimary}>Quickstart</Link>
                 <Link to="/developers/sdk" className={styles.btnSecondary}>SDK docs →</Link>
               </div>
             </div>
             <div>
               <CodeBlock code={DOCKER_CMD} lang="bash" />
-              <p style={{ fontSize: "0.85rem", marginTop: "0.75rem" }}>
+              <p className={styles.portNote}>
                 Port 9080: users + OIDC. Port 9081: admin console. First-run web installer at <code>:9081</code>.
               </p>
             </div>
@@ -187,7 +255,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust / honesty strip */}
       <section className={styles.section}>
         <div className="container">
           <div className={styles.trustStrip}>
@@ -209,7 +276,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Open source band */}
       <section className={styles.osBand}>
         <div className="container">
           <h2>Free, forever. Because it's yours.</h2>
@@ -223,7 +289,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Final CTA */}
       <section className={styles.finalCta}>
         <div className="container">
           <h2>Ready to run it?</h2>

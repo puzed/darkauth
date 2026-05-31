@@ -36,7 +36,7 @@ export function createTestUser(overrides: Partial<TestUser> = {}): TestUser {
 
 // Fixed test data for consistent testing
 export const FIXED_TEST_ADMIN: TestAdmin = {
-  email: 'test-admin@example.com',
+  email: 'admin@example.com',
   name: 'Test Admin',
   password: 'SecureAdminPass123!'
 };
