@@ -1,5 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getBrandLogoUrl, getBrandTitle } from "@/lib/branding";
 import { setTheme as applyThemeSetting, getTheme } from "@/lib/theme";
 import styles from "../Login.module.css";
 
@@ -55,7 +56,7 @@ export default function AuthFrame({ title, description, children, footer }: Auth
         <div className={styles.header}>
           <div className={styles.brandWrap}>
             <div className={styles.brand}>
-              <img src="/favicon.svg" alt="DarkAuth" />
+              <img src={getBrandLogoUrl()} alt={getBrandTitle()} />
             </div>
           </div>
           <div className={styles.title}>{title}</div>

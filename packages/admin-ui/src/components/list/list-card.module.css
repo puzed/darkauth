@@ -1,5 +1,5 @@
 .card {
-  background: linear-gradient(180deg, hsl(var(--card)), hsl(var(--card) / 0.95));
+  background: hsl(var(--card));
   border: 1px solid hsl(var(--border) / 0.5);
   border-radius: 12px;
   margin-top: 16px;

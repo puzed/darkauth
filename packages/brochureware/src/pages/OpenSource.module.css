@@ -1,0 +1,143 @@
+.page {
+  padding: 3rem 0 4rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section h2 {
+  font-size: 1.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.section p {
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+  max-width: 760px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin: 1rem 0;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.table td {
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+
+.table tr:hover td {
+  background: var(--card-hover);
+}
+
+.licenseNote {
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.licBadge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--primary-dim);
+  color: var(--primary-light);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.list li {
+  padding-left: 1.5rem;
+  position: relative;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--primary-light);
+}
+
+.list li strong {
+  color: var(--text);
+}
+
+.auditLinks,
+.ctaRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.btnPrimary:hover {
+  background: var(--primary-light);
+  color: #fff;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.btnSecondary:hover {
+  color: var(--text);
+  border-color: var(--border-light);
+}

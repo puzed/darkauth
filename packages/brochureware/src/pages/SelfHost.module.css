@@ -1,0 +1,94 @@
+.page {
+  padding: 3rem 0 4rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section h2 {
+  font-size: 1.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.section p {
+  font-size: 0.95rem;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+}
+
+.list {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.list li {
+  padding-left: 1.5rem;
+  position: relative;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--primary-light);
+}
+
+.list li strong {
+  color: var(--text);
+}
+
+.dbGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.dbCard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.dbTitle {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  color: var(--text);
+}
+
+.guidance {
+  background: var(--primary-dim);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 1rem;
+}
+
+.guidanceList {
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .dbGrid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -30,6 +30,22 @@ export async function ensureAdminDashboard(
   await expect(page.getByRole('heading', { name: 'Admin Dashboard', exact: true })).toBeVisible({
     timeout: 15000,
   });
+  await waitForScreenshotReady(page);
+}
+
+async function waitForScreenshotReady(page: Page): Promise<void> {
+  if (process.env.PW_ARTIFACTS !== 'on') return;
+  const version = process.env.APP_VERSION?.trim();
+  if (!version) return;
+  const normalized = version.replace(/^v/i, '');
+  const changelog = page.getByTestId('dashboard-changelog');
+  await expect(changelog.getByText(new RegExp(`^v?${escapeRegExp(normalized)}$`))).toBeVisible({
+    timeout: 15000,
+  });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 export async function ensureSelfRegistrationEnabled(

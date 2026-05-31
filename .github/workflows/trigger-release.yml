@@ -75,6 +75,8 @@ jobs:
     if: needs.release.outputs.no_release != 'true'
     env:
       PW_BROWSER_CHANNEL: chrome
+      APP_VERSION: ${{ needs.release.outputs.tag }}
+      COMMIT_HASH: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v4
         with:

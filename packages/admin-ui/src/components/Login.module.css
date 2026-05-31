@@ -24,7 +24,7 @@
   max-width: 720px;
   width: 100%;
   border: 1px solid hsl(var(--border));
-  background: linear-gradient(180deg, hsl(var(--accent) / 0.18), hsl(var(--accent) / 0.1));
+  background: hsl(var(--accent) / 0.14);
   color: hsl(var(--foreground));
   border-radius: 12px;
   padding: 12px 14px;
@@ -81,10 +81,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-:global(.dark) .brand img {
-  filter: brightness(100);
 }
 
 .title {

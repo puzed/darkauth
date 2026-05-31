@@ -1,335 +1,133 @@
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Shield, Lock, KeyRound, Link as LinkIcon, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import PageHero from "../components/PageHero";
+import FlowDiagram from "../components/FlowDiagram";
+import KeyScheduleDiagram from "../components/KeyScheduleDiagram";
+import styles from "./HowItWorks.module.css";
 
-const Section = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => (
-  <section className={`py-12 ${className}`}>
-    <div className="container max-w-5xl">{children}</div>
-  </section>
-);
+const standardFlow = [
+  { from: 0, to: 1, label: "GET /api/authorize", note: "Authorization Code + PKCE S256" },
+  { from: 1, to: 0, label: "Login UI", note: "OPAQUE password proof" },
+  { from: 0, to: 1, label: "OPAQUE finish", note: "User session established" },
+  { from: 0, to: 1, label: "POST /api/authorize/finalize" },
+  { from: 1, to: 0, label: "{ code, state?, redirect_uri }" },
+  { from: 0, to: 1, label: "POST /api/token", note: "code + verifier" },
+  { from: 1, to: 0, label: "{ id_token, expires_in, refresh? }" },
+] as const;
 
-const Pill = ({ children }: { children: React.ReactNode }) => (
-  <span className="inline-flex items-center rounded-full border border-border/40 bg-muted/30 px-3 py-1 text-xs text-muted-foreground">
-    {children}
-  </span>
-);
+const zkFlow = [
+  { from: 0, to: 1, label: "GET /api/authorize?zk_pub=...", note: "App supplies ephemeral P-256 public key" },
+  { from: 1, to: 0, label: "Login UI", note: "OPAQUE password proof" },
+  { from: 0, to: 1, label: "OPAQUE finish" },
+  { from: 0, to: 0, label: "Browser derives KW and unwraps DRK" },
+  { from: 0, to: 0, label: "Browser builds drk_jwe", note: "ECDH-ES + A256GCM(DRK, zk_pub)" },
+  { from: 0, to: 0, label: "Browser computes drk_hash", note: "SHA-256 over compact JWE" },
+  { from: 0, to: 1, label: "POST /api/authorize/finalize", note: "request_id + drk_hash only" },
+  { from: 1, to: 0, label: "{ code, state?, redirect_uri }" },
+  { from: 0, to: 0, label: "Redirect to redirect_uri#drk_jwe=..." },
+  { from: 0, to: 1, label: "POST /api/token", note: "code + verifier" },
+  { from: 1, to: 0, label: "{ id_token, zk_drk_hash, ... }" },
+  { from: 0, to: 0, label: "Verify hash, decrypt JWE with zk_priv" },
+] as const;
 
-const Step = ({
-  step,
-  icon: Icon,
-  title,
-  description,
-  detail,
-}: {
-  step: string;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  detail: string;
-}) => (
-  <Card className="h-full bg-card border-border/50">
-    <CardContent className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <div className="bg-gradient-to-r from-primary to-accent text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">
-          {step}
-        </div>
-        <Icon className="h-6 w-6 text-primary" />
-      </div>
-      <h3 className="text-lg font-semibold text-foreground mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground mb-3">{description}</p>
-      <div className="text-xs text-muted-foreground border-t border-border/30 pt-3">{detail}</div>
-    </CardContent>
-  </Card>
-);
+const STEPS = [
+  {
+    num: "01",
+    title: "Prove the password — without sending it",
+    eli5: "You answer a mathematical challenge that proves you know your password, without handing the password over. Think of it like proving you know the combination to a safe by opening it, not by reading out the numbers.",
+    precise: "OPAQUE (RFC 9380, P-256) is a password-authenticated key exchange. The client and server run a protocol where the server verifies the client knows the password, without the password or any equivalent being transmitted. On successful login, the client obtains a stable export_key that is deterministic per (user, password). The server stores only an opaque verifier — not the password, not something that can be reversed to recover it.",
+    diagram: false,
+  },
+  {
+    num: "02",
+    title: "Keep the keys on the device",
+    eli5: "Your device takes that secret it got from the password challenge and uses it to make an encryption key. Then it locks your data key using that encryption key, and gives the locked box to the server. The server holds the box but can't open it.",
+    precise: "The client derives a key schedule from export_key using HKDF-SHA256. The key wrapping key (KW) is used to AEAD-encrypt the Data Root Key (DRK) — a random 32-byte symmetric key. The server stores only WRAPPED_DRK. It cannot reconstruct KW (which requires export_key) and therefore cannot decrypt DRK from stored state alone.",
+    diagram: true,
+  },
+  {
+    num: "03",
+    title: "Hand the app a sealed key",
+    eli5: "When your app needs your encryption key, your browser takes the key, puts it in a sealed envelope addressed specifically to your app, and drops it through the URL fragment — a part of the address bar the server never reads. Your app picks it up and checks a receipt to make sure it wasn't tampered with.",
+    precise: "For ZK-enabled clients, the app supplies an ephemeral P-256 keypair. After OPAQUE, the browser derives KW, unwraps DRK locally, and constructs a JWE: ECDH-ES + A256GCM(DRK, zk_pub) with AAD={sub, client_id}. The browser computes drk_hash = base64url(SHA-256(JWE)) and sends only the hash in the authorize/finalize call. The JWE is placed in the URL fragment (#drk_jwe=...) — HTTP spec: fragments are not sent to the server. The token endpoint returns zk_drk_hash; the app verifies the hash before decrypting.",
+    diagram: false,
+  },
+  {
+    num: "04",
+    title: "Use standard OIDC for everything else",
+    eli5: "From your app's perspective, this is just a normal OAuth 2.0 login. Your app gets a signed ID token that proves who the user is. Everything that speaks OIDC — any client library in any language — just works.",
+    precise: "The token endpoint returns a standard OIDC ID token signed with EdDSA (Ed25519). Claims include standard OIDC fields plus optional org_id, org_slug, roles, permissions. Refresh tokens are hashed at rest, single-use, client-bound. Discovery and JWKS endpoints let clients verify tokens without hard-coding any secrets.",
+    diagram: false,
+  },
+  {
+    num: "05",
+    title: "Where the trust boundary is",
+    eli5: "DarkAuth protects against an attacker who gets a copy of the database, or an insider who reads server logs. It does not protect against someone who takes over your browser, injects malicious JavaScript into the page, or compromises the device itself.",
+    precise: "The security model assumes: TLS for all transports, trusted user device and browser, trusted Auth UI and RP frontend origins, no malicious same-origin JavaScript. Threats within scope: database exfiltration, insider reads, redirect tampering, weak key injection, token endpoint abuse. Explicitly out of scope: XSS in the auth UI or RP app, compromised browser/extensions/device, broken TLS, malicious RP app that intentionally exfiltrates keys.",
+    diagram: false,
+  },
+];
 
-const HowItWorksPage = () => {
+export default function HowItWorks() {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
+    <Layout>
+      <PageHero
+        eyebrow="How it works"
+        title="One login. Verified identity, and an encryption key the server can't read."
+        sub="Five steps. Start with the plain explanation; expand into the cryptographic detail when you're ready."
+      />
+      <div className="container">
+        <div className={styles.page}>
+          <div className={styles.steps}>
+            {STEPS.map((s) => (
+              <section key={s.num} className={styles.step}>
+                <div className={styles.stepNum}>{s.num}</div>
+                <div className={styles.stepBody}>
+                  <h2 className={styles.stepTitle}>{s.title}</h2>
+                  <div className={styles.explanations}>
+                    <div className={styles.eli5Box}>
+                      <span className={styles.eli5Badge}>Plain English</span>
+                      <p>{s.eli5}</p>
+                    </div>
+                    <div className={styles.preciseBox}>
+                      <span className={styles.precBadge}>Technical</span>
+                      <p>{s.precise}</p>
+                    </div>
+                  </div>
+                  {s.diagram && (
+                    <div style={{ marginTop: "1rem" }}>
+                      <KeyScheduleDiagram />
+                    </div>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
 
-      <Section>
-        <div className="mb-2 text-xs text-muted-foreground"><a href="/" className="hover:text-foreground">Home</a> / How It Works</div>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground">How DarkAuth Works</h1>
-        <p className="mt-2 text-sm text-muted-foreground max-w-3xl">
-          A practical flow where passwords never reach the server and apps receive encryption keys the server cannot see.
-        </p>
-      </Section>
+          <section className={styles.diagrams}>
+            <h2>Sequence diagrams</h2>
+            <p className={styles.diagSub}>The two authorization flows, shown as browser-readable sequence diagrams.</p>
 
-      <Section>
-        <div className="grid md:grid-cols-2 gap-6 items-start">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="outline" className="border-primary/30 text-primary">ELI5</Badge>
-              </div>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>Your device proves you know the password without telling it.</li>
-                <li>Your device makes a secret key that only it can re-create.</li>
-                <li>That key locks a bigger box key (DRK). The server keeps only the locked box.</li>
-                <li>Apps get the box key in a sealed envelope only they can open.</li>
-              </ul>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Badge variant="outline" className="border-primary/30 text-primary">Technical TL;DR</Badge>
-              </div>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>OPAQUE (RFC 9380) yields export_key client-side.</li>
-                <li>HKDF derives MK and KW; KW wraps a 32-byte DRK.</li>
-                <li>Server stores only wrapped_drk and never learns DRK/KW.</li>
-                <li>For ZK clients, DRK → JWE (ECDH-ES+A256GCM) in URL fragment.</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
+            <div className={styles.diagramGroup}>
+              <h3>Standard Authorization Code + PKCE</h3>
+              <FlowDiagram lanes={["RP App (Browser)", "DarkAuth (User Port)"]} steps={standardFlow} />
+            </div>
 
-      <Section>
-        <div className="grid md:grid-cols-3 gap-6">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Shield className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">OPAQUE Authentication</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The password never leaves the device. The server stores an opaque verifier and cannot recover the password.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <KeyRound className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Client-Derived Keys</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                A device-only key derived from the OPAQUE export_key wraps a per-user Data Root Key used for app encryption.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-3 mb-3">
-                <Lock className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Fragment JWE Delivery</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                ZK-enabled apps receive the DRK via a compact JWE placed only in the URL fragment, never in server responses or storage.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
+            <div className={styles.diagramGroup}>
+              <h3>ZK Fragment JWE Delivery</h3>
+              <FlowDiagram lanes={["RP App (Browser)", "DarkAuth (User Port)"]} steps={zkFlow} />
+            </div>
+          </section>
 
-      <Section className="bg-background">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold">Detailed Flow</h2>
-          <p className="text-sm text-muted-foreground mt-1">From login to key delivery</p>
-        </div>
-        <div className="grid lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
-          <Step
-            step="1"
-            icon={Shield}
-            title="Authenticate with OPAQUE"
-            description="User enters a password; the server never sees it."
-            detail="Client and server complete OPAQUE (RFC 9380). The client receives export_key; the server binds the authenticated identity to the session."
-          />
-          <Step
-            step="2"
-            icon={KeyRound}
-            title="Derive Keys Locally"
-            description="Device derives MK and KW deterministically."
-            detail="KW = HKDF-SHA256(export_key, ...) wraps the Data Root Key. Server only stores the wrapped DRK bound to the user."
-          />
-          <Step
-            step="3"
-            icon={Lock}
-            title="Unwrap or Create DRK"
-            description="First login creates DRK; later logins unwrap it."
-            detail="Client fetches wrapped_drk, unwraps with KW, or generates DRK if missing and uploads the wrapped form."
-          />
-          <Step
-            step="4"
-            icon={LinkIcon}
-            title="Deliver DRK to App"
-            description="If the app opts in, send a fragment JWE."
-            detail="Auth UI encrypts DRK to the app's ephemeral P-256 key with ECDH-ES + A256GCM, returns code JSON, then navigates with #drk_jwe=..."
-          />
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">What the Authorization Server Stores</h3>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>Opaque verifier for OPAQUE, not the password</li>
-                <li>Wrapped DRK ciphertext with AAD = sub</li>
-                <li>Pending authorization records</li>
-                <li>Authorization codes with zk flags and drk_hash only</li>
-                <li>Discovery metadata and public JWKS</li>
-              </ul>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">What Never Leaves the Device</h3>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>Plaintext password</li>
-                <li>Derived keys MK and KW</li>
-                <li>Plaintext DRK</li>
-                <li>DRK JWE content in server logs or responses</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
-
-      <Section id="security" className="bg-gradient-subtle">
-        <div className="mb-4">
-          <h2 className="text-2xl font-bold">Security Highlights</h2>
-          <p className="text-sm text-muted-foreground mt-1">Why the server cannot decrypt user data</p>
-        </div>
-        <div className="grid md:grid-cols-2 gap-6">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">OPAQUE Eliminates Password Exposure</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Even with full database access, passwords are not recoverable. The verifier does not allow guessing without the interactive protocol.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">DRK Is Wrapped Under Device-Derived Keys</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The server stores only a ciphertext tied to the user identity. Without KW derived from the user's export_key, the DRK is useless to the server.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Fragment-Only DRK Delivery</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                ZK-enabled apps receive the DRK via a JWE in the URL fragment. Fragments are not sent to servers during HTTP requests.
-              </p>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                <h3 className="font-semibold">Integrity Binding via drk_hash</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                The token response includes zk_drk_hash. Clients verify it equals the SHA-256 of the fragment JWE before using the DRK.
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
-
-      <Section>
-        <div className="grid lg:grid-cols-2 gap-8 items-start">
-          <div>
-            <h3 className="text-2xl font-bold mb-2">Relying Party App Flow</h3>
-            <ol className="list-decimal pl-6 space-y-2 text-sm text-muted-foreground">
-              <li>Generate an ephemeral P-256 keypair; send zk_pub in the authorization request with PKCE (S256).</li>
-              <li>After the user returns, read #drk_jwe from the URL fragment in the browser.</li>
-              <li>Exchange the code at /token and read zk_drk_hash.</li>
-              <li>Verify base64url(sha256(drk_jwe)) equals zk_drk_hash.</li>
-              <li>Decrypt the compact JWE using the ephemeral private key to obtain DRK in memory.</li>
-              <li>Derive record keys from DRK if needed and encrypt application data client-side.</li>
-            </ol>
-            <div className="mt-4 flex gap-3">
-              <Badge variant="outline" className="border-primary/30 text-primary">ECDH-ES</Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary">A256GCM</Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary">PKCE S256</Badge>
+          <div className={styles.nextStep}>
+            <p>Ready to understand the full security model?</p>
+            <div className={styles.nextActions}>
+              <Link to="/security" className={styles.btnPrimary}>Security overview</Link>
+              <Link to="/security/whitepaper" className={styles.btnSecondary}>Read the whitepaper →</Link>
             </div>
           </div>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-3">Why Apps Can Encrypt Without Server Knowledge</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Apps operate with a DRK obtained entirely on the client side. The authorization server cannot derive the keys or see the plaintext DRK.
-              </p>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>OPAQUE keeps passwords client-only</li>
-                <li>DRK is never transmitted in plaintext</li>
-                <li>DRK JWE exists only in the fragment and memory</li>
-                <li>Server stores only hashes and wrapped artifacts</li>
-              </ul>
-              <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
-                <ArrowRight className="h-4 w-4 text-primary" />
-                <span>Result: encryption with zero server knowledge</span>
-              </div>
-            </CardContent>
-          </Card>
         </div>
-      </Section>
-
-      <Section>
-        <div className="grid md:grid-cols-2 gap-6 items-start">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">Login Gating with OTP</h3>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>When required and configured, finish login → verify at /otp/verify</li>
-                <li>When required and not configured, finish login → setup at /otp/setup?forced=1</li>
-                <li>Route guards enforce OTP until verified; success returns to the dashboard</li>
-              </ul>
-            </CardContent>
-          </Card>
-          <div className="text-sm text-muted-foreground">
-            See more in <a href="/security" className="text-primary hover:underline">Security</a> and the OTP specification.
-          </div>
-        </div>
-      </Section>
-
-      <Section>
-        <div className="grid lg:grid-cols-2 gap-6 items-start">
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">Password Change & Key Stability</h3>
-              <p className="text-sm text-muted-foreground mb-3">Changing your password while knowing the current one does not change the DRK delivered to apps.</p>
-              <ol className="list-decimal pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>Verify current password via OPAQUE verify endpoints.</li>
-                <li>Complete OPAQUE re-registration with the new password.</li>
-                <li>Derive a new KW from the new export_key on the device.</li>
-                <li>Rewrap the same DRK under the new KW and upload the new wrapped ciphertext.</li>
-                <li>Result: DRK is unchanged; only the wrap changes. ZK-enabled apps still receive the same DRK each login.</li>
-              </ol>
-            </CardContent>
-          </Card>
-          <Card className="bg-card border-border/50">
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-2">What Apps Observe</h3>
-              <ul className="list-disc pl-6 space-y-2 text-sm text-muted-foreground">
-                <li>DRK value remains constant across password changes.</li>
-                <li>Fragment JWE is fresh per authorization; its hash changes, but decrypts to the same DRK.</li>
-                <li>Encrypted data remains readable; no re-encryption required.</li>
-              </ul>
-            </CardContent>
-          </Card>
-        </div>
-      </Section>
-
-      <Footer />
-    </div>
+      </div>
+    </Layout>
   );
-};
-
-export default HowItWorksPage;
+}

@@ -1,182 +1,59 @@
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Github, Twitter, Mail, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import styles from "./Footer.module.css";
 
-const Footer = () => {
-  const currentYear = new Date().getFullYear();
-
-  const links = {
-    product: [
-      { name: "Features", href: "/features" },
-      { name: "How It Works", href: "/how-it-works" },
-      { name: "Security", href: "/security" },
-      { name: "Changelog", href: "/changelog" }
-    ],
-    developers: [
-      { name: "Documentation", href: "https://docs.darkauth.com" },
-      { name: "API Reference", href: "https://docs.darkauth.com/developers/api/" },
-      { name: "SDKs", href: "https://docs.darkauth.com/developers/sdk/typescript/" },
-      { name: "GitHub", href: "https://github.com/puzed/" }
-    ],
-    company: [
-      { name: "About", href: "/about" },
-      { name: "Blog", href: "/blog" },
-      { name: "Careers", href: "/careers" },
-      { name: "Contact", href: "/contact" }
-    ],
-    legal: [
-      { name: "Privacy Policy", href: "/legal/privacy" },
-      { name: "Terms of Service", href: "/legal/terms" },
-      { name: "Cookie Policy", href: "/legal/cookie" }
-    ]
-  };
-
+export default function Footer() {
   return (
-    <footer className="bg-[hsl(var(--footer))] text-secondary-foreground border-t border-border/40">
-      <div className="container max-w-7xl py-16">
-        {/* Top Section */}
-        <div className="grid lg:grid-cols-4 gap-8 mb-12">
-          {/* Brand */}
-          <div className="lg:col-span-1">
-            <div className="flex items-center space-x-3 mb-4">
-              <img 
-                src="/logos/icon.svg" 
-                alt="DarkAuth Logo" 
-                className="h-8 w-8 dark:brightness-[100]"
-              />
-              <div>
-                <span className="text-lg font-bold text-foreground">DarkAuth</span>
-                <div className="flex items-center space-x-2 mt-1">
-                  <Badge variant="outline" className="text-xs border-primary/30 text-primary">
-                    RFC 9380
-                  </Badge>
-                </div>
-              </div>
-            </div>
-            <p className="text-sm text-secondary-foreground/80 mb-6 max-w-xs">
-              A production-ready zero-knowledge authentication system. 
-              Your password never leaves your device.
-            </p>
-            
-            {/* Social Links */}
-            <div className="flex space-x-4">
-              <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
-                <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
-                  <Github className="h-4 w-4" />
-                </Button>
-              </a>
-              <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
-                <Twitter className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="sm" className="text-secondary-foreground/60 hover:text-foreground">
-                <Mail className="h-4 w-4" />
-              </Button>
-            </div>
+    <footer className={styles.footer}>
+      <div className="container">
+        <div className={styles.grid}>
+          <div className={styles.col}>
+            <h4 className={styles.colHead}>Product</h4>
+            <nav>
+              <Link to="/features" className={styles.footLink}>Features</Link>
+              <Link to="/how-it-works" className={styles.footLink}>How it works</Link>
+              <Link to="/security" className={styles.footLink}>Security</Link>
+              <Link to="/use-cases" className={styles.footLink}>Use cases</Link>
+              <Link to="/self-host" className={styles.footLink}>Self-host</Link>
+            </nav>
           </div>
-
-          {/* Product Links */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-4">Product</h3>
-            <ul className="space-y-3">
-              {links.product.map((link, index) => (
-                <li key={index}>
-                  <a 
-                    href={link.href}
-                    className="text-sm text-secondary-foreground/80 hover:text-foreground transition-smooth"
-                  >
-                    {link.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
+          <div className={styles.col}>
+            <h4 className={styles.colHead}>Developers</h4>
+            <nav>
+              <Link to="/developers/quickstart" className={styles.footLink}>Quickstart</Link>
+              <Link to="/developers/sdk" className={styles.footLink}>SDK</Link>
+              <Link to="/developers/oidc" className={styles.footLink}>OIDC reference</Link>
+              <a href="https://github.com/puzed/darkauth/tree/main/packages/demo-app" className={styles.footLink} target="_blank" rel="noopener noreferrer">Demo app</a>
+            </nav>
           </div>
-
-          {/* Developer Links */}
-          <div>
-            <h3 className="font-semibold text-foreground mb-4">Developers</h3>
-            <ul className="space-y-3">
-              {links.developers.map((link, index) => (
-                <li key={index}>
-                  <a 
-                    href={link.href}
-                    className="text-sm text-secondary-foreground/80 hover:text-foreground transition-smooth flex items-center"
-                  >
-                    {link.name}
-                    {link.href.startsWith('http') && (
-                      <ExternalLink className="ml-1 h-3 w-3" />
-                    )}
-                  </a>
-                </li>
-              ))}
-            </ul>
+          <div className={styles.col}>
+            <h4 className={styles.colHead}>Project</h4>
+            <nav>
+              <Link to="/open-source" className={styles.footLink}>Open source</Link>
+              <a href="https://github.com/puzed/darkauth/blob/main/LICENSE" className={styles.footLink} target="_blank" rel="noopener noreferrer">License (AGPL-3.0)</a>
+              <a href="https://release.darkauth.com/changelog.json" className={styles.footLink} target="_blank" rel="noopener noreferrer">Changelog</a>
+              <a href="https://github.com/puzed/darkauth" className={styles.footLink} target="_blank" rel="noopener noreferrer">GitHub</a>
+            </nav>
           </div>
-
-          {/* Company & Legal */}
-          <div className="space-y-8">
-            <div>
-              <h3 className="font-semibold text-foreground mb-4">Company</h3>
-              <ul className="space-y-3">
-                {links.company.map((link, index) => (
-                  <li key={index}>
-                    <a 
-                      href={link.href}
-                      className="text-sm text-secondary-foreground/80 hover:text-foreground transition-smooth"
-                    >
-                      {link.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold text-foreground mb-4">Legal</h3>
-              <ul className="space-y-3">
-                {links.legal.map((link, index) => (
-                  <li key={index}>
-                    <a 
-                      href={link.href}
-                      className="text-sm text-secondary-foreground/80 hover:text-foreground transition-smooth"
-                    >
-                      {link.name}
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className={styles.col}>
+            <h4 className={styles.colHead}>Resources</h4>
+            <nav>
+              <Link to="/security/whitepaper" className={styles.footLink}>Security whitepaper</Link>
+              <Link to="/security/zero-knowledge" className={styles.footLink}>ZK extension</Link>
+              <Link to="/screenshots" className={styles.footLink}>Screenshots</Link>
+              <a href="https://github.com/puzed/darkauth/tree/main/docs" className={styles.footLink} target="_blank" rel="noopener noreferrer">Docs</a>
+              <a href="https://github.com/puzed/darkauth/security" className={styles.footLink} target="_blank" rel="noopener noreferrer">Security contact</a>
+            </nav>
           </div>
         </div>
-
-        
-        <div className="border-t border-secondary-foreground/20 pt-8 mb-8">
-          <div className="text-center">
-            <p className="text-sm text-secondary-foreground/60 mb-4">Project Info</p>
-            <div className="flex flex-wrap justify-center gap-4">
-              <Badge variant="outline" className="border-primary/30 text-primary/80">Open Source</Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">AGPL-3.0</Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">Self-hosted</Badge>
-              <Badge variant="outline" className="border-primary/30 text-primary/80">Docker Image</Badge>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom Section */}
-        <div className="border-t border-secondary-foreground/20 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-            <div className="text-sm text-secondary-foreground/60">
-              © {currentYear} DarkAuth. All rights reserved. 
-              <span className="ml-2">Your Password Never Leaves Your Device</span>
-            </div>
-            <div className="flex items-center gap-6 text-sm text-secondary-foreground/60">
-              <span>Zero-Knowledge Security</span>
-              <span>Open Source</span>
-              <span>Docker Available</span>
-            </div>
-          </div>
+        <div className={styles.bottom}>
+          <p className={styles.bottomText}>
+            DarkAuth is open source under <strong>AGPL-3.0</strong>. Self-host it forever, free.
+          </p>
+          <code className={styles.dockerPull}>
+            docker pull ghcr.io/puzed/darkauth:latest
+          </code>
         </div>
       </div>
     </footer>
   );
-};
-
-export default Footer;
+}

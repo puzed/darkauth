@@ -6,8 +6,6 @@ const ProblemSolution = () => {
     <section className="py-20 bg-background">
       <div className="container max-w-7xl">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          
-          {/* Problem Side */}
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <AlertTriangle className="h-8 w-8 text-destructive" />
@@ -49,7 +47,6 @@ const ProblemSolution = () => {
             </Card>
           </div>
 
-          {/* Solution Side */}
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
               <Shield className="h-8 w-8 text-primary" />
@@ -92,9 +89,8 @@ const ProblemSolution = () => {
           </div>
         </div>
 
-        {/* Bottom CTA */}
         <div className="mt-16 text-center">
-          <div className="inline-flex items-center space-x-4 bg-gradient-primary p-6 rounded-2xl shadow-glow">
+          <div className="inline-flex items-center space-x-4 bg-primary p-6 rounded-2xl shadow-glow">
             <Shield className="h-8 w-8 text-white" />
             <div className="text-left">
               <p className="text-white font-semibold text-lg">Ready to eliminate password breaches forever?</p>

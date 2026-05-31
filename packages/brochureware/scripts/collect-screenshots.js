@@ -33,7 +33,7 @@ async function collectDir(testResultsDir, outDir) {
     entries = await fs.readdir(testResultsDir, { withFileTypes: true });
   } catch {
     await fs.writeFile(path.join(outDir, "index.json"), JSON.stringify([], null, 2));
-    return;
+    return [];
   }
   const manifest = [];
 
@@ -73,6 +73,7 @@ async function collectDir(testResultsDir, outDir) {
 
   manifest.sort((a, b) => a.scenario.localeCompare(b.scenario) || a.step - b.step);
   await fs.writeFile(path.join(outDir, "index.json"), JSON.stringify(manifest, null, 2));
+  return manifest;
 }
 
 async function exists(p) {
@@ -99,17 +100,29 @@ async function collect() {
   if (!(hasLight && hasDark)) {
     throw new Error("Expected both test-results-light and test-results-dark to exist");
   }
-  await collectDir(lightIn, outLight);
-  await collectDir(darkIn, outDark);
+  const lightManifest = await collectDir(lightIn, outLight);
+  const darkManifest = await collectDir(darkIn, outDark);
 
-  const lightManifest = JSON.parse(await fs.readFile(path.join(outLight, "index.json"), "utf8"));
-  const darkManifest = JSON.parse(await fs.readFile(path.join(outDark, "index.json"), "utf8"));
   if (!Array.isArray(lightManifest) || lightManifest.length === 0) {
     throw new Error("No screenshots found for light theme");
   }
   if (!Array.isArray(darkManifest) || darkManifest.length === 0) {
     throw new Error("No screenshots found for dark theme");
   }
+  await fs.writeFile(
+    path.join(baseOut, "screenshots.json"),
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        themes: {
+          light: lightManifest,
+          dark: darkManifest,
+        },
+      },
+      null,
+      2
+    )
+  );
 }
 
 collect().catch((err) => {

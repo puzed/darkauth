@@ -10,6 +10,7 @@ import {
   ValidationError,
 } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { ensureBrandingDefaults } from "../../services/branding.ts";
 import { generateEdDSAKeyPair, storeKeyPair } from "../../services/jwks.ts";
 import { ensureKekService, generateKdfParams } from "../../services/kek.ts";
 import { isSystemInitialized, markSystemInitialized, setSetting } from "../../services/settings.ts";
@@ -137,6 +138,7 @@ async function _postInstallComplete(
     await setSetting(installCtx, "email.smtp.password", smtpPassword, true);
     await setSetting(installCtx, "email.smtp.enabled", smtpEnabled);
     await setSetting(installCtx, "users.require_email_verification", smtpEnabled);
+    await ensureBrandingDefaults(installCtx);
     await (await import("../../models/install.ts")).writeKdfSetting(installCtx, kdfParams);
 
     context.logger.debug("[install:post] generating signing keys");

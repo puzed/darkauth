@@ -100,7 +100,7 @@ export default function Dashboard() {
     }
     try {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 3000);
+      const timeout = window.setTimeout(() => controller.abort(), 10000);
       try {
         const res = await fetch("https://release.darkauth.com/changelog.json", {
           signal: controller.signal,
@@ -263,7 +263,7 @@ export default function Dashboard() {
       </StatsGrid>
 
       <div style={{ display: "grid", gap: 16, gridTemplateColumns: "2fr 1fr" }}>
-        <Card>
+        <Card data-testid="dashboard-changelog">
           <CardHeader>
             <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center" }}>
               <CardTitle>Changelog</CardTitle>

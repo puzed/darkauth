@@ -1,0 +1,219 @@
+.page {
+  padding: 3rem 0 4rem;
+}
+
+.section {
+  margin-bottom: 3rem;
+  padding-bottom: 3rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1.25rem;
+}
+
+.section p {
+  color: var(--text);
+}
+
+.assumption {
+  margin-bottom: 1rem;
+}
+
+.storeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.storeBox {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+}
+
+.neverHead {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--danger);
+  margin-bottom: 0.75rem;
+}
+
+.isHead {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--text);
+  margin-bottom: 0.75rem;
+}
+
+.storeList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.neverItem,
+.isItem {
+  font-size: 0.875rem;
+  color: var(--text);
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.5;
+}
+
+.neverItem::before {
+  content: "✗";
+  position: absolute;
+  left: 0;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+.isItem::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--text);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.6rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.table td {
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover td {
+  background: var(--card-hover);
+}
+
+.inScope {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: rgba(31, 184, 90, 0.15);
+  color: var(--success);
+  white-space: nowrap;
+}
+
+.outScope {
+  display: inline-block;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--secondary-dim);
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.bulletList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.bulletList li {
+  padding-left: 1.5rem;
+  position: relative;
+  font-size: 0.9rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.bulletList li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--primary-light);
+}
+
+.ctaRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.btnPrimary:hover {
+  background: var(--primary-light);
+  color: #fff;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.btnSecondary:hover {
+  color: var(--text);
+  border-color: var(--border-light);
+}
+
+@media (max-width: 640px) {
+  .storeGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .table {
+    font-size: 0.8rem;
+  }
+}

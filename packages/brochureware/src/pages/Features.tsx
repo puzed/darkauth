@@ -1,195 +1,87 @@
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Check, Shield, Lock, KeyRound, Hash, RefreshCcw, Users, Settings, BookOpenCheck, ServerCog, MailCheck } from "lucide-react";
+import { Link } from "react-router-dom";
+import Layout from "../components/Layout";
+import PageHero from "../components/PageHero";
+import styles from "./Features.module.css";
 
-type Feature = {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  bullets: string[];
-  tags?: string[];
-};
-
-const features: Feature[] = [
+const FEATURES = [
   {
-    icon: Shield,
-    title: "OPAQUE Authentication (Users & Admins)",
-    bullets: [
-      "Password never leaves the device (RFC 9380)",
-      "Login start/finish endpoints for users and admins",
-      "Identity binding on finish and rate limits",
-    ],
-    tags: ["OPAQUE", "P-256"],
+    title: "Zero-knowledge passwords",
+    sub: "OPAQUE",
+    desc: "Passwords are verified without ever being sent to the server. Database breaches can't expose what was never stored.",
+    to: "/features/zero-knowledge-passwords",
   },
   {
-    icon: BookOpenCheck,
-    title: "OIDC Provider (Authorization Code + PKCE)",
-    bullets: [
-      "Discovery and JWKS endpoints",
-      "Authorization and Token endpoints with S256 PKCE",
-      "ID Token signed with EdDSA",
-    ],
-    tags: ["OIDC", "PKCE S256", "EdDSA"],
+    title: "Zero-knowledge key delivery",
+    sub: "DRK / fragment JWE",
+    desc: "Give your app an encryption key the server can't read. Build genuinely end-to-end encrypted apps on top of a normal-feeling login.",
+    to: "/features/zero-knowledge-keys",
   },
   {
-    icon: Lock,
-    title: "TOTP MFA (Users & Admins)",
-    bullets: [
-      "Setup and verify with backup codes",
-      "Per-organization enforcement with rate limits",
-      "AMR includes otp; ACR indicates MFA",
-    ],
-    tags: ["OTP", "TOTP", "MFA"],
+    title: "OpenID Connect",
+    sub: "OAuth 2.0 / PKCE / EdDSA",
+    desc: "Standard OAuth 2.0 / OIDC with PKCE, discovery, JWKS, and EdDSA-signed ID tokens. No proprietary SDK required.",
+    to: "/features/oidc",
   },
   {
-    icon: MailCheck,
-    title: "Email Password Reset",
-    bullets: [
-      "SMTP-gated forgot-password flow",
-      "HMAC-hashed one-time reset tokens",
-      "Session and pending grant revocation after reset",
-    ],
-    tags: ["Recovery", "SMTP", "OPAQUE"],
+    title: "Multi-factor auth",
+    sub: "TOTP",
+    desc: "Authenticator-app MFA with backup codes, anti-replay, per-org enforcement, and encrypted secrets at rest.",
+    to: "/features/mfa",
   },
   {
-    icon: Lock,
-    title: "Zero‑Knowledge DRK Delivery",
-    bullets: [
-      "Client unwraps DRK using device‑derived keys",
-      "Fragment‑only compact JWE to ZK‑enabled apps",
-      "Token returns zk_drk_hash for verification",
-    ],
-    tags: ["ECDH‑ES", "A256GCM", "Fragment"],
+    title: "Organizations & RBAC",
+    sub: "Multi-org / roles / permissions",
+    desc: "Multi-org membership, roles, and fine-grained permissions resolved in org context and surfaced in ID tokens.",
+    to: "/features/organizations-rbac",
   },
   {
-    icon: KeyRound,
-    title: "Crypto Endpoints",
-    bullets: [
-      "GET/PUT wrapped DRK",
-      "PUT user encryption public key JWK",
-      "GET/PUT wrapped private key for recovery",
-    ],
-    tags: ["/crypto/*"],
+    title: "Federation",
+    sub: "Upstream OIDC / SAML 2.0",
+    desc: "Let users sign in through upstream OIDC or SAML 2.0 providers with claim mapping and account linking.",
+    to: "/features/federation",
   },
   {
-    icon: Users,
-    title: "Users Directory",
-    bullets: [
-      "Search users with published public keys",
-      "Lookup user by subject",
-    ],
-    tags: ["/users/search", "/users/:sub"],
+    title: "SCIM 2.0 provisioning",
+    sub: "Users / Groups",
+    desc: "Provision and deprovision users and groups from your identity provider. Deactivation revokes sessions automatically.",
+    to: "/features/scim",
   },
   {
-    icon: RefreshCcw,
-    title: "SPA Session & Refresh",
-    bullets: [
-      "/session for minimal session info",
-      "/token refresh grant to rotate session tokens",
-    ],
-    tags: ["Bearer", "SPA"],
+    title: "White-label branding",
+    sub: "Colors / logo / copy / CSS",
+    desc: "Match the login and user portal to your brand — colors, logo, typography, all copy, and sanitized custom CSS.",
+    to: "/features/branding",
   },
   {
-    icon: Settings,
-    title: "Admin: Clients, Settings, RBAC",
-    bullets: [
-      "Manage clients, settings, users, roles, permissions, and organizations",
-      "JWKS list and rotate",
-      "OpenAPI served for Admin APIs",
-    ],
-    tags: ["Admin UI", "JWKS", "OpenAPI"],
-  },
-  {
-    icon: ServerCog,
-    title: "Audit Logging",
-    bullets: [
-      "Admin actions logged with actor context",
-      "List, detail, and CSV export endpoints",
-    ],
-    tags: ["Admin API"],
-  },
-  {
-    icon: ServerCog,
-    title: "Install & KEK‑Protected Secrets",
-    bullets: [
-      "One‑time install flow on admin port",
-      "KEK derives from passphrase to encrypt private JWKs and client secrets",
-    ],
-    tags: ["Install", "KEK"],
-  },
-  {
-    icon: ServerCog,
-    title: "Custom Branding",
-    bullets: [
-      "Database‑driven branding delivered via /config.js",
-      "Admin preview with theme sync",
-    ],
-    tags: ["Branding"],
-  },
-  {
-    icon: Hash,
-    title: "Claims: Permissions",
-    bullets: [
-      "ID tokens can include permissions",
-      "Computed from direct and organization role-derived access",
-    ],
-    tags: ["Custom Claims"],
+    title: "Admin console & audit",
+    sub: "Dashboard / logs / key management",
+    desc: "One console to manage users, clients, keys, and a full audit trail with export. Config lives in Postgres.",
+    to: "/features/admin",
   },
 ];
 
-const Section = ({ children }: { children: React.ReactNode }) => (
-  <section className="py-16">
-    <div className="container max-w-4xl">{children}</div>
-  </section>
-);
-
-const FeaturesPage = () => {
+export default function Features() {
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <Section>
-        <div className="text-center mb-10">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-foreground mb-3">Features</h1>
-          <p className="text-lg text-muted-foreground">
-            A compact list of what is implemented today, aligned with OIDC and the zero‑knowledge DRK extension.
-          </p>
-        </div>
-        <div className="space-y-4">
-          {features.map((f, i) => (
-            <Card key={i} className="bg-card border-border/50">
-              <CardContent className="p-6">
-                <div className="flex items-start gap-4">
-                  <f.icon className="h-6 w-6 text-primary mt-1" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <h3 className="text-lg font-semibold text-foreground">{f.title}</h3>
-                      <div className="flex gap-2">
-                        {(f.tags || []).map((t, idx) => (
-                          <Badge key={idx} variant="outline" className="border-primary/30 text-primary/80">
-                            {t}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <ul className="mt-3 space-y-1">
-                      {f.bullets.map((b, bi) => (
-                        <li key={bi} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <Check className="h-4 w-4 text-primary mt-0.5" />
-                          <span>{b}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+    <Layout>
+      <PageHero
+        eyebrow="Features"
+        title="Everything you need to authenticate users — and protect their data."
+        sub="Each card is a doorway to a deep-dive. Pick the feature you care about."
+      />
+      <div className="container">
+        <div className={styles.grid}>
+          {FEATURES.map((f) => (
+            <Link key={f.to} to={f.to} className={styles.card}>
+              <div className={styles.cardHeader}>
+                <h3 className={styles.cardTitle}>{f.title}</h3>
+                <span className={styles.cardSub}>{f.sub}</span>
+              </div>
+              <p className={styles.cardDesc}>{f.desc}</p>
+              <span className={styles.cardArrow}>Learn more →</span>
+            </Link>
           ))}
         </div>
-      </Section>
-      <Footer />
-    </div>
+      </div>
+    </Layout>
   );
-};
-
-export default FeaturesPage;
+}

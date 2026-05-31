@@ -341,8 +341,6 @@ export function createUserRouter(context: Context) {
         );
         const cssVarsLight: Record<string, string> = {
           "--da-color-page": lightBg,
-          "--da-color-page-gradient-start": lightBg,
-          "--da-color-page-gradient-end": String(c.backgroundGradientEnd || lightBg),
           "--da-color-brand": lightBrand,
           "--da-color-action": lightPrimaryBg,
           "--da-color-action-hover": lightPrimaryHover,
@@ -375,9 +373,6 @@ export function createUserRouter(context: Context) {
           "--da-radius-lg": "0.75rem",
           "--da-radius-full": "999px",
           "--da-page-bg": lightBg,
-          "--da-bg-gradient-start": lightBg,
-          "--da-bg-gradient-end": String(c.backgroundGradientEnd || lightBg),
-          "--da-bg-angle": String(c.backgroundAngle || "135deg"),
           "--da-primary": lightBrand,
           "--da-primary-hover": lightPrimaryHover,
           "--da-primary-light": lightPrimaryLight,
@@ -420,8 +415,6 @@ export function createUserRouter(context: Context) {
         };
         const cssVarsDark: Record<string, string> = {
           "--da-color-page": darkBg,
-          "--da-color-page-gradient-start": darkBg,
-          "--da-color-page-gradient-end": String(cd.backgroundGradientEnd || darkBg),
           "--da-color-brand": darkBrand,
           "--da-color-action": darkPrimaryBg,
           "--da-color-action-hover": darkPrimaryHover,
@@ -454,9 +447,6 @@ export function createUserRouter(context: Context) {
           "--da-radius-lg": "0.75rem",
           "--da-radius-full": "999px",
           "--da-page-bg": darkBg,
-          "--da-bg-gradient-start": darkBg,
-          "--da-bg-gradient-end": String(cd.backgroundGradientEnd || darkBg),
-          "--da-bg-angle": String(cd.backgroundAngle || "135deg"),
           "--da-primary": darkBrand,
           "--da-primary-hover": darkPrimaryHover,
           "--da-primary-light": darkPrimaryLight,
@@ -504,7 +494,7 @@ export function createUserRouter(context: Context) {
           .map(([k, v]) => `${k}:${v}`)
           .join(";")}}\n`;
         const bodyBlock =
-          "body{background:linear-gradient(var(--da-bg-angle), var(--da-bg-gradient-start) 0%, var(--da-bg-gradient-end) 100%) !important;color:var(--da-text) !important;font-family:var(--da-font-family) !important;font-size:var(--da-font-size) !important;} .container{background:var(--da-card-bg) !important; box-shadow: 0 20px 40px var(--da-card-shadow) !important;} .da-form-input, .form-group input{background:var(--da-input-bg) !important; border-color:var(--da-input-border) !important; color:var(--da-text) !important;} .da-button-primary, .primary-button{background-color:var(--da-primary) !important;} .da-button-primary:hover, .primary-button:hover{background-color:var(--da-primary-hover) !important;}\n";
+          "body{background:var(--da-page-bg) !important;color:var(--da-text) !important;font-family:var(--da-font-family) !important;font-size:var(--da-font-size) !important;} .container{background:var(--da-card-bg) !important; box-shadow: 0 20px 40px var(--da-card-shadow) !important;} .da-form-input, .form-group input{background:var(--da-input-bg) !important; border-color:var(--da-input-border) !important; color:var(--da-text) !important;} .da-button-primary, .primary-button{background-color:var(--da-primary) !important;} .da-button-primary:hover, .primary-button:hover{background-color:var(--da-primary-hover) !important;}\n";
         const sanitized = sanitizeCSS((custom as string) || "");
         const out = varBlock + bodyBlock + sanitized;
         response.statusCode = 200;
@@ -925,7 +915,7 @@ export function createUserRouter(context: Context) {
   };
 }
 
-function getDefaultLogoSvg(color: string): string {
+export function getDefaultLogoSvg(color: string): string {
   return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg width="100%" height="100%" viewBox="0 0 874 874" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:serif="http://www.serif.com/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;">

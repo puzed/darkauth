@@ -1,0 +1,143 @@
+.diagram {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  padding: 1.25rem;
+  overflow-x: auto;
+  box-shadow: var(--shadow-card);
+}
+
+.lanes {
+  min-width: 720px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 0 1rem 1rem;
+  color: var(--text);
+  font-weight: 800;
+  font-size: 1rem;
+}
+
+.steps {
+  min-width: 720px;
+  position: relative;
+  display: grid;
+  gap: 0.85rem;
+  padding: 0 1rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 10px 1fr 10px;
+  align-items: center;
+  column-gap: 0.75rem;
+}
+
+.leftAnchor,
+.rightAnchor {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--primary-light);
+  border-radius: 999px;
+  background: var(--card);
+}
+
+.connector {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.line {
+  height: 2px;
+  flex: 1;
+  background: var(--border-light);
+}
+
+.arrow {
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+
+.right .arrow {
+  border-left: 8px solid var(--primary-light);
+}
+
+.left .connector {
+  transform: rotate(180deg);
+}
+
+.left .arrow {
+  border-left: 8px solid var(--primary-light);
+}
+
+.local .connector {
+  opacity: 0;
+}
+
+.local .leftAnchor,
+.local .rightAnchor {
+  border-color: var(--secondary);
+}
+
+.content {
+  grid-column: 1 / -1;
+  padding: 0.55rem 0.75rem;
+  margin: 0.1rem 0 0.2rem;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.label {
+  display: block;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  margin-top: 0.15rem;
+}
+
+@media (max-width: 640px) {
+  .diagram {
+    padding: 1rem;
+    overflow-x: visible;
+  }
+
+  .lanes,
+  .steps {
+    min-width: 0;
+  }
+
+  .lanes {
+    display: none;
+  }
+
+  .step {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.85rem;
+    background: var(--bg-alt);
+  }
+
+  .leftAnchor,
+  .rightAnchor,
+  .connector {
+    display: none;
+  }
+
+  .content {
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+  }
+}

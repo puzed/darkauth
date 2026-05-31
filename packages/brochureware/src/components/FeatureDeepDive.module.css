@@ -1,0 +1,94 @@
+.page {
+  padding: 3rem 0 4rem;
+  max-width: 920px;
+}
+
+.section {
+  margin-bottom: 2.75rem;
+}
+
+.section h2 {
+  font-size: 1.35rem;
+  margin-bottom: 1rem;
+  color: var(--text);
+}
+
+.section p {
+  color: var(--text-muted);
+  max-width: 78ch;
+}
+
+.section p + p {
+  margin-top: 0.9rem;
+}
+
+.definition {
+  font-size: 1.05rem;
+  color: var(--text);
+  line-height: 1.6;
+  padding: 1.25rem 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--primary);
+  border-radius: var(--radius);
+  margin-bottom: 2rem;
+  max-width: 82ch;
+}
+
+.detailList {
+  list-style: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detailList li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  font-size: 1rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+  max-width: 78ch;
+}
+
+.detailList li::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-top: 0.6rem;
+  border-radius: 50%;
+  background: var(--primary-light);
+  flex-shrink: 0;
+}
+
+.caveat {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--secondary);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  max-width: 82ch;
+}
+
+.caveat strong {
+  color: var(--text);
+}
+
+.caveat p + p {
+  margin-top: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 2.25rem 0 3rem;
+  }
+
+  .definition,
+  .caveat {
+    padding: 1rem;
+  }
+}
