@@ -87,11 +87,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: Build release screenshots
-        run: |
-          npm --workspace @DarkAuth/test-suite run pretest
-          cd packages/test-suite
-          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light
-          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark
+        run: npm --workspace @DarkAuth/test-suite run test:screenshots
       - name: Deploy release screenshots
         env:
           RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}

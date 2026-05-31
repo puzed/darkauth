@@ -10,9 +10,35 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  deploy-release-screenshots:
+    name: Deploy Release Screenshots
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - run: npm ci
+      - name: Resolve screenshot metadata
+        run: |
+          echo "APP_VERSION=$(git describe --tags --abbrev=0 2>/dev/null || printf 1.0.0)" >> "$GITHUB_ENV"
+          echo "COMMIT_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+      - name: Build release screenshots
+        env:
+          PW_BROWSER_CHANNEL: chrome
+        run: npm --workspace @DarkAuth/test-suite run test:screenshots
+      - name: Deploy release screenshots
+        env:
+          RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
+          RELEASE_DEPLOY_ACCESS_KEY: ${{ secrets.RELEASE_DEPLOY_ACCESS_KEY }}
+        run: node scripts/deploy-release-screenshots.mjs
   deploy-brochureware:
     name: Deploy Brochureware
     runs-on: ubuntu-latest
+    needs: deploy-release-screenshots
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
