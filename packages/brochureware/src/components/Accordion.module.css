@@ -1,0 +1,61 @@
+.accordion {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 1.25rem;
+  background: var(--card);
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+  gap: 0.75rem;
+}
+
+.header:hover {
+  background: var(--card-hover);
+}
+
+.label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  flex: 1;
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: var(--primary-dim);
+  color: var(--primary-light);
+  flex-shrink: 0;
+}
+
+.chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-dim);
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+
+.chevron.open {
+  transform: rotate(180deg);
+}
+
+.content {
+  padding: 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-alt);
+}

@@ -1,71 +1,117 @@
-import { Button } from "@/components/ui/button";
-import ThemeToggle from "@/components/ThemeToggle";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import styles from "./Header.module.css";
 
-const Header = () => {
+const NAV_LINKS = [
+  { label: "Features", to: "/features" },
+  { label: "How it works", to: "/how-it-works" },
+  { label: "Security", to: "/security" },
+  { label: "Developers", to: "/developers" },
+  { label: "Open Source", to: "/open-source" },
+];
+
+const GithubIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+    <path d="M12 0C5.37 0 0 5.373 0 12c0 5.303 3.438 9.8 8.205 11.387.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 21.795 24 17.298 24 12c0-6.627-5.373-12-12-12z" />
+  </svg>
+);
+
+const LogoMark = () => (
+  <svg width="28" height="28" viewBox="0 0 874 874" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <g transform="matrix(1,0,0,1,91,0)">
+      <path d="M271.82,117.74C319.37,98.76 374.07,98.81 421.82,117.11C457.72,131.19 489.81,155.16 513.12,185.9C535.81,215.21 549.33,251.2 552.63,288.04C553.81,310.01 552.3,332.03 553.09,354.02C552.82,357.63 557.88,357.45 560,358.12C581.67,362.57 602.58,374.3 614.92,393.05C626.53,408.44 630.61,428.07 630.99,446.98C631.25,472.55 630.95,498.13 630.51,523.71C621.99,517.55 616.01,508.7 608.7,501.3C606.1,498.29 602.69,495.55 601.61,491.56C599.69,471.66 602.38,451.59 600.18,431.71C597.1,414.47 585.32,398.75 569.19,391.68C559.07,387.34 547.83,387.09 537.01,386.98C410.34,387 283.66,387.04 156.99,386.96C146.46,387.32 135.22,386.51 125.5,391.36C111.82,397.13 100.96,409.06 96.11,423.03C90.21,442.77 94.17,463.8 93.07,484.05C94.48,491.01 89.22,496.27 85.03,501.02C77.73,508.15 70.9,515.76 63.38,522.67C62.64,497.45 63.12,472.22 62.93,446.99C62.15,426.67 68.08,405.88 80.83,389.86C95.13,370.94 117.76,360.23 140.76,356.53C140.14,332.69 139.4,308.81 141.31,285C149.31,210.73 202.72,144.76 271.82,117.74Z" fill="#6600CC" />
+      <path d="M285.55,415.47C290.99,413.09 297.7,410.58 303.46,413.39C310.84,416.36 314.57,424.42 316.3,431.7C318.07,437.5 316.32,444.62 310.88,447.83C280,470.73 251.16,496.19 221.14,520.17C214.72,526.03 206.08,530.91 204.09,540.15C208.42,542.47 213.93,543.66 217.92,539.94C249.05,514.41 280,488.63 311.31,463.32C316.33,459.63 323.03,459.62 328.98,460.03C339.71,463.68 347.97,475.21 344.62,486.8C342.29,494.74 336.12,500.75 329.99,505.99C316.17,517.16 302.14,528.07 288.63,539.62C271.79,553.25 254.32,566.17 238.56,581.07C240.16,583.66 241.8,586.23 243.43,588.8C255.26,585.7 263.67,576.26 273.02,569.02C287.41,557.47 300.91,544.86 315.3,533.31C320.37,528.82 327.29,527.13 333.99,527.96C341.44,529.86 345.97,537.82 344.14,545.19C341.25,557.17 331.05,565.37 322.74,573.73C304.17,589.85 285.33,605.66 266.64,621.64C249.65,636.58 232.5,652.21 211.53,661.37C196.48,667.38 178.746,665.629 164.57,673.38C148.287,682.283 119.1,705.3 113.83,714.79C110.69,721.54 109.83,729.96 113.34,736.73C119.88,750.82 133.23,759.9 146.98,766.05C159.56,771.5 173.24,774.4 186.98,774.02C291.99,774.03 397,773.9 502.01,774.08C524.26,774.84 546.87,768.13 564.58,754.53C570.66,749.93 575.86,744.01 579.23,737.15C583.49,726.9 580.09,714.41 572.97,707.03C562.565,696.245 535.06,676.55 516.8,672.44C491.15,667.69 467.41,655.22 447.59,638.43C419.75,614.98 390.82,592.7 364.72,567.28C357.04,559.19 347.12,549.77 349.47,537.48C353.65,526.51 368.72,524.77 376.9,532.15C390.7,542.52 403.37,554.35 416.65,565.38C426.3,573.11 435.16,582 446.23,587.79C450.7,588.71 452.97,584.64 455.65,582.09C446.01,571.05 433.74,562.85 422.71,553.32C408.62,541.71 394.47,530.17 380.31,518.66C369.28,509.6 355.59,502.02 349.88,488.19C343.94,473.9 358.01,457.14 373.01,459.9C378.31,459.79 382.52,463.55 386.53,466.48C415.48,489.43 443.39,513.65 471.85,537.19C475.25,539.79 479.4,544.19 484.17,542.31C487.52,541.48 488.64,536.89 486.81,534.21C483.9,529.54 479.33,526.29 475.24,522.75C444.24,497.34 413.95,471.02 381.56,447.37C373.3,440.85 375.57,428.56 381.2,421.13C384.54,414.99 391.73,411.57 398.62,412.56C405.35,413.79 411.32,417.36 416.99,421.01C432.94,432.15 447.06,445.58 462.06,457.92C478.32,471.32 494.34,484.99 510.43,498.59C516.83,504.08 523.07,510.23 531.21,513.09C532.43,510.14 534.75,507.49 535.01,504.22C529.58,496.95 522.41,491.27 515.62,485.35C501.7,472.57 487.46,460.13 473.01,447.96C467.47,443.38 461.5,435.99 464.13,428.3C465.23,423.17 468.95,418.2 474.43,417.46C485.98,414.97 495.42,423.71 503.92,430.1C533.78,453.99 562.68,479.2 589.14,506.85C608.63,528.37 627.18,551.67 638.07,578.84C645.92,598.24 650.84,619.01 651.02,640C650.68,687.89 628.25,734.85 591.97,765.96C567.93,785.59 537.61,799.51 506.01,798.08C399.34,797.95 292.67,797.95 186,798.07C158.06,799.49 130.96,788.24 108.37,772.55C60.26,737.09 33.25,674.23 42.92,614.95C49.05,579.38 68.58,547.74 91.59,520.56C121,486.9 155.24,457.94 189.96,429.95C198.44,423.67 207.93,414.99 219.42,417.45C230.7,420.19 232.55,437.06 224.11,444.11C203.98,461.63 183.81,479.14 163.91,496.94C161.31,500.17 156.49,503 156.96,507.77C158.26,508.85 160.86,511.02 162.16,512.11C166.23,512.03 169.17,508.55 172.39,506.44C196.72,485.71 221.37,465.33 246.25,445.26C258.94,434.82 271.12,423.53 285.55,415.47Z" fill="#6600CC" />
+      <path d="M309.14,638.07C320.1,617.56 349.23,609.73 368.94,622.13C386.77,630.88 394.28,654.06 387.24,672.16C382.94,681.97 374.4,689.2 365.07,694.1C365.03,704.35 365.51,714.63 364.65,724.87C361.3,740.09 337.58,743.01 330.39,729.51C325.43,718.77 329.9,706.18 327.86,694.95C319.72,688.15 309.9,682.14 306.35,671.49C303.25,660.65 302.52,647.79 309.14,638.07Z" fill="#6600CC" />
+    </g>
+  </svg>
+);
+
+export default function Header() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 max-w-7xl items-center justify-between">
-        <a href="/" className="flex items-center space-x-3">
-          <img src="/favicon.svg" alt="DarkAuth Logo" className="h-10 w-10 dark:brightness-[100]" />
-          <div className="flex flex-col">
-            <span className="text-xl font-bold text-foreground">DarkAuth</span>
-            <span className="text-xs text-muted-foreground">Zero-Knowledge Auth</span>
-          </div>
-        </a>
+    <header className={styles.header}>
+      <div className={`container ${styles.inner}`}>
+        <Link to="/" className={styles.logo} onClick={() => setMenuOpen(false)}>
+          <LogoMark />
+          <span className={styles.logoWord}>DarkAuth</span>
+        </Link>
 
-        <nav className="hidden md:flex items-center space-x-6 text-sm font-medium">
-          <a href="/features" className="transition-smooth hover:text-primary">Features</a>
-          <a href="/how-it-works" className="transition-smooth hover:text-primary">How It Works</a>
-          <a href="/security" className="transition-smooth hover:text-primary">Security</a>
-          <a href="https://docs.darkauth.com" className="transition-smooth hover:text-primary">Docs</a>
-          
-          <a href="/screenshots" className="transition-smooth hover:text-primary">Screenshots</a>
-          <a href="/changelog" className="transition-smooth hover:text-primary">Changelog</a>
+        <nav className={styles.nav} aria-label="Main navigation">
+          {NAV_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className={`${styles.navLink}${pathname.startsWith(link.to) ? ` ${styles.active}` : ""}`}
+            >
+              {link.label}
+            </Link>
+          ))}
         </nav>
 
-        <div className="flex items-center space-x-3">
-          <ThemeToggle />
-          <a href="https://github.com/puzed/" target="_blank" rel="noreferrer">
-            <Button variant="ghost" size="sm" className="hidden cursor-pointer md:inline-flex">
-              GitHub
-            </Button>
+        <div className={styles.actions}>
+          <a
+            href="https://github.com/puzed/darkauth"
+            className={styles.btnGhost}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="View DarkAuth on GitHub"
+          >
+            <GithubIcon />
+            <span>GitHub</span>
           </a>
-          <a href="/#docs">
-            <Button variant="hero" size="sm" className="hidden cursor-pointer md:inline-flex">
-              Run with Docker
-            </Button>
-          </a>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="md:hidden" aria-label="Open menu">
-                <Menu className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-full sm:max-w-sm">
-              <div className="px-1 py-2 space-y-2">
-                <a href="/features" className="block px-2 py-2 rounded-md hover:bg-muted">Features</a>
-                <a href="/how-it-works" className="block px-2 py-2 rounded-md hover:bg-muted">How It Works</a>
-                <a href="/security" className="block px-2 py-2 rounded-md hover:bg-muted">Security</a>
-                <a href="https://docs.darkauth.com" className="block px-2 py-2 rounded-md hover:bg-muted">Docs</a>
-                <a href="/screenshots" className="block px-2 py-2 rounded-md hover:bg-muted">Screenshots</a>
-                <a href="/changelog" className="block px-2 py-2 rounded-md hover:bg-muted">Changelog</a>
-                <div className="pt-3 flex gap-2">
-                  <a href="https://github.com/puzed/" target="_blank" rel="noreferrer" className="flex-1">
-                    <Button variant="ghost" className="w-full cursor-pointer">GitHub</Button>
-                  </a>
-                  <a href="/#docs" className="flex-1">
-                    <Button variant="hero" className="w-full cursor-pointer">Run with Docker</Button>
-                  </a>
-                </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+          <Link to="/developers/quickstart" className={styles.btnPrimary}>
+            Get Started
+          </Link>
         </div>
+
+        <button
+          className={styles.menuBtn}
+          onClick={() => setMenuOpen((o) => !o)}
+          aria-expanded={menuOpen}
+          aria-label="Toggle navigation menu"
+        >
+          <span className={styles.menuLine} />
+          <span className={styles.menuLine} />
+          <span className={styles.menuLine} />
+        </button>
       </div>
+
+      <nav
+        className={`${styles.drawer}${menuOpen ? ` ${styles.open}` : ""}`}
+        aria-label="Mobile navigation"
+      >
+        {NAV_LINKS.map((link) => (
+          <Link
+            key={link.to}
+            to={link.to}
+            className={styles.drawerLink}
+            onClick={() => setMenuOpen(false)}
+          >
+            {link.label}
+          </Link>
+        ))}
+        <div className={styles.drawerActions}>
+          <a
+            href="https://github.com/puzed/darkauth"
+            className={styles.btnGhost}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMenuOpen(false)}
+          >
+            <GithubIcon />
+            GitHub
+          </a>
+          <Link
+            to="/developers/quickstart"
+            className={styles.btnPrimary}
+            onClick={() => setMenuOpen(false)}
+          >
+            Get Started
+          </Link>
+        </div>
+      </nav>
     </header>
   );
-};
-
-export default Header;
+}

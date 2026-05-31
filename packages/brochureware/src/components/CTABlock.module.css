@@ -1,0 +1,74 @@
+.block {
+  background: var(--primary-dim);
+  border: 1px solid rgba(102, 0, 204, 0.3);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  margin: 2rem 0;
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.desc {
+  font-size: 0.95rem;
+  margin-bottom: 1.25rem;
+}
+
+.code {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+  color: var(--secondary);
+  display: block;
+  margin-bottom: 1.25rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--primary);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: background var(--transition), box-shadow var(--transition);
+}
+
+.btnPrimary:hover {
+  background: var(--primary-light);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(102, 0, 204, 0.4);
+}
+
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.6rem 1.25rem;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  transition: color var(--transition), border-color var(--transition);
+}
+
+.btnGhost:hover {
+  color: var(--text);
+  border-color: var(--border-light);
+}

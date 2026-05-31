@@ -1,0 +1,161 @@
+.layout {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 3rem;
+  padding: 3rem 0 4rem;
+  align-items: start;
+}
+
+/* TOC */
+.toc {
+  position: sticky;
+  top: 80px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+}
+
+.tocHead {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.toc nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.tocLink {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius);
+  transition: color var(--transition), background var(--transition);
+  line-height: 1.4;
+}
+
+.tocLink:hover {
+  color: var(--text);
+  background: var(--primary-dim);
+}
+
+/* Article */
+.article {
+  min-width: 0;
+}
+
+.abstract {
+  background: var(--card);
+  border-left: 3px solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1.25rem 1.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 2.5rem;
+}
+
+.section {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: 80px;
+}
+
+.section:last-of-type {
+  border-bottom: none;
+}
+
+.section h2 {
+  font-size: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.section h3 {
+  font-size: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 0.625rem;
+  color: var(--text);
+}
+
+.section p {
+  font-size: 0.9rem;
+  margin-bottom: 0.75rem;
+}
+
+.section ul,
+.section ol {
+  padding-left: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.section li {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+/* ELI5 callout */
+.eli5 {
+  background: var(--secondary-dim);
+  border: 1px solid rgba(242, 177, 13, 0.25);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.eli5 strong {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--secondary);
+  margin-bottom: 0.5rem;
+}
+
+.eli5 ul {
+  list-style: disc;
+  margin: 0;
+}
+
+/* Glossary */
+.dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dl dt {
+  font-weight: 700;
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  color: var(--secondary);
+  padding-top: 0.1rem;
+}
+
+.dl dd {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .toc {
+    position: static;
+  }
+}

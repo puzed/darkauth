@@ -1,0 +1,25 @@
+.hero {
+  padding: 5rem 0 3.5rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(to bottom, var(--bg-alt), var(--bg));
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--primary-light);
+  margin-bottom: 1rem;
+}
+
+.title {
+  margin-bottom: 1rem;
+}
+
+.sub {
+  font-size: 1.15rem;
+  max-width: 680px;
+  color: var(--text-muted);
+}
