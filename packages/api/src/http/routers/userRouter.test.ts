@@ -176,5 +176,5 @@ test("user router exposes page background CSS variables for branded user pages",
     response.body,
     /@media \(prefers-color-scheme: dark\)\{:root:not\(\[data-da-theme\]\)\{[^}]*--da-page-bg:#0a0b0c/
   );
-  assert.match(response.body, /body\{background:linear-gradient\(var\(--da-bg-angle\)/);
+  assert.match(response.body, /body\{background:var\(--da-page-bg\)/);
 });

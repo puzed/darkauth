@@ -39,10 +39,6 @@
   object-fit: contain;
 }
 
-:global(.dark) .logoIcon {
-  filter: brightness(100);
-}
-
 .logoRow h2 {
   font-size: 18px;
   font-weight: 600;

@@ -7,6 +7,11 @@ import {
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { clients } from "../db/schema.ts";
+import {
+  getAdminBrandingConfig,
+  getAdminBrandingCss,
+  getAdminBrandingLogoSvg,
+} from "../services/adminBranding.ts";
 import { sanitizeLoggedError } from "../services/audit.ts";
 import { getBrandingConfig, sanitizeCSS } from "../services/branding.ts";
 import { shouldShowPasswordResetLink } from "../services/passwordReset.ts";
@@ -316,6 +321,7 @@ export async function createUserServer(context: Context) {
 
 export async function createAdminServer(context: Context) {
   const adminRouter = createAdminRouter(context);
+  const brandingRouter = createUserRouter(context);
   const installRouter = createInstallRouter(context);
   const server = createHttpServer(async (request: IncomingMessage, response: ServerResponse) => {
     try {
@@ -338,48 +344,18 @@ export async function createAdminServer(context: Context) {
           ? `http://localhost:${context.config.userPort}`
           : "http://localhost:9080";
         const adminOrigin = `http://localhost:${context.config.adminPort}`;
-        let branding: Awaited<ReturnType<typeof getBrandingConfig>> | null = null;
         try {
           ui =
             ((await getSetting(context, "ui_admin")) as
               | { clientId?: string; redirectUri?: string }
               | undefined) || {};
           issuer = ((await getSetting(context, "issuer")) as string) || issuer;
-          branding = await getBrandingConfig(context);
-        } catch {
-          branding = {
-            identity: { title: "DarkAuth", tagline: "DarkAuth" },
-            logo: { data: null, mimeType: null },
-            logoDark: { data: null, mimeType: null },
-            favicon: { data: null, mimeType: null },
-            faviconDark: { data: null, mimeType: null },
-            colors: {},
-            colorsDark: undefined,
-            wording: {},
-            font: { family: "Inter", size: "16px", weight: {} },
-            customCSS: "",
-          };
-        }
+        } catch {}
         const payload = {
           issuer,
           clientId: ui.clientId || "admin-web",
           redirectUri: ui.redirectUri || `${adminOrigin}/`,
-          branding: {
-            identity: branding?.identity || {
-              name: "DarkAuth",
-              shortName: "DarkAuth",
-            },
-            colors: branding?.colors || {},
-            colorsDark: branding?.colorsDark || undefined,
-            wording: branding?.wording || {},
-            font: branding?.font || { family: "Inter", url: null },
-            customCSS: sanitizeCSS(branding?.customCSS || ""),
-            logoUrl: "/api/branding/logo",
-            logoUrlDark: "/api/branding/logo?dark=1",
-            faviconUrl: branding?.favicon?.data ? "/api/branding/favicon" : null,
-            faviconUrlDark: branding?.faviconDark?.data ? "/api/branding/favicon?dark=1" : null,
-            customCssUrl: "/api/branding/custom.css",
-          },
+          branding: getAdminBrandingConfig(),
         };
         const js = `
           (function(){
@@ -417,6 +393,27 @@ export async function createAdminServer(context: Context) {
         if (pathname.startsWith("/api/")) {
           const apiPath = pathname.slice(4);
           request.url = apiPath + url.search;
+          if (apiPath.startsWith("/admin-branding/")) {
+            const useDark = url.searchParams.get("dark") === "1";
+            if (apiPath === "/admin-branding/logo" || apiPath === "/admin-branding/favicon") {
+              response.statusCode = 200;
+              response.setHeader("Content-Type", "image/svg+xml");
+              response.setHeader("Cache-Control", "public, max-age=86400");
+              response.end(getAdminBrandingLogoSvg(useDark));
+              return;
+            }
+            if (apiPath === "/admin-branding/custom.css") {
+              response.statusCode = 200;
+              response.setHeader("Content-Type", "text/css; charset=utf-8");
+              response.setHeader("Cache-Control", "public, max-age=86400");
+              response.end(getAdminBrandingCss());
+              return;
+            }
+          }
+          if (apiPath.startsWith("/branding/")) {
+            await brandingRouter(request, response);
+            return;
+          }
           if (!initialized) {
             await installRouter(request, response);
             return;

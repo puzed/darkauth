@@ -1,6 +1,7 @@
 import { Menu } from "lucide-react";
 import { useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
+import { getBrandLogoUrl, getBrandTitle } from "@/lib/branding";
 import styles from "./dashboard-layout.module.css";
 
 interface AdminSessionData {
@@ -39,8 +40,12 @@ export function DashboardLayout({ children, adminSession, onLogout }: DashboardL
               <Menu className={styles.menuIcon} />
             </button>
             <div className={styles.headerBrand}>
-              <img src="/favicon.svg" alt="DarkAuth" className={styles.headerLogoIcon} />
-              <span className={styles.headerBrandText}>DarkAuth</span>
+              <img
+                src={getBrandLogoUrl()}
+                alt={getBrandTitle()}
+                className={styles.headerLogoIcon}
+              />
+              <span className={styles.headerBrandText}>{getBrandTitle()}</span>
             </div>
           </div>
           <div className={styles.headerRight} />

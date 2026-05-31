@@ -17,6 +17,7 @@ import {
 import { useEffect, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import SidebarNavGroup, { type SidebarNavItem } from "@/components/navigation/sidebar-nav-group";
+import { getBrandLogoUrl, getBrandTitle } from "@/lib/branding";
 import { getTheme, setTheme } from "@/lib/theme";
 import styles from "./app-sidebar.module.css";
 
@@ -97,9 +98,9 @@ export function AppSidebar({ onClose, adminSession, onLogout }: AppSidebarProps)
         <div className={styles.brand}>
           <div className={styles.logoRow}>
             <div className={styles.logo}>
-              <img src="/favicon.svg" alt="DarkAuth" className={styles.logoIcon} />
+              <img src={getBrandLogoUrl()} alt={getBrandTitle()} className={styles.logoIcon} />
             </div>
-            <h2>DarkAuth</h2>
+            <h2>{getBrandTitle()}</h2>
           </div>
           <p className={styles.brandSubtitle}>
             {currentAppVersion ? (
