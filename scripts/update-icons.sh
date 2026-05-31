@@ -5,6 +5,7 @@ SRC_DIR="logos/generated"
 DEST_DIRS=(
   "packages/admin-ui/public"
   "packages/user-ui/public"
+  "packages/brochureware/public"
 )
 
 if [ ! -d "$SRC_DIR" ]; then
@@ -20,5 +21,8 @@ for dest in "${DEST_DIRS[@]}"; do
   rm -rf "$dest/icons"
   mkdir -p "$dest/icons"
   cp -R "$SRC_DIR/icons/." "$dest/icons/"
+  if [ "$dest" = "packages/brochureware/public" ]; then
+    cp -f "$SRC_DIR/favicon.svg" "$dest/icon.svg"
+  fi
   echo "Updated icons in $dest"
 done
