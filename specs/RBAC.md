@@ -64,7 +64,7 @@ OTP enforcement is organization-level, not role-level.
 - Every organization has `force_otp` (boolean).
 - `force_otp` default is `false` for all organizations.
 - If `force_otp = true`, every active member of that organization must complete OTP.
-- The `default` organization may enable `force_otp`, but it is not enabled automatically unless explicitly set.
+- Any organization may enable `force_otp`, but it is never enabled automatically unless explicitly set. No organization (including any legacy `default` organization) has special `force_otp` behavior.
 - The `otp_required` role is not part of this model.
 
 ## Relationships
@@ -99,8 +99,13 @@ many-to-many via `organization_member_roles`.
 - `key` `text` unique
 - `name` `text` not null
 - `description` `text` nullable
-- `system` `boolean` default false
+- `system` `boolean` default false (instance-managed/protected; not the org-admin assignability gate)
+- `assignable` `boolean` not null default false (organization admins may assign this role)
+- `default_member` `boolean` not null default false (auto-assigned to members joining an organization)
+- `default_creator` `boolean` not null default false (auto-assigned to organization creators)
 - `created_at`, `updated_at`
+
+Role behavior depends on these flags, not on hardcoded role keys such as `member` or `org_admin`. See `specs/ORGANISATION_REFACTOR.md` for the authoritative role-flag rules.
 
 `permissions`
 - keep existing table
@@ -151,8 +156,8 @@ Keep existing claims stable by default and add org-scoped claims when org contex
 Two supported modes:
 - explicit org context:
 client passes selected organization (`organization_id`) during authorization/login continuation.
-- default org context:
-if no org provided and user has one membership, use it.
+- implicit org context:
+if no org provided and user has one active membership, use it. This is a selection fallback and does not refer to any special `Default` organization.
 
 If multiple memberships and no org selected:
 - return a deterministic error (`ORG_CONTEXT_REQUIRED`) or redirect to org picker in user portal flow.
@@ -199,10 +204,11 @@ Admin portal remains control-plane and gets organization-aware endpoints:
 
 ## Phase 1: Backfill
 
-- create default organization record (`default`) or one configurable bootstrap org.
-- create `organization_members` for all existing users in bootstrap org.
+- This phase reflects the original one-time RBAC backfill. Any `default` organization it produced is an ordinary organization with no special runtime behavior. Fresh installs do not create a special `Default` organization. See `specs/ORGANISATION_REFACTOR.md`.
+- (historical) create a single bootstrap organization for existing users.
+- create `organization_members` for all existing users in the bootstrap org.
 - convert existing `groups` to `roles` one-time map.
-- convert existing `user_groups` assignments to membership-role assignments in bootstrap org.
+- convert existing `user_groups` assignments to membership-role assignments in the bootstrap org.
 - convert existing `group_permissions` to `role_permissions`.
 - set `organizations.force_otp = false` by default for all orgs.
 
@@ -276,7 +282,7 @@ requires product decision on redirect to org picker vs API error.
 - [ ] Create idempotent backfill script: users -> bootstrap org memberships.
 - [ ] Create idempotent backfill script: groups -> roles and assignments.
 - [ ] Add migration verification queries and failure rollback notes.
-- [ ] Add install/bootstrap seeding for default organization and base roles.
+- [ ] Add install/bootstrap seeding for base roles and permissions only. Do not seed a special `Default` organization; new users get a personal organization at registration (see `specs/ORGANISATION_REFACTOR.md`).
 
 Parallelization:
 - This track should start first.
