@@ -1,13 +1,5 @@
 import { eq } from "drizzle-orm";
-import {
-  adminOpaqueRecords,
-  adminUsers,
-  organizationMemberRoles,
-  organizationMembers,
-  organizations,
-  roles,
-  settings,
-} from "../db/schema.ts";
+import { adminOpaqueRecords, adminUsers, settings } from "../db/schema.ts";
 import { ConflictError, NotFoundError } from "../errors.ts";
 import type { Context } from "../types.ts";
 
@@ -59,7 +51,7 @@ export async function writeKdfSetting(context: Context, kdfParams: unknown) {
     .values({ key: "kek_kdf", value: kdfParams, secure: true, updatedAt: new Date() });
 }
 
-export async function ensureDefaultOrganizationAndSchema(context: Context) {
+export async function ensureOrganizationSchema(context: Context) {
   try {
     await context.db.execute(
       `CREATE TYPE IF NOT EXISTS "organization_status" AS ENUM ('active', 'invited', 'suspended');`
@@ -98,20 +90,6 @@ export async function ensureDefaultOrganizationAndSchema(context: Context) {
   } catch {}
   try {
     await context.db.execute(
-      `INSERT INTO "organizations" ("slug", "name") VALUES ('default','Default') ON CONFLICT ("slug") DO NOTHING;`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
-      `INSERT INTO "organization_members" ("organization_id", "user_sub", "status")
-       SELECT o.id, u.sub, 'active'::organization_status
-       FROM users u
-       JOIN organizations o ON o.slug = 'default'
-       ON CONFLICT DO NOTHING;`
-    );
-  } catch {}
-  try {
-    await context.db.execute(
       `CREATE TABLE IF NOT EXISTS "otp_configs" (
         cohort text NOT NULL,
         subject_id text NOT NULL,
@@ -141,25 +119,27 @@ export async function ensureDefaultOrganizationAndSchema(context: Context) {
   } catch {}
 
   try {
-    const defaultOrg = await context.db.query.organizations.findFirst({
-      where: eq(organizations.slug, "default"),
-    });
-    const memberRole = await context.db.query.roles.findFirst({ where: eq(roles.key, "member") });
-    if (!defaultOrg || !memberRole) return;
-    const memberships = await context.db
-      .select({ id: organizationMembers.id })
-      .from(organizationMembers)
-      .where(eq(organizationMembers.organizationId, defaultOrg.id));
-    if (memberships.length > 0) {
-      await context.db
-        .insert(organizationMemberRoles)
-        .values(
-          memberships.map((membership) => ({
-            organizationMemberId: membership.id,
-            roleId: memberRole.id,
-          }))
-        )
-        .onConflictDoNothing();
-    }
+    await context.db.execute(
+      `ALTER TABLE "roles"
+       ADD COLUMN IF NOT EXISTS "assignable" boolean NOT NULL DEFAULT false;`
+    );
+    await context.db.execute(
+      `ALTER TABLE "roles"
+       ADD COLUMN IF NOT EXISTS "default_member" boolean NOT NULL DEFAULT false;`
+    );
+    await context.db.execute(
+      `ALTER TABLE "roles"
+       ADD COLUMN IF NOT EXISTS "default_creator" boolean NOT NULL DEFAULT false;`
+    );
+    await context.db.execute(
+      `UPDATE "roles"
+       SET "assignable" = true, "default_member" = true, "updated_at" = now()
+       WHERE "key" = 'member';`
+    );
+    await context.db.execute(
+      `UPDATE "roles"
+       SET "assignable" = true, "default_creator" = true, "updated_at" = now()
+       WHERE "key" = 'org_admin';`
+    );
   } catch {}
 }

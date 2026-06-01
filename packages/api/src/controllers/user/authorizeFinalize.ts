@@ -239,6 +239,8 @@ export const schema = {
   path: "/authorize/finalize",
   tags: ["Auth"],
   summary: "Finalize authorization after login",
+  description:
+    "Issues an authorization code for the selected organization. If the user has multiple active organizations and none is selected or stored in the session, the response uses ORG_CONTEXT_REQUIRED.",
   body: {
     description: "",
     required: true,

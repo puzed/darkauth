@@ -56,6 +56,8 @@ async function auditScimEvent(
     resourceType: string;
     resourceId?: string;
     tokenId?: string;
+    organizationId?: string;
+    connectionId?: string;
     statusCode?: number;
     details?: Record<string, unknown>;
   }
@@ -70,6 +72,9 @@ async function auditScimEvent(
     userAgent: Array.isArray(userAgent) ? userAgent[0] : userAgent,
     success: true,
     statusCode: data.statusCode ?? 200,
+    organizationId: data.organizationId,
+    enterpriseConnectionId: data.connectionId,
+    enterpriseConnectionType: data.connectionId ? "scim" : undefined,
     resourceType: data.resourceType,
     resourceId: data.resourceId,
     action: (request.method || "UNKNOWN").toLowerCase(),
@@ -176,15 +181,17 @@ export async function handleScim(
 
   if (pathname === "/scim/v2/Users") {
     if (method === "GET")
-      return sendJson(response, 200, await listScimUsers(context, query(request)));
+      return sendJson(response, 200, await listScimUsers(context, bearer, query(request)));
     if (method === "POST") {
       const body = parseJsonSafely(await readBody(request));
-      const resource = await createScimUser(context, body as Record<string, unknown>);
+      const resource = await createScimUser(context, bearer, body as Record<string, unknown>);
       await auditScimEvent(context, request, {
         eventType: "SCIM_USER_CREATE",
         resourceType: "scim_user",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         statusCode: 201,
         details: scimUserAuditDetails("create", resource),
       });
@@ -195,38 +202,50 @@ export async function handleScim(
   const userMatch = pathname.match(/^\/scim\/v2\/Users\/([^/]+)$/);
   if (userMatch) {
     const userSub = decodeURIComponent(userMatch[1] as string);
-    if (method === "GET") return sendJson(response, 200, await getScimUser(context, userSub));
+    if (method === "GET")
+      return sendJson(response, 200, await getScimUser(context, bearer, userSub));
     if (method === "PUT") {
       const body = parseJsonSafely(await readBody(request));
-      const resource = await replaceScimUser(context, userSub, body as Record<string, unknown>);
+      const resource = await replaceScimUser(
+        context,
+        bearer,
+        userSub,
+        body as Record<string, unknown>
+      );
       await auditScimEvent(context, request, {
         eventType: "SCIM_USER_UPDATE",
         resourceType: "scim_user",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         details: scimUserAuditDetails("update", resource),
       });
       return sendJson(response, 200, resource);
     }
     if (method === "PATCH") {
       const parsed = PatchSchema.parse(parseJsonSafely(await readBody(request)));
-      const resource = await patchScimUser(context, userSub, parsed.Operations);
+      const resource = await patchScimUser(context, bearer, userSub, parsed.Operations);
       await auditScimEvent(context, request, {
         eventType: "SCIM_USER_PATCH",
         resourceType: "scim_user",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         details: scimUserAuditDetails("patch", resource),
       });
       return sendJson(response, 200, resource);
     }
     if (method === "DELETE") {
-      const resource = await deactivateScimUser(context, userSub);
+      const resource = await deactivateScimUser(context, bearer, userSub);
       await auditScimEvent(context, request, {
         eventType: "SCIM_USER_DEACTIVATE",
         resourceType: "scim_user",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         details: scimUserAuditDetails("deactivate", resource),
       });
       return sendJson(response, 200, resource);
@@ -235,15 +254,17 @@ export async function handleScim(
 
   if (pathname === "/scim/v2/Groups") {
     if (method === "GET")
-      return sendJson(response, 200, await listScimGroups(context, query(request)));
+      return sendJson(response, 200, await listScimGroups(context, bearer, query(request)));
     if (method === "POST") {
       const body = parseJsonSafely(await readBody(request));
-      const resource = await createScimGroup(context, body as Record<string, unknown>);
+      const resource = await createScimGroup(context, bearer, body as Record<string, unknown>);
       await auditScimEvent(context, request, {
         eventType: "SCIM_GROUP_CREATE",
         resourceType: "scim_group",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         statusCode: 201,
         details: scimGroupAuditDetails("create", resource),
       });
@@ -254,27 +275,32 @@ export async function handleScim(
   const groupMatch = pathname.match(/^\/scim\/v2\/Groups\/([^/]+)$/);
   if (groupMatch) {
     const groupId = decodeURIComponent(groupMatch[1] as string);
-    if (method === "GET") return sendJson(response, 200, await getScimGroup(context, groupId));
+    if (method === "GET")
+      return sendJson(response, 200, await getScimGroup(context, bearer, groupId));
     if (method === "PATCH") {
       const parsed = PatchSchema.parse(parseJsonSafely(await readBody(request)));
-      const resource = await patchScimGroup(context, groupId, parsed.Operations);
+      const resource = await patchScimGroup(context, bearer, groupId, parsed.Operations);
       await auditScimEvent(context, request, {
         eventType: "SCIM_GROUP_PATCH",
         resourceType: "scim_group",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         details: scimGroupAuditDetails("patch", resource),
       });
       return sendJson(response, 200, resource);
     }
     if (method === "DELETE") {
-      const resource = await getScimGroup(context, groupId);
-      const result = await deleteScimGroup(context, groupId);
+      const resource = await getScimGroup(context, bearer, groupId);
+      const result = await deleteScimGroup(context, bearer, groupId);
       await auditScimEvent(context, request, {
         eventType: "SCIM_GROUP_DELETE",
         resourceType: "scim_group",
         resourceId: resource.id,
-        tokenId: bearer.id,
+        tokenId: bearer.tokenId,
+        organizationId: bearer.organizationId,
+        connectionId: bearer.id,
         details: scimGroupAuditDetails("delete", resource),
       });
       return sendJson(response, 200, result);

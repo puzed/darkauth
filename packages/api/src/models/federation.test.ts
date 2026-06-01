@@ -3,18 +3,24 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { mock, test } from "node:test";
+import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { users } from "../db/schema.ts";
+import { organizationMembers, organizations, users } from "../db/schema.ts";
 import type { Context } from "../types.ts";
 import {
   consumeOidcCallbackState,
   createFederationConnection,
+  createFederationConnectionDomain,
   createOidcCallbackState,
   discoverOidcMetadata,
+  federationDomainRecordName,
+  federationDomainRecordValue,
   findFederationConnectionForEmail,
   listFederationConnections,
   mapFederationClaims,
   resolveFederatedUserForClaims,
+  runFederationDomainDnsVerification,
+  verifyFederationConnectionDomain,
 } from "./federation.ts";
 
 function createLogger() {
@@ -152,6 +158,152 @@ test("federation configuration rejects email-only account linking", async () => 
   }
 });
 
+test("federation routing uses verified domains and organization scope", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const [organization] = await context.db
+      .insert(organizations)
+      .values({
+        id: "11111111-1111-4111-8111-111111111111",
+        slug: "acme",
+        name: "Acme",
+      })
+      .returning();
+    const connection = await createFederationConnection(context, {
+      organizationId: organization?.id,
+      name: "Acme IDP",
+      issuer: metadata.issuer,
+      clientId: "acme-client",
+      metadata,
+    });
+    await createFederationConnectionDomain(context, {
+      connectionId: connection.id,
+      domain: "acme.com",
+    });
+
+    const pendingRoute = await findFederationConnectionForEmail(context, "user@acme.com", {
+      organizationId: organization?.id,
+    });
+    await verifyFederationConnectionDomain(context, connection.id, "acme.com");
+    const scopedRoute = await findFederationConnectionForEmail(context, "user@acme.com", {
+      organizationId: organization?.id,
+    });
+    const defaultOrganization = await context.db.query.organizations.findFirst({
+      where: eq(organizations.slug, "default"),
+    });
+    const wrongOrgRoute = await findFederationConnectionForEmail(context, "user@acme.com", {
+      organizationId: defaultOrganization?.id,
+    });
+
+    assert.equal(pendingRoute, null);
+    assert.equal(scopedRoute?.id, connection.id);
+    assert.equal(wrongOrgRoute, null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("federation JIT creates membership in the connection organization only", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const [organization] = await context.db
+      .insert(organizations)
+      .values({
+        id: "22222222-2222-4222-8222-222222222222",
+        slug: "jit-acme",
+        name: "JIT Acme",
+      })
+      .returning();
+    const connection = await createFederationConnection(context, {
+      organizationId: organization?.id,
+      name: "JIT Acme IDP",
+      issuer: metadata.issuer,
+      clientId: "jit-acme-client",
+      metadata,
+      domains: ["jit-acme.com"],
+      accountLinkingPolicy: "disabled",
+      jitProvisioning: true,
+      membershipOnAuthentication: true,
+      requireScimPreProvisioning: false,
+    });
+
+    const resolved = await resolveFederatedUserForClaims(context, connection.id, {
+      sub: "jit-external-sub",
+      email: "new@jit-acme.com",
+      email_verified: true,
+      name: "New Federated User",
+    });
+    const membershipRows = await context.db
+      .select()
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userSub, resolved.userSub || ""));
+
+    assert.equal(resolved.linked, true);
+    assert.equal(resolved.created, true);
+    assert.equal(membershipRows.length, 1);
+    assert.equal(membershipRows[0]?.organizationId, organization?.id);
+    assert.equal(membershipRows[0]?.status, "active");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("federation DNS TXT verification surfaces a record and verifies on match", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const [organization] = await context.db
+      .insert(organizations)
+      .values({
+        id: "33333333-3333-4333-8333-333333333333",
+        slug: "dns-acme",
+        name: "DNS Acme",
+      })
+      .returning();
+    const connection = await createFederationConnection(context, {
+      organizationId: organization?.id,
+      name: "DNS Acme IDP",
+      issuer: metadata.issuer,
+      clientId: "dns-acme-client",
+      metadata,
+    });
+    const created = await createFederationConnectionDomain(context, {
+      connectionId: connection.id,
+      domain: "dns-acme.com",
+    });
+
+    assert.equal(created.verificationStatus, "pending");
+    assert.equal(created.recordName, federationDomainRecordName("dns-acme.com"));
+    assert.ok(created.verificationToken);
+    assert.equal(created.recordValue, federationDomainRecordValue(created.verificationToken || ""));
+
+    const failed = await runFederationDomainDnsVerification(
+      context,
+      connection.id,
+      created.id,
+      async () => [["some-other-value"]]
+    );
+    assert.equal(failed.status, "failed");
+    assert.equal(failed.domain.verificationStatus, "failed");
+    assert.ok(failed.domain.lastCheckedAt);
+
+    const verified = await runFederationDomainDnsVerification(
+      context,
+      connection.id,
+      created.id,
+      async () => [["unrelated"], [federationDomainRecordValue(created.verificationToken || "")]]
+    );
+    assert.equal(verified.status, "verified");
+    assert.equal(verified.domain.verificationStatus, "verified");
+
+    const route = await findFederationConnectionForEmail(context, "user@dns-acme.com", {
+      organizationId: organization?.id,
+    });
+    assert.equal(route?.id, connection.id);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("federation OIDC callback state is single use and bound to nonce", async () => {
   const { context, cleanup } = await createContext();
   try {
@@ -164,6 +316,8 @@ test("federation OIDC callback state is single use and bound to nonce", async ()
     });
     const state = await createOidcCallbackState(context, {
       connectionId: connection.id,
+      organizationId: connection.organizationId,
+      clientId: "user",
       nonce: "nonce",
       codeVerifier: "verifier",
     });

@@ -779,6 +779,8 @@ export const schema = {
   path: "/token",
   tags: ["Auth"],
   summary: "Token endpoint",
+  description:
+    "Refresh-token grants mint tokens for the current session organization. If no valid session organization exists for a multi-organization user, the response uses ORG_CONTEXT_REQUIRED.",
   body: {
     description: "",
     required: true,

@@ -18,6 +18,9 @@ const RoleSchema = z.object({
   name: z.string(),
   description: z.string().nullable().optional(),
   system: z.boolean(),
+  assignable: z.boolean(),
+  defaultMember: z.boolean(),
+  defaultCreator: z.boolean(),
   permissionKeys: z.array(z.string()),
 });
 

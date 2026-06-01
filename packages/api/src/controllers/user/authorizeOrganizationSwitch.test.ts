@@ -222,3 +222,55 @@ test("authorize finalization allows switching away from the session organization
     await cleanup();
   }
 });
+
+test("authorize accepts organization_id for Atlas public PKCE clients", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    const { defaultOrganizationId } = await createUserWithTwoOrganizations(context);
+    await createClient(context, {
+      clientId: "atlas",
+      name: "Atlas",
+      type: "public",
+      requirePkce: true,
+      redirectUris: ["https://atlas.example/callback"],
+      scopes: ["openid", "profile"],
+    });
+
+    const response = createResponse();
+    const params = new URLSearchParams({
+      client_id: "atlas",
+      redirect_uri: "https://atlas.example/callback",
+      response_type: "code",
+      scope: "openid profile",
+      state: "atlas-state",
+      organization_id: defaultOrganizationId,
+      code_challenge: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      code_challenge_method: "S256",
+    });
+
+    await getAuthorize(
+      context,
+      createRequest({
+        method: "GET",
+        url: `/authorize?${params.toString()}`,
+        sessionId: "session-id",
+      }),
+      response
+    );
+
+    assert.equal(response.statusCode, 302);
+    const location = response.headers.Location;
+    assert.equal(typeof location, "string");
+    const redirectParams = new URL(location as string, "https://auth.example.com").searchParams;
+    assert.equal(redirectParams.get("organization_id"), defaultOrganizationId);
+    const requestId = redirectParams.get("request_id");
+    assert.ok(requestId);
+    const pendingRequest = await getPendingAuth(context, requestId);
+    assert.equal(pendingRequest?.clientId, "atlas");
+    assert.equal(pendingRequest?.organizationId, defaultOrganizationId);
+    assert.equal(pendingRequest?.codeChallenge, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    assert.equal(pendingRequest?.codeChallengeMethod, "S256");
+  } finally {
+    await cleanup();
+  }
+});

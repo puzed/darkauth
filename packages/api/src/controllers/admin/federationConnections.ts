@@ -4,11 +4,15 @@ import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import {
   createFederationConnection,
+  createFederationConnectionDomain,
   deleteFederationConnection,
+  deleteFederationConnectionDomain,
   discoverOidcMetadata,
   findFederationConnectionForEmail,
   getFederationConnection,
+  listFederationConnectionDomains,
   listFederationConnections,
+  runFederationDomainDnsVerification,
   updateFederationConnection,
 } from "../../models/federation.ts";
 import { requireSession } from "../../services/sessions.ts";
@@ -47,6 +51,7 @@ const OidcMetadataSchema = z
   .passthrough();
 
 const ConnectionRequestSchema = z.object({
+  organizationId: z.string().uuid().optional(),
   name: z.string().min(1).max(255),
   issuer: z.string().url(),
   clientId: z.string().min(1).max(255),
@@ -60,6 +65,13 @@ const ConnectionRequestSchema = z.object({
   scopes: z.array(z.string().min(1)).optional(),
   claimMapping: ClaimMappingSchema,
   accountLinkingPolicy: z.enum(["disabled", "email_verified"]).optional(),
+  jitProvisioning: z.boolean().optional(),
+  membershipOnAuthentication: z.boolean().optional(),
+  requireScimPreProvisioning: z.boolean().optional(),
+  requirePasswordForZk: z.boolean().optional(),
+  allowPasskeyPrf: z.boolean().optional(),
+  allowTrustedDeviceApproval: z.boolean().optional(),
+  allowNonZkKeySetupBypass: z.boolean().optional(),
   domains: z.array(z.string().min(1)).optional(),
   enabled: z.boolean().optional(),
 });
@@ -69,6 +81,8 @@ const ConnectionUpdateSchema = ConnectionRequestSchema.partial();
 const ConnectionResponseSchema = z.object({
   id: z.string().uuid(),
   type: z.literal("oidc"),
+  protocol: z.string(),
+  organizationId: z.string().uuid(),
   name: z.string(),
   issuer: z.string(),
   clientId: z.string(),
@@ -80,6 +94,13 @@ const ConnectionResponseSchema = z.object({
   scopes: z.array(z.string()),
   claimMapping: z.record(z.string(), z.unknown()),
   accountLinkingPolicy: z.enum(["disabled", "email_verified", "email"]),
+  jitProvisioning: z.boolean(),
+  membershipOnAuthentication: z.boolean(),
+  requireScimPreProvisioning: z.boolean(),
+  requirePasswordForZk: z.boolean(),
+  allowPasskeyPrf: z.boolean(),
+  allowTrustedDeviceApproval: z.boolean(),
+  allowNonZkKeySetupBypass: z.boolean(),
   domains: z.array(z.string()),
   enabled: z.boolean(),
   metadata: z.record(z.string(), z.unknown()),
@@ -108,6 +129,23 @@ async function requireAdmin(context: Context, request: IncomingMessage, write = 
   const session = await requireSession(context, request, true);
   if (!session.adminRole) throw new ForbiddenError("Admin access required");
   if (write && session.adminRole !== "write") throw new ForbiddenError("Write access required");
+}
+
+function federationAuditContext(responseData: unknown, fallbackConnectionId?: string) {
+  const record =
+    responseData && typeof responseData === "object"
+      ? (responseData as { id?: unknown; organizationId?: unknown })
+      : undefined;
+  const connectionId =
+    typeof record?.id === "string" ? record.id : fallbackConnectionId || undefined;
+  const organizationId =
+    typeof record?.organizationId === "string" ? record.organizationId : undefined;
+  if (!connectionId && !organizationId) return undefined;
+  return {
+    organizationId,
+    enterpriseConnectionId: connectionId,
+    enterpriseConnectionType: "federation",
+  };
 }
 
 export async function getFederationConnections(
@@ -151,6 +189,7 @@ export const postFederationConnection = withAudit({
   resourceType: "federation_connection",
   extractResourceId: (body: unknown) =>
     body && typeof body === "object" ? (body as { issuer?: string }).issuer : undefined,
+  extractAuditContext: (_body, responseData) => federationAuditContext(responseData),
 })(postFederationConnectionHandler);
 
 export async function getFederationConnectionController(
@@ -182,6 +221,8 @@ export const putFederationConnection = withAudit({
   eventType: "FEDERATION_CONNECTION_UPDATE",
   resourceType: "federation_connection",
   extractResourceId: (_body: unknown, params: string[]) => params[0],
+  extractAuditContext: (_body, responseData, params) =>
+    federationAuditContext(responseData, params[0]),
 })(putFederationConnectionHandler);
 
 async function deleteFederationConnectionHandler(
@@ -199,8 +240,164 @@ export const deleteFederationConnectionController = withAudit({
   eventType: "FEDERATION_CONNECTION_DELETE",
   resourceType: "federation_connection",
   extractResourceId: (_body: unknown, params: string[]) => params[0],
+  extractAuditContext: (_body, responseData, params) =>
+    federationAuditContext(responseData, params[0]),
   skipBodyCapture: true,
 })(deleteFederationConnectionHandler);
+
+const DomainResponseSchema = z.object({
+  id: z.string().uuid(),
+  domain: z.string(),
+  verificationStatus: z.enum(["pending", "verified", "failed"]),
+  recordName: z.string(),
+  recordValue: z.string().nullable(),
+});
+
+const DomainListResponseSchema = z.object({
+  domains: z.array(
+    z.object({
+      id: z.string().uuid(),
+      domain: z.string(),
+      verificationStatus: z.enum(["pending", "verified", "failed"]),
+      verifiedAt: z.date().or(z.string()).nullable(),
+      lastCheckedAt: z.date().or(z.string()).nullable(),
+      enabled: z.boolean(),
+      recordName: z.string(),
+    })
+  ),
+});
+
+const DomainVerifyResponseSchema = z.object({
+  id: z.string().uuid(),
+  domain: z.string(),
+  verificationStatus: z.enum(["pending", "verified", "failed"]),
+  lastCheckedAt: z.date().or(z.string()).nullable(),
+});
+
+export async function getFederationConnectionDomains(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  connectionId: string
+) {
+  await requireAdmin(context, request);
+  await getFederationConnection(context, connectionId);
+  const domains = await listFederationConnectionDomains(context, connectionId);
+  sendJsonValidated(
+    response,
+    200,
+    {
+      domains: domains.map((domain) => ({
+        id: domain.id,
+        domain: domain.domain,
+        verificationStatus: domain.verificationStatus,
+        verifiedAt: domain.verifiedAt,
+        lastCheckedAt: domain.lastCheckedAt,
+        enabled: domain.enabled,
+        recordName: domain.recordName,
+      })),
+    },
+    DomainListResponseSchema
+  );
+}
+
+async function postFederationConnectionDomainHandler(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  connectionId: string
+) {
+  await requireAdmin(context, request, true);
+  const raw = parseJsonSafely(await readBody(request));
+  const parsed = z.object({ domain: z.string().min(1) }).safeParse(raw);
+  if (!parsed.success) throw new ValidationError("Validation error", parsed.error.issues);
+  const created = await createFederationConnectionDomain(context, {
+    connectionId,
+    domain: parsed.data.domain,
+  });
+  sendJsonValidated(
+    response,
+    201,
+    {
+      id: created.id,
+      domain: created.domain,
+      verificationStatus: created.verificationStatus,
+      recordName: created.recordName,
+      recordValue: created.recordValue,
+    },
+    DomainResponseSchema
+  );
+}
+
+export const postFederationConnectionDomain = withAudit({
+  eventType: "FEDERATION_DOMAIN_CREATE",
+  resourceType: "federation_connection_domain",
+  extractResourceId: (_body: unknown, params: string[]) => params[0],
+  extractAuditContext: (_body, responseData, params) => ({
+    enterpriseConnectionId: params[0],
+    enterpriseConnectionType: "federation",
+    organizationId:
+      responseData && typeof responseData === "object"
+        ? (responseData as { organizationId?: string }).organizationId
+        : undefined,
+  }),
+})(postFederationConnectionDomainHandler);
+
+async function deleteFederationConnectionDomainHandler(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  connectionId: string,
+  domainId: string
+) {
+  await requireAdmin(context, request, true);
+  const result = await deleteFederationConnectionDomain(context, connectionId, domainId);
+  sendJson(response, 200, result);
+}
+
+export const deleteFederationConnectionDomainController = withAudit({
+  eventType: "FEDERATION_DOMAIN_DELETE",
+  resourceType: "federation_connection_domain",
+  extractResourceId: (_body: unknown, params: string[]) => params[1],
+  extractAuditContext: (_body, _responseData, params) => ({
+    enterpriseConnectionId: params[0],
+    enterpriseConnectionType: "federation",
+  }),
+  skipBodyCapture: true,
+})(deleteFederationConnectionDomainHandler);
+
+async function verifyFederationConnectionDomainHandler(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  connectionId: string,
+  domainId: string
+) {
+  await requireAdmin(context, request, true);
+  const result = await runFederationDomainDnsVerification(context, connectionId, domainId);
+  sendJsonValidated(
+    response,
+    200,
+    {
+      id: result.domain.id,
+      domain: result.domain.domain,
+      verificationStatus: result.domain.verificationStatus,
+      lastCheckedAt: result.domain.lastCheckedAt,
+    },
+    DomainVerifyResponseSchema
+  );
+}
+
+export const verifyFederationConnectionDomainController = withAudit({
+  eventType: "FEDERATION_DOMAIN_VERIFY",
+  resourceType: "federation_connection_domain",
+  extractResourceId: (_body: unknown, params: string[]) => params[1],
+  extractAuditContext: (_body, _responseData, params) => ({
+    enterpriseConnectionId: params[0],
+    enterpriseConnectionType: "federation",
+  }),
+  skipBodyCapture: true,
+})(verifyFederationConnectionDomainHandler);
 
 export async function getFederationDomainRoute(
   context: Context,
@@ -211,7 +408,8 @@ export async function getFederationDomainRoute(
   const url = new URL(request.url || "", `http://${request.headers.host}`);
   const email = url.searchParams.get("email");
   if (!email) throw new ValidationError("email is required");
-  const connection = await findFederationConnectionForEmail(context, email);
+  const organizationId = url.searchParams.get("organization_id") || undefined;
+  const connection = await findFederationConnectionForEmail(context, email, { organizationId });
   sendJsonValidated(response, 200, { connection }, DomainRouteResponseSchema);
 }
 

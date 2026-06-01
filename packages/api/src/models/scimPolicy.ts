@@ -6,12 +6,12 @@ import type { Context } from "../types.ts";
 import type { KeyEnvelopeType } from "./keybag.ts";
 
 export async function getScimUserPolicyState(context: Context, sub: string) {
-  const row = await context.db.query.scimUsers.findFirst({
+  const rows = await context.db.query.scimUsers.findMany({
     where: eq(scimUsers.userSub, sub),
   });
   return {
-    provisioned: !!row,
-    active: row?.active === true,
+    provisioned: rows.length > 0,
+    active: rows.length === 0 || rows.some((row) => row.active),
   };
 }
 

@@ -16,10 +16,21 @@ import {
 } from "../services/sessions.ts";
 import type { Context, ControllerFunction } from "../types.ts";
 
+interface AuditContext {
+  organizationId?: string;
+  enterpriseConnectionId?: string;
+  enterpriseConnectionType?: string;
+}
+
 interface AuditConfig {
   eventType: string;
   resourceType?: string;
   extractResourceId?: (body: unknown, params: string[]) => string | undefined;
+  extractAuditContext?: (
+    body: unknown,
+    responseData: unknown,
+    params: string[]
+  ) => AuditContext | undefined;
   skipBodyCapture?: boolean;
   flushAudit?: boolean;
 }
@@ -276,6 +287,10 @@ export function withAudit(config: AuditConfig | string) {
           }
         }
 
+        const auditContext = auditConfig.extractAuditContext
+          ? auditConfig.extractAuditContext(requestBody ?? null, responseData ?? null, params)
+          : undefined;
+
         const auditCall = logAuditEvent(context, {
           eventType: auditConfig.eventType,
           method: request.method || "UNKNOWN",
@@ -283,6 +298,9 @@ export function withAudit(config: AuditConfig | string) {
           cohort,
           userId,
           adminId,
+          organizationId: auditContext?.organizationId,
+          enterpriseConnectionId: auditContext?.enterpriseConnectionId,
+          enterpriseConnectionType: auditContext?.enterpriseConnectionType,
           clientId: (() => {
             if (!requestBody || typeof requestBody !== "object") return undefined;
             const rbRec = requestBody as Record<string, unknown> & {

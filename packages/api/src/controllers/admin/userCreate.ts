@@ -27,12 +27,20 @@ async function createUserHandler(
     email: z.string().email(),
     name: z.string().optional(),
     sub: z.string().optional(),
+    organizationIds: z.array(z.string().uuid()).optional(),
+    createPersonalOrganization: z.boolean().optional(),
+    personalOrganizationName: z.string().optional(),
+    personalOrganizationSlug: z.string().optional(),
   });
   const parsed = Req.parse(raw);
   const result = await createUserModel(context, {
     email: parsed.email.trim(),
     name: parsed.name?.trim() || "",
     sub: parsed.sub?.trim(),
+    organizationIds: parsed.organizationIds,
+    createPersonalOrganization: parsed.createPersonalOrganization,
+    personalOrganizationName: parsed.personalOrganizationName?.trim(),
+    personalOrganizationSlug: parsed.personalOrganizationSlug?.trim(),
   });
   sendJson(response, 201, result);
 }
@@ -52,6 +60,10 @@ const Req = z.object({
   email: z.string().email(),
   name: z.string().optional(),
   sub: z.string().optional(),
+  organizationIds: z.array(z.string().uuid()).optional(),
+  createPersonalOrganization: z.boolean().optional(),
+  personalOrganizationName: z.string().optional(),
+  personalOrganizationSlug: z.string().optional(),
 });
 
 const Resp = z.object({

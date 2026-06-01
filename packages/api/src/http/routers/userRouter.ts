@@ -7,6 +7,25 @@ import { postEmailVerificationResend } from "../../controllers/user/emailVerific
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
 import { putEncPublicJwk } from "../../controllers/user/encPublicPut.ts";
+import {
+  deleteOrganizationFederationConnection,
+  deleteOrganizationFederationDomain,
+  deleteOrganizationScimConnection,
+  deleteOrganizationScimToken,
+  getOrganizationFederationConnection,
+  getOrganizationFederationConnections,
+  getOrganizationFederationDomains,
+  getOrganizationScimConnection,
+  getOrganizationScimConnections,
+  getOrganizationScimTokens,
+  postOrganizationFederationConnection,
+  postOrganizationFederationDomain,
+  postOrganizationFederationDomainVerify,
+  postOrganizationScimConnection,
+  postOrganizationScimToken,
+  putOrganizationFederationConnection,
+  putOrganizationScimConnection,
+} from "../../controllers/user/enterpriseConnections.ts";
 import { getFederationIdentities } from "../../controllers/user/federationIdentities.ts";
 import {
   getFederationCallback,
@@ -29,11 +48,15 @@ import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.ts
 import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.ts";
 import { postOpaqueRegisterStart } from "../../controllers/user/opaqueRegisterStart.ts";
 import {
+  deleteOrganizationController,
+  deleteOrganizationMember,
   deleteOrganizationMemberRole,
   getOrganization,
+  getOrganizationAssignableRoles,
   getOrganizationMembers,
   getOrganizations,
   postOrganizationInvites,
+  postOrganizationLeave,
   postOrganizationMemberRoles,
   postOrganizations,
 } from "../../controllers/user/organizations.ts";
@@ -846,6 +869,19 @@ export function createUserRouter(context: Context) {
       if (method === "GET" && orgMatch) {
         return await getOrganization(context, request, response, orgMatch[1] as string);
       }
+      if (method === "DELETE" && orgMatch) {
+        return await deleteOrganizationController(
+          context,
+          request,
+          response,
+          orgMatch[1] as string
+        );
+      }
+
+      const orgLeaveMatch = pathname.match(/^\/organizations\/([^/]+)\/leave$/);
+      if (method === "POST" && orgLeaveMatch) {
+        return await postOrganizationLeave(context, request, response, orgLeaveMatch[1] as string);
+      }
 
       const orgMembersMatch = pathname.match(/^\/organizations\/([^/]+)\/members$/);
       if (method === "GET" && orgMembersMatch) {
@@ -854,6 +890,18 @@ export function createUserRouter(context: Context) {
           request,
           response,
           orgMembersMatch[1] as string
+        );
+      }
+
+      const orgAssignableRolesMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/roles\/assignable$/
+      );
+      if (method === "GET" && orgAssignableRolesMatch) {
+        return await getOrganizationAssignableRoles(
+          context,
+          request,
+          response,
+          orgAssignableRolesMatch[1] as string
         );
       }
 
@@ -880,6 +928,17 @@ export function createUserRouter(context: Context) {
         );
       }
 
+      const orgMemberDeleteMatch = pathname.match(/^\/organizations\/([^/]+)\/members\/([^/]+)$/);
+      if (method === "DELETE" && orgMemberDeleteMatch) {
+        return await deleteOrganizationMember(
+          context,
+          request,
+          response,
+          orgMemberDeleteMatch[1] as string,
+          orgMemberDeleteMatch[2] as string
+        );
+      }
+
       const orgMemberRoleDeleteMatch = pathname.match(
         /^\/organizations\/([^/]+)\/members\/([^/]+)\/roles\/([^/]+)$/
       );
@@ -892,6 +951,184 @@ export function createUserRouter(context: Context) {
           orgMemberRoleDeleteMatch[2] as string,
           orgMemberRoleDeleteMatch[3] as string
         );
+      }
+
+      const orgFederationConnectionsMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/federation\/connections$/
+      );
+      if (orgFederationConnectionsMatch) {
+        const orgId = orgFederationConnectionsMatch[1] as string;
+        if (method === "GET") {
+          return await getOrganizationFederationConnections(context, request, response, orgId);
+        }
+        if (method === "POST") {
+          return await postOrganizationFederationConnection(context, request, response, orgId);
+        }
+      }
+
+      const orgFederationDomainVerifyMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/federation\/connections\/([^/]+)\/domains\/([^/]+)\/verify$/
+      );
+      if (orgFederationDomainVerifyMatch && method === "POST") {
+        return await postOrganizationFederationDomainVerify(
+          context,
+          request,
+          response,
+          orgFederationDomainVerifyMatch[1] as string,
+          orgFederationDomainVerifyMatch[2] as string,
+          orgFederationDomainVerifyMatch[3] as string
+        );
+      }
+
+      const orgFederationDomainItemMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/federation\/connections\/([^/]+)\/domains\/([^/]+)$/
+      );
+      if (orgFederationDomainItemMatch && method === "DELETE") {
+        return await deleteOrganizationFederationDomain(
+          context,
+          request,
+          response,
+          orgFederationDomainItemMatch[1] as string,
+          orgFederationDomainItemMatch[2] as string,
+          orgFederationDomainItemMatch[3] as string
+        );
+      }
+
+      const orgFederationDomainsMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/federation\/connections\/([^/]+)\/domains$/
+      );
+      if (orgFederationDomainsMatch) {
+        const orgId = orgFederationDomainsMatch[1] as string;
+        const connectionId = orgFederationDomainsMatch[2] as string;
+        if (method === "GET") {
+          return await getOrganizationFederationDomains(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+        if (method === "POST") {
+          return await postOrganizationFederationDomain(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+      }
+
+      const orgFederationConnectionItemMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/federation\/connections\/([^/]+)$/
+      );
+      if (orgFederationConnectionItemMatch) {
+        const orgId = orgFederationConnectionItemMatch[1] as string;
+        const connectionId = orgFederationConnectionItemMatch[2] as string;
+        if (method === "GET") {
+          return await getOrganizationFederationConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+        if (method === "PUT") {
+          return await putOrganizationFederationConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+        if (method === "DELETE") {
+          return await deleteOrganizationFederationConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+      }
+
+      const orgScimConnectionsMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/scim\/connections$/
+      );
+      if (orgScimConnectionsMatch) {
+        const orgId = orgScimConnectionsMatch[1] as string;
+        if (method === "GET") {
+          return await getOrganizationScimConnections(context, request, response, orgId);
+        }
+        if (method === "POST") {
+          return await postOrganizationScimConnection(context, request, response, orgId);
+        }
+      }
+
+      const orgScimTokenItemMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/scim\/connections\/([^/]+)\/tokens\/([^/]+)$/
+      );
+      if (orgScimTokenItemMatch && method === "DELETE") {
+        return await deleteOrganizationScimToken(
+          context,
+          request,
+          response,
+          orgScimTokenItemMatch[1] as string,
+          orgScimTokenItemMatch[2] as string,
+          orgScimTokenItemMatch[3] as string
+        );
+      }
+
+      const orgScimTokensMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/scim\/connections\/([^/]+)\/tokens$/
+      );
+      if (orgScimTokensMatch) {
+        const orgId = orgScimTokensMatch[1] as string;
+        const connectionId = orgScimTokensMatch[2] as string;
+        if (method === "GET") {
+          return await getOrganizationScimTokens(context, request, response, orgId, connectionId);
+        }
+        if (method === "POST") {
+          return await postOrganizationScimToken(context, request, response, orgId, connectionId);
+        }
+      }
+
+      const orgScimConnectionItemMatch = pathname.match(
+        /^\/organizations\/([^/]+)\/scim\/connections\/([^/]+)$/
+      );
+      if (orgScimConnectionItemMatch) {
+        const orgId = orgScimConnectionItemMatch[1] as string;
+        const connectionId = orgScimConnectionItemMatch[2] as string;
+        if (method === "GET") {
+          return await getOrganizationScimConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+        if (method === "PUT") {
+          return await putOrganizationScimConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
+        if (method === "DELETE") {
+          return await deleteOrganizationScimConnection(
+            context,
+            request,
+            response,
+            orgId,
+            connectionId
+          );
+        }
       }
 
       if (method === "GET" && pathname === "/users") {

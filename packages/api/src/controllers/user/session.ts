@@ -249,6 +249,7 @@ export const schema = {
   path: "/session",
   tags: ["Auth"],
   summary: "Get user session",
+  description: "Returns the current user session and selected organization context.",
   responses: {
     200: { description: "OK", content: { "application/json": { schema: Resp } } },
     ...genericErrors,
@@ -260,6 +261,8 @@ export const organizationSchema = {
   path: "/session/organization",
   tags: ["Auth"],
   summary: "Set current user session organization",
+  description:
+    "Same-origin CSRF-protected endpoint for hosted DarkAuth UI to update the current session organization after active membership validation.",
   body: {
     description: "",
     required: true,

@@ -15,8 +15,8 @@ export class AppError extends Error {
 export class ValidationError extends AppError {
   details?: unknown;
 
-  constructor(message: string, details?: unknown) {
-    super(message, "VALIDATION_ERROR", 400);
+  constructor(message: string, details?: unknown, code = "VALIDATION_ERROR") {
+    super(message, code, 400);
     this.details = details;
   }
 }

@@ -175,6 +175,8 @@ export const schema = {
   path: "/authorize",
   tags: ["Auth"],
   summary: "Authorization endpoint",
+  description:
+    "Accepts organization_id as an authorization context hint. If no organization context can be resolved during finalization for a multi-organization user, the flow returns ORG_CONTEXT_REQUIRED.",
   query: AuthorizationRequestSchema,
   responses: { 302: { description: "Redirect to UI", ...genericErrors } },
 } as const satisfies ControllerSchema;

@@ -47,11 +47,17 @@ function createMockResponse() {
   } as Partial<ServerResponse>;
 }
 
-function createRequest(url: string) {
+function createRequest(
+  url: string,
+  options: {
+    method?: string;
+    headers?: Record<string, string>;
+  } = {}
+) {
   return {
-    method: "GET",
+    method: options.method || "GET",
     url,
-    headers: { host: "localhost" },
+    headers: { host: "localhost", ...options.headers },
     socket: { remoteAddress: "127.0.0.1" },
   } as Partial<IncomingMessage>;
 }
@@ -177,4 +183,47 @@ test("user router exposes page background CSS variables for branded user pages",
     /@media \(prefers-color-scheme: dark\)\{:root:not\(\[data-da-theme\]\)\{[^}]*--da-page-bg:#0a0b0c/
   );
   assert.match(response.body, /body\{background:var\(--da-page-bg\)/);
+});
+
+test("user router blocks cross-origin session organization updates", async () => {
+  const context = {
+    logger: createLogger(),
+  };
+
+  const router = createUserRouter(context as never);
+  const request = createRequest("/session/organization", {
+    method: "POST",
+    headers: {
+      origin: "https://evil.example",
+      cookie: "__Host-DarkAuth-User=session-id; __Host-DarkAuth-User-Csrf=csrf-token",
+      "x-csrf-token": "csrf-token",
+    },
+  });
+  const response = createMockResponse();
+
+  await router(request as IncomingMessage, response as ServerResponse);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.json.error, "Cross-site request blocked");
+});
+
+test("user router requires CSRF token for session organization updates", async () => {
+  const context = {
+    logger: createLogger(),
+  };
+
+  const router = createUserRouter(context as never);
+  const request = createRequest("/session/organization", {
+    method: "POST",
+    headers: {
+      origin: "http://localhost",
+      cookie: "__Host-DarkAuth-User=session-id; __Host-DarkAuth-User-Csrf=csrf-token",
+    },
+  });
+  const response = createMockResponse();
+
+  await router(request as IncomingMessage, response as ServerResponse);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.json.error, "Missing or invalid CSRF token");
 });

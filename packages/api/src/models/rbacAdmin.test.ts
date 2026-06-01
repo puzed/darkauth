@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import {
   addOrganizationMemberRolesAdmin,
+  deleteRoleAdmin,
   removeOrganizationMemberRoleAdmin,
   setRolePermissionsAdmin,
   updateRoleAdmin,
@@ -103,6 +104,58 @@ test("removeOrganizationMemberRoleAdmin rejects unknown member", async () => {
     (error: unknown) => {
       assert.ok(error instanceof NotFoundError);
       assert.equal(error.message, "Organization member not found");
+      return true;
+    }
+  );
+});
+
+test("updateRoleAdmin rejects removing the last default member role", async () => {
+  const context = {
+    db: {
+      query: {
+        roles: {
+          findFirst: async () => ({ id: "role-1", system: false, defaultMember: true }),
+        },
+      },
+      select: () => ({
+        from: () => ({
+          where: async () => [{ count: 0 }],
+        }),
+      }),
+    },
+  } as unknown as Context;
+
+  await assert.rejects(
+    () => updateRoleAdmin(context, "role-1", { defaultMember: false }),
+    (error: unknown) => {
+      assert.ok(error instanceof ValidationError);
+      assert.equal(error.message, "At least one default member role is required");
+      return true;
+    }
+  );
+});
+
+test("deleteRoleAdmin rejects deleting the last default creator role", async () => {
+  const context = {
+    db: {
+      query: {
+        roles: {
+          findFirst: async () => ({ id: "role-1", system: false, defaultCreator: true }),
+        },
+      },
+      select: () => ({
+        from: () => ({
+          where: async () => [{ count: 0 }],
+        }),
+      }),
+    },
+  } as unknown as Context;
+
+  await assert.rejects(
+    () => deleteRoleAdmin(context, "role-1"),
+    (error: unknown) => {
+      assert.ok(error instanceof ValidationError);
+      assert.equal(error.message, "At least one default creator role is required");
       return true;
     }
   );

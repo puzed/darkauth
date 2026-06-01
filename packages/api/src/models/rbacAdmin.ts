@@ -490,6 +490,9 @@ export async function listRolesAdmin(
           name: roles.name,
           description: roles.description,
           system: roles.system,
+          assignable: roles.assignable,
+          defaultMember: roles.defaultMember,
+          defaultCreator: roles.defaultCreator,
         })
         .from(roles)
         .where(searchCondition)
@@ -500,6 +503,9 @@ export async function listRolesAdmin(
           name: roles.name,
           description: roles.description,
           system: roles.system,
+          assignable: roles.assignable,
+          defaultMember: roles.defaultMember,
+          defaultCreator: roles.defaultCreator,
         })
         .from(roles)
   )
@@ -541,7 +547,15 @@ export async function listRolesAdmin(
 
 export async function createRoleAdmin(
   context: Context,
-  data: { key: string; name: string; description?: string | null; permissionKeys?: string[] }
+  data: {
+    key: string;
+    name: string;
+    description?: string | null;
+    permissionKeys?: string[];
+    assignable?: boolean;
+    defaultMember?: boolean;
+    defaultCreator?: boolean;
+  }
 ) {
   const key = data.key.trim();
   const name = data.name.trim();
@@ -567,6 +581,9 @@ export async function createRoleAdmin(
         name,
         description: data.description || null,
         system: false,
+        assignable: data.assignable === true,
+        defaultMember: data.defaultMember === true,
+        defaultCreator: data.defaultCreator === true,
         createdAt: new Date(),
         updatedAt: new Date(),
       })
@@ -596,6 +613,9 @@ export async function getRoleAdmin(context: Context, roleId: string) {
       name: roles.name,
       description: roles.description,
       system: roles.system,
+      assignable: roles.assignable,
+      defaultMember: roles.defaultMember,
+      defaultCreator: roles.defaultCreator,
     })
     .from(roles)
     .where(eq(roles.id, roleId))
@@ -614,25 +634,103 @@ export async function getRoleAdmin(context: Context, roleId: string) {
   };
 }
 
+async function countOtherDefaultRoles(
+  context: Context,
+  roleId: string,
+  flag: "defaultMember" | "defaultCreator"
+) {
+  const column = flag === "defaultMember" ? roles.defaultMember : roles.defaultCreator;
+  const rows = await context.db
+    .select({ count: count() })
+    .from(roles)
+    .where(and(eq(column, true), sql`${roles.id} <> ${roleId}`));
+  return Number(rows[0]?.count || 0);
+}
+
+async function ensureDefaultFlagCanChange(
+  context: Context,
+  roleId: string,
+  existing: { defaultMember?: boolean; defaultCreator?: boolean },
+  updates: { defaultMember?: boolean; defaultCreator?: boolean }
+) {
+  if (existing.defaultMember && updates.defaultMember === false) {
+    const remaining = await countOtherDefaultRoles(context, roleId, "defaultMember");
+    if (remaining === 0) throw new ValidationError("At least one default member role is required");
+  }
+  if (existing.defaultCreator && updates.defaultCreator === false) {
+    const remaining = await countOtherDefaultRoles(context, roleId, "defaultCreator");
+    if (remaining === 0) throw new ValidationError("At least one default creator role is required");
+  }
+}
+
+async function ensureDefaultRoleCanBeDeleted(
+  context: Context,
+  roleId: string,
+  existing: { defaultMember?: boolean; defaultCreator?: boolean }
+) {
+  if (existing.defaultMember) {
+    const remaining = await countOtherDefaultRoles(context, roleId, "defaultMember");
+    if (remaining === 0)
+      throw new ValidationError(
+        "At least one default member role is required",
+        undefined,
+        "LAST_DEFAULT_MEMBER_ROLE"
+      );
+  }
+  if (existing.defaultCreator) {
+    const remaining = await countOtherDefaultRoles(context, roleId, "defaultCreator");
+    if (remaining === 0)
+      throw new ValidationError(
+        "At least one default creator role is required",
+        undefined,
+        "LAST_DEFAULT_CREATOR_ROLE"
+      );
+  }
+}
+
 export async function updateRoleAdmin(
   context: Context,
   roleId: string,
-  data: { name?: string; description?: string | null }
+  data: {
+    name?: string;
+    description?: string | null;
+    assignable?: boolean;
+    defaultMember?: boolean;
+    defaultCreator?: boolean;
+  }
 ) {
   const existing = await context.db.query.roles.findFirst({ where: eq(roles.id, roleId) });
   if (!existing) throw new NotFoundError("Role not found");
 
-  const updates: { name?: string; description?: string | null; updatedAt: Date } = {
+  const updates: {
+    name?: string;
+    description?: string | null;
+    assignable?: boolean;
+    defaultMember?: boolean;
+    defaultCreator?: boolean;
+    updatedAt: Date;
+  } = {
     updatedAt: new Date(),
   };
   if (typeof data.name === "string") updates.name = data.name.trim();
   if (Object.hasOwn(data, "description")) {
     updates.description = data.description ?? null;
   }
+  if (typeof data.assignable === "boolean") updates.assignable = data.assignable;
+  if (typeof data.defaultMember === "boolean") updates.defaultMember = data.defaultMember;
+  if (typeof data.defaultCreator === "boolean") updates.defaultCreator = data.defaultCreator;
 
-  if (!updates.name && !Object.hasOwn(data, "description")) {
+  if (
+    !updates.name &&
+    !Object.hasOwn(data, "description") &&
+    updates.assignable === undefined &&
+    updates.defaultMember === undefined &&
+    updates.defaultCreator === undefined
+  ) {
     throw new ValidationError("No updates provided");
   }
+
+  await ensureDefaultFlagCanChange(context, roleId, existing, updates);
 
   const [updated] = await context.db
     .update(roles)
@@ -647,7 +745,9 @@ export async function updateRoleAdmin(
 export async function deleteRoleAdmin(context: Context, roleId: string) {
   const existing = await context.db.query.roles.findFirst({ where: eq(roles.id, roleId) });
   if (!existing) throw new NotFoundError("Role not found");
-  if (existing.system) throw new ValidationError("System roles cannot be deleted");
+  if (existing.system)
+    throw new ValidationError("System roles cannot be deleted", undefined, "SYSTEM_ROLE_PROTECTED");
+  await ensureDefaultRoleCanBeDeleted(context, roleId, existing);
 
   await context.db.delete(roles).where(eq(roles.id, roleId));
   return { success: true as const };

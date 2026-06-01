@@ -9,10 +9,24 @@ import { withAudit } from "../../utils/auditWrapper.ts";
 import { parseJsonSafely, readBody, sendJsonValidated } from "../../utils/http.ts";
 
 const RequestSchema = z
-  .object({ name: z.string().min(1).optional(), description: z.string().nullable().optional() })
-  .refine((data) => data.name !== undefined || Object.hasOwn(data, "description"), {
-    message: "Provide at least one field",
-  });
+  .object({
+    name: z.string().min(1).optional(),
+    description: z.string().nullable().optional(),
+    assignable: z.boolean().optional(),
+    defaultMember: z.boolean().optional(),
+    defaultCreator: z.boolean().optional(),
+  })
+  .refine(
+    (data) =>
+      data.name !== undefined ||
+      Object.hasOwn(data, "description") ||
+      data.assignable !== undefined ||
+      data.defaultMember !== undefined ||
+      data.defaultCreator !== undefined,
+    {
+      message: "Provide at least one field",
+    }
+  );
 
 const ResponseSchema = z.object({
   role: z.object({
@@ -21,6 +35,9 @@ const ResponseSchema = z.object({
     name: z.string(),
     description: z.string().nullable().optional(),
     system: z.boolean(),
+    assignable: z.boolean(),
+    defaultMember: z.boolean(),
+    defaultCreator: z.boolean(),
   }),
 });
 

@@ -5,7 +5,7 @@ import pino from "pino";
 import { createPglite } from "../db/pglite.ts";
 import * as schema from "../db/schema.ts";
 import { opaqueLoginSessions } from "../db/schema.ts";
-import { ensureDefaultOrganizationAndSchema } from "../models/install.ts";
+import { ensureOrganizationSchema } from "../models/install.ts";
 import { ensureKekService } from "../services/kek.ts";
 import { createOpaqueService } from "../services/opaque.ts";
 import { cleanupExpiredSessions } from "../services/sessions.ts";
@@ -181,9 +181,9 @@ export async function createContext(config: Config): Promise<Context> {
 
   if (!config.inInstallMode) {
     try {
-      await ensureDefaultOrganizationAndSchema(context);
+      await ensureOrganizationSchema(context);
     } catch (err) {
-      logger.warn({ err }, "ensureDefaultOrganizationAndSchema failed");
+      logger.warn({ err }, "ensureOrganizationSchema failed");
     }
     try {
       await pruneDeprecatedSettings(context);
