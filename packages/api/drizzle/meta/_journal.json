@@ -225,6 +225,41 @@
       "when": 1780261200000,
       "tag": "0033_user_opaque_login_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1780347600000,
+      "tag": "0034_role_flags_and_personal_orgs",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1780434000000,
+      "tag": "0035_federation_org_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1780520400000,
+      "tag": "0036_scim_organization_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1780606800000,
+      "tag": "0037_audit_enterprise_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1780693200000,
+      "tag": "0038_federation_email_linking_migration",
+      "breakpoints": true
     }
   ]
 }
