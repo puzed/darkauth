@@ -17,8 +17,12 @@ export default function OtpVerifyView() {
 
   useEffect(() => {
     (async () => {
+      let statusRequired = false;
+      let statusChecked = false;
       try {
         const s = await api.getOtpStatus();
+        statusChecked = true;
+        statusRequired = !!s.required;
         if (!s.enabled) {
           window.location.replace("/otp/setup?forced=1");
           return;
@@ -26,7 +30,10 @@ export default function OtpVerifyView() {
       } catch {}
       try {
         const session = await api.getSession();
-        if (!session.otpRequired) navigate("/apps");
+        const requiresOtp = !!session.otpRequired || statusRequired;
+        if (session.otpVerified || (statusChecked && !requiresOtp)) {
+          navigate("/apps", { replace: true });
+        }
       } catch {}
     })();
   }, [navigate]);

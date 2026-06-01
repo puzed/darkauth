@@ -611,24 +611,28 @@ function OtpGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [redirect, setRedirect] = useState<string | null>(null);
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      let session: Awaited<ReturnType<typeof apiService.getSession>> | null = null;
+      let status: Awaited<ReturnType<typeof apiService.getOtpStatus>> | null = null;
       try {
-        const session = await apiService.getSession();
-        const otpReq = !!session.otpRequired;
-        const otpVer = !!session.otpVerified;
-        if (otpReq && !otpVer) {
-          try {
-            const s = await apiService.getOtpStatus();
-            setRedirect(s.enabled ? "/otp/verify" : "/otp/setup?forced=1");
-          } catch {
-            setRedirect("/otp/verify");
-          }
-        }
-      } catch {
-      } finally {
+        session = await apiService.getSession();
+      } catch {}
+      try {
+        status = await apiService.getOtpStatus();
+      } catch {}
+      const otpRequired = !!session?.otpRequired || !!status?.required;
+      const otpVerified = !!session?.otpVerified;
+      if (!cancelled && otpRequired && !otpVerified) {
+        setRedirect(status && !status.enabled ? "/otp/setup?forced=1" : "/otp/verify");
+      }
+      if (!cancelled) {
         setReady(true);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   if (!ready)
     return (
