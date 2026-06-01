@@ -95,11 +95,7 @@ export default function Dashboard({ sessionData }: DashboardProps) {
   const showSearch = apps.length >= 7;
 
   return (
-    <UserLayout
-      userName={sessionData.name || null}
-      userEmail={sessionData.email || null}
-      organizationLabel={sessionData.organizationSlug || null}
-    >
+    <UserLayout userName={sessionData.name || null} userEmail={sessionData.email || null}>
       <PortalPage>
         <PortalHeader
           eyebrow="Apps"

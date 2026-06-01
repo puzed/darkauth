@@ -60,7 +60,6 @@ export default function OtpSetupView({
     <UserLayout
       userName={sessionData.name}
       userEmail={sessionData.email}
-      organizationLabel={sessionData.organizationSlug || null}
       onChangePassword={() => navigate("/security/password")}
       onManageSecurity={() => navigate("/security")}
       onLogout={onLogout}

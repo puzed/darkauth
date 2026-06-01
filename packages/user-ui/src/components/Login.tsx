@@ -25,6 +25,8 @@ interface LoginProps {
     email?: string;
     passwordResetRequired?: boolean;
     keyState?: "locked" | "unlocked" | "setup_required";
+    organizationId?: string;
+    organizationSlug?: string;
   }) => void;
   onSwitchToRegister: () => void;
   preloadClientCheckOnly?: boolean;
@@ -245,6 +247,8 @@ export default function Login({
         email: session.email,
         passwordResetRequired: !!session.passwordResetRequired,
         keyState: finish.unlock ? "unlocked" : session.keyState || finish.key_state || "locked",
+        organizationId: session.organizationId,
+        organizationSlug: session.organizationSlug,
       });
     } catch (error) {
       logger.error(error, "Passkey login failed");
@@ -322,13 +326,16 @@ export default function Login({
       }
 
       await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
+      const session = await apiService.getSession().catch(() => null);
 
       onLogin({
         sub: loginFinishResponse.sub,
-        name: loginFinishResponse.user?.name || undefined,
-        email: loginFinishResponse.user?.email || formData.email,
-        passwordResetRequired: false,
+        name: session?.name || loginFinishResponse.user?.name || undefined,
+        email: session?.email || loginFinishResponse.user?.email || formData.email,
+        passwordResetRequired: !!session?.passwordResetRequired,
         keyState: "unlocked",
+        organizationId: session?.organizationId,
+        organizationSlug: session?.organizationSlug,
       });
 
       try {

@@ -16,11 +16,10 @@ test("apps landing keeps app launch primary and moves account tasks to navigatio
   assert.notEqual(dashboardSource.indexOf("No apps available"), -1);
   assert.notEqual(layoutSource.indexOf("/security"), -1);
   assert.notEqual(layoutSource.indexOf("/profile"), -1);
-  assert.notEqual(layoutSource.indexOf("Active org"), -1);
-  assert.notEqual(
-    dashboardSource.indexOf("organizationLabel={sessionData.organizationSlug || null}"),
-    -1
-  );
+  assert.notEqual(layoutSource.indexOf("Organizations"), -1);
+  assert.notEqual(layoutSource.indexOf("useUserPortal"), -1);
+  assert.notEqual(layoutSource.indexOf("activeOrganizationLabel"), -1);
+  assert.equal(dashboardSource.indexOf("organizationLabel"), -1);
   assert.notEqual(dashboardSource.indexOf("KeyUnlockPanel"), -1);
   assert.notEqual(unlockSource.indexOf("Unlock with Password"), -1);
   assert.equal(dashboardSource.indexOf("Profile and security controls"), -1);
