@@ -167,7 +167,7 @@ test.describe('API - OIDC authorize/token edge cases', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     )
     loginSession = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     publicRedirectUri = await getClientRedirectUri(servers, 'demo-public-client')

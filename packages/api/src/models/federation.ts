@@ -1,16 +1,18 @@
-import { lookup as defaultLookup } from "node:dns/promises";
+import { lookup as defaultLookup, resolveTxt as defaultResolveTxt } from "node:dns/promises";
 import { isIP } from "node:net";
 import { and, asc, count, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import {
+  federationConnectionDomains,
   federationConnections,
   federationIdentities,
   federationOidcStates,
+  organizationMembers,
+  organizations,
   users,
 } from "../db/schema.ts";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
-import { createUser } from "./users.ts";
 
 export type FederationAccountLinkingPolicy = "disabled" | "email_verified" | "email";
 export type FederationClaimMapping = {
@@ -43,6 +45,22 @@ const DEFAULT_CLAIM_MAPPING = {
   name: "name",
 };
 const LINKING_POLICIES = new Set(["disabled", "email_verified"]);
+const DOMAIN_STATUSES = new Set(["pending", "verified", "failed"]);
+
+const DOMAIN_VERIFICATION_PREFIX = "_darkauth-verification";
+const DOMAIN_VERIFICATION_VALUE_PREFIX = "darkauth-domain-verification";
+
+type FederationDomainVerificationStatus = "pending" | "verified" | "failed";
+
+export type TxtResolver = (hostname: string) => Promise<string[][]>;
+
+export function federationDomainRecordName(domain: string) {
+  return `${DOMAIN_VERIFICATION_PREFIX}.${domain}`;
+}
+
+export function federationDomainRecordValue(token: string) {
+  return `${DOMAIN_VERIFICATION_VALUE_PREFIX}=${token}`;
+}
 
 export async function listFederationConnections(
   context: Context,
@@ -129,6 +147,7 @@ export async function getFederationConnectionSecret(context: Context, id: string
 export async function createFederationConnection(
   context: Context,
   data: {
+    organizationId?: string;
     name: string;
     issuer: string;
     clientId: string;
@@ -142,15 +161,26 @@ export async function createFederationConnection(
     scopes?: string[];
     claimMapping?: FederationClaimMapping;
     accountLinkingPolicy?: FederationAccountLinkingPolicy;
+    jitProvisioning?: boolean;
+    membershipOnAuthentication?: boolean;
+    requireScimPreProvisioning?: boolean;
+    requirePasswordForZk?: boolean;
+    allowPasskeyPrf?: boolean;
+    allowTrustedDeviceApproval?: boolean;
+    allowNonZkKeySetupBypass?: boolean;
     domains?: string[];
     enabled?: boolean;
   }
 ) {
   const now = new Date();
   const normalized = normalizeConnectionInput(data);
+  const organizationId = await resolveConnectionOrganizationId(context, data.organizationId);
+  await assertVerifiedDomainsAvailable(context, normalized.domains);
   const clientSecretEnc = await encryptSecret(context, data.clientSecret);
   const row = {
+    organizationId,
     type: "oidc",
+    protocol: "oidc",
     name: normalized.name,
     issuer: normalized.issuer,
     clientId: normalized.clientId,
@@ -163,6 +193,13 @@ export async function createFederationConnection(
     scopes: normalized.scopes,
     claimMapping: normalized.claimMapping,
     accountLinkingPolicy: normalized.accountLinkingPolicy,
+    jitProvisioning: normalized.jitProvisioning,
+    membershipOnAuthentication: normalized.membershipOnAuthentication,
+    requireScimPreProvisioning: normalized.requireScimPreProvisioning,
+    requirePasswordForZk: normalized.requirePasswordForZk,
+    allowPasskeyPrf: normalized.allowPasskeyPrf,
+    allowTrustedDeviceApproval: normalized.allowTrustedDeviceApproval,
+    allowNonZkKeySetupBypass: normalized.allowNonZkKeySetupBypass,
     domains: normalized.domains,
     enabled: normalized.enabled,
     metadata: normalized.metadata,
@@ -172,6 +209,13 @@ export async function createFederationConnection(
   try {
     const [created] = await context.db.insert(federationConnections).values(row).returning();
     if (!created) throw new ConflictError("Federation connection was not created");
+    await replaceFederationConnectionDomains(
+      context,
+      created.id,
+      created.organizationId,
+      normalized.domains,
+      { verificationStatus: "verified" }
+    );
     return redactConnection(created);
   } catch (error) {
     if (error instanceof ConflictError) throw error;
@@ -187,7 +231,11 @@ export async function updateFederationConnection(
 ) {
   validateId(id, "connection id");
   const existing = await getFederationConnectionSecret(context, id);
+  const organizationId = updates.organizationId
+    ? await resolveConnectionOrganizationId(context, updates.organizationId)
+    : existing.organizationId;
   const merged = {
+    organizationId,
     name: updates.name ?? existing.name,
     issuer: updates.issuer ?? existing.issuer,
     clientId: updates.clientId ?? existing.clientId,
@@ -205,11 +253,25 @@ export async function updateFederationConnection(
     accountLinkingPolicy:
       updates.accountLinkingPolicy ??
       (existing.accountLinkingPolicy as FederationAccountLinkingPolicy),
+    jitProvisioning: updates.jitProvisioning ?? existing.jitProvisioning,
+    membershipOnAuthentication:
+      updates.membershipOnAuthentication ?? existing.membershipOnAuthentication,
+    requireScimPreProvisioning:
+      updates.requireScimPreProvisioning ?? existing.requireScimPreProvisioning,
+    requirePasswordForZk: updates.requirePasswordForZk ?? existing.requirePasswordForZk,
+    allowPasskeyPrf: updates.allowPasskeyPrf ?? existing.allowPasskeyPrf,
+    allowTrustedDeviceApproval:
+      updates.allowTrustedDeviceApproval ?? existing.allowTrustedDeviceApproval,
+    allowNonZkKeySetupBypass: updates.allowNonZkKeySetupBypass ?? existing.allowNonZkKeySetupBypass,
     domains: updates.domains ?? existing.domains,
     enabled: updates.enabled ?? existing.enabled,
   };
   const normalized = normalizeConnectionInput(merged);
+  if (updates.domains || updates.organizationId) {
+    await assertVerifiedDomainsAvailable(context, normalized.domains, id);
+  }
   const patch: Partial<typeof federationConnections.$inferInsert> = {
+    organizationId,
     name: normalized.name,
     issuer: normalized.issuer,
     clientId: normalized.clientId,
@@ -221,6 +283,13 @@ export async function updateFederationConnection(
     scopes: normalized.scopes,
     claimMapping: normalized.claimMapping,
     accountLinkingPolicy: normalized.accountLinkingPolicy,
+    jitProvisioning: normalized.jitProvisioning,
+    membershipOnAuthentication: normalized.membershipOnAuthentication,
+    requireScimPreProvisioning: normalized.requireScimPreProvisioning,
+    requirePasswordForZk: normalized.requirePasswordForZk,
+    allowPasskeyPrf: normalized.allowPasskeyPrf,
+    allowTrustedDeviceApproval: normalized.allowTrustedDeviceApproval,
+    allowNonZkKeySetupBypass: normalized.allowNonZkKeySetupBypass,
     domains: normalized.domains,
     enabled: normalized.enabled,
     metadata: normalized.metadata,
@@ -236,6 +305,15 @@ export async function updateFederationConnection(
       .where(eq(federationConnections.id, id))
       .returning();
     if (!updated) throw new NotFoundError("Federation connection not found");
+    if (updates.domains || updates.organizationId) {
+      await replaceFederationConnectionDomains(
+        context,
+        updated.id,
+        updated.organizationId,
+        normalized.domains,
+        { verificationStatus: "verified" }
+      );
+    }
     return redactConnection(updated);
   } catch (error) {
     if (error instanceof NotFoundError) throw error;
@@ -254,16 +332,144 @@ export async function deleteFederationConnection(context: Context, id: string) {
   return { success: true } as const;
 }
 
-export async function findFederationConnectionForEmail(context: Context, email: string) {
-  const domain = extractDomain(email);
-  if (!domain) throw new ValidationError("Valid email is required");
+export async function listFederationConnectionsForOrganization(
+  context: Context,
+  organizationId: string
+) {
+  validateId(organizationId, "organization id");
   const rows = await context.db
     .select()
     .from(federationConnections)
-    .where(eq(federationConnections.enabled, true))
+    .where(eq(federationConnections.organizationId, organizationId))
     .orderBy(asc(federationConnections.name));
-  const match = rows.find((row) => row.domains.includes(domain));
-  return match ? redactConnection(match) : null;
+  return rows.map(redactConnection);
+}
+
+export async function getFederationConnectionForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  validateId(organizationId, "organization id");
+  validateId(connectionId, "connection id");
+  const row = await context.db.query.federationConnections.findFirst({
+    where: and(
+      eq(federationConnections.id, connectionId),
+      eq(federationConnections.organizationId, organizationId)
+    ),
+  });
+  if (!row) throw new NotFoundError("Federation connection not found");
+  return redactConnection(row);
+}
+
+async function assertFederationConnectionInOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  validateId(organizationId, "organization id");
+  validateId(connectionId, "connection id");
+  const row = await context.db.query.federationConnections.findFirst({
+    where: and(
+      eq(federationConnections.id, connectionId),
+      eq(federationConnections.organizationId, organizationId)
+    ),
+  });
+  if (!row) throw new NotFoundError("Federation connection not found");
+  return row;
+}
+
+export async function updateFederationConnectionForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  updates: Partial<Parameters<typeof createFederationConnection>[1]>
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  // Never allow moving a connection to another organization through the org-scoped path.
+  const { organizationId: _ignored, ...safeUpdates } = updates;
+  return updateFederationConnection(context, connectionId, safeUpdates);
+}
+
+export async function deleteFederationConnectionForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  return deleteFederationConnection(context, connectionId);
+}
+
+export async function createFederationConnectionDomainForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  domain: string
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  return createFederationConnectionDomain(context, { connectionId, domain });
+}
+
+export async function listFederationConnectionDomainsForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  return listFederationConnectionDomains(context, connectionId);
+}
+
+export async function deleteFederationConnectionDomainForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  domainId: string
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  return deleteFederationConnectionDomain(context, connectionId, domainId);
+}
+
+export async function runFederationDomainDnsVerificationForOrganization(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  domainId: string,
+  resolveTxtImpl?: TxtResolver
+) {
+  await assertFederationConnectionInOrganization(context, organizationId, connectionId);
+  return runFederationDomainDnsVerification(context, connectionId, domainId, resolveTxtImpl);
+}
+
+export async function findFederationConnectionForEmail(
+  context: Context,
+  email: string,
+  options: { organizationId?: string } = {}
+) {
+  const domain = extractDomain(email);
+  if (!domain) throw new ValidationError("Valid email is required");
+  if (options.organizationId) validateId(options.organizationId, "organization id");
+  const conditions = [
+    eq(federationConnectionDomains.domain, domain),
+    eq(federationConnectionDomains.enabled, true),
+    eq(federationConnectionDomains.verificationStatus, "verified"),
+    eq(federationConnections.enabled, true),
+  ];
+  if (options.organizationId) {
+    conditions.push(eq(federationConnections.organizationId, options.organizationId));
+  }
+  const rows = await context.db
+    .select({ connection: federationConnections })
+    .from(federationConnectionDomains)
+    .innerJoin(
+      federationConnections,
+      eq(federationConnectionDomains.connectionId, federationConnections.id)
+    )
+    .where(and(...conditions))
+    .orderBy(asc(federationConnections.name));
+  if (rows.length > 1) {
+    throw new ValidationError("Multiple federation connections match this email domain");
+  }
+  return rows[0] ? redactConnection(rows[0].connection) : null;
 }
 
 export function mapFederationClaims(
@@ -293,7 +499,7 @@ export async function resolveFederatedUserForClaims(
   const connection = await getFederationConnectionSecret(context, connectionId);
   if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
   const mapped = mapFederationClaims(claims, connection.claimMapping as FederationClaimMapping);
-  if (mapped.email && !isEmailAllowedForConnection(mapped.email, connection.domains)) {
+  if (mapped.email && !(await isEmailAllowedForConnection(context, connection.id, mapped.email))) {
     return { userSub: null, linked: false, created: false };
   }
   const identity = await context.db.query.federationIdentities.findFirst({
@@ -312,26 +518,29 @@ export async function resolveFederatedUserForClaims(
         lastLoginAt: new Date(),
       })
       .where(eq(federationIdentities.id, identity.id));
+    const membership = await ensureFederationMembership(context, connection, identity.userSub);
+    if (!membership) {
+      return { userSub: null, identityId: identity.id, linked: true, created: false };
+    }
     return { userSub: identity.userSub, identityId: identity.id, linked: true, created: false };
   }
-  if (connection.accountLinkingPolicy === "disabled")
-    return { userSub: null, linked: false, created: false };
   if (!mapped.email) return { userSub: null, linked: false, created: false };
-  if (!mapped.emailVerified) return { userSub: null, linked: false, created: false };
   const user = await context.db.query.users.findFirst({
     where: eq(users.email, mapped.email),
   });
   if (!user) {
-    const createdUser = await createUser(context, {
-      email: mapped.email,
-      name: mapped.name || undefined,
-    });
-    if (mapped.emailVerified) {
-      await context.db
-        .update(users)
-        .set({ emailVerifiedAt: new Date() })
-        .where(eq(users.sub, createdUser.sub));
+    if (
+      !connection.jitProvisioning ||
+      !connection.membershipOnAuthentication ||
+      connection.requireScimPreProvisioning
+    ) {
+      return { userSub: null, linked: false, created: false };
     }
+    const createdUser = await createFederatedUser(context, {
+      email: mapped.email,
+      name: mapped.name,
+      emailVerified: mapped.emailVerified,
+    });
     const createdIdentity = await linkFederationIdentity(context, {
       connectionId: connection.id,
       userSub: createdUser.sub,
@@ -341,6 +550,10 @@ export async function resolveFederatedUserForClaims(
       emailVerified: mapped.emailVerified,
       claims,
     });
+    const membership = await ensureFederationMembership(context, connection, createdUser.sub);
+    if (!membership) {
+      return { userSub: null, identityId: createdIdentity.id, linked: true, created: true };
+    }
     return {
       userSub: createdUser.sub,
       identityId: createdIdentity.id,
@@ -348,6 +561,9 @@ export async function resolveFederatedUserForClaims(
       created: true,
     };
   }
+  if (connection.accountLinkingPolicy === "disabled")
+    return { userSub: null, linked: false, created: false };
+  if (!mapped.emailVerified) return { userSub: null, linked: false, created: false };
   const created = await linkFederationIdentity(context, {
     connectionId: connection.id,
     userSub: user.sub,
@@ -357,6 +573,10 @@ export async function resolveFederatedUserForClaims(
     emailVerified: mapped.emailVerified,
     claims,
   });
+  const membership = await ensureFederationMembership(context, connection, user.sub);
+  if (!membership) {
+    return { userSub: null, identityId: created.id, linked: true, created: true };
+  }
   return { userSub: user.sub, identityId: created.id, linked: true, created: true };
 }
 
@@ -434,6 +654,8 @@ export async function createOidcCallbackState(
   context: Context,
   data: {
     connectionId: string;
+    organizationId: string;
+    clientId: string;
     nonce: string;
     codeVerifier?: string;
     returnTo?: string | null;
@@ -441,6 +663,8 @@ export async function createOidcCallbackState(
   }
 ) {
   validateId(data.connectionId, "connection id");
+  validateId(data.organizationId, "organization id");
+  validateText(data.clientId, "client id");
   validateText(data.nonce, "nonce");
   const state = generateRandomString(32);
   const now = new Date();
@@ -448,6 +672,8 @@ export async function createOidcCallbackState(
   await context.db.insert(federationOidcStates).values({
     stateHash: sha256Base64Url(state),
     connectionId: data.connectionId,
+    organizationId: data.organizationId,
+    clientId: data.clientId,
     nonceHash: sha256Base64Url(data.nonce),
     codeVerifierHash: data.codeVerifier ? sha256Base64Url(data.codeVerifier) : null,
     returnTo: data.returnTo ?? null,
@@ -624,6 +850,15 @@ function normalizeConnectionInput(data: Parameters<typeof createFederationConnec
   if (!LINKING_POLICIES.has(accountLinkingPolicy)) {
     throw new ValidationError("Invalid account linking policy");
   }
+  const metadataPolicy =
+    data.metadata &&
+    typeof data.metadata === "object" &&
+    !Array.isArray(data.metadata) &&
+    typeof data.metadata.darkauth_policy === "object" &&
+    data.metadata.darkauth_policy !== null &&
+    !Array.isArray(data.metadata.darkauth_policy)
+      ? (data.metadata.darkauth_policy as Record<string, unknown>)
+      : {};
   return {
     name,
     issuer,
@@ -636,10 +871,366 @@ function normalizeConnectionInput(data: Parameters<typeof createFederationConnec
     scopes,
     claimMapping: normalizeClaimMapping(data.claimMapping),
     accountLinkingPolicy,
+    jitProvisioning: normalizeBooleanPolicy(
+      data.jitProvisioning,
+      metadataPolicy.jitProvisioning,
+      true
+    ),
+    membershipOnAuthentication: normalizeBooleanPolicy(
+      data.membershipOnAuthentication,
+      metadataPolicy.membershipOnAuthentication,
+      true
+    ),
+    requireScimPreProvisioning: normalizeBooleanPolicy(
+      data.requireScimPreProvisioning,
+      metadataPolicy.requireScimPreProvisioning,
+      false
+    ),
+    requirePasswordForZk: normalizeBooleanPolicy(
+      data.requirePasswordForZk,
+      metadataPolicy.requirePasswordForZk,
+      false
+    ),
+    allowPasskeyPrf: normalizeBooleanPolicy(
+      data.allowPasskeyPrf,
+      metadataPolicy.allowPasskeyPrf,
+      true
+    ),
+    allowTrustedDeviceApproval: normalizeBooleanPolicy(
+      data.allowTrustedDeviceApproval,
+      metadataPolicy.allowTrustedDeviceApproval,
+      true
+    ),
+    allowNonZkKeySetupBypass: normalizeBooleanPolicy(
+      data.allowNonZkKeySetupBypass,
+      metadataPolicy.allowNonZkKeySetupBypass,
+      false
+    ),
     domains,
     enabled: data.enabled ?? true,
     metadata: metadata ?? data.metadata ?? {},
   };
+}
+
+export async function createFederationConnectionDomain(
+  context: Context,
+  data: {
+    connectionId: string;
+    domain: string;
+    verificationStatus?: FederationDomainVerificationStatus;
+    enabled?: boolean;
+  }
+) {
+  validateId(data.connectionId, "connection id");
+  const connection = await getFederationConnectionSecret(context, data.connectionId);
+  const [domain] = normalizeDomains([data.domain]);
+  if (!domain) throw new ValidationError("Valid domain is required");
+  const verificationStatus = data.verificationStatus ?? "pending";
+  validateDomainStatus(verificationStatus);
+  if (verificationStatus === "verified" && data.enabled !== false) {
+    await assertVerifiedDomainsAvailable(context, [domain], data.connectionId);
+  }
+  // For pending claims generate a verification token; the customer must publish
+  // it as a DNS TXT record. Only the hash is stored. Pending claims do not
+  // reserve the domain, so multiple connections may have a pending claim.
+  const token = verificationStatus === "pending" ? generateRandomString(32) : null;
+  const verificationTokenHash = token ? sha256Base64Url(token) : null;
+  try {
+    const [row] = await context.db
+      .insert(federationConnectionDomains)
+      .values({
+        connectionId: connection.id,
+        organizationId: connection.organizationId,
+        domain,
+        verificationStatus,
+        verificationTokenHash,
+        verifiedAt: verificationStatus === "verified" ? new Date() : null,
+        enabled: data.enabled ?? true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    if (!row) throw new ConflictError("Federation domain was not created");
+    return {
+      ...row,
+      verificationToken: token,
+      recordName: federationDomainRecordName(domain),
+      recordValue: token ? federationDomainRecordValue(token) : null,
+    };
+  } catch (error) {
+    if (error instanceof ConflictError) throw error;
+    if (isUniqueError(error)) throw new ConflictError("Federation domain already exists");
+    throw error;
+  }
+}
+
+export async function listFederationConnectionDomains(context: Context, connectionId: string) {
+  validateId(connectionId, "connection id");
+  const rows = await context.db
+    .select()
+    .from(federationConnectionDomains)
+    .where(eq(federationConnectionDomains.connectionId, connectionId))
+    .orderBy(asc(federationConnectionDomains.domain));
+  return rows.map((row) => ({
+    ...row,
+    recordName: federationDomainRecordName(row.domain),
+    recordValue: federationDomainRecordValue("<token>"),
+  }));
+}
+
+export async function deleteFederationConnectionDomain(
+  context: Context,
+  connectionId: string,
+  domainId: string
+) {
+  validateId(connectionId, "connection id");
+  validateId(domainId, "domain id");
+  const [row] = await context.db
+    .delete(federationConnectionDomains)
+    .where(
+      and(
+        eq(federationConnectionDomains.id, domainId),
+        eq(federationConnectionDomains.connectionId, connectionId)
+      )
+    )
+    .returning();
+  if (!row) throw new NotFoundError("Federation domain not found");
+  return { success: true } as const;
+}
+
+// Admin override: directly mark a domain verified without a DNS lookup.
+export async function verifyFederationConnectionDomain(
+  context: Context,
+  connectionId: string,
+  domain: string
+) {
+  validateId(connectionId, "connection id");
+  const [normalizedDomain] = normalizeDomains([domain]);
+  if (!normalizedDomain) throw new ValidationError("Valid domain is required");
+  await assertVerifiedDomainsAvailable(context, [normalizedDomain], connectionId);
+  const [row] = await context.db
+    .update(federationConnectionDomains)
+    .set({
+      verificationStatus: "verified",
+      verifiedAt: new Date(),
+      lastCheckedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(federationConnectionDomains.connectionId, connectionId),
+        eq(federationConnectionDomains.domain, normalizedDomain)
+      )
+    )
+    .returning();
+  if (!row) throw new NotFoundError("Federation domain not found");
+  return row;
+}
+
+// Real DNS TXT verification. Looks up the _darkauth-verification.<domain> TXT
+// records, checks the expected verification value is present, then marks the
+// domain verified (respecting the one-enabled-verified-owner constraint). On
+// failure the domain status is set to 'failed' and a result describing the
+// failure is returned. The resolver is injectable for tests.
+export async function runFederationDomainDnsVerification(
+  context: Context,
+  connectionId: string,
+  domainId: string,
+  resolveTxtImpl: TxtResolver = defaultResolveTxt
+) {
+  validateId(connectionId, "connection id");
+  validateId(domainId, "domain id");
+  const domainRow = await context.db.query.federationConnectionDomains.findFirst({
+    where: and(
+      eq(federationConnectionDomains.id, domainId),
+      eq(federationConnectionDomains.connectionId, connectionId)
+    ),
+  });
+  if (!domainRow) throw new NotFoundError("Federation domain not found");
+  const now = new Date();
+  if (domainRow.verificationStatus === "verified") {
+    return { status: "verified" as const, domain: domainRow };
+  }
+  if (!domainRow.verificationTokenHash) {
+    throw new ValidationError("Domain has no verification token");
+  }
+  const expectedValuePresent = await txtRecordMatchesToken(
+    resolveTxtImpl,
+    federationDomainRecordName(domainRow.domain),
+    domainRow.verificationTokenHash
+  );
+  if (!expectedValuePresent) {
+    const [failed] = await context.db
+      .update(federationConnectionDomains)
+      .set({ verificationStatus: "failed", lastCheckedAt: now, updatedAt: now })
+      .where(eq(federationConnectionDomains.id, domainRow.id))
+      .returning();
+    return {
+      status: "failed" as const,
+      domain: failed || domainRow,
+      reason: "DNS TXT verification record not found",
+    };
+  }
+  await assertVerifiedDomainsAvailable(context, [domainRow.domain], connectionId);
+  const [verified] = await context.db
+    .update(federationConnectionDomains)
+    .set({
+      verificationStatus: "verified",
+      verifiedAt: now,
+      lastCheckedAt: now,
+      updatedAt: now,
+    })
+    .where(eq(federationConnectionDomains.id, domainRow.id))
+    .returning();
+  if (!verified) throw new NotFoundError("Federation domain not found");
+  return { status: "verified" as const, domain: verified };
+}
+
+async function txtRecordMatchesToken(
+  resolveTxtImpl: TxtResolver,
+  recordName: string,
+  verificationTokenHash: string
+) {
+  let records: string[][];
+  try {
+    records = await resolveTxtImpl(recordName);
+  } catch {
+    return false;
+  }
+  for (const chunks of records) {
+    const value = chunks.join("").trim();
+    if (!value.startsWith(`${DOMAIN_VERIFICATION_VALUE_PREFIX}=`)) continue;
+    const token = value.slice(DOMAIN_VERIFICATION_VALUE_PREFIX.length + 1).trim();
+    if (token && sha256Base64Url(token) === verificationTokenHash) return true;
+  }
+  return false;
+}
+
+async function replaceFederationConnectionDomains(
+  context: Context,
+  connectionId: string,
+  organizationId: string,
+  domains: string[],
+  options: { verificationStatus: FederationDomainVerificationStatus }
+) {
+  await context.db
+    .delete(federationConnectionDomains)
+    .where(eq(federationConnectionDomains.connectionId, connectionId));
+  if (domains.length === 0) return;
+  const now = new Date();
+  await context.db.insert(federationConnectionDomains).values(
+    domains.map((domain) => ({
+      connectionId,
+      organizationId,
+      domain,
+      verificationStatus: options.verificationStatus,
+      verifiedAt: options.verificationStatus === "verified" ? now : null,
+      enabled: true,
+      createdAt: now,
+      updatedAt: now,
+    }))
+  );
+}
+
+async function assertVerifiedDomainsAvailable(
+  context: Context,
+  domains: string[],
+  connectionId?: string
+) {
+  if (domains.length === 0) return;
+  const rows = await context.db
+    .select({
+      connectionId: federationConnectionDomains.connectionId,
+      domain: federationConnectionDomains.domain,
+    })
+    .from(federationConnectionDomains)
+    .where(
+      and(
+        eq(federationConnectionDomains.enabled, true),
+        eq(federationConnectionDomains.verificationStatus, "verified")
+      )
+    );
+  const conflict = rows.find(
+    (row) => domains.includes(row.domain) && (!connectionId || row.connectionId !== connectionId)
+  );
+  if (conflict) throw new ConflictError("Federation domain is already verified");
+}
+
+async function resolveConnectionOrganizationId(context: Context, organizationId?: string) {
+  if (organizationId) {
+    validateId(organizationId, "organization id");
+    const organization = await context.db.query.organizations.findFirst({
+      where: eq(organizations.id, organizationId),
+    });
+    if (!organization) throw new ValidationError("Organization not found");
+    return organization.id;
+  }
+  const rows = await context.db.select().from(organizations).orderBy(asc(organizations.createdAt));
+  if (rows.length === 1) return rows[0]?.id as string;
+  const defaultOrganization = rows.find((row) => row.slug === "default");
+  if (defaultOrganization) return defaultOrganization.id;
+  throw new ValidationError("organizationId is required");
+}
+
+async function createFederatedUser(
+  context: Context,
+  data: { email: string; name: string | null; emailVerified: boolean }
+) {
+  const sub = generateRandomString(16);
+  const [user] = await context.db
+    .insert(users)
+    .values({
+      sub,
+      email: data.email,
+      opaqueLoginIdentity: data.email,
+      name: data.name || null,
+      emailVerifiedAt: data.emailVerified ? new Date() : null,
+      createdAt: new Date(),
+    })
+    .returning();
+  if (!user) throw new ConflictError("Unable to create user");
+  return user;
+}
+
+async function ensureFederationMembership(
+  context: Context,
+  connection: typeof federationConnections.$inferSelect,
+  userSub: string
+) {
+  const existing = await context.db.query.organizationMembers.findFirst({
+    where: and(
+      eq(organizationMembers.organizationId, connection.organizationId),
+      eq(organizationMembers.userSub, userSub)
+    ),
+  });
+  if (existing?.status === "active") return existing;
+  if (connection.requireScimPreProvisioning || !connection.membershipOnAuthentication) return null;
+  if (existing) return null;
+  const [membership] = await context.db
+    .insert(organizationMembers)
+    .values({
+      organizationId: connection.organizationId,
+      userSub,
+      status: "active",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .returning();
+  return membership || null;
+}
+
+function normalizeBooleanPolicy(
+  explicit: boolean | undefined,
+  metadataValue: unknown,
+  fallback: boolean
+) {
+  if (typeof explicit === "boolean") return explicit;
+  if (typeof metadataValue === "boolean") return metadataValue;
+  return fallback;
+}
+
+function validateDomainStatus(status: string) {
+  if (!DOMAIN_STATUSES.has(status)) throw new ValidationError("Invalid domain verification status");
 }
 
 function redactConnection<T extends typeof federationConnections.$inferSelect>(connection: T) {
@@ -732,10 +1323,21 @@ function extractDomain(email: string) {
   return trimmed.slice(at + 1);
 }
 
-function isEmailAllowedForConnection(email: string, domains: string[]) {
-  if (!domains || domains.length === 0) return true;
+async function isEmailAllowedForConnection(context: Context, connectionId: string, email: string) {
   const domain = extractDomain(email);
-  return !!domain && domains.includes(domain);
+  if (!domain) return false;
+  const rows = await context.db
+    .select({ domain: federationConnectionDomains.domain })
+    .from(federationConnectionDomains)
+    .where(
+      and(
+        eq(federationConnectionDomains.connectionId, connectionId),
+        eq(federationConnectionDomains.enabled, true),
+        eq(federationConnectionDomains.verificationStatus, "verified")
+      )
+    );
+  if (rows.length === 0) return true;
+  return rows.some((row) => row.domain === domain);
 }
 
 function validateText(value: string | undefined | null, name: string) {

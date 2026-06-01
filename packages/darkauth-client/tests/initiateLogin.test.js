@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { webcrypto } from "node:crypto";
-import { initiateLogin, setConfig } from "../dist/index.js";
+import { initiateLogin, setConfig, switchOrganization } from "../dist/index.js";
 
 function createStorage() {
   const entries = new Map();
@@ -75,6 +75,68 @@ test("initiateLogin adds ZK parameters when zk is true", async () => {
   assert.equal(globalThis.sessionStorage.getItem("oauth_state"), url.searchParams.get("state"));
   assert.ok(url.searchParams.get("zk_pub"));
   assert.ok(globalThis.sessionStorage.getItem("zk_eph_priv_jwk"));
+});
+
+test("initiateLogin includes organization_id when organizationId is supplied", async () => {
+  setupEnvironment();
+  const { location, getAssignedUrl } = createLocation();
+  globalThis.location = location;
+  setConfig({
+    issuer: "https://issuer.example",
+    clientId: "client-id",
+    redirectUri: "https://app.example/callback",
+    zk: false,
+    discovery: false,
+  });
+
+  await initiateLogin({ organizationId: "8f9778b7-0f1d-46cb-ae32-74f03300f6ff" });
+
+  const url = new URL(getAssignedUrl());
+  assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+});
+
+test("switchOrganization starts authorize flow by default", async () => {
+  setupEnvironment();
+  const { location, getAssignedUrl } = createLocation();
+  globalThis.location = location;
+  setConfig({
+    issuer: "https://issuer.example",
+    clientId: "client-id",
+    redirectUri: "https://app.example/callback",
+    zk: false,
+    discovery: false,
+  });
+
+  await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+
+  const url = new URL(getAssignedUrl());
+  assert.equal(url.pathname, "/authorize");
+  assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+  assert.equal(url.searchParams.get("client_id"), "client-id");
+});
+
+test("switchOrganization can generate hosted switch URL", async () => {
+  setupEnvironment();
+  const { location, getAssignedUrl } = createLocation();
+  globalThis.location = location;
+  setConfig({
+    issuer: "https://issuer.example",
+    clientId: "client-id",
+    redirectUri: "https://app.example/callback",
+    zk: false,
+    discovery: false,
+  });
+
+  await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff", {
+    mode: "hosted",
+    returnTo: "https://app.example/workspace",
+  });
+
+  const url = new URL(getAssignedUrl());
+  assert.equal(url.pathname, "/switch-org");
+  assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+  assert.equal(url.searchParams.get("client_id"), "client-id");
+  assert.equal(url.searchParams.get("return_to"), "https://app.example/workspace");
 });
 
 test("initiateLogin omits ZK parameters when zk is false", async () => {

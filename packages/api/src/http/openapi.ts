@@ -106,7 +106,11 @@ import { schema as userOpaqueRegisterFinishSchema } from "../controllers/user/op
 import { schema as userOpaqueRegisterStartSchema } from "../controllers/user/opaqueRegisterStart.ts";
 import {
   createOrganizationSchema as userCreateOrganizationSchema,
+  organizationAssignableRolesSchema as userOrganizationAssignableRolesSchema,
+  organizationDeleteSchema as userOrganizationDeleteSchema,
   organizationInvitesSchema as userOrganizationInvitesSchema,
+  organizationLeaveSchema as userOrganizationLeaveSchema,
+  organizationMemberDeleteSchema as userOrganizationMemberDeleteSchema,
   organizationMemberRoleDeleteSchema as userOrganizationMemberRoleDeleteSchema,
   organizationMemberRolesSchema as userOrganizationMemberRolesSchema,
   organizationMembersSchema as userOrganizationMembersSchema,
@@ -140,7 +144,10 @@ import {
   postRecoveryKeyUseSchema as userRecoveryKeyUseSchema,
 } from "../controllers/user/recoveryKeys.ts";
 import { schema as userRevokeSchema } from "../controllers/user/revoke.ts";
-import { schema as userSessionSchema } from "../controllers/user/session.ts";
+import {
+  organizationSchema as userSessionOrganizationSchema,
+  schema as userSessionSchema,
+} from "../controllers/user/session.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
 import {
   postDeviceApprovalApproveSchema as userDeviceApprovalApproveSchema,
@@ -259,6 +266,7 @@ const documentedSchemas: ControllerSchema[] = [
   userAuthorizeSchema,
   userAuthorizeFinalizeSchema,
   userSessionSchema,
+  userSessionOrganizationSchema,
   userLogoutSchema,
   userTokenSchema,
   userUserinfoSchema,
@@ -301,9 +309,13 @@ const documentedSchemas: ControllerSchema[] = [
   userCreateOrganizationSchema,
   userOrganizationSchema,
   userOrganizationMembersSchema,
+  userOrganizationAssignableRolesSchema,
   userOrganizationInvitesSchema,
   userOrganizationMemberRolesSchema,
   userOrganizationMemberRoleDeleteSchema,
+  userOrganizationMemberDeleteSchema,
+  userOrganizationLeaveSchema,
+  userOrganizationDeleteSchema,
   userPasswordChangeStartSchema,
   userPasswordChangeFinishSchema,
   userPasswordChangeVerifyStartSchema,

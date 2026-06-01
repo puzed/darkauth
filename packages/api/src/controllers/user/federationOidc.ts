@@ -32,6 +32,7 @@ const StartQuerySchema = z
   .object({
     connection_id: z.string().trim().min(1).optional(),
     email: z.string().email().optional(),
+    organization_id: z.string().uuid().optional(),
     return_to: z.string().trim().max(2048).optional(),
   })
   .refine((value) => value.connection_id || value.email, "connection_id or email is required");
@@ -58,13 +59,19 @@ export async function getFederationStart(
   const parsed = StartQuerySchema.parse(Object.fromEntries(url.searchParams.entries()));
   const connection = parsed.connection_id
     ? await getFederationConnectionSecret(context, parsed.connection_id)
-    : await findConnectionForEmail(context, parsed.email as string);
+    : await findConnectionForEmail(context, parsed.email as string, parsed.organization_id);
   if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
+  if (parsed.organization_id && parsed.organization_id !== connection.organizationId) {
+    throw new ValidationError("Federation connection does not belong to the selected organization");
+  }
 
   const nonce = generateRandomString(32);
   const codeVerifier = generateRandomString(64);
+  const clientId = await getUserClientId(context);
   const state = await createOidcCallbackState(context, {
     connectionId: connection.id,
+    organizationId: connection.organizationId,
+    clientId,
     nonce,
     codeVerifier,
     returnTo: normalizeReturnTo(context, parsed.return_to),
@@ -85,7 +92,12 @@ export async function getFederationStart(
     success: true,
     statusCode: 302,
     resourceId: connection.id,
-    details: { issuer: connection.issuer, return_to: normalizeReturnTo(context, parsed.return_to) },
+    details: {
+      issuer: connection.issuer,
+      organization_id: connection.organizationId,
+      client_id: clientId,
+      return_to: normalizeReturnTo(context, parsed.return_to),
+    },
   });
   redirect(response, authorizationUrl.toString(), 302);
 }
@@ -127,6 +139,9 @@ export async function getFederationCallback(
     auditConnectionId = stateRow.connectionId;
     const connection = await getFederationConnectionSecret(context, stateRow.connectionId);
     if (!connection.enabled) throw new ValidationError("Federation connection is disabled");
+    if (stateRow.organizationId !== connection.organizationId) {
+      throw new ValidationError("Federation state organization mismatch");
+    }
 
     const tokenResponse = await exchangeCode(context, connection, code, cookie.codeVerifier);
     const idTokenClaims = await validateIdToken(connection, tokenResponse.id_token, cookie.nonce);
@@ -144,23 +159,19 @@ export async function getFederationCallback(
     const activeMemberships = (await getUserOrganizations(context, user.sub)).filter(
       (membership) => membership.status === "active"
     );
-    if (activeMemberships.length === 0) throw new UnauthorizedError("Authentication not permitted");
-    const sessionOrganization =
-      activeMemberships.length === 1
-        ? {
-            organizationId: activeMemberships[0]?.organizationId,
-            organizationSlug: activeMemberships[0]?.slug,
-          }
-        : {};
-    const userClientId = await getUserClientId(context);
+    const sessionMembership = activeMemberships.find(
+      (membership) => membership.organizationId === connection.organizationId
+    );
+    if (!sessionMembership) throw new UnauthorizedError("Authentication not permitted");
     const { sessionId, refreshToken } = await createSession(context, "user", {
       sub: user.sub,
       email: user.email || undefined,
       name: user.name || undefined,
-      ...sessionOrganization,
-      clientId: userClientId,
+      organizationId: sessionMembership.organizationId,
+      organizationSlug: sessionMembership.slug,
+      clientId: stateRow.clientId || (await getUserClientId(context)),
       keyState: "locked",
-      otpRequired: activeMemberships.some((membership) => membership.forceOtp),
+      otpRequired: sessionMembership.forceOtp,
       otpVerified: false,
     });
     const ttlSeconds = await getSessionTtlSeconds(context, "user");
@@ -174,7 +185,11 @@ export async function getFederationCallback(
         statusCode: 302,
         resourceId: connection.id,
         userId: user.sub,
-        details: { identity_id: auditIdentityId, issuer: connection.issuer },
+        details: {
+          identity_id: auditIdentityId,
+          issuer: connection.issuer,
+          organization_id: connection.organizationId,
+        },
       });
     }
     await auditFederationEvent(context, request, {
@@ -183,7 +198,11 @@ export async function getFederationCallback(
       statusCode: 302,
       resourceId: connection.id,
       userId: user.sub,
-      details: { identity_id: auditIdentityId, issuer: connection.issuer },
+      details: {
+        identity_id: auditIdentityId,
+        issuer: connection.issuer,
+        organization_id: connection.organizationId,
+      },
     });
     await auditFederationEvent(context, request, {
       eventType: "FEDERATION_LOGIN",
@@ -191,7 +210,11 @@ export async function getFederationCallback(
       statusCode: 302,
       resourceId: connection.id,
       userId: user.sub,
-      details: { key_state: "locked", issuer: connection.issuer },
+      details: {
+        key_state: "locked",
+        issuer: connection.issuer,
+        organization_id: connection.organizationId,
+      },
     });
     redirect(response, stateRow.returnTo || "/dashboard", 302);
   } catch (error) {
@@ -244,8 +267,8 @@ async function auditFederationEvent(
   });
 }
 
-async function findConnectionForEmail(context: Context, email: string) {
-  const connection = await findFederationConnectionForEmail(context, email);
+async function findConnectionForEmail(context: Context, email: string, organizationId?: string) {
+  const connection = await findFederationConnectionForEmail(context, email, { organizationId });
   if (!connection) throw new ValidationError("No federation connection matches email domain");
   return await getFederationConnectionSecret(context, connection.id);
 }

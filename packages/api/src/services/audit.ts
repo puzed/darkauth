@@ -11,6 +11,9 @@ export interface AuditEvent {
   userId?: string;
   adminId?: string;
   clientId?: string;
+  organizationId?: string;
+  enterpriseConnectionId?: string;
+  enterpriseConnectionType?: string;
   ipAddress: string;
   userAgent?: string;
   success: boolean;
@@ -33,6 +36,9 @@ export interface AuditFilters {
   userId?: string;
   adminId?: string;
   clientId?: string;
+  organizationId?: string;
+  enterpriseConnectionId?: string;
+  enterpriseConnectionType?: string;
   resourceType?: string;
   resourceId?: string;
   success?: boolean;
@@ -327,6 +333,11 @@ export async function logAuditEvent(context: Context, event: AuditEvent): Promis
       userId: event.userId || null,
       adminId,
       clientId: event.clientId || null,
+      organizationId: isUuid(event.organizationId) ? event.organizationId : null,
+      enterpriseConnectionId: isUuid(event.enterpriseConnectionId)
+        ? event.enterpriseConnectionId
+        : null,
+      enterpriseConnectionType: event.enterpriseConnectionType || null,
       ipAddress: event.ipAddress,
       userAgent: event.userAgent || null,
       success: event.success,
@@ -375,6 +386,18 @@ export function buildAuditLogConditions(filters: AuditFilters): SQL<unknown>[] {
 
   if (filters.clientId) {
     conditions.push(eq(auditLogs.clientId, filters.clientId));
+  }
+
+  if (filters.organizationId) {
+    conditions.push(eq(auditLogs.organizationId, filters.organizationId));
+  }
+
+  if (filters.enterpriseConnectionId) {
+    conditions.push(eq(auditLogs.enterpriseConnectionId, filters.enterpriseConnectionId));
+  }
+
+  if (filters.enterpriseConnectionType) {
+    conditions.push(eq(auditLogs.enterpriseConnectionType, filters.enterpriseConnectionType));
   }
 
   if (filters.resourceType) {

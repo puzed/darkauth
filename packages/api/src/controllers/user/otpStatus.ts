@@ -2,7 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getOtpStatusModel } from "../../models/otp.ts";
-import { getUserOrganizations } from "../../models/rbac.ts";
+import { isUserOtpRequired } from "../../models/rbac.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -16,9 +16,7 @@ export const getOtpStatus = withAudit({ eventType: "OTP_STATUS", resourceType: "
   ): Promise<void> {
     const session = await requireSession(context, request, false);
     const status = await getOtpStatusModel(context, "user", session.sub as string);
-    const organizations = await getUserOrganizations(context, session.sub as string);
-    const activeMemberships = organizations.filter((membership) => membership.status === "active");
-    const required = activeMemberships.some((membership) => membership.forceOtp);
+    const required = await isUserOtpRequired(context, session.sub as string);
     sendJson(response, 200, {
       enabled: status.enabled,
       pending: status.pending,

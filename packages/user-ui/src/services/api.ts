@@ -129,6 +129,30 @@ export interface UserOrganization {
   roles?: Array<{ id?: string; key?: string; name?: string }>;
 }
 
+export interface OrganizationRole {
+  id: string;
+  key: string;
+  name: string;
+  description?: string | null;
+  assignable?: boolean;
+}
+
+export interface OrganizationMember {
+  membershipId: string;
+  userSub: string;
+  status: string;
+  email?: string | null;
+  name?: string | null;
+  roles: OrganizationRole[];
+}
+
+export interface OrganizationInvite {
+  id: string;
+  email: string;
+  expiresAt?: string;
+  token?: string;
+}
+
 export interface SessionOrganizationResponse {
   organizationId: string;
   organizationSlug?: string;
@@ -296,6 +320,74 @@ export interface FederationConnectionRoute {
   authorizationEndpoint: string;
   scopes: string[];
   enabled: boolean;
+}
+
+export interface OrgFederationConnection {
+  id: string;
+  organizationId?: string;
+  name: string;
+  protocol?: string;
+  enabled: boolean;
+  discoveryUrl?: string | null;
+  issuer?: string | null;
+  clientId?: string | null;
+  hasClientSecret?: boolean;
+  scopes?: string[];
+  emailClaim?: string | null;
+  nameClaim?: string | null;
+  subjectClaim?: string | null;
+  jitProvisioning?: boolean;
+  membershipOnAuthentication?: boolean;
+  requireScimPreProvisioning?: boolean;
+  callbackUrl?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface OrgFederationConnectionInput {
+  name: string;
+  enabled?: boolean;
+  discoveryUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  scopes?: string[];
+  emailClaim?: string;
+  nameClaim?: string;
+  subjectClaim?: string;
+  jitProvisioning?: boolean;
+  membershipOnAuthentication?: boolean;
+  requireScimPreProvisioning?: boolean;
+}
+
+export interface OrgFederationDomain {
+  id: string;
+  domain: string;
+  verificationStatus: string;
+  recordName?: string | null;
+  recordValue?: string | null;
+  lastCheckedAt?: string | null;
+  verifiedAt?: string | null;
+}
+
+export interface OrgScimConnection {
+  id: string;
+  organizationId?: string;
+  name: string;
+  enabled?: boolean;
+  baseUrl?: string | null;
+  deprovisionAction?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface OrgScimToken {
+  id: string;
+  prefix?: string | null;
+  status?: string | null;
+  createdAt?: string | null;
+  lastUsedAt?: string | null;
+  expiresAt?: string | null;
+  token?: string | null;
 }
 
 export interface PasswordResetRequestResponse {
@@ -579,6 +671,10 @@ class ApiService {
     return this.request("/organizations");
   }
 
+  async getOrganization(organizationId: string): Promise<{ organization: UserOrganization }> {
+    return this.request(`/organizations/${encodeURIComponent(organizationId)}`);
+  }
+
   async createOrganization(request: {
     name: string;
     slug?: string;
@@ -586,6 +682,75 @@ class ApiService {
     return this.request("/organizations", {
       method: "POST",
       body: JSON.stringify(request),
+    });
+  }
+
+  async getOrganizationMembers(organizationId: string): Promise<{ members: OrganizationMember[] }> {
+    return this.request(`/organizations/${encodeURIComponent(organizationId)}/members`);
+  }
+
+  async createOrganizationInvite(
+    organizationId: string,
+    request: { email: string; roleIds?: string[]; expiresAt?: string }
+  ): Promise<{ invite: OrganizationInvite }> {
+    return this.request(`/organizations/${encodeURIComponent(organizationId)}/invites`, {
+      method: "POST",
+      body: JSON.stringify(request),
+    });
+  }
+
+  async assignOrganizationMemberRoles(
+    organizationId: string,
+    memberId: string,
+    roleIds: string[]
+  ): Promise<{ assigned: OrganizationRole[] }> {
+    const path = `/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(
+      memberId
+    )}/roles`;
+    return this.request(path, {
+      method: "POST",
+      body: JSON.stringify({ roleIds }),
+    });
+  }
+
+  async removeOrganizationMemberRole(
+    organizationId: string,
+    memberId: string,
+    roleId: string
+  ): Promise<{ success: boolean }> {
+    const path = `/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(
+      memberId
+    )}/roles/${encodeURIComponent(roleId)}`;
+    return this.request(path, { method: "DELETE" });
+  }
+
+  async getAssignableOrganizationRoles(organizationId: string): Promise<OrganizationRole[]> {
+    const data = await this.request<{ roles?: OrganizationRole[] } | OrganizationRole[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/roles/assignable`
+    );
+    return Array.isArray(data) ? data : data.roles || [];
+  }
+
+  async removeOrganizationMember(
+    organizationId: string,
+    memberId: string
+  ): Promise<{ success: boolean }> {
+    const path = `/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(
+      memberId
+    )}`;
+    return this.request(path, { method: "DELETE" });
+  }
+
+  async leaveOrganization(organizationId: string): Promise<{ success: boolean }> {
+    return this.request(`/organizations/${encodeURIComponent(organizationId)}/leave`, {
+      method: "POST",
+    });
+  }
+
+  async deleteOrganization(organizationId: string): Promise<{ success: boolean }> {
+    return this.request(`/organizations/${encodeURIComponent(organizationId)}`, {
+      method: "DELETE",
+      body: JSON.stringify({ confirm: true }),
     });
   }
 
@@ -1170,6 +1335,233 @@ class ApiService {
       | ConnectedIdentityResponse[]
     >("/federation/identities");
     return Array.isArray(data) ? data : data.identities || data.connected_identities || [];
+  }
+
+  async getOrgFederationConnections(organizationId: string): Promise<OrgFederationConnection[]> {
+    const data = await this.request<
+      { connections?: OrgFederationConnection[] } | OrgFederationConnection[]
+    >(`/organizations/${encodeURIComponent(organizationId)}/federation/connections`);
+    return Array.isArray(data) ? data : data.connections || [];
+  }
+
+  async getOrgFederationConnection(
+    organizationId: string,
+    connectionId: string
+  ): Promise<OrgFederationConnection> {
+    const data = await this.request<
+      { connection?: OrgFederationConnection } | OrgFederationConnection
+    >(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}`
+    );
+    return "connection" in data && data.connection
+      ? data.connection
+      : (data as OrgFederationConnection);
+  }
+
+  async createOrgFederationConnection(
+    organizationId: string,
+    input: OrgFederationConnectionInput
+  ): Promise<OrgFederationConnection> {
+    const data = await this.request<
+      { connection?: OrgFederationConnection } | OrgFederationConnection
+    >(`/organizations/${encodeURIComponent(organizationId)}/federation/connections`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return "connection" in data && data.connection
+      ? data.connection
+      : (data as OrgFederationConnection);
+  }
+
+  async updateOrgFederationConnection(
+    organizationId: string,
+    connectionId: string,
+    input: Partial<OrgFederationConnectionInput>
+  ): Promise<OrgFederationConnection> {
+    const data = await this.request<
+      { connection?: OrgFederationConnection } | OrgFederationConnection
+    >(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }
+    );
+    return "connection" in data && data.connection
+      ? data.connection
+      : (data as OrgFederationConnection);
+  }
+
+  async deleteOrgFederationConnection(
+    organizationId: string,
+    connectionId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async getOrgFederationDomains(
+    organizationId: string,
+    connectionId: string
+  ): Promise<OrgFederationDomain[]> {
+    const data = await this.request<{ domains?: OrgFederationDomain[] } | OrgFederationDomain[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}/domains`
+    );
+    return Array.isArray(data) ? data : data.domains || [];
+  }
+
+  async createOrgFederationDomain(
+    organizationId: string,
+    connectionId: string,
+    domain: string
+  ): Promise<OrgFederationDomain> {
+    const data = await this.request<{ domain: OrgFederationDomain } | OrgFederationDomain>(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}/domains`,
+      {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      }
+    );
+    const wrapped = data as { domain?: OrgFederationDomain };
+    return wrapped.domain && typeof wrapped.domain === "object"
+      ? wrapped.domain
+      : (data as OrgFederationDomain);
+  }
+
+  async deleteOrgFederationDomain(
+    organizationId: string,
+    connectionId: string,
+    domainId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}/domains/${encodeURIComponent(domainId)}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async verifyOrgFederationDomain(
+    organizationId: string,
+    connectionId: string,
+    domainId: string
+  ): Promise<OrgFederationDomain> {
+    const data = await this.request<{ domain: OrgFederationDomain } | OrgFederationDomain>(
+      `/organizations/${encodeURIComponent(organizationId)}/federation/connections/${encodeURIComponent(
+        connectionId
+      )}/domains/${encodeURIComponent(domainId)}/verify`,
+      { method: "POST" }
+    );
+    const wrapped = data as { domain?: OrgFederationDomain };
+    return wrapped.domain && typeof wrapped.domain === "object"
+      ? wrapped.domain
+      : (data as OrgFederationDomain);
+  }
+
+  async getOrgScimConnections(organizationId: string): Promise<OrgScimConnection[]> {
+    const data = await this.request<{ connections?: OrgScimConnection[] } | OrgScimConnection[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections`
+    );
+    return Array.isArray(data) ? data : data.connections || [];
+  }
+
+  async getOrgScimConnection(
+    organizationId: string,
+    connectionId: string
+  ): Promise<OrgScimConnection> {
+    const data = await this.request<{ connection?: OrgScimConnection } | OrgScimConnection>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}`
+    );
+    return "connection" in data && data.connection ? data.connection : (data as OrgScimConnection);
+  }
+
+  async createOrgScimConnection(organizationId: string, name: string): Promise<OrgScimConnection> {
+    const data = await this.request<{ connection?: OrgScimConnection } | OrgScimConnection>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections`,
+      {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      }
+    );
+    return "connection" in data && data.connection ? data.connection : (data as OrgScimConnection);
+  }
+
+  async updateOrgScimConnection(
+    organizationId: string,
+    connectionId: string,
+    input: { name?: string; enabled?: boolean; deprovisionAction?: string }
+  ): Promise<OrgScimConnection> {
+    const data = await this.request<{ connection?: OrgScimConnection } | OrgScimConnection>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(input),
+      }
+    );
+    return "connection" in data && data.connection ? data.connection : (data as OrgScimConnection);
+  }
+
+  async deleteOrgScimConnection(
+    organizationId: string,
+    connectionId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async getOrgScimTokens(organizationId: string, connectionId: string): Promise<OrgScimToken[]> {
+    const data = await this.request<{ tokens?: OrgScimToken[] } | OrgScimToken[]>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}/tokens`
+    );
+    return Array.isArray(data) ? data : data.tokens || [];
+  }
+
+  async createOrgScimToken(organizationId: string, connectionId: string): Promise<OrgScimToken> {
+    const data = await this.request<{ token: OrgScimToken } | OrgScimToken>(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}/tokens`,
+      { method: "POST" }
+    );
+    const wrapped = data as { token?: OrgScimToken | string };
+    return wrapped.token && typeof wrapped.token === "object"
+      ? wrapped.token
+      : (data as OrgScimToken);
+  }
+
+  async deleteOrgScimToken(
+    organizationId: string,
+    connectionId: string,
+    tokenId: string
+  ): Promise<{ success: boolean }> {
+    return this.request(
+      `/organizations/${encodeURIComponent(organizationId)}/scim/connections/${encodeURIComponent(
+        connectionId
+      )}/tokens/${encodeURIComponent(tokenId)}`,
+      { method: "DELETE" }
+    );
   }
 
   async getUserApps(): Promise<{

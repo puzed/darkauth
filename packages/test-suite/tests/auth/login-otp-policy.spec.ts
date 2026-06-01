@@ -68,7 +68,8 @@ test.describe('Auth - Login OTP Policy', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user,
+      { organizationIds: [defaultOrganizationId] }
     );
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(finish.otpRequired).toBe(true);
@@ -77,7 +78,12 @@ test.describe('Auth - Login OTP Policy', () => {
   test('User in organization without force OTP gets otpRequired=false', async () => {
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, false);
     const user = { email: `b-${Date.now()}@example.com`, name: 'User B', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { organizationIds: [defaultOrganizationId] }
+    );
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(finish.otpRequired).toBe(false);
   });
@@ -85,7 +91,12 @@ test.describe('Auth - Login OTP Policy', () => {
   test('Force OTP applies to subsequent logins when enabled', async () => {
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
     const user = { email: `c-${Date.now()}@example.com`, name: 'User C', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { organizationIds: [defaultOrganizationId] }
+    );
     const finish = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(finish.otpRequired).toBe(true);
   });

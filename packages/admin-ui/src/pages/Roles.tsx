@@ -20,8 +20,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import tableStyles from "@/components/ui/table.module.css";
-import adminApiService, { type Role, type SortOrder } from "@/services/api";
+import adminApiService, { AdminApiRequestError, type Role, type SortOrder } from "@/services/api";
 import { logger } from "@/services/logger";
+
+function hasRoleFlag(
+  role: Role,
+  camelKey: "defaultMember" | "defaultCreator",
+  snakeKey: "default_member" | "default_creator"
+) {
+  return role[camelKey] === true || role[snakeKey] === true;
+}
+
+const PROTECTED_ROLE_DELETE_CODES = new Set([
+  "ROLE_PROTECTED",
+  "ROLE_DEFAULT_PROTECTED",
+  "LAST_DEFAULT_MEMBER_ROLE",
+  "LAST_DEFAULT_CREATOR_ROLE",
+  "SYSTEM_ROLE_PROTECTED",
+]);
+
+function describeRoleDeleteError(error: unknown, role: Role): string {
+  if (error instanceof AdminApiRequestError) {
+    if (error.code && PROTECTED_ROLE_DELETE_CODES.has(error.code)) {
+      return `"${role.name}" is a protected role and cannot be deleted. ${error.message}`;
+    }
+    return error.message;
+  }
+  return error instanceof Error ? error.message : "Failed to delete role";
+}
 
 export default function Roles() {
   const navigate = useNavigate();
@@ -88,7 +114,7 @@ export default function Roles() {
       setRoles((prev) => prev.filter((r) => r.id !== role.id));
       setTotalCount((prev) => Math.max(prev - 1, 0));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Failed to delete role");
+      setError(describeRoleDeleteError(deleteError, role));
     }
   };
 
@@ -168,6 +194,7 @@ export default function Roles() {
                   />
                   <TableHead>Permissions</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Org Use</TableHead>
                   <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
@@ -204,6 +231,22 @@ export default function Roles() {
                       <Badge variant={role.system ? "outline" : "default"}>
                         {role.system ? "System" : "Custom"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {role.assignable ? <Badge variant="secondary">Assignable</Badge> : null}
+                        {hasRoleFlag(role, "defaultMember", "default_member") ? (
+                          <Badge variant="secondary">Default member</Badge>
+                        ) : null}
+                        {hasRoleFlag(role, "defaultCreator", "default_creator") ? (
+                          <Badge variant="secondary">Default creator</Badge>
+                        ) : null}
+                        {!role.assignable &&
+                        !hasRoleFlag(role, "defaultMember", "default_member") &&
+                        !hasRoleFlag(role, "defaultCreator", "default_creator") ? (
+                          <Badge variant="outline">Admin only</Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <RowActions

@@ -89,7 +89,8 @@ test.describe('API - OTP Role Policy', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user,
+      { organizationIds: [defaultOrganizationId] }
     );
     const memberId = await getOrganizationMemberIdForUser(
       servers,
@@ -117,7 +118,8 @@ test.describe('API - OTP Role Policy', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user,
+      { organizationIds: [defaultOrganizationId] }
     );
     const login = await opaqueLoginFinish(servers.userUrl, user.email, user.password);
     expect(login.otpRequired).toBe(true);

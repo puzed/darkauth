@@ -1,10 +1,13 @@
-import { and, asc, count, eq, gt, ilike, inArray, isNull, or } from "drizzle-orm";
+import { and, asc, count, eq, gt, ilike, inArray, isNull, or, sql } from "drizzle-orm";
 import {
+  authCodes,
   organizationMemberRoles,
   organizationMembers,
   organizations,
+  pendingAuth,
   roles,
   scimBearerTokens,
+  scimConnections,
   scimGroupMembers,
   scimGroups,
   scimUsers,
@@ -14,10 +17,15 @@ import {
 import { ConflictError, NotFoundError, UnauthorizedError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import { constantTimeCompare, generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
-import { deleteAuthCodesForUser } from "./authCodes.ts";
-import { deletePendingAuthForUser } from "./authorize.ts";
 import { getStringSetting } from "./scimPolicy.ts";
-import { createUser as createLocalUser } from "./users.ts";
+
+export type ScimConnectionContext = {
+  id: string;
+  tokenId: string;
+  organizationId: string;
+  deprovisionAction: string;
+  deleteUserSafety: string;
+};
 
 type ScimUserInput = {
   externalId?: string | null;
@@ -134,34 +142,43 @@ function parseSimpleFilter(filter?: string | null) {
   };
 }
 
-function userFilterCondition(filter?: string | null) {
+function userFilterCondition(scim: ScimConnectionContext, filter?: string | null) {
   const parsed = parseSimpleFilter(filter);
-  if (!parsed) return undefined;
-  if (parsed.attr === "id") return eq(scimUsers.userSub, parsed.value);
+  const scope = eq(scimUsers.connectionId, scim.id);
+  if (!parsed) return scope;
+  if (parsed.attr === "id") return and(scope, eq(scimUsers.userSub, parsed.value));
   if (parsed.attr === "userName") {
-    return parsed.op === "co"
-      ? ilike(scimUsers.userName, `%${parsed.value}%`)
-      : eq(scimUsers.userName, parsed.value);
+    const match =
+      parsed.op === "co"
+        ? ilike(scimUsers.userName, `%${parsed.value}%`)
+        : eq(scimUsers.userName, parsed.value);
+    return and(scope, match);
   }
-  if (parsed.attr === "externalId") return eq(scimUsers.externalId, parsed.value);
+  if (parsed.attr === "externalId") return and(scope, eq(scimUsers.externalId, parsed.value));
   if (parsed.attr === "displayName") {
-    return parsed.op === "co"
-      ? ilike(scimUsers.displayName, `%${parsed.value}%`)
-      : eq(scimUsers.displayName, parsed.value);
+    const match =
+      parsed.op === "co"
+        ? ilike(scimUsers.displayName, `%${parsed.value}%`)
+        : eq(scimUsers.displayName, parsed.value);
+    return and(scope, match);
   }
-  if (parsed.attr === "active") return eq(scimUsers.active, parsed.value.toLowerCase() === "true");
+  if (parsed.attr === "active")
+    return and(scope, eq(scimUsers.active, parsed.value.toLowerCase() === "true"));
   throw new ValidationError("Unsupported SCIM filter");
 }
 
-function groupFilterCondition(filter?: string | null) {
+function groupFilterCondition(scim: ScimConnectionContext, filter?: string | null) {
   const parsed = parseSimpleFilter(filter);
-  if (!parsed) return undefined;
-  if (parsed.attr === "id") return eq(scimGroups.id, parsed.value);
-  if (parsed.attr === "externalId") return eq(scimGroups.externalId, parsed.value);
+  const scope = eq(scimGroups.connectionId, scim.id);
+  if (!parsed) return scope;
+  if (parsed.attr === "id") return and(scope, eq(scimGroups.id, parsed.value));
+  if (parsed.attr === "externalId") return and(scope, eq(scimGroups.externalId, parsed.value));
   if (parsed.attr === "displayName") {
-    return parsed.op === "co"
-      ? ilike(scimGroups.displayName, `%${parsed.value}%`)
-      : eq(scimGroups.displayName, parsed.value);
+    const match =
+      parsed.op === "co"
+        ? ilike(scimGroups.displayName, `%${parsed.value}%`)
+        : eq(scimGroups.displayName, parsed.value);
+    return and(scope, match);
   }
   throw new ValidationError("Unsupported SCIM filter");
 }
@@ -196,7 +213,7 @@ function toScimUser(row: {
   };
 }
 
-async function findScimUserRow(context: Context, userSub: string) {
+async function findScimUserRow(context: Context, scim: ScimConnectionContext, userSub: string) {
   const [row] = await context.db
     .select({
       userSub: scimUsers.userSub,
@@ -211,22 +228,42 @@ async function findScimUserRow(context: Context, userSub: string) {
     })
     .from(scimUsers)
     .innerJoin(users, eq(users.sub, scimUsers.userSub))
-    .where(eq(scimUsers.userSub, userSub));
+    .where(and(eq(scimUsers.connectionId, scim.id), eq(scimUsers.userSub, userSub)));
   return row || null;
 }
 
 export async function createScimBearerToken(
   context: Context,
-  input: { name: string; createdByAdminId?: string | null; expiresAt?: Date | null }
+  input: {
+    name: string;
+    organizationId: string;
+    connectionId?: string | null;
+    connectionName?: string | null;
+    createdByAdminId?: string | null;
+    expiresAt?: Date | null;
+  }
 ) {
   const name = input.name.trim();
   if (!name) throw new ValidationError("Token name is required");
+  const organizationId = input.organizationId.trim();
+  const organization = await context.db.query.organizations.findFirst({
+    where: eq(organizations.id, organizationId),
+  });
+  if (!organization) throw new ValidationError("Organization is required");
+  const connection = input.connectionId
+    ? await getScimConnectionForOrganization(context, input.connectionId, organizationId)
+    : await createScimConnection(context, {
+        organizationId,
+        name: input.connectionName || name,
+      });
   const token = `da_scim_${generateRandomString(32)}`;
   const tokenHash = sha256Base64Url(token);
   const tokenPrefix = token.slice(0, 16);
   const [row] = await context.db
     .insert(scimBearerTokens)
     .values({
+      connectionId: connection.id,
+      organizationId,
       name,
       tokenHash,
       tokenPrefix,
@@ -238,10 +275,128 @@ export async function createScimBearerToken(
   return { ...row, token };
 }
 
-export async function listScimBearerTokens(context: Context) {
+export async function createScimConnection(
+  context: Context,
+  input: { organizationId: string; name: string; deprovisionAction?: string | null }
+) {
+  const organizationId = input.organizationId.trim();
+  const organization = await context.db.query.organizations.findFirst({
+    where: eq(organizations.id, organizationId),
+  });
+  if (!organization) throw new ValidationError("Organization is required");
+  const name = input.name.trim();
+  if (!name) throw new ValidationError("Connection name is required");
+  const [row] = await context.db
+    .insert(scimConnections)
+    .values({
+      organizationId,
+      name,
+      deprovisionAction: input.deprovisionAction || "suspend_membership",
+    })
+    .returning();
+  if (!row) throw new ValidationError("Unable to create SCIM connection");
+  return row;
+}
+
+async function getScimConnectionForOrganization(
+  context: Context,
+  connectionId: string,
+  organizationId: string
+) {
+  const connection = await context.db.query.scimConnections.findFirst({
+    where: and(
+      eq(scimConnections.id, connectionId),
+      eq(scimConnections.organizationId, organizationId)
+    ),
+  });
+  if (!connection) throw new ValidationError("SCIM connection not found");
+  if (!connection.enabled) throw new ValidationError("SCIM connection is disabled");
+  return connection;
+}
+
+export async function listScimConnectionsForOrganization(context: Context, organizationId: string) {
+  return await context.db
+    .select()
+    .from(scimConnections)
+    .where(eq(scimConnections.organizationId, organizationId))
+    .orderBy(asc(scimConnections.createdAt));
+}
+
+export async function getScimConnectionForOrg(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  const connection = await context.db.query.scimConnections.findFirst({
+    where: and(
+      eq(scimConnections.id, connectionId),
+      eq(scimConnections.organizationId, organizationId)
+    ),
+  });
+  if (!connection) throw new NotFoundError("SCIM connection not found");
+  return connection;
+}
+
+export async function updateScimConnectionForOrg(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  updates: {
+    name?: string;
+    enabled?: boolean;
+    deprovisionAction?: string;
+    deleteUserSafety?: string;
+  }
+) {
+  await getScimConnectionForOrg(context, organizationId, connectionId);
+  const patch: Partial<typeof scimConnections.$inferInsert> = { updatedAt: new Date() };
+  if (typeof updates.name === "string") {
+    const name = updates.name.trim();
+    if (!name) throw new ValidationError("Connection name is required");
+    patch.name = name;
+  }
+  if (typeof updates.enabled === "boolean") patch.enabled = updates.enabled;
+  if (typeof updates.deprovisionAction === "string")
+    patch.deprovisionAction = updates.deprovisionAction;
+  if (typeof updates.deleteUserSafety === "string")
+    patch.deleteUserSafety = updates.deleteUserSafety;
+  const [row] = await context.db
+    .update(scimConnections)
+    .set(patch)
+    .where(
+      and(eq(scimConnections.id, connectionId), eq(scimConnections.organizationId, organizationId))
+    )
+    .returning();
+  if (!row) throw new NotFoundError("SCIM connection not found");
+  return row;
+}
+
+export async function deleteScimConnectionForOrg(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  const [row] = await context.db
+    .delete(scimConnections)
+    .where(
+      and(eq(scimConnections.id, connectionId), eq(scimConnections.organizationId, organizationId))
+    )
+    .returning();
+  if (!row) throw new NotFoundError("SCIM connection not found");
+  return { success: true as const };
+}
+
+export async function listScimBearerTokensForConnection(
+  context: Context,
+  organizationId: string,
+  connectionId: string
+) {
+  await getScimConnectionForOrg(context, organizationId, connectionId);
   return await context.db
     .select({
       id: scimBearerTokens.id,
+      connectionId: scimBearerTokens.connectionId,
+      organizationId: scimBearerTokens.organizationId,
       name: scimBearerTokens.name,
       tokenPrefix: scimBearerTokens.tokenPrefix,
       createdByAdminId: scimBearerTokens.createdByAdminId,
@@ -251,17 +406,109 @@ export async function listScimBearerTokens(context: Context) {
       revokedAt: scimBearerTokens.revokedAt,
     })
     .from(scimBearerTokens)
+    .where(
+      and(
+        eq(scimBearerTokens.organizationId, organizationId),
+        eq(scimBearerTokens.connectionId, connectionId)
+      )
+    )
     .orderBy(asc(scimBearerTokens.createdAt));
 }
 
-export async function revokeScimBearerToken(context: Context, id: string) {
+export async function createScimBearerTokenForConnection(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  input: { name?: string | null; expiresAt?: Date | null }
+) {
+  const connection = await getScimConnectionForOrg(context, organizationId, connectionId);
+  const name = (input.name || connection.name).trim();
+  if (!name) throw new ValidationError("Token name is required");
+  const token = `da_scim_${generateRandomString(32)}`;
+  const tokenHash = sha256Base64Url(token);
+  const tokenPrefix = token.slice(0, 16);
+  const [row] = await context.db
+    .insert(scimBearerTokens)
+    .values({
+      connectionId: connection.id,
+      organizationId,
+      name,
+      tokenHash,
+      tokenPrefix,
+      createdByAdminId: null,
+      expiresAt: input.expiresAt || null,
+    })
+    .returning();
+  if (!row) throw new ValidationError("Unable to create SCIM token");
+  return { ...row, token };
+}
+
+export async function revokeScimBearerTokenForConnection(
+  context: Context,
+  organizationId: string,
+  connectionId: string,
+  tokenId: string
+) {
   const [row] = await context.db
     .update(scimBearerTokens)
     .set({ revokedAt: new Date() })
-    .where(eq(scimBearerTokens.id, id))
+    .where(
+      and(
+        eq(scimBearerTokens.id, tokenId),
+        eq(scimBearerTokens.organizationId, organizationId),
+        eq(scimBearerTokens.connectionId, connectionId)
+      )
+    )
+    .returning();
+  if (!row) throw new NotFoundError("SCIM token not found");
+  return { success: true as const };
+}
+
+export async function listScimBearerTokens(context: Context, organizationId?: string) {
+  const condition = organizationId
+    ? eq(scimBearerTokens.organizationId, organizationId)
+    : undefined;
+  const query = context.db
+    .select({
+      id: scimBearerTokens.id,
+      connectionId: scimBearerTokens.connectionId,
+      organizationId: scimBearerTokens.organizationId,
+      organizationSlug: organizations.slug,
+      organizationName: organizations.name,
+      name: scimBearerTokens.name,
+      tokenPrefix: scimBearerTokens.tokenPrefix,
+      createdByAdminId: scimBearerTokens.createdByAdminId,
+      createdAt: scimBearerTokens.createdAt,
+      lastUsedAt: scimBearerTokens.lastUsedAt,
+      expiresAt: scimBearerTokens.expiresAt,
+      revokedAt: scimBearerTokens.revokedAt,
+    })
+    .from(scimBearerTokens)
+    .leftJoin(organizations, eq(organizations.id, scimBearerTokens.organizationId));
+  return await (condition ? query.where(condition) : query).orderBy(
+    asc(scimBearerTokens.createdAt)
+  );
+}
+
+export async function revokeScimBearerToken(context: Context, id: string, organizationId?: string) {
+  const condition = organizationId
+    ? and(eq(scimBearerTokens.id, id), eq(scimBearerTokens.organizationId, organizationId))
+    : eq(scimBearerTokens.id, id);
+  const [row] = await context.db
+    .update(scimBearerTokens)
+    .set({ revokedAt: new Date() })
+    .where(condition)
     .returning();
   if (!row) throw new NotFoundError("SCIM token not found");
   return { success: true };
+}
+
+export async function revokeScimBearerTokenForOrganization(
+  context: Context,
+  organizationId: string,
+  id: string
+) {
+  return await revokeScimBearerToken(context, id, organizationId);
 }
 
 export async function requireScimBearerToken(context: Context, token: string | null | undefined) {
@@ -272,24 +519,41 @@ export async function requireScimBearerToken(context: Context, token: string | n
     .select({
       id: scimBearerTokens.id,
       tokenHash: scimBearerTokens.tokenHash,
+      connectionId: scimBearerTokens.connectionId,
+      organizationId: scimBearerTokens.organizationId,
+      deprovisionAction: scimConnections.deprovisionAction,
+      deleteUserSafety: scimConnections.deleteUserSafety,
     })
     .from(scimBearerTokens)
+    .innerJoin(scimConnections, eq(scimConnections.id, scimBearerTokens.connectionId))
     .where(
       and(
+        eq(scimConnections.enabled, true),
         isNull(scimBearerTokens.revokedAt),
         or(isNull(scimBearerTokens.expiresAt), gt(scimBearerTokens.expiresAt, now))
       )
     );
   const match = candidates.find((candidate) => constantTimeCompare(candidate.tokenHash, tokenHash));
-  if (!match) throw new UnauthorizedError("Invalid SCIM bearer token");
+  if (!match || !match.connectionId || !match.organizationId)
+    throw new UnauthorizedError("Invalid SCIM bearer token");
   await context.db
     .update(scimBearerTokens)
     .set({ lastUsedAt: now })
     .where(eq(scimBearerTokens.id, match.id));
-  return match;
+  return {
+    id: match.connectionId,
+    tokenId: match.id,
+    organizationId: match.organizationId,
+    deprovisionAction: match.deprovisionAction,
+    deleteUserSafety: match.deleteUserSafety,
+  };
 }
 
-export async function createScimUser(context: Context, input: ScimUserInput) {
+export async function createScimUser(
+  context: Context,
+  scim: ScimConnectionContext,
+  input: ScimUserInput
+) {
   const userName = resolvedUserName(input);
   const email = resolvedEmail(input, userName);
   const displayName = resolvedDisplayName(input);
@@ -299,13 +563,25 @@ export async function createScimUser(context: Context, input: ScimUserInput) {
       : null;
   const existing = await context.db.query.scimUsers.findFirst({
     where: externalId
-      ? or(eq(scimUsers.externalId, externalId), eq(scimUsers.userName, userName))
-      : eq(scimUsers.userName, userName),
+      ? and(
+          eq(scimUsers.connectionId, scim.id),
+          or(eq(scimUsers.externalId, externalId), eq(scimUsers.userName, userName))
+        )
+      : and(eq(scimUsers.connectionId, scim.id), eq(scimUsers.userName, userName)),
   });
   if (existing) throw new ConflictError("SCIM user already exists");
-  const local = await createLocalUser(context, { email, name: displayName || userName });
+  const local = await createScimRootUser(context, { email, name: displayName || userName });
+  const membership = await provisionScimMembership(
+    context,
+    scim,
+    local.sub,
+    input.active !== false
+  );
   await context.db.insert(scimUsers).values({
     userSub: local.sub,
+    connectionId: scim.id,
+    organizationId: scim.organizationId,
+    organizationMemberId: membership?.id || null,
     externalId,
     userName,
     displayName,
@@ -314,27 +590,50 @@ export async function createScimUser(context: Context, input: ScimUserInput) {
     createdAt: new Date(),
     updatedAt: new Date(),
   });
-  if (input.active === false) await revokeUserAuthorizationState(context, local.sub);
-  const row = await findScimUserRow(context, local.sub);
+  if (input.active === false)
+    await revokeUserAuthorizationState(context, local.sub, scim.organizationId);
+  const row = await findScimUserRow(context, scim, local.sub);
   if (!row) throw new NotFoundError("SCIM user not found");
   return toScimUser(row);
 }
 
-export async function getScimUser(context: Context, userSub: string) {
-  const row = await findScimUserRow(context, userSub);
+async function createScimRootUser(
+  context: Context,
+  data: { email: string; name?: string | null; sub?: string }
+) {
+  const sub = data.sub || generateRandomString(16);
+  const existing = await context.db.query.users.findFirst({ where: eq(users.email, data.email) });
+  if (existing) {
+    await context.db
+      .update(users)
+      .set({ name: data.name || existing.name })
+      .where(eq(users.sub, existing.sub));
+    return { sub: existing.sub, email: data.email, name: data.name || existing.name };
+  }
+  await context.db.insert(users).values({
+    sub,
+    email: data.email,
+    opaqueLoginIdentity: data.email,
+    name: data.name || null,
+    createdAt: new Date(),
+  });
+  return { sub, email: data.email, name: data.name || null };
+}
+
+export async function getScimUser(context: Context, scim: ScimConnectionContext, userSub: string) {
+  const row = await findScimUserRow(context, scim, userSub);
   if (!row) throw new NotFoundError("SCIM user not found");
   return toScimUser(row);
 }
 
 export async function listScimUsers(
   context: Context,
+  scim: ScimConnectionContext,
   input: { startIndex?: number; count?: number; filter?: string | null }
 ) {
   const { startIndex, itemsPerPage, offset } = parsePage(input);
-  const condition = userFilterCondition(input.filter);
-  const totalRows = await (condition
-    ? context.db.select({ count: count() }).from(scimUsers).where(condition)
-    : context.db.select({ count: count() }).from(scimUsers));
+  const condition = userFilterCondition(scim, input.filter);
+  const totalRows = await context.db.select({ count: count() }).from(scimUsers).where(condition);
   const query = context.db
     .select({
       userSub: scimUsers.userSub,
@@ -349,7 +648,8 @@ export async function listScimUsers(
     })
     .from(scimUsers)
     .innerJoin(users, eq(users.sub, scimUsers.userSub));
-  const rows = await (condition ? query.where(condition) : query)
+  const rows = await query
+    .where(condition)
     .orderBy(asc(scimUsers.userName))
     .limit(itemsPerPage)
     .offset(offset);
@@ -361,8 +661,13 @@ export async function listScimUsers(
   );
 }
 
-export async function replaceScimUser(context: Context, userSub: string, input: ScimUserInput) {
-  await getScimUser(context, userSub);
+export async function replaceScimUser(
+  context: Context,
+  scim: ScimConnectionContext,
+  userSub: string,
+  input: ScimUserInput
+) {
+  await getScimUser(context, scim, userSub);
   const userName = resolvedUserName(input);
   const email = resolvedEmail(input, userName);
   const displayName = resolvedDisplayName(input);
@@ -386,18 +691,26 @@ export async function replaceScimUser(context: Context, userSub: string, input: 
         raw: input as Record<string, unknown>,
         updatedAt: new Date(),
       })
-      .where(eq(scimUsers.userSub, userSub));
+      .where(and(eq(scimUsers.connectionId, scim.id), eq(scimUsers.userSub, userSub)));
   });
-  if (!active) return await deprovisionScimUser(context, userSub);
-  return await getScimUser(context, userSub);
+  if (active) {
+    const membership = await provisionScimMembership(context, scim, userSub, true);
+    await context.db
+      .update(scimUsers)
+      .set({ organizationMemberId: membership?.id || null, updatedAt: new Date() })
+      .where(and(eq(scimUsers.connectionId, scim.id), eq(scimUsers.userSub, userSub)));
+    return await getScimUser(context, scim, userSub);
+  }
+  return await deprovisionScimUser(context, scim, userSub);
 }
 
 export async function patchScimUser(
   context: Context,
+  scim: ScimConnectionContext,
   userSub: string,
   operations: ScimPatchOperation[]
 ) {
-  const current = await getScimUser(context, userSub);
+  const current = await getScimUser(context, scim, userSub);
   const next: ScimUserInput = {
     userName: current.userName,
     externalId: current.externalId,
@@ -428,35 +741,139 @@ export async function patchScimUser(
       next.name = op === "remove" ? null : (operation.value as ScimUserInput["name"]);
     else throw new ValidationError("Unsupported PATCH path");
   }
-  return await replaceScimUser(context, userSub, next);
+  return await replaceScimUser(context, scim, userSub, next);
 }
 
-export async function deactivateScimUser(context: Context, userSub: string) {
-  return await deprovisionScimUser(context, userSub);
+export async function deactivateScimUser(
+  context: Context,
+  scim: ScimConnectionContext,
+  userSub: string
+) {
+  return await deprovisionScimUser(context, scim, userSub);
 }
 
-async function deprovisionScimUser(context: Context, userSub: string) {
-  const current = await getScimUser(context, userSub);
+async function deprovisionScimUser(context: Context, scim: ScimConnectionContext, userSub: string) {
+  const current = await getScimUser(context, scim, userSub);
   await context.db
     .update(scimUsers)
     .set({ active: false, updatedAt: new Date() })
-    .where(eq(scimUsers.userSub, userSub));
-  await revokeUserAuthorizationState(context, userSub);
-  const action = await getStringSetting(context, "users.scim.deprovision_action", "suspend");
-  if (action === "delete") {
+    .where(and(eq(scimUsers.connectionId, scim.id), eq(scimUsers.userSub, userSub)));
+  await applyScimDeprovisionMembershipPolicy(context, scim, userSub);
+  await revokeUserAuthorizationState(context, userSub, scim.organizationId);
+  if (scim.deprovisionAction === "delete_user" || scim.deprovisionAction === "delete") {
+    const activeMemberships = await context.db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(
+        and(eq(organizationMembers.userSub, userSub), eq(organizationMembers.status, "active"))
+      );
+    if (activeMemberships.length > 0 || scim.deleteUserSafety === "fail_closed") {
+      return await getScimUser(context, scim, userSub);
+    }
     await context.db.delete(users).where(eq(users.sub, userSub));
     return { ...current, active: false };
   }
-  return await getScimUser(context, userSub);
+  return await getScimUser(context, scim, userSub);
 }
 
-async function revokeUserAuthorizationState(context: Context, userSub: string) {
-  await context.db.delete(sessions).where(eq(sessions.userSub, userSub));
-  await deleteAuthCodesForUser(context, userSub);
-  await deletePendingAuthForUser(context, userSub);
+async function revokeUserAuthorizationState(
+  context: Context,
+  userSub: string,
+  organizationId: string
+) {
+  await context.db
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.userSub, userSub),
+        sql`${sessions.data}->>'organizationId' = ${organizationId}`
+      )
+    );
+  await context.db
+    .delete(authCodes)
+    .where(and(eq(authCodes.userSub, userSub), eq(authCodes.organizationId, organizationId)));
+  await context.db
+    .delete(pendingAuth)
+    .where(and(eq(pendingAuth.userSub, userSub), eq(pendingAuth.organizationId, organizationId)));
 }
 
-async function groupMembers(context: Context, groupId: string) {
+async function provisionScimMembership(
+  context: Context,
+  scim: ScimConnectionContext,
+  userSub: string,
+  active: boolean
+) {
+  const [membership] = await context.db
+    .insert(organizationMembers)
+    .values({
+      organizationId: scim.organizationId,
+      userSub,
+      status: active ? "active" : "suspended",
+      scimConnectionId: scim.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [organizationMembers.organizationId, organizationMembers.userSub],
+      set: {
+        status: active ? "active" : "suspended",
+        scimConnectionId: scim.id,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  if (!membership) return null;
+  if (active) await assignDefaultMemberRoles(context, scim, membership.id);
+  return membership;
+}
+
+async function assignDefaultMemberRoles(
+  context: Context,
+  scim: ScimConnectionContext,
+  organizationMemberId: string
+) {
+  const defaultRoles = await context.db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(eq(roles.defaultMember, true));
+  const fallbackRoles =
+    defaultRoles.length > 0
+      ? defaultRoles
+      : await context.db.select({ id: roles.id }).from(roles).where(eq(roles.key, "member"));
+  if (fallbackRoles.length === 0) return;
+  await context.db
+    .insert(organizationMemberRoles)
+    .values(
+      fallbackRoles.map((role) => ({
+        organizationMemberId,
+        roleId: role.id,
+        scimConnectionId: scim.id,
+      }))
+    )
+    .onConflictDoNothing();
+}
+
+async function applyScimDeprovisionMembershipPolicy(
+  context: Context,
+  scim: ScimConnectionContext,
+  userSub: string
+) {
+  const condition = and(
+    eq(organizationMembers.organizationId, scim.organizationId),
+    eq(organizationMembers.userSub, userSub),
+    eq(organizationMembers.scimConnectionId, scim.id)
+  );
+  if (scim.deprovisionAction === "remove_membership") {
+    await context.db.delete(organizationMembers).where(condition);
+    return;
+  }
+  await context.db
+    .update(organizationMembers)
+    .set({ status: "suspended", updatedAt: new Date() })
+    .where(condition);
+}
+
+async function groupMembers(context: Context, groupId: string, connectionId: string | null) {
   return await context.db
     .select({
       value: scimGroupMembers.userSub,
@@ -465,12 +882,16 @@ async function groupMembers(context: Context, groupId: string) {
     })
     .from(scimGroupMembers)
     .innerJoin(scimUsers, eq(scimUsers.userSub, scimGroupMembers.userSub))
-    .where(eq(scimGroupMembers.groupId, groupId))
+    .where(
+      connectionId
+        ? and(eq(scimGroupMembers.groupId, groupId), eq(scimUsers.connectionId, connectionId))
+        : eq(scimGroupMembers.groupId, groupId)
+    )
     .orderBy(asc(scimUsers.userName));
 }
 
 async function toScimGroup(context: Context, row: typeof scimGroups.$inferSelect) {
-  const members = await groupMembers(context, row.id);
+  const members = await groupMembers(context, row.id, row.connectionId);
   return {
     schemas: ["urn:ietf:params:scim:schemas:core:2.0:Group"],
     id: row.id,
@@ -490,7 +911,11 @@ async function toScimGroup(context: Context, row: typeof scimGroups.$inferSelect
   };
 }
 
-export async function createScimGroup(context: Context, input: ScimGroupInput) {
+export async function createScimGroup(
+  context: Context,
+  scim: ScimConnectionContext,
+  input: ScimGroupInput
+) {
   const displayName = typeof input.displayName === "string" ? input.displayName.trim() : "";
   if (!displayName) throw new ValidationError("displayName is required");
   const externalId =
@@ -499,38 +924,48 @@ export async function createScimGroup(context: Context, input: ScimGroupInput) {
       : null;
   const existing = await context.db.query.scimGroups.findFirst({
     where: externalId
-      ? or(eq(scimGroups.externalId, externalId), eq(scimGroups.displayName, displayName))
-      : eq(scimGroups.displayName, displayName),
+      ? and(
+          eq(scimGroups.connectionId, scim.id),
+          or(eq(scimGroups.externalId, externalId), eq(scimGroups.displayName, displayName))
+        )
+      : and(eq(scimGroups.connectionId, scim.id), eq(scimGroups.displayName, displayName)),
   });
   if (existing) throw new ConflictError("SCIM group already exists");
   const [row] = await context.db
     .insert(scimGroups)
-    .values({ displayName, externalId, raw: input as Record<string, unknown> })
+    .values({
+      connectionId: scim.id,
+      organizationId: scim.organizationId,
+      displayName,
+      externalId,
+      raw: input as Record<string, unknown>,
+    })
     .returning();
   if (!row) throw new ValidationError("Unable to create SCIM group");
-  await replaceGroupMembers(context, row.id, input.members || []);
+  await replaceGroupMembers(context, scim, row.id, input.members || []);
   return await toScimGroup(context, row);
 }
 
-export async function getScimGroup(context: Context, groupId: string) {
-  const row = await context.db.query.scimGroups.findFirst({ where: eq(scimGroups.id, groupId) });
+export async function getScimGroup(context: Context, scim: ScimConnectionContext, groupId: string) {
+  const row = await context.db.query.scimGroups.findFirst({
+    where: and(eq(scimGroups.connectionId, scim.id), eq(scimGroups.id, groupId)),
+  });
   if (!row) throw new NotFoundError("SCIM group not found");
   return await toScimGroup(context, row);
 }
 
 export async function listScimGroups(
   context: Context,
+  scim: ScimConnectionContext,
   input: { startIndex?: number; count?: number; filter?: string | null }
 ) {
   const { startIndex, itemsPerPage, offset } = parsePage(input);
-  const condition = groupFilterCondition(input.filter);
-  const totalRows = await (condition
-    ? context.db.select({ count: count() }).from(scimGroups).where(condition)
-    : context.db.select({ count: count() }).from(scimGroups));
-  const rows = await (condition
-    ? context.db.select().from(scimGroups).where(condition)
-    : context.db.select().from(scimGroups)
-  )
+  const condition = groupFilterCondition(scim, input.filter);
+  const totalRows = await context.db.select({ count: count() }).from(scimGroups).where(condition);
+  const rows = await context.db
+    .select()
+    .from(scimGroups)
+    .where(condition)
     .orderBy(asc(scimGroups.displayName))
     .limit(itemsPerPage)
     .offset(offset);
@@ -539,18 +974,23 @@ export async function listScimGroups(
   return listResponse(resources, Number(totalRows[0]?.count || 0), startIndex, rows.length);
 }
 
-async function assertScimUsersExist(context: Context, userSubs: string[]) {
+async function assertScimUsersExist(
+  context: Context,
+  scim: ScimConnectionContext,
+  userSubs: string[]
+) {
   if (userSubs.length === 0) return;
   const rows = await context.db
     .select({ userSub: scimUsers.userSub })
     .from(scimUsers)
-    .where(inArray(scimUsers.userSub, userSubs));
+    .where(and(eq(scimUsers.connectionId, scim.id), inArray(scimUsers.userSub, userSubs)));
   if (rows.length !== new Set(userSubs).size)
     throw new ValidationError("One or more members not found");
 }
 
 async function replaceGroupMembers(
   context: Context,
+  scim: ScimConnectionContext,
   groupId: string,
   members: Array<{ value?: string | null }>
 ) {
@@ -561,7 +1001,7 @@ async function replaceGroupMembers(
         .filter(Boolean)
     )
   );
-  await assertScimUsersExist(context, userSubs);
+  await assertScimUsersExist(context, scim, userSubs);
   await context.db.transaction(async (tx) => {
     await tx.delete(scimGroupMembers).where(eq(scimGroupMembers.groupId, groupId));
     if (userSubs.length > 0) {
@@ -572,15 +1012,16 @@ async function replaceGroupMembers(
     }
     await tx.update(scimGroups).set({ updatedAt: new Date() }).where(eq(scimGroups.id, groupId));
   });
-  await syncScimGroupMapping(context, groupId);
+  await syncScimGroupMapping(context, scim, groupId);
 }
 
 export async function patchScimGroup(
   context: Context,
+  scim: ScimConnectionContext,
   groupId: string,
   operations: ScimPatchOperation[]
 ) {
-  await getScimGroup(context, groupId);
+  await getScimGroup(context, scim, groupId);
   for (const operation of operations) {
     const op = (operation.op || "replace").toLowerCase();
     const path = operation.path?.toLowerCase();
@@ -597,24 +1038,24 @@ export async function patchScimGroup(
       const members = Array.isArray(operation.value)
         ? (operation.value as Array<{ value?: string | null }>)
         : [];
-      if (op === "replace") await replaceGroupMembers(context, groupId, members);
+      if (op === "replace") await replaceGroupMembers(context, scim, groupId, members);
       else if (op === "add") {
         const userSubs = members
           .map((member) => (typeof member.value === "string" ? member.value.trim() : ""))
           .filter(Boolean);
-        await assertScimUsersExist(context, userSubs);
+        await assertScimUsersExist(context, scim, userSubs);
         if (userSubs.length > 0) {
           await context.db
             .insert(scimGroupMembers)
             .values(userSubs.map((userSub) => ({ groupId, userSub })))
             .onConflictDoNothing();
         }
-        await syncScimGroupMapping(context, groupId);
+        await syncScimGroupMapping(context, scim, groupId);
       } else if (op === "remove") {
         const userSubs = members
           .map((member) => (typeof member.value === "string" ? member.value.trim() : ""))
           .filter(Boolean);
-        if (userSubs.length === 0) await replaceGroupMembers(context, groupId, []);
+        if (userSubs.length === 0) await replaceGroupMembers(context, scim, groupId, []);
         else {
           await context.db
             .delete(scimGroupMembers)
@@ -625,7 +1066,7 @@ export async function patchScimGroup(
               )
             );
         }
-        await syncScimGroupMapping(context, groupId);
+        await syncScimGroupMapping(context, scim, groupId);
       } else throw new ValidationError("Unsupported PATCH op");
       await context.db
         .update(scimGroups)
@@ -635,41 +1076,68 @@ export async function patchScimGroup(
     }
     throw new ValidationError("Unsupported PATCH path");
   }
-  return await getScimGroup(context, groupId);
+  return await getScimGroup(context, scim, groupId);
 }
 
-export async function deleteScimGroup(context: Context, groupId: string) {
-  await getScimGroup(context, groupId);
-  await removeScimGroupMappingRoles(context, groupId);
+export async function deleteScimGroup(
+  context: Context,
+  scim: ScimConnectionContext,
+  groupId: string
+) {
+  await getScimGroup(context, scim, groupId);
+  await removeScimGroupMappingRoles(context, scim, groupId);
   await context.db.delete(scimGroups).where(eq(scimGroups.id, groupId));
   return { success: true };
 }
 
-async function syncScimGroupMapping(context: Context, groupId: string) {
-  const group = await context.db.query.scimGroups.findFirst({ where: eq(scimGroups.id, groupId) });
+async function syncScimGroupMapping(
+  context: Context,
+  scim: ScimConnectionContext,
+  groupId: string
+) {
+  const group = await context.db.query.scimGroups.findFirst({
+    where: and(eq(scimGroups.connectionId, scim.id), eq(scimGroups.id, groupId)),
+  });
   if (!group) throw new NotFoundError("SCIM group not found");
-  const mapping = await resolveGroupMapping(context, group);
+  const mapping = await resolveGroupMapping(context, scim, group);
   if (!mapping) return;
-  const organization = await resolveMappedOrganization(context, group, mapping);
+  const organization = await resolveMappedOrganization(context, scim, mapping);
   if (!organization) return;
+  if (organization.id !== scim.organizationId) {
+    throw new ValidationError("SCIM group mapping organization must match connection organization");
+  }
   const roleIds = await resolveMappedRoleIds(context, mapping);
   const members = await context.db
     .select({ userSub: scimGroupMembers.userSub })
     .from(scimGroupMembers)
     .where(eq(scimGroupMembers.groupId, groupId));
   const memberSubs = members.map((member) => member.userSub);
-  const memberships = await upsertMappedMemberships(context, organization.id, memberSubs);
+  const memberships = await upsertMappedMemberships(context, scim, organization.id, memberSubs);
   if (roleIds.length > 0) {
-    await syncMappedRoles(context, organization.id, memberships, roleIds, memberSubs);
+    await syncMappedRoles(
+      context,
+      scim,
+      groupId,
+      organization.id,
+      memberships,
+      roleIds,
+      memberSubs
+    );
   }
 }
 
-async function removeScimGroupMappingRoles(context: Context, groupId: string) {
-  const group = await context.db.query.scimGroups.findFirst({ where: eq(scimGroups.id, groupId) });
+async function removeScimGroupMappingRoles(
+  context: Context,
+  scim: ScimConnectionContext,
+  groupId: string
+) {
+  const group = await context.db.query.scimGroups.findFirst({
+    where: and(eq(scimGroups.connectionId, scim.id), eq(scimGroups.id, groupId)),
+  });
   if (!group) return;
-  const mapping = await resolveGroupMapping(context, group);
+  const mapping = await resolveGroupMapping(context, scim, group);
   if (!mapping) return;
-  const organization = await resolveMappedOrganization(context, group, mapping);
+  const organization = await resolveMappedOrganization(context, scim, mapping);
   if (!organization) return;
   const roleIds = await resolveMappedRoleIds(context, mapping);
   if (roleIds.length === 0) return;
@@ -684,13 +1152,16 @@ async function removeScimGroupMappingRoles(context: Context, groupId: string) {
     .where(
       and(
         inArray(organizationMemberRoles.organizationMemberId, membershipIds),
-        inArray(organizationMemberRoles.roleId, roleIds)
+        inArray(organizationMemberRoles.roleId, roleIds),
+        eq(organizationMemberRoles.scimConnectionId, scim.id),
+        eq(organizationMemberRoles.scimGroupId, groupId)
       )
     );
 }
 
 async function resolveGroupMapping(
   context: Context,
+  scim: ScimConnectionContext,
   group: typeof scimGroups.$inferSelect
 ): Promise<ScimGroupMapping | null> {
   const setting = await context.db.query.settings.findFirst({
@@ -713,8 +1184,7 @@ async function resolveGroupMapping(
   const policy = await getStringSetting(context, "users.scim.unknown_group_policy", "ignore");
   if (policy === "reject") throw new ValidationError("SCIM group has no mapping");
   if (policy === "create") {
-    const organization = await ensureOrganizationForUnknownScimGroup(context, group);
-    return { organization_id: organization.id };
+    return { organization_id: scim.organizationId };
   }
   return null;
 }
@@ -738,7 +1208,7 @@ function mappingMatchesGroup(mapping: ScimGroupMapping, group: typeof scimGroups
 
 async function resolveMappedOrganization(
   context: Context,
-  group: typeof scimGroups.$inferSelect,
+  scim: ScimConnectionContext,
   mapping: ScimGroupMapping
 ) {
   if (typeof mapping.organization_id === "string" && mapping.organization_id.trim()) {
@@ -755,31 +1225,11 @@ async function resolveMappedOrganization(
     if (!organization) throw new ValidationError("Mapped organization not found");
     return organization;
   }
-  return await ensureOrganizationForUnknownScimGroup(context, group);
-}
-
-async function ensureOrganizationForUnknownScimGroup(
-  context: Context,
-  group: typeof scimGroups.$inferSelect
-) {
-  const slug = slugify(group.displayName);
-  const [created] = await context.db
-    .insert(organizations)
-    .values({
-      slug,
-      name: group.displayName,
-      forceOtp: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .onConflictDoNothing({ target: organizations.slug })
-    .returning();
-  if (created) return created;
-  const existing = await context.db.query.organizations.findFirst({
-    where: eq(organizations.slug, slug),
+  const organization = await context.db.query.organizations.findFirst({
+    where: eq(organizations.id, scim.organizationId),
   });
-  if (!existing) throw new ValidationError("Unable to create mapped organization");
-  return existing;
+  if (!organization) throw new ValidationError("Mapped organization not found");
+  return organization;
 }
 
 async function resolveMappedRoleIds(context: Context, mapping: ScimGroupMapping) {
@@ -800,6 +1250,7 @@ async function resolveMappedRoleIds(context: Context, mapping: ScimGroupMapping)
 
 async function upsertMappedMemberships(
   context: Context,
+  scim: ScimConnectionContext,
   organizationId: string,
   userSubs: string[]
 ) {
@@ -811,13 +1262,14 @@ async function upsertMappedMemberships(
           organizationId,
           userSub,
           status: "active" as const,
+          scimConnectionId: scim.id,
           createdAt: new Date(),
           updatedAt: new Date(),
         }))
       )
       .onConflictDoUpdate({
         target: [organizationMembers.organizationId, organizationMembers.userSub],
-        set: { status: "active", updatedAt: new Date() },
+        set: { status: "active", scimConnectionId: scim.id, updatedAt: new Date() },
       });
   }
   return await context.db
@@ -828,6 +1280,8 @@ async function upsertMappedMemberships(
 
 async function syncMappedRoles(
   context: Context,
+  scim: ScimConnectionContext,
+  groupId: string,
   organizationId: string,
   memberships: Array<{ id: string; userSub: string }>,
   roleIds: string[],
@@ -842,7 +1296,12 @@ async function syncMappedRoles(
       .insert(organizationMemberRoles)
       .values(
         activeMemberships.flatMap((membership) =>
-          roleIds.map((roleId) => ({ organizationMemberId: membership.id, roleId }))
+          roleIds.map((roleId) => ({
+            organizationMemberId: membership.id,
+            roleId,
+            scimConnectionId: scim.id,
+            scimGroupId: groupId,
+          }))
         )
       )
       .onConflictDoNothing();
@@ -856,7 +1315,9 @@ async function syncMappedRoles(
     .where(
       and(
         inArray(organizationMemberRoles.organizationMemberId, staleMembershipIds),
-        inArray(organizationMemberRoles.roleId, roleIds)
+        inArray(organizationMemberRoles.roleId, roleIds),
+        eq(organizationMemberRoles.scimConnectionId, scim.id),
+        eq(organizationMemberRoles.scimGroupId, groupId)
       )
     );
   await context.db
@@ -865,16 +1326,8 @@ async function syncMappedRoles(
     .where(
       and(
         eq(organizationMembers.organizationId, organizationId),
-        inArray(organizationMembers.id, staleMembershipIds)
+        inArray(organizationMembers.id, staleMembershipIds),
+        eq(organizationMembers.scimConnectionId, scim.id)
       )
     );
-}
-
-function slugify(value: string) {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || `scim-${generateRandomString(8).toLowerCase()}`;
 }

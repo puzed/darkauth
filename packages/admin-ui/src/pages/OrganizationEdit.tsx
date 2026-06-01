@@ -6,7 +6,6 @@ import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
-import Stack from "@/components/layout/stack";
 import RowActions from "@/components/row-actions";
 import MutedText from "@/components/text/muted-text";
 import { Badge } from "@/components/ui/badge";
@@ -39,10 +38,13 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import tableStyles from "@/components/ui/table.module.css";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import adminApiService, {
+  type FederationConnection,
   type Organization,
   type OrganizationMember,
   type Role,
+  type ScimBearerToken,
   type User,
 } from "@/services/api";
 import styles from "./OrganizationEdit.module.css";
@@ -60,6 +62,11 @@ type MemberPayload = Partial<OrganizationMember> & {
 
 const normalizeOrganizationId = (organization: OrganizationPayload, fallbackId: string): string =>
   organization.organizationId || organization.id || fallbackId;
+
+const belongsToOrganization = (
+  item: { organizationId?: string | null },
+  organizationId: string
+): boolean => !item.organizationId || item.organizationId === organizationId;
 
 const normalizeMembers = (members: unknown): OrganizationMember[] => {
   if (!Array.isArray(members)) {
@@ -106,6 +113,8 @@ export default function OrganizationEdit() {
   const [forceOtp, setForceOtp] = useState(false);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
   const [allRoles, setAllRoles] = useState<Role[]>([]);
+  const [federationConnections, setFederationConnections] = useState<FederationConnection[]>([]);
+  const [scimTokens, setScimTokens] = useState<ScimBearerToken[]>([]);
   const [addUserOpen, setAddUserOpen] = useState(false);
   const [addUserSearch, setAddUserSearch] = useState("");
   const [debouncedAddUserSearch, setDebouncedAddUserSearch] = useState("");
@@ -134,9 +143,13 @@ export default function OrganizationEdit() {
     try {
       setLoading(true);
       setError(null);
-      const [orgData, rolesData] = await Promise.all([
+      const [orgData, rolesData, federationData, scimData] = await Promise.all([
         adminApiService.getOrganization(organizationId),
         adminApiService.getRoles(),
+        adminApiService
+          .getFederationConnections({ organizationId, limit: 100 })
+          .catch(() => ({ connections: [] })),
+        adminApiService.getScimTokens().catch(() => ({ tokens: [] })),
       ]);
       const org = orgData as OrganizationPayload;
       const resolvedOrganizationId = normalizeOrganizationId(org, organizationId);
@@ -148,6 +161,14 @@ export default function OrganizationEdit() {
       setSlug(org.slug);
       setForceOtp(org.forceOtp === true);
       setAllRoles(rolesData);
+      setFederationConnections(
+        federationData.connections.filter((connection) =>
+          belongsToOrganization(connection, resolvedOrganizationId)
+        )
+      );
+      setScimTokens(
+        scimData.tokens.filter((token) => belongsToOrganization(token, resolvedOrganizationId))
+      );
       const orgMembers = normalizeMembers(org.members);
       if (orgMembers.length > 0) {
         setMembers(orgMembers);
@@ -425,135 +446,272 @@ export default function OrganizationEdit() {
 
       {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
 
-      <Stack>
-        <Card>
-          <CardHeader>
-            <CardTitle>Organization Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormGrid columns={2}>
-              <FormField label={<Label>Organization ID</Label>}>
-                <Input value={organization.organizationId} readOnly />
-              </FormField>
-              <FormField label={<Label>Organization Name *</Label>}>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={submitting}
-                />
-              </FormField>
-              <FormField label={<Label>Slug</Label>}>
-                <Input
-                  value={slug}
-                  onChange={(e) => setSlug(e.target.value)}
-                  disabled={submitting}
-                />
-              </FormField>
-              <FormField label={<Label>Status</Label>}>
-                <Input
-                  value={`${members.filter((member) => member.status === "active").length} active members`}
-                  readOnly
-                />
-              </FormField>
-              <FormField label={<Label>Security</Label>}>
-                <CheckboxRow
-                  id="organization-force-otp"
-                  label="Force OTP for all members"
-                  checked={forceOtp}
-                  disabled={submitting}
-                  onCheckedChange={(checked) => setForceOtp(checked)}
-                />
-              </FormField>
-            </FormGrid>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="members">
+        <TabsList>
+          <TabsTrigger value="members">Members</TabsTrigger>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="enterprise">Enterprise Connections</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="audit">Audit</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Members</CardTitle>
-            <MutedText size="sm">Manage organization members and roles</MutedText>
-          </CardHeader>
-          <CardContent>
-            <FormActions align="between" withBottomMargin>
-              <Button size="sm" variant="outline" onClick={openAddUser}>
-                <UserPlus size={16} />
-                Add User
-              </Button>
-            </FormActions>
+        <TabsContent value="members">
+          <Card>
+            <CardHeader>
+              <CardTitle>Members</CardTitle>
+              <MutedText size="sm">Manage organization members and roles</MutedText>
+            </CardHeader>
+            <CardContent>
+              <FormActions align="between" withBottomMargin>
+                <Button size="sm" variant="outline" onClick={openAddUser}>
+                  <UserPlus size={16} />
+                  Add User
+                </Button>
+              </FormActions>
 
-            {members.length === 0 ? (
-              <MutedText size="sm" spacing="sm">
-                No members found for this organization
-              </MutedText>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Roles</TableHead>
-                    <TableHead className={tableStyles.actionCell}></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((member) => (
-                    <TableRow key={member.membershipId}>
-                      <TableCell>
-                        <button
-                          type="button"
-                          className={tableStyles.primaryActionButton}
-                          onClick={() => openEditRoles(member)}
-                        >
-                          <span className={tableStyles.primaryActionText}>
-                            {member.email || member.userSub}
-                          </span>
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={member.status === "active" ? "default" : "secondary"}>
-                          {member.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <div className={styles.roleTags}>
-                          {member.roles.length === 0 ? (
-                            <span className={styles.noRoles}>No roles</span>
-                          ) : (
-                            member.roles.map((role) => (
-                              <span key={role.id} className={styles.roleTag}>
-                                {role.name}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <RowActions
-                          items={[
-                            {
-                              key: "edit-roles",
-                              label: "Edit Roles",
-                              disabled: submitting,
-                              onClick: () => openEditRoles(member),
-                            },
-                            {
-                              key: "remove-member",
-                              label: "Remove from organization",
-                              destructive: true,
-                              disabled: submitting,
-                              onClick: () => removeMemberFromOrganization(member),
-                            },
-                          ]}
-                        />
-                      </TableCell>
+              {members.length === 0 ? (
+                <MutedText size="sm" spacing="sm">
+                  No members found for this organization
+                </MutedText>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Member</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Roles</TableHead>
+                      <TableHead className={tableStyles.actionCell}></TableHead>
                     </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {members.map((member) => (
+                      <TableRow key={member.membershipId}>
+                        <TableCell>
+                          <button
+                            type="button"
+                            className={tableStyles.primaryActionButton}
+                            onClick={() => openEditRoles(member)}
+                          >
+                            <span className={tableStyles.primaryActionText}>
+                              {member.email || member.userSub}
+                            </span>
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={member.status === "active" ? "default" : "secondary"}>
+                            {member.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className={styles.roleTags}>
+                            {member.roles.length === 0 ? (
+                              <span className={styles.noRoles}>No roles</span>
+                            ) : (
+                              member.roles.map((role) => (
+                                <span key={role.id} className={styles.roleTag}>
+                                  {role.name}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <RowActions
+                            items={[
+                              {
+                                key: "edit-roles",
+                                label: "Edit Roles",
+                                disabled: submitting,
+                                onClick: () => openEditRoles(member),
+                              },
+                              {
+                                key: "remove-member",
+                                label: "Remove from organization",
+                                destructive: true,
+                                disabled: submitting,
+                                onClick: () => removeMemberFromOrganization(member),
+                              },
+                            ]}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="roles">
+          <Card>
+            <CardHeader>
+              <CardTitle>Roles</CardTitle>
+              <MutedText size="sm">Review role templates available to this organization</MutedText>
+            </CardHeader>
+            <CardContent>
+              {allRoles.length === 0 ? (
+                <MutedText size="sm">No roles are available.</MutedText>
+              ) : (
+                <div className={styles.roleCatalog}>
+                  {allRoles.map((role) => (
+                    <div key={role.id} className={styles.roleCatalogItem}>
+                      <div>
+                        <strong>{role.name}</strong>
+                        <MutedText size="sm">{role.key}</MutedText>
+                      </div>
+                      <div className={styles.roleTags}>
+                        {role.assignable ? (
+                          <span className={styles.roleTag}>Assignable</span>
+                        ) : null}
+                        {role.defaultMember || role.default_member ? (
+                          <span className={styles.roleTag}>Default member</span>
+                        ) : null}
+                        {role.defaultCreator || role.default_creator ? (
+                          <span className={styles.roleTag}>Default creator</span>
+                        ) : null}
+                      </div>
+                    </div>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-      </Stack>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="enterprise">
+          <Card>
+            <CardHeader>
+              <CardTitle>Enterprise Connections</CardTitle>
+              <MutedText size="sm">Organization-owned SSO and SCIM surfaces</MutedText>
+            </CardHeader>
+            <CardContent>
+              <div className={styles.enterpriseGrid}>
+                <div className={styles.enterprisePanel}>
+                  <strong>SSO connections</strong>
+                  <MutedText size="sm">
+                    {federationConnections.length === 0
+                      ? "No federation connections are linked to this organization yet."
+                      : `${federationConnections.length} federation connection${
+                          federationConnections.length === 1 ? "" : "s"
+                        }`}
+                  </MutedText>
+                  {federationConnections.map((connection) => (
+                    <div key={connection.id} className={styles.enterpriseItem}>
+                      <button
+                        type="button"
+                        className={tableStyles.primaryActionButton}
+                        onClick={() =>
+                          navigate(
+                            `/organizations/${encodeURIComponent(
+                              organization.organizationId
+                            )}/federation/${encodeURIComponent(connection.id)}`
+                          )
+                        }
+                      >
+                        <span className={tableStyles.primaryActionText}>{connection.name}</span>
+                      </button>
+                      <Badge variant={connection.enabled ? "default" : "secondary"}>
+                        {connection.enabled ? "Enabled" : "Disabled"}
+                      </Badge>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/federation")}
+                  >
+                    Open Federation
+                  </Button>
+                </div>
+                <div className={styles.enterprisePanel}>
+                  <strong>SCIM provisioning</strong>
+                  <MutedText size="sm">
+                    {scimTokens.length === 0
+                      ? "No SCIM tokens are linked to this organization yet."
+                      : `${scimTokens.length} SCIM token${scimTokens.length === 1 ? "" : "s"}`}
+                  </MutedText>
+                  {scimTokens.map((token) => (
+                    <div key={token.id} className={styles.enterpriseItem}>
+                      <span>{token.name}</span>
+                      <Badge variant={token.revokedAt ? "secondary" : "default"}>
+                        {token.revokedAt ? "Revoked" : "Active"}
+                      </Badge>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate("/scim")}
+                  >
+                    Open SCIM Tokens
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security">
+          <Card>
+            <CardHeader>
+              <CardTitle>Organization Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormGrid columns={2}>
+                <FormField label={<Label>Organization ID</Label>}>
+                  <Input value={organization.organizationId} readOnly />
+                </FormField>
+                <FormField label={<Label>Organization Name *</Label>}>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    disabled={submitting}
+                  />
+                </FormField>
+                <FormField label={<Label>Slug</Label>}>
+                  <Input
+                    value={slug}
+                    onChange={(e) => setSlug(e.target.value)}
+                    disabled={submitting}
+                  />
+                </FormField>
+                <FormField label={<Label>Status</Label>}>
+                  <Input
+                    value={`${members.filter((member) => member.status === "active").length} active members`}
+                    readOnly
+                  />
+                </FormField>
+                <FormField label={<Label>Security</Label>}>
+                  <CheckboxRow
+                    id="organization-force-otp"
+                    label="Force OTP for all members"
+                    checked={forceOtp}
+                    disabled={submitting}
+                    onCheckedChange={(checked) => setForceOtp(checked)}
+                  />
+                </FormField>
+              </FormGrid>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="audit">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audit</CardTitle>
+              <MutedText size="sm">Organization-scoped audit events will appear here.</MutedText>
+            </CardHeader>
+            <CardContent>
+              <Button type="button" variant="outline" onClick={() => navigate("/audit-logs")}>
+                Open Audit Logs
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <FormActions withMargin>
         <Button variant="outline" onClick={deleteOrganization} disabled={submitting}>

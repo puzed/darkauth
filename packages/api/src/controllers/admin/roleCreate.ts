@@ -13,6 +13,9 @@ const RequestSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullable().optional(),
   permissionKeys: z.array(z.string()).optional(),
+  assignable: z.boolean().optional(),
+  defaultMember: z.boolean().optional(),
+  defaultCreator: z.boolean().optional(),
 });
 
 const ResponseSchema = z.object({
@@ -22,6 +25,9 @@ const ResponseSchema = z.object({
     name: z.string(),
     description: z.string().nullable().optional(),
     system: z.boolean(),
+    assignable: z.boolean(),
+    defaultMember: z.boolean(),
+    defaultCreator: z.boolean(),
     permissionKeys: z.array(z.string()),
   }),
 });

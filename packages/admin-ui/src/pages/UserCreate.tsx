@@ -1,6 +1,8 @@
 import { Copy, KeyRound } from "lucide-react";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ErrorBanner from "@/components/feedback/error-banner";
+import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -16,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import adminApiService from "@/services/api";
+import adminApiService, { type Organization } from "@/services/api";
 import { sha256Base64Url } from "@/services/hash";
 import adminOpaqueService from "@/services/opaque-cloudflare";
 
@@ -32,6 +34,28 @@ export default function UserCreate() {
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [generatedPassword, setGeneratedPassword] = useState("");
+  const [assignmentMode, setAssignmentMode] = useState<"existing" | "personal">("existing");
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedOrganizationIds, setSelectedOrganizationIds] = useState<string[]>([]);
+  const [loadingOrganizations, setLoadingOrganizations] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApiService
+      .getOrganizationsPaged({ page: 1, limit: 100, sortBy: "name", sortOrder: "asc" })
+      .then((response) => {
+        if (!cancelled) setOrganizations(response.organizations);
+      })
+      .catch(() => {
+        if (!cancelled) setOrganizations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingOrganizations(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const generatePassword = (length = 16) => {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%^&*";
@@ -46,7 +70,14 @@ export default function UserCreate() {
     try {
       setSubmitting(true);
       setError(null);
-      const created = await adminApiService.createUser({ email, name, sub: sub || undefined });
+      const selectedOrganizations = assignmentMode === "existing" ? selectedOrganizationIds : [];
+      const created = await adminApiService.createUser({
+        email,
+        name,
+        sub: sub || undefined,
+        organizationIds: selectedOrganizations,
+        createPersonalOrganization: assignmentMode === "personal",
+      });
       const pwd = generatePassword(20);
       const start = await adminOpaqueService.startRegistration(pwd);
       const startResp = await adminApiService.userPasswordSetStart(created.sub, start.request);
@@ -67,10 +98,20 @@ export default function UserCreate() {
     }
   };
 
+  const toggleOrganization = (organizationId: string, checked: boolean) => {
+    setSelectedOrganizationIds((current) => {
+      if (checked) {
+        if (current.includes(organizationId)) return current;
+        return [...current, organizationId];
+      }
+      return current.filter((id) => id !== organizationId);
+    });
+  };
+
   return (
     <div>
       <PageHeader title="Create User" subtitle="Add a new user to the system" />
-      {error && <div>{error}</div>}
+      {error && <ErrorBanner withMargin>{error}</ErrorBanner>}
       <Card>
         <CardHeader>
           <CardTitle>User Information</CardTitle>
@@ -109,8 +150,66 @@ export default function UserCreate() {
               />
             </FormField>
           </FormGrid>
+          <div style={{ display: "grid", gap: 12, marginTop: 24 }}>
+            <Label>Organization assignment</Label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              <Button
+                type="button"
+                variant={assignmentMode === "existing" ? "default" : "outline"}
+                onClick={() => setAssignmentMode("existing")}
+                disabled={submitting}
+              >
+                Assign existing
+              </Button>
+              <Button
+                type="button"
+                variant={assignmentMode === "personal" ? "default" : "outline"}
+                onClick={() => setAssignmentMode("personal")}
+                disabled={submitting}
+              >
+                Create personal
+              </Button>
+            </div>
+            {assignmentMode === "existing" ? (
+              <div style={{ display: "grid", gap: 10 }}>
+                {loadingOrganizations ? (
+                  <MutedText size="sm">Loading organizations...</MutedText>
+                ) : organizations.length === 0 ? (
+                  <MutedText size="sm">No organizations are available.</MutedText>
+                ) : (
+                  organizations.map((organization) => (
+                    <CheckboxRow
+                      key={organization.organizationId}
+                      id={`user-org-${organization.organizationId}`}
+                      label={
+                        organization.slug
+                          ? `${organization.name} (${organization.slug})`
+                          : organization.name
+                      }
+                      checked={selectedOrganizationIds.includes(organization.organizationId)}
+                      disabled={submitting}
+                      onCheckedChange={(checked) =>
+                        toggleOrganization(organization.organizationId, checked)
+                      }
+                    />
+                  ))
+                )}
+              </div>
+            ) : (
+              <MutedText size="sm">
+                The user creation request will ask the API to create a personal organization.
+              </MutedText>
+            )}
+          </div>
           <FormActions>
-            <Button onClick={create} disabled={submitting || !email.trim()}>
+            <Button
+              onClick={create}
+              disabled={
+                submitting ||
+                !email.trim() ||
+                (assignmentMode === "existing" && selectedOrganizationIds.length === 0)
+              }
+            >
               Create
             </Button>
           </FormActions>

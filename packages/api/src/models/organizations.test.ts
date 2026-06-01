@@ -17,7 +17,12 @@ import {
 } from "../db/schema.ts";
 import { ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
-import { createOrganizationInvite } from "./organizations.ts";
+import {
+  createOrganizationInvite,
+  leaveOrganization,
+  listOrganizationsForUser,
+  removeOrganizationMember,
+} from "./organizations.ts";
 
 function createLogger() {
   return {
@@ -51,7 +56,7 @@ test("createOrganizationInvite rejects unknown or non-assignable role ids", asyn
 
     const [managerRole] = await db
       .insert(roles)
-      .values({ key: "manager", name: "Manager", system: true })
+      .values({ key: "manager", name: "Manager", assignable: true })
       .returning();
     assert.ok(managerRole);
 
@@ -90,6 +95,143 @@ test("createOrganizationInvite rejects unknown or non-assignable role ids", asyn
       .from(organizationInvites)
       .where(eq(organizationInvites.organizationId, organization.id));
     assert.equal(invites.length, 0);
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("listOrganizationsForUser includes role summaries", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-org-list-roles-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values({ sub: "user-roles", email: "roles@example.com", name: "Roles" });
+    const [organization] = await db
+      .insert(organizations)
+      .values({ slug: "roles-org", name: "Roles Org", createdByUserSub: "user-roles" })
+      .returning();
+    assert.ok(organization);
+    const [membership] = await db
+      .insert(organizationMembers)
+      .values({ organizationId: organization.id, userSub: "user-roles", status: "active" })
+      .returning();
+    assert.ok(membership);
+    const [adminRole] = await db
+      .insert(roles)
+      .values({ key: "org_roles_summary", name: "Role Summary" })
+      .returning();
+    assert.ok(adminRole);
+    await db
+      .insert(organizationMemberRoles)
+      .values({ organizationMemberId: membership.id, roleId: adminRole.id });
+
+    const result = await listOrganizationsForUser(context, "user-roles");
+
+    assert.deepEqual(result, [
+      {
+        organizationId: organization.id,
+        slug: "roles-org",
+        name: "Roles Org",
+        forceOtp: false,
+        membershipId: membership.id,
+        status: "active",
+        roles: [{ id: adminRole.id, key: "org_roles_summary", name: "Role Summary" }],
+      },
+    ]);
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("leaveOrganization rejects the user's only active organization", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-org-leave-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values({ sub: "user-1", email: "user-1@example.com", name: "User One" });
+    const [organization] = await db
+      .insert(organizations)
+      .values({ slug: "org-1", name: "Org One", createdByUserSub: "user-1" })
+      .returning();
+    assert.ok(organization);
+    await db
+      .insert(organizationMembers)
+      .values({ organizationId: organization.id, userSub: "user-1", status: "active" });
+
+    await assert.rejects(
+      () => leaveOrganization(context, "user-1", organization.id),
+      (error: unknown) => {
+        assert.ok(error instanceof ValidationError);
+        assert.equal(error.message, "User must belong to at least one active organization");
+        return true;
+      }
+    );
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("removeOrganizationMember rejects removing the last managing member", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-org-remove-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values([
+      { sub: "manager", email: "manager@example.com", name: "Manager" },
+      { sub: "member", email: "member@example.com", name: "Member" },
+    ]);
+    const [organization] = await db
+      .insert(organizations)
+      .values({ slug: "org-1", name: "Org One", createdByUserSub: "manager" })
+      .returning();
+    const [otherOrganization] = await db
+      .insert(organizations)
+      .values({ slug: "org-2", name: "Org Two" })
+      .returning();
+    assert.ok(organization);
+    assert.ok(otherOrganization);
+
+    const [managerMembership] = await db
+      .insert(organizationMembers)
+      .values({ organizationId: organization.id, userSub: "manager", status: "active" })
+      .returning();
+    await db.insert(organizationMembers).values({
+      organizationId: otherOrganization.id,
+      userSub: "manager",
+      status: "active",
+    });
+    assert.ok(managerMembership);
+
+    const [managerRole] = await db
+      .insert(roles)
+      .values({ key: "manager-remove", name: "Manager Remove" })
+      .returning();
+    assert.ok(managerRole);
+    await db
+      .insert(permissions)
+      .values({ key: "darkauth.org:manage", description: "Manage org" })
+      .onConflictDoNothing();
+    await db
+      .insert(rolePermissions)
+      .values({ roleId: managerRole.id, permissionKey: "darkauth.org:manage" });
+    await db
+      .insert(organizationMemberRoles)
+      .values({ organizationMemberId: managerMembership.id, roleId: managerRole.id });
+
+    await assert.rejects(
+      () => removeOrganizationMember(context, "manager", organization.id, managerMembership.id),
+      (error: unknown) => {
+        assert.ok(error instanceof ValidationError);
+        assert.equal(error.message, "Organization must retain at least one managing member");
+        return true;
+      }
+    );
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });

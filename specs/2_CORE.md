@@ -357,7 +357,7 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
     "email": "user@example.com",
     "email_verified": true,
     "org_id": "...",
-    "org_slug": "default",
+    "org_slug": "green-star-bubble-yhgw84",
     "roles": ["member"],
     "permissions": ["darkauth.users:read"]
   }

@@ -171,7 +171,7 @@ test.describe('API - Password reset', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
 
     const known = await request.post(`${servers.userUrl}/api/user/password/reset/request`, {
@@ -222,7 +222,7 @@ test.describe('API - Password reset', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
@@ -254,7 +254,7 @@ test.describe('API - Password reset', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
     const created = await createPasswordResetToken(servers.getContext(), {
       userSub: sub,
@@ -290,7 +290,7 @@ test.describe('API - Password reset', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
     const created = await createPasswordResetToken(servers.getContext(), {
       userSub: sub,
@@ -335,7 +335,7 @@ test.describe('API - Password reset', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
     const oldLogin = await opaqueLogin(servers, user.email, user.password, request);
     expect(oldLogin.status).toBe(200);

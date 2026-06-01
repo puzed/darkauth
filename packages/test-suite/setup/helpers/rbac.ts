@@ -50,6 +50,55 @@ export async function getOrganizationMemberIdForUser(
   return member.membershipId;
 }
 
+export async function getOrganizationMembershipsForUser(
+  servers: TestServers,
+  adminSession: AdminSession,
+  userSub: string
+): Promise<Array<{ organizationId: string; membershipId: string; status: string }>> {
+  const organizationsRes = await fetch(`${servers.adminUrl}/admin/organizations?limit=100`, {
+    headers: adminHeaders(servers, adminSession),
+  });
+  if (!organizationsRes.ok) throw new Error(`failed to list organizations: ${organizationsRes.status}`);
+  const organizationsJson = (await organizationsRes.json()) as {
+    organizations: Array<{ id?: string; organizationId?: string }>;
+  };
+  const memberships: Array<{ organizationId: string; membershipId: string; status: string }> = [];
+  for (const organization of organizationsJson.organizations) {
+    const organizationId = organization.organizationId || organization.id;
+    if (!organizationId) continue;
+    const membersRes = await fetch(`${servers.adminUrl}/admin/organizations/${organizationId}/members`, {
+      headers: adminHeaders(servers, adminSession),
+    });
+    if (!membersRes.ok) throw new Error(`failed to list organization members: ${membersRes.status}`);
+    const membersJson = (await membersRes.json()) as {
+      members: Array<{ membershipId: string; userSub: string; status: string }>;
+    };
+    const member = membersJson.members.find((item) => item.userSub === userSub);
+    if (member) {
+      memberships.push({
+        organizationId,
+        membershipId: member.membershipId,
+        status: member.status,
+      });
+    }
+  }
+  return memberships;
+}
+
+export async function getOnlyOrganizationMembershipForUser(
+  servers: TestServers,
+  adminSession: AdminSession,
+  userSub: string
+): Promise<{ organizationId: string; membershipId: string; status: string }> {
+  const memberships = await getOrganizationMembershipsForUser(servers, adminSession, userSub);
+  if (memberships.length !== 1) {
+    throw new Error(`expected one organization membership for user ${userSub}, found ${memberships.length}`);
+  }
+  const membership = memberships[0];
+  if (!membership) throw new Error(`expected one organization membership for user ${userSub}`);
+  return membership;
+}
+
 export async function setOrganizationMemberRoles(
   servers: TestServers,
   adminSession: AdminSession,

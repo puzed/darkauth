@@ -10,6 +10,10 @@ import {
 } from "../db/schema.ts";
 import { ConflictError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
+import {
+  createActiveMembershipWithDefaultRoles,
+  createPersonalOrganizationForUser,
+} from "./organizations.ts";
 
 async function getAccessMapsForSubs(context: Context, subs: string[]) {
   const permissionsByUser = new Map<string, string[]>();
@@ -184,7 +188,15 @@ export async function listUsers(
 
 export async function createUser(
   context: Context,
-  data: { email: string; name?: string; sub?: string }
+  data: {
+    email: string;
+    name?: string;
+    sub?: string;
+    organizationIds?: string[];
+    createPersonalOrganization?: boolean;
+    personalOrganizationName?: string;
+    personalOrganizationSlug?: string;
+  }
 ) {
   const email = typeof data.email === "string" ? data.email.trim() : "";
   const name = typeof data.name === "string" ? data.name.trim() : undefined;
@@ -195,6 +207,10 @@ export async function createUser(
   const existing = await context.db.query.users.findFirst({ where: eq(users.email, email) });
   if (existing) throw new ConflictError("Unable to create user");
   const sub = subInput || (await (await import("../utils/crypto.ts")).generateRandomString(16));
+  const organizationIds = Array.from(new Set(data.organizationIds || []));
+  if (organizationIds.length > 0 && data.createPersonalOrganization === true) {
+    throw new ValidationError("Choose organization assignment or personal organization creation");
+  }
   await context.db.transaction(async (tx) => {
     await tx.insert(users).values({
       sub,
@@ -203,27 +219,22 @@ export async function createUser(
       name: name || null,
       createdAt: new Date(),
     });
-    const defaultOrg = await tx.query.organizations.findFirst({
-      where: eq(organizations.slug, "default"),
-    });
-    if (defaultOrg) {
-      const [membership] = await tx
-        .insert(organizationMembers)
-        .values({
-          organizationId: defaultOrg.id,
-          userSub: sub,
-          status: "active",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-      const memberRole = await tx.query.roles.findFirst({ where: eq(roles.key, "member") });
-      if (membership && memberRole) {
-        await tx
-          .insert(organizationMemberRoles)
-          .values({ organizationMemberId: membership.id, roleId: memberRole.id })
-          .onConflictDoNothing();
+    if (organizationIds.length > 0) {
+      const existingOrganizations = await tx
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(inArray(organizations.id, organizationIds));
+      if (existingOrganizations.length !== organizationIds.length) {
+        throw new ValidationError("One or more organizations were not found");
       }
+      for (const organizationId of organizationIds) {
+        await createActiveMembershipWithDefaultRoles(tx, organizationId, sub, false);
+      }
+    } else {
+      await createPersonalOrganizationForUser(tx, sub, name, {
+        name: data.personalOrganizationName,
+        slug: data.personalOrganizationSlug,
+      });
     }
   });
   return { sub, email, name, createdAt: new Date().toISOString(), lastActivityAt: null };

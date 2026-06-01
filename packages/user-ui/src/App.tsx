@@ -13,6 +13,7 @@ import Dashboard from "./components/Dashboard";
 import EmailResetPasswordView from "./components/EmailResetPasswordView";
 import ForgotPasswordView from "./components/ForgotPasswordView";
 import LoginView from "./components/LoginView";
+import OrganizationDetail from "./components/OrganizationDetail";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
 import Profile from "./components/Profile";
@@ -555,6 +556,31 @@ function AppContent() {
         }
       />
       <Route
+        path="/organizations/:organizationId"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <OtpGate>
+              <OrganizationDetail
+                sessionData={sessionData}
+                onLogout={handleLogout}
+                onOrganizationChanged={updateSessionOrganization}
+              />
+            </OtpGate>
+          )
+        }
+      />
+      <Route
         path="/security/password"
         element={
           loading ? (
@@ -585,24 +611,28 @@ function OtpGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [redirect, setRedirect] = useState<string | null>(null);
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      let session: Awaited<ReturnType<typeof apiService.getSession>> | null = null;
+      let status: Awaited<ReturnType<typeof apiService.getOtpStatus>> | null = null;
       try {
-        const session = await apiService.getSession();
-        const otpReq = !!session.otpRequired;
-        const otpVer = !!session.otpVerified;
-        if (otpReq && !otpVer) {
-          try {
-            const s = await apiService.getOtpStatus();
-            setRedirect(s.enabled ? "/otp/verify" : "/otp/setup?forced=1");
-          } catch {
-            setRedirect("/otp/verify");
-          }
-        }
-      } catch {
-      } finally {
+        session = await apiService.getSession();
+      } catch {}
+      try {
+        status = await apiService.getOtpStatus();
+      } catch {}
+      const otpRequired = !!session?.otpRequired || !!status?.required;
+      const otpVerified = !!session?.otpVerified;
+      if (!cancelled && otpRequired && !otpVerified) {
+        setRedirect(status && !status.enabled ? "/otp/setup?forced=1" : "/otp/verify");
+      }
+      if (!cancelled) {
         setReady(true);
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
   if (!ready)
     return (

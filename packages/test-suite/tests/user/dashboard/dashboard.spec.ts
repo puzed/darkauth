@@ -21,7 +21,7 @@ test.describe('User Dashboard', () => {
 
   test.beforeEach(async ({ page }) => {
     user = createTestUser()
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
     await page.goto(`${servers.userUrl}/`)
   })
 

@@ -3,8 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { test } from "node:test";
+import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { users } from "../db/schema.ts";
+import {
+  organizationMemberRoles,
+  organizationMembers,
+  organizations,
+  roles,
+  users,
+} from "../db/schema.ts";
 import { ConflictError } from "../errors.ts";
 import { setSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
@@ -162,6 +169,48 @@ test("duplicate registration returns conflict when anti-enumeration path cannot 
         error instanceof ConflictError &&
         error.message === "A user with this email address already exists"
     );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("registration creates a personal organization with default member and creator roles", async () => {
+  const { context, cleanup } = await createTestContext();
+  try {
+    const result = await userOpaqueRegisterFinish(context, {
+      record: new Uint8Array([9, 9, 9]),
+      email: "new-personal@example.com",
+      name: "New Personal",
+    });
+
+    assert.equal(result.requiresEmailVerification, false);
+    assert.ok(result.sessionId);
+
+    const organizationRows = await context.db
+      .select({
+        id: organizations.id,
+        slug: organizations.slug,
+        name: organizations.name,
+        createdByUserSub: organizations.createdByUserSub,
+      })
+      .from(organizations)
+      .where(eq(organizations.createdByUserSub, result.sub));
+    assert.equal(organizationRows.length, 1);
+    assert.equal(organizationRows[0]?.name, "New Personal's Personal");
+    assert.match(organizationRows[0]?.slug || "", /^[a-z]+-[a-z]+-[a-z]+-[a-z0-9]{1,6}$/);
+
+    const membershipRows = await context.db
+      .select({ id: organizationMembers.id })
+      .from(organizationMembers)
+      .where(eq(organizationMembers.userSub, result.sub));
+    assert.equal(membershipRows.length, 1);
+
+    const roleRows = await context.db
+      .select({ key: roles.key })
+      .from(organizationMemberRoles)
+      .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
+      .where(eq(organizationMemberRoles.organizationMemberId, membershipRows[0]?.id || ""));
+    assert.deepEqual(roleRows.map((role) => role.key).sort(), ["member", "org_admin"]);
   } finally {
     await cleanup();
   }

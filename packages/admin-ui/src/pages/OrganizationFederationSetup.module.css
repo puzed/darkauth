@@ -1,0 +1,62 @@
+.copyRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.copyRow input {
+  flex: 1;
+}
+
+.dnsRecord {
+  display: grid;
+  gap: 12px;
+}
+
+.dnsField {
+  display: grid;
+  gap: 6px;
+}
+
+.domainList {
+  display: grid;
+  gap: 10px;
+}
+
+.domainItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+
+.domainMeta {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.domainName {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.domainActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.addDomainRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.addDomainRow input {
+  flex: 1;
+}

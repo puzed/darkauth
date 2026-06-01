@@ -1,12 +1,5 @@
 import { eq } from "drizzle-orm";
-import {
-  opaqueRecords,
-  organizationMemberRoles,
-  organizationMembers,
-  organizations,
-  roles,
-  users,
-} from "../db/schema.ts";
+import { opaqueRecords, users } from "../db/schema.ts";
 import { ConflictError, ValidationError } from "../errors.ts";
 import { isEmailSendingAvailable } from "../services/email.ts";
 import {
@@ -16,6 +9,7 @@ import {
 import { createSession } from "../services/sessions.ts";
 import { getSetting } from "../services/settings.ts";
 import type { Context } from "../types.ts";
+import { createPersonalOrganizationForUser } from "./organizations.ts";
 
 export async function userOpaqueRegisterFinish(
   context: Context,
@@ -51,7 +45,7 @@ export async function userOpaqueRegisterFinish(
     throw new ConflictError("A user with this email address already exists");
   }
 
-  await context.db.transaction(async (tx) => {
+  const createdOrganization = await context.db.transaction(async (tx) => {
     await tx.insert(users).values({
       sub,
       email: data.email,
@@ -60,34 +54,14 @@ export async function userOpaqueRegisterFinish(
       emailVerifiedAt: requireEmailVerification ? null : new Date(),
       createdAt: new Date(),
     });
-    const defaultOrg = await tx.query.organizations.findFirst({
-      where: eq(organizations.slug, "default"),
-    });
-    if (defaultOrg) {
-      const [membership] = await tx
-        .insert(organizationMembers)
-        .values({
-          organizationId: defaultOrg.id,
-          userSub: sub,
-          status: "active",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .returning();
-      const memberRole = await tx.query.roles.findFirst({ where: eq(roles.key, "member") });
-      if (membership && memberRole) {
-        await tx
-          .insert(organizationMemberRoles)
-          .values({ organizationMemberId: membership.id, roleId: memberRole.id })
-          .onConflictDoNothing();
-      }
-    }
+    const organization = await createPersonalOrganizationForUser(tx, sub, data.name);
     await tx.insert(opaqueRecords).values({
       sub,
       envelope: Buffer.from(opaqueRecord.envelope),
       serverPubkey: Buffer.from(opaqueRecord.serverPublicKey),
       updatedAt: new Date(),
     });
+    return organization;
   });
   if (requireEmailVerification) {
     await sendSignupVerification(context, {
@@ -112,6 +86,8 @@ export async function userOpaqueRegisterFinish(
     name: data.name,
     clientId: userClientId,
     keyState: "unlocked",
+    organizationId: createdOrganization?.organizationId,
+    organizationSlug: createdOrganization?.slug,
   });
   return {
     sub,

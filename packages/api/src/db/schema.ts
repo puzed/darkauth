@@ -1,4 +1,4 @@
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -52,6 +52,10 @@ export const federationAccountLinkingPolicyEnum = pgEnum("federation_account_lin
   "email_verified",
   "email",
 ]);
+export const federationDomainVerificationStatusEnum = pgEnum(
+  "federation_domain_verification_status",
+  ["pending", "verified", "failed"]
+);
 
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
@@ -118,6 +122,7 @@ export const federationConnections = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     type: federationConnectionTypeEnum("type").default("oidc").notNull(),
+    protocol: text("protocol").default("oidc").notNull(),
     name: text("name").notNull(),
     issuer: text("issuer").notNull(),
     clientId: text("client_id").notNull(),
@@ -132,6 +137,16 @@ export const federationConnections = pgTable(
     accountLinkingPolicy: federationAccountLinkingPolicyEnum("account_linking_policy")
       .default("email_verified")
       .notNull(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    jitProvisioning: boolean("jit_provisioning").default(true).notNull(),
+    membershipOnAuthentication: boolean("membership_on_authentication").default(true).notNull(),
+    requireScimPreProvisioning: boolean("require_scim_pre_provisioning").default(false).notNull(),
+    requirePasswordForZk: boolean("require_password_for_zk").default(false).notNull(),
+    allowPasskeyPrf: boolean("allow_passkey_prf").default(true).notNull(),
+    allowTrustedDeviceApproval: boolean("allow_trusted_device_approval").default(true).notNull(),
+    allowNonZkKeySetupBypass: boolean("allow_non_zk_key_setup_bypass").default(false).notNull(),
     domains: text("domains").array().default([]).notNull(),
     enabled: boolean("enabled").default(true).notNull(),
     metadata: jsonb("metadata").default({}).notNull(),
@@ -143,7 +158,47 @@ export const federationConnections = pgTable(
       table.issuer,
       table.clientId
     ),
+    organizationIdIdx: index("federation_connections_organization_id_idx").on(table.organizationId),
     enabledIdx: index("federation_connections_enabled_idx").on(table.enabled),
+  })
+);
+
+export const federationConnectionDomains = pgTable(
+  "federation_connection_domains",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id")
+      .notNull()
+      .references(() => federationConnections.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    domain: text("domain").notNull(),
+    verificationStatus: federationDomainVerificationStatusEnum("verification_status")
+      .default("pending")
+      .notNull(),
+    verificationTokenHash: text("verification_token_hash"),
+    verifiedAt: timestamp("verified_at"),
+    lastCheckedAt: timestamp("last_checked_at"),
+    enabled: boolean("enabled").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    connectionDomainIdx: uniqueIndex("federation_connection_domains_connection_domain_idx").on(
+      table.connectionId,
+      table.domain
+    ),
+    connectionIdIdx: index("federation_connection_domains_connection_id_idx").on(
+      table.connectionId
+    ),
+    organizationIdIdx: index("federation_connection_domains_organization_id_idx").on(
+      table.organizationId
+    ),
+    domainIdx: index("federation_connection_domains_domain_idx").on(table.domain),
+    verifiedDomainIdx: uniqueIndex("federation_connection_domains_verified_unique_idx")
+      .on(table.domain)
+      .where(sql`${table.enabled} = true AND ${table.verificationStatus} = 'verified'`),
   })
 );
 
@@ -203,6 +258,10 @@ export const federationOidcStates = pgTable(
     connectionId: uuid("connection_id")
       .notNull()
       .references(() => federationConnections.id, { onDelete: "cascade" }),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => clients.clientId, { onDelete: "set null" }),
     nonceHash: text("nonce_hash").notNull(),
     codeVerifierHash: text("code_verifier_hash"),
     returnTo: text("return_to"),
@@ -212,6 +271,7 @@ export const federationOidcStates = pgTable(
   },
   (table) => ({
     connectionIdIdx: index("federation_oidc_states_connection_id_idx").on(table.connectionId),
+    organizationIdIdx: index("federation_oidc_states_organization_id_idx").on(table.organizationId),
     expiresAtIdx: index("federation_oidc_states_expires_at_idx").on(table.expiresAt),
   })
 );
@@ -593,13 +653,40 @@ export const adminOpaqueRecords = pgTable("admin_opaque_records", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const scimConnections = pgTable(
+  "scim_connections",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    enabled: boolean("enabled").default(true).notNull(),
+    deprovisionAction: text("deprovision_action").default("suspend_membership").notNull(),
+    deleteUserSafety: text("delete_user_safety").default("fail_closed").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    organizationIdIdx: index("scim_connections_organization_id_idx").on(table.organizationId),
+    enabledIdx: index("scim_connections_enabled_idx").on(table.enabled),
+  })
+);
+
 export const scimBearerTokens = pgTable(
   "scim_bearer_tokens",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id").references(() => scimConnections.id, {
+      onDelete: "cascade",
+    }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     name: text("name").notNull(),
     tokenHash: text("token_hash").notNull(),
     tokenPrefix: text("token_prefix").notNull(),
+    scopes: text("scopes").array().default(["scim:read", "scim:write"]).notNull(),
     createdByAdminId: uuid("created_by_admin_id").references(() => adminUsers.id, {
       onDelete: "set null",
     }),
@@ -610,6 +697,8 @@ export const scimBearerTokens = pgTable(
   },
   (table) => ({
     tokenHashIdx: uniqueIndex("scim_bearer_tokens_token_hash_idx").on(table.tokenHash),
+    connectionIdIdx: index("scim_bearer_tokens_connection_id_idx").on(table.connectionId),
+    organizationIdIdx: index("scim_bearer_tokens_organization_id_idx").on(table.organizationId),
     activeIdx: index("scim_bearer_tokens_active_idx").on(table.revokedAt, table.expiresAt),
   })
 );
@@ -617,9 +706,19 @@ export const scimBearerTokens = pgTable(
 export const scimUsers = pgTable(
   "scim_users",
   {
+    id: uuid("id").primaryKey().defaultRandom(),
     userSub: text("user_sub")
-      .primaryKey()
+      .notNull()
       .references(() => users.sub, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id").references(() => scimConnections.id, {
+      onDelete: "cascade",
+    }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
+    organizationMemberId: uuid("organization_member_id").references(() => organizationMembers.id, {
+      onDelete: "set null",
+    }),
     externalId: text("external_id"),
     userName: text("user_name").notNull(),
     displayName: text("display_name"),
@@ -629,8 +728,21 @@ export const scimUsers = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    externalIdIdx: uniqueIndex("scim_users_external_id_idx").on(table.externalId),
-    userNameIdx: uniqueIndex("scim_users_user_name_idx").on(table.userName),
+    connectionExternalIdIdx: uniqueIndex("scim_users_connection_external_id_idx").on(
+      table.connectionId,
+      table.externalId
+    ),
+    connectionUserNameIdx: uniqueIndex("scim_users_connection_user_name_idx").on(
+      table.connectionId,
+      table.userName
+    ),
+    connectionUserSubIdx: uniqueIndex("scim_users_connection_user_sub_idx").on(
+      table.connectionId,
+      table.userSub
+    ),
+    connectionIdIdx: index("scim_users_connection_id_idx").on(table.connectionId),
+    organizationIdIdx: index("scim_users_organization_id_idx").on(table.organizationId),
+    userSubIdx: index("scim_users_user_sub_idx").on(table.userSub),
     activeIdx: index("scim_users_active_idx").on(table.active),
   })
 );
@@ -639,6 +751,12 @@ export const scimGroups = pgTable(
   "scim_groups",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    connectionId: uuid("connection_id").references(() => scimConnections.id, {
+      onDelete: "cascade",
+    }),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     externalId: text("external_id"),
     displayName: text("display_name").notNull(),
     raw: jsonb("raw").default({}).notNull(),
@@ -646,8 +764,16 @@ export const scimGroups = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    externalIdIdx: uniqueIndex("scim_groups_external_id_idx").on(table.externalId),
-    displayNameIdx: uniqueIndex("scim_groups_display_name_idx").on(table.displayName),
+    connectionExternalIdIdx: uniqueIndex("scim_groups_connection_external_id_idx").on(
+      table.connectionId,
+      table.externalId
+    ),
+    connectionDisplayNameIdx: uniqueIndex("scim_groups_connection_display_name_idx").on(
+      table.connectionId,
+      table.displayName
+    ),
+    connectionIdIdx: index("scim_groups_connection_id_idx").on(table.connectionId),
+    organizationIdIdx: index("scim_groups_organization_id_idx").on(table.organizationId),
   })
 );
 
@@ -695,6 +821,9 @@ export const organizationMembers = pgTable(
       .notNull()
       .references(() => users.sub, { onDelete: "cascade" }),
     status: organizationStatusEnum("status").default("active").notNull(),
+    scimConnectionId: uuid("scim_connection_id").references(() => scimConnections.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -705,6 +834,9 @@ export const organizationMembers = pgTable(
     ),
     userSubIdx: index("organization_members_user_sub_idx").on(table.userSub),
     organizationIdIdx: index("organization_members_organization_id_idx").on(table.organizationId),
+    scimConnectionIdIdx: index("organization_members_scim_connection_id_idx").on(
+      table.scimConnectionId
+    ),
   })
 );
 
@@ -714,6 +846,9 @@ export const roles = pgTable("roles", {
   name: text("name").notNull(),
   description: text("description"),
   system: boolean("system").default(false).notNull(),
+  assignable: boolean("assignable").default(false).notNull(),
+  defaultMember: boolean("default_member").default(false).notNull(),
+  defaultCreator: boolean("default_creator").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -743,12 +878,20 @@ export const organizationMemberRoles = pgTable(
     roleId: uuid("role_id")
       .notNull()
       .references(() => roles.id, { onDelete: "cascade" }),
+    scimConnectionId: uuid("scim_connection_id").references(() => scimConnections.id, {
+      onDelete: "set null",
+    }),
+    scimGroupId: uuid("scim_group_id").references(() => scimGroups.id, { onDelete: "set null" }),
   },
   (table) => ({
     pk: primaryKey({ columns: [table.organizationMemberId, table.roleId] }),
     organizationMemberIdIdx: index("organization_member_roles_member_id_idx").on(
       table.organizationMemberId
     ),
+    scimConnectionIdIdx: index("organization_member_roles_scim_connection_id_idx").on(
+      table.scimConnectionId
+    ),
+    scimGroupIdIdx: index("organization_member_roles_scim_group_id_idx").on(table.scimGroupId),
   })
 );
 
@@ -864,7 +1007,22 @@ export const clientsRelations = relations(clients, ({ many }) => ({
 export const federationConnectionsRelations = relations(federationConnections, ({ many }) => ({
   identities: many(federationIdentities),
   oidcStates: many(federationOidcStates),
+  domains: many(federationConnectionDomains),
 }));
+
+export const federationConnectionDomainsRelations = relations(
+  federationConnectionDomains,
+  ({ one }) => ({
+    connection: one(federationConnections, {
+      fields: [federationConnectionDomains.connectionId],
+      references: [federationConnections.id],
+    }),
+    organization: one(organizations, {
+      fields: [federationConnectionDomains.organizationId],
+      references: [organizations.id],
+    }),
+  })
+);
 
 export const federationIdentitiesRelations = relations(federationIdentities, ({ one }) => ({
   connection: one(federationConnections, {
@@ -881,6 +1039,10 @@ export const federationOidcStatesRelations = relations(federationOidcStates, ({ 
   connection: one(federationConnections, {
     fields: [federationOidcStates.connectionId],
     references: [federationConnections.id],
+  }),
+  organization: one(organizations, {
+    fields: [federationOidcStates.organizationId],
+    references: [organizations.id],
   }),
 }));
 
@@ -968,8 +1130,11 @@ export const organizationsRelations = relations(organizations, ({ one, many }) =
   }),
   members: many(organizationMembers),
   invites: many(organizationInvites),
+  federationConnections: many(federationConnections),
+  federationConnectionDomains: many(federationConnectionDomains),
   authCodes: many(authCodes),
   pendingAuth: many(pendingAuth),
+  scimConnections: many(scimConnections),
 }));
 
 export const organizationMembersRelations = relations(organizationMembers, ({ one, many }) => ({
@@ -1004,7 +1169,25 @@ export const adminOpaqueRecordsRelations = relations(adminOpaqueRecords, ({ one 
   }),
 }));
 
+export const scimConnectionsRelations = relations(scimConnections, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [scimConnections.organizationId],
+    references: [organizations.id],
+  }),
+  tokens: many(scimBearerTokens),
+  users: many(scimUsers),
+  groups: many(scimGroups),
+}));
+
 export const scimBearerTokensRelations = relations(scimBearerTokens, ({ one }) => ({
+  connection: one(scimConnections, {
+    fields: [scimBearerTokens.connectionId],
+    references: [scimConnections.id],
+  }),
+  organization: one(organizations, {
+    fields: [scimBearerTokens.organizationId],
+    references: [organizations.id],
+  }),
   createdByAdmin: one(adminUsers, {
     fields: [scimBearerTokens.createdByAdminId],
     references: [adminUsers.id],
@@ -1015,6 +1198,18 @@ export const scimUsersRelations = relations(scimUsers, ({ one, many }) => ({
   user: one(users, {
     fields: [scimUsers.userSub],
     references: [users.sub],
+  }),
+  connection: one(scimConnections, {
+    fields: [scimUsers.connectionId],
+    references: [scimConnections.id],
+  }),
+  organization: one(organizations, {
+    fields: [scimUsers.organizationId],
+    references: [organizations.id],
+  }),
+  organizationMember: one(organizationMembers, {
+    fields: [scimUsers.organizationMemberId],
+    references: [organizationMembers.id],
   }),
   groups: many(scimGroupMembers),
 }));
@@ -1100,6 +1295,11 @@ export const auditLogs = pgTable(
     userId: text("user_id"),
     adminId: uuid("admin_id"),
     clientId: text("client_id"),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    enterpriseConnectionId: uuid("enterprise_connection_id"),
+    enterpriseConnectionType: text("enterprise_connection_type"),
     ipAddress: text("ip_address").notNull(),
     userAgent: text("user_agent"),
     success: boolean("success").notNull(),
@@ -1118,6 +1318,7 @@ export const auditLogs = pgTable(
     timestampIdx: index("audit_logs_timestamp_idx").on(table.timestamp),
     userIdIdx: index("audit_logs_user_id_idx").on(table.userId),
     adminIdIdx: index("audit_logs_admin_id_idx").on(table.adminId),
+    organizationIdIdx: index("audit_logs_organization_id_idx").on(table.organizationId),
     eventTypeIdx: index("audit_logs_event_type_idx").on(table.eventType),
     resourceIdx: index("audit_logs_resource_idx").on(table.resourceType, table.resourceId),
   })

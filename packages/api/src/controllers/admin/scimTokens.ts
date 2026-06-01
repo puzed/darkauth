@@ -32,17 +32,25 @@ export async function postScimToken(
   const parsed = z
     .object({
       name: z.string().min(1),
+      organizationId: z.string().uuid(),
+      connectionId: z.string().uuid().nullable().optional(),
+      connectionName: z.string().min(1).nullable().optional(),
       expiresAt: z.string().datetime().nullable().optional(),
     })
     .parse(body);
   const token = await createScimBearerToken(context, {
     name: parsed.name,
+    organizationId: parsed.organizationId,
+    connectionId: parsed.connectionId,
+    connectionName: parsed.connectionName,
     createdByAdminId: session.adminId,
     expiresAt: parsed.expiresAt ? new Date(parsed.expiresAt) : null,
   });
   await auditScimTokenEvent(context, request, {
     eventType: "SCIM_TOKEN_CREATE",
     adminId: session.adminId,
+    organizationId: token.organizationId || undefined,
+    connectionId: token.connectionId || undefined,
     resourceId: token.id,
     statusCode: 201,
     details: {
@@ -66,6 +74,7 @@ export async function deleteScimToken(
   await auditScimTokenEvent(context, request, {
     eventType: "SCIM_TOKEN_REVOKE",
     adminId: session.adminId,
+    organizationId: undefined,
     resourceId: tokenId,
     statusCode: 200,
   });
@@ -78,6 +87,8 @@ async function auditScimTokenEvent(
   data: {
     eventType: string;
     adminId?: string;
+    organizationId?: string;
+    connectionId?: string;
     resourceId?: string;
     statusCode: number;
     details?: Record<string, unknown>;
@@ -90,6 +101,9 @@ async function auditScimTokenEvent(
     path: request.url || "/",
     cohort: "admin",
     adminId: data.adminId,
+    organizationId: data.organizationId,
+    enterpriseConnectionId: data.connectionId,
+    enterpriseConnectionType: data.connectionId ? "scim" : undefined,
     ipAddress: getClientIp(request),
     userAgent: Array.isArray(userAgent) ? userAgent[0] : userAgent,
     success: true,

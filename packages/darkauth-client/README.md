@@ -13,6 +13,7 @@ The client supports both:
 - **Token Management**: First-party cookie refresh by default, with optional legacy token storage
 - **Data Encryption Keys (DEK)**: Support for deriving and managing data encryption keys
 - **DRK Custody**: Memory-only DRK handling by default for hosted web zero-knowledge apps
+- **Organization Switching**: App-owned and hosted organization selection flows for tenant-scoped apps
 - **TypeScript Support**: Full TypeScript definitions included
 
 ## Installation
@@ -82,9 +83,11 @@ The client also supports environment variables for configuration:
 
 ### Authentication Functions
 
-#### `initiateLogin(): Promise<void>`
+#### `initiateLogin(options?: InitiateLoginOptions): Promise<void>`
 
 Starts the OAuth2/OIDC login flow with PKCE. Redirects the user to the DarkAuth authorization server.
+
+Pass `organizationId` when the app already knows which organization the user wants to enter. The SDK sends it as `organization_id` on `/authorize`, and DarkAuth validates active membership before issuing a code. Omit it when the app wants DarkAuth to select the only active organization or show the hosted organization selector for multi-organization users.
 
 #### `handleCallback(): Promise<AuthSession | null>`
 
@@ -111,9 +114,83 @@ Retrieves the current in-memory session if valid. For non-ZK sessions, returns `
 
 If `tokenStorage: 'localStorage'` or `drkStorage: 'localStorage'` is configured for a legacy app, this function can also restore those explicitly persisted values.
 
-#### `refreshSession(): Promise<AuthSession | null>`
+#### `refreshSession(options?: { force?: boolean }): Promise<AuthSession | null>`
 
 Refreshes the current session. In default first-party mode, the browser sends the DarkAuth refresh cookie and no JavaScript-readable refresh token is required. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
+
+Use `{ force: true }` after a hosted organization switch so the app receives tokens for the newly selected DarkAuth session organization even if the current in-memory ID token has not expired.
+
+### Organization Switching
+
+DarkAuth treats organization switching as choosing a new authorization context. Tokens are scoped to one selected organization at a time. Apps must not merge roles or permissions across organizations.
+
+#### `listOrganizations(): Promise<DarkAuthOrganization[]>`
+
+Returns the current user's organizations for app-owned switcher UI. Use `status` to decide which memberships are selectable.
+
+#### `getSessionInfo(): Promise<{ authenticated: boolean; sub?: string; email?: string | null; name?: string | null; organizationId?: string; organizationSlug?: string | null }>`
+
+Returns current first-party session and organization context for app chrome before a fresh OAuth callback is needed.
+
+#### `switchOrganization(organizationId: string, options?: SwitchOrganizationOptions): Promise<void>`
+
+Switches the selected organization. The default `authorize` mode starts a new authorization-code flow. `hosted` mode redirects to DarkAuth's `/switch-org` page.
+
+#### App-owned switcher
+
+Use this pattern when the app owns the workspace rail, menu, or account switcher UI.
+
+```typescript
+import {
+  getCurrentUser,
+  handleCallback,
+  listOrganizations,
+  switchOrganization,
+} from '@DarkAuth/client';
+
+const organizations = await listOrganizations();
+const activeOrganizationId = getCurrentUser()?.org_id;
+
+async function selectOrganization(organizationId: string) {
+  await switchOrganization(organizationId, {
+    mode: 'authorize',
+    returnTo: window.location.href,
+  });
+}
+
+const session = await handleCallback();
+const selectedOrganizationId = getCurrentUser()?.org_id;
+```
+
+After the callback, verify that `selectedOrganizationId` matches the workspace being loaded. Treat the switch as a tenant or workspace state reset: clear tenant-local caches, selected resources, open realtime subscriptions, in-flight requests, and authorization decisions before loading data for the new `org_id`.
+
+#### Hosted switcher
+
+Use this pattern when DarkAuth should own the organization picker UI.
+
+```typescript
+import { refreshSession, switchOrganization } from '@DarkAuth/client';
+
+await switchOrganization('org_123', {
+  mode: 'hosted',
+  returnTo: window.location.href,
+});
+
+const session = await refreshSession({ force: true });
+```
+
+Hosted mode redirects to DarkAuth's `/switch-org` page. DarkAuth updates the first-party session organization and returns to the app. The app then forces a refresh so the ID and access tokens reflect the selected organization.
+
+#### Token claims
+
+When organization context is resolved, ID and access tokens can include:
+
+- `org_id`: selected organization ID.
+- `org_slug`: selected organization slug.
+- `roles`: roles for the selected organization only.
+- `permissions`: permissions for the selected organization only.
+
+Use `sub` for the user identity and `org_id` for the active tenant or workspace. A user can have different roles in different organizations, so apps must authorize each request against the token's selected `org_id` and must reject resource access for a different organization.
 
 ### User Information
 
@@ -208,6 +285,10 @@ interface JwtClaims {
   exp?: number;
   iat?: number;
   iss?: string;
+  org_id?: string;
+  org_slug?: string;
+  roles?: string[];
+  permissions?: string[];
 }
 ```
 
@@ -223,6 +304,33 @@ type Config = {
   drkStorage?: 'memory' | 'localStorage';
   refreshMode?: 'cookie' | 'token';
   credentials?: RequestCredentials;
+}
+```
+
+### `DarkAuthOrganization`
+```typescript
+type DarkAuthOrganization = {
+  organizationId: string;
+  slug: string;
+  name: string;
+  status: string;
+  roles?: Array<{ id: string; key: string; name: string }>;
+}
+```
+
+### `InitiateLoginOptions`
+```typescript
+type InitiateLoginOptions = {
+  organizationId?: string;
+  returnTo?: string;
+}
+```
+
+### `SwitchOrganizationOptions`
+```typescript
+type SwitchOrganizationOptions = {
+  mode?: 'authorize' | 'hosted';
+  returnTo?: string;
 }
 ```
 

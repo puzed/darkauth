@@ -305,6 +305,10 @@ test("federation callback validates ID token, links account, and creates locked 
     const sessionRows = await context.db.select().from(sessions);
     assert.equal(sessionRows.length, 1);
     assert.equal((sessionRows[0]?.data as { keyState?: string }).keyState, "locked");
+    assert.equal(
+      (sessionRows[0]?.data as { organizationId?: string }).organizationId,
+      connection.organizationId
+    );
     const identities = await context.db.select().from(federationIdentities);
     assert.equal(identities.length, 1);
     assert.equal(identities[0]?.externalSubject, "external-sub");

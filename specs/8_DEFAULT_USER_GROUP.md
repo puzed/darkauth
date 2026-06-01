@@ -1,5 +1,7 @@
 # Default User Group and Group Settings (Enable Login)
 
+> **Superseded.** This document describes the legacy groups-era model in which every user was forced into a special mandatory `Default` group. Groups have since been replaced by organizations and roles, and the `Default` organization is no longer special. New users receive a personal organization at registration, and "belongs to at least one group" is now "belongs to at least one active organization." See `specs/ORGANISATION_REFACTOR.md` for the authoritative model. The content below is retained for historical context only and should not be implemented as written.
+
 ## Summary
 
 Introduce a mandatory default group to guarantee every user belongs to at least one group. On fresh installs, create the group `Default` (`key: default`). When a user is created and no groups are assigned, automatically assign them to `default`. Add a per‑group setting “Enable login” (default: true) to control whether membership in that group permits login. Add a new “Settings” section above “Permissions” in Group Create/Edit UI with a toggle for “Enable login”.

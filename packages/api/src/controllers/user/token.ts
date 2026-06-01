@@ -9,6 +9,7 @@ import { signJWT } from "../../services/jwks.ts";
 import {
   clearRefreshTokenCookie,
   createSession,
+  getActorFromRefreshToken,
   getActorFromSessionId,
   getRefreshTokenFromCookie,
   getRefreshTokenSessionData,
@@ -299,6 +300,16 @@ export const postToken = withRateLimit("token")(
           providedClientId,
           !!tokenRequest.refresh_token
         );
+        const { getUserOrgAccess, isUserOtpRequired, resolveAuthorizationOrganizationContext } =
+          await import("../../models/rbac.ts");
+        const refreshActor = await getActorFromRefreshToken(context, refreshToken);
+        const existingUserSessionData = existingSessionData as SessionData | null;
+        if (existingUserSessionData && refreshActor?.userSub) {
+          const existingOtpRequired = await isUserOtpRequired(context, refreshActor.userSub);
+          if (existingOtpRequired && existingUserSessionData?.otpVerified !== true) {
+            throw new InvalidGrantError("OTP verification required");
+          }
+        }
         const rotated = await refreshSessionWithToken(context, refreshToken);
         if (!rotated) {
           if (!tokenRequest.refresh_token) {
@@ -310,6 +321,10 @@ export const postToken = withRateLimit("token")(
         const sessionActor = await getActorFromSessionId(context, rotated.sessionId);
         if (!sessionData || !sessionActor?.userSub)
           throw new InvalidGrantError("Invalid or expired refresh token");
+        const otpRequired = await isUserOtpRequired(context, sessionActor.userSub);
+        if (otpRequired && (sessionData as SessionData).otpVerified !== true) {
+          throw new InvalidGrantError("OTP verification required");
+        }
         const { getUserBySub } = await import("../../models/users.ts");
         const user = await getUserBySub(context, sessionActor.userSub);
         if (!user) throw new InvalidGrantError("User not found");
@@ -320,9 +335,6 @@ export const postToken = withRateLimit("token")(
         );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
-        const { getUserOrgAccess, resolveAuthorizationOrganizationContext } = await import(
-          "../../models/rbac.ts"
-        );
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
@@ -351,6 +363,12 @@ export const postToken = withRateLimit("token")(
             ...(sessionData as SessionData),
             organizationId,
             organizationSlug: organizationSlug || undefined,
+            otpRequired,
+          });
+        } else if ((sessionData as SessionData).otpRequired !== otpRequired) {
+          await updateSession(context, rotated.sessionId, {
+            ...(sessionData as SessionData),
+            otpRequired,
           });
         }
         const now = Math.floor(Date.now() / 1000);
@@ -779,6 +797,8 @@ export const schema = {
   path: "/token",
   tags: ["Auth"],
   summary: "Token endpoint",
+  description:
+    "Refresh-token grants mint tokens for the current session organization. If no valid session organization exists for a multi-organization user, the response uses ORG_CONTEXT_REQUIRED.",
   body: {
     description: "",
     required: true,

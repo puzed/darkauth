@@ -1,6 +1,6 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
-import { ForbiddenError } from "../../errors.ts";
+import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { createUser as createUserModel } from "../../models/users.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -27,12 +27,26 @@ async function createUserHandler(
     email: z.string().email(),
     name: z.string().optional(),
     sub: z.string().optional(),
+    organizationIds: z.array(z.string().uuid()).optional(),
+    createPersonalOrganization: z.boolean().optional(),
+    personalOrganizationName: z.string().optional(),
+    personalOrganizationSlug: z.string().optional(),
   });
   const parsed = Req.parse(raw);
+  const organizationIds = parsed.organizationIds || [];
+  if (organizationIds.length === 0 && parsed.createPersonalOrganization !== true) {
+    throw new ValidationError(
+      "Organization assignment or personal organization creation is required"
+    );
+  }
   const result = await createUserModel(context, {
     email: parsed.email.trim(),
     name: parsed.name?.trim() || "",
     sub: parsed.sub?.trim(),
+    organizationIds,
+    createPersonalOrganization: parsed.createPersonalOrganization,
+    personalOrganizationName: parsed.personalOrganizationName?.trim(),
+    personalOrganizationSlug: parsed.personalOrganizationSlug?.trim(),
   });
   sendJson(response, 201, result);
 }
@@ -52,6 +66,10 @@ const Req = z.object({
   email: z.string().email(),
   name: z.string().optional(),
   sub: z.string().optional(),
+  organizationIds: z.array(z.string().uuid()).optional(),
+  createPersonalOrganization: z.boolean().optional(),
+  personalOrganizationName: z.string().optional(),
+  personalOrganizationSlug: z.string().optional(),
 });
 
 const Resp = z.object({

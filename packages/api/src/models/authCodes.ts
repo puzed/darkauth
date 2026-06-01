@@ -6,10 +6,14 @@ import type { Context } from "../types.ts";
 export async function getAuthCode(context: Context, code: string) {
   const authCode = await context.db.query.authCodes.findFirst({ where: eq(authCodes.code, code) });
   if (!authCode) return null;
-  const scimUser = await context.db.query.scimUsers.findFirst({
+  const scimRows = await context.db.query.scimUsers.findMany({
     where: eq(scimUsers.userSub, authCode.userSub),
   });
-  if (scimUser && !scimUser.active) return null;
+  const scopedRow = authCode.organizationId
+    ? scimRows.find((row) => row.organizationId === authCode.organizationId)
+    : null;
+  if (scopedRow && !scopedRow.active) return null;
+  if (!scopedRow && scimRows.length > 0 && scimRows.every((row) => !row.active)) return null;
   return authCode;
 }
 

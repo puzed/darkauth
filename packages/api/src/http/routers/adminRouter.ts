@@ -25,12 +25,16 @@ import {
 import { postAdminEmailTest } from "../../controllers/admin/emailTest.ts";
 import {
   deleteFederationConnectionController,
+  deleteFederationConnectionDomainController,
   getFederationConnectionController,
+  getFederationConnectionDomains,
   getFederationConnections,
   getFederationDomainRoute,
   getFederationOidcDiscovery,
   postFederationConnection,
+  postFederationConnectionDomain,
   putFederationConnection,
+  verifyFederationConnectionDomainController,
 } from "../../controllers/admin/federationConnections.ts";
 import { getJwks } from "../../controllers/admin/jwks.ts";
 import { rotateJwks } from "../../controllers/admin/jwksRotate.ts";
@@ -447,6 +451,45 @@ export function createAdminRouter(context: Context) {
 
       if (pathname === "/admin/federation/oidc/discovery" && method === "GET") {
         return await getFederationOidcDiscovery(context, request, response);
+      }
+
+      const federationDomainVerifyMatch = pathname.match(
+        /^\/admin\/federation\/connections\/([^/]+)\/domains\/([^/]+)\/verify$/
+      );
+      if (federationDomainVerifyMatch && method === "POST") {
+        return await verifyFederationConnectionDomainController(
+          context,
+          request,
+          response,
+          federationDomainVerifyMatch[1] as string,
+          federationDomainVerifyMatch[2] as string
+        );
+      }
+
+      const federationDomainItemMatch = pathname.match(
+        /^\/admin\/federation\/connections\/([^/]+)\/domains\/([^/]+)$/
+      );
+      if (federationDomainItemMatch && method === "DELETE") {
+        return await deleteFederationConnectionDomainController(
+          context,
+          request,
+          response,
+          federationDomainItemMatch[1] as string,
+          federationDomainItemMatch[2] as string
+        );
+      }
+
+      const federationDomainsMatch = pathname.match(
+        /^\/admin\/federation\/connections\/([^/]+)\/domains$/
+      );
+      if (federationDomainsMatch) {
+        const connectionId = federationDomainsMatch[1] as string;
+        if (method === "GET") {
+          return await getFederationConnectionDomains(context, request, response, connectionId);
+        }
+        if (method === "POST") {
+          return await postFederationConnectionDomain(context, request, response, connectionId);
+        }
       }
 
       const federationConnectionMatch = pathname.match(

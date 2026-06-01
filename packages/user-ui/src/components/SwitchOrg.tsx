@@ -119,7 +119,7 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
             <div className="authorize-app-text">
               <h2 className="authorize-title da-auth-title">Switch organization</h2>
               <p className="authorize-description">
-                Choose the organization you want to use for your current session.
+                Choose the active organization connected apps should use for this session.
               </p>
             </div>
           </div>
@@ -147,7 +147,7 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
             </p>
           ) : (
             <fieldset className="authorize-organization-fieldset">
-              <legend>Select an active organization.</legend>
+              <legend>Select the organization to make active for connected apps.</legend>
               <div className="authorize-organization-list">
                 {activeOrganizations.map((organization) => (
                   <label
@@ -165,8 +165,8 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
                       <span className="authorize-scope-name">{organization.name}</span>
                       <span className="authorize-scope-description">
                         {organization.slug
-                          ? `Organization: ${organization.slug}`
-                          : "Active organization"}
+                          ? `Connected apps will use ${organization.slug}`
+                          : "Connected apps will use this organization"}
                       </span>
                     </span>
                   </label>

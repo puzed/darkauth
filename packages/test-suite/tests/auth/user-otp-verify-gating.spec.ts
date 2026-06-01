@@ -34,8 +34,13 @@ test.describe('Auth - OTP verification gating (UI)', () => {
 
   test('Redirects to OTP setup, then verify completes flow', async ({ page }) => {
     const user = { email: `og-${Date.now()}@example.com`, name: 'OTP Gate', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { organizationIds: [defaultOrganizationId] }
+    );
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);

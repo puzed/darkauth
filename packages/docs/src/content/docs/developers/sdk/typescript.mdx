@@ -46,6 +46,78 @@ The SDK can support explicit legacy storage options, but persistent token, ARK, 
 
 The callback returns an auth session with an ID token, optional access token, and delivered key material when the client uses ZK delivery. Current v2 flows deliver a CAK and metadata. Non-ZK flows return no usable encryption key, so application code should branch on the ZK fields instead of assuming every login returns a root key.
 
+## Organization switching
+
+DarkAuth organization switching selects a new authorization context. The selected organization is represented in freshly issued ID and access tokens, not just in app UI state.
+
+### App-owned switcher
+
+Use this pattern when the app renders its own workspace rail, account menu, or organization picker.
+
+```typescript
+import {
+  getCurrentUser,
+  handleCallback,
+  listOrganizations,
+  switchOrganization,
+} from "@DarkAuth/client";
+
+const organizations = await listOrganizations();
+const activeOrganizationId = getCurrentUser()?.org_id;
+
+async function chooseOrganization(organizationId: string) {
+  await switchOrganization(organizationId, {
+    mode: "authorize",
+    returnTo: window.location.href,
+  });
+}
+
+await handleCallback();
+const selectedOrganizationId = getCurrentUser()?.org_id;
+```
+
+App-owned switching uses a normal authorization-code flow with PKCE and state. DarkAuth validates active membership before issuing a code. After the callback, verify the token `org_id` before loading workspace data.
+
+Treat every organization switch as a tenant or workspace state reset. Clear tenant-local caches, selected records, in-flight requests, realtime subscriptions, and cached authorization decisions before rendering data for the new organization.
+
+### Hosted switcher
+
+Use this pattern when DarkAuth should own the organization picker UI.
+
+```typescript
+import { refreshSession, switchOrganization } from "@DarkAuth/client";
+
+await switchOrganization("org_123", {
+  mode: "hosted",
+  returnTo: window.location.href,
+});
+
+await refreshSession({ force: true });
+```
+
+Hosted mode redirects to `/switch-org`, updates the first-party DarkAuth session organization, and returns to the app. The app then forces a refresh so the current ID and access tokens reflect the selected organization.
+
+### When to send `organization_id`
+
+Send `organization_id` on `/authorize` when the app already knows the intended organization. Common cases are:
+
+- The user clicked an organization in an app-owned switcher.
+- A workspace URL or subdomain maps to a known organization.
+- The app is starting login from an organization-specific invite or deep link.
+
+With the SDK, call `initiateLogin({ organizationId })` or `switchOrganization(organizationId)`. Without the SDK, include `organization_id=<uuid>` in the authorization request. Omit it when DarkAuth should select the user's only active organization or show the hosted selector for multi-organization users.
+
+### Selected organization claims
+
+When organization context is resolved, tokens can include:
+
+- `org_id`: selected organization ID.
+- `org_slug`: selected organization slug.
+- `roles`: roles for the selected organization only.
+- `permissions`: permissions for the selected organization only.
+
+Applications should use `sub` as the user identity and `org_id` as the active tenant or workspace. Do not merge roles or permissions across organizations. Reject access when a token's `org_id` does not match the resource organization.
+
 ## Crypto helpers
 
 The client package also exports helper functions for base64url encoding, SHA-256, HKDF, AES-GCM encryption, note-style DEK derivation, and private-key wrapping. Use these helpers when building apps that need client-side encryption aligned with DarkAuth's custody model.

@@ -5,9 +5,13 @@ import {
   assignMemberRoles,
   createOrganization,
   createOrganizationInvite,
+  deleteOrganization,
+  leaveOrganization,
+  listAssignableRoles,
   listOrganizationMembers,
   listOrganizationsForUser,
   removeMemberRole,
+  removeOrganizationMember,
   requireOrganizationMembership,
 } from "../../models/organizations.ts";
 import { requireSession } from "../../services/sessions.ts";
@@ -24,19 +28,30 @@ const OrganizationSchema = z.object({
   status: z.string(),
 });
 
+const RoleSummarySchema = z.object({
+  id: z.string().uuid(),
+  key: z.string(),
+  name: z.string(),
+});
+
+const OrganizationListItemSchema = OrganizationSchema.extend({
+  roles: z.array(RoleSummarySchema),
+});
+
 const MemberSchema = z.object({
   membershipId: z.string().uuid(),
   userSub: z.string(),
   status: z.string(),
   email: z.string().nullable().optional(),
   name: z.string().nullable().optional(),
-  roles: z.array(
-    z.object({
-      id: z.string().uuid(),
-      key: z.string(),
-      name: z.string(),
-    })
-  ),
+  roles: z.array(RoleSummarySchema),
+});
+
+const AssignableRoleSchema = z.object({
+  id: z.string().uuid(),
+  key: z.string(),
+  name: z.string(),
+  description: z.string().nullable().optional(),
 });
 
 export async function getOrganizations(
@@ -50,8 +65,16 @@ export async function getOrganizations(
 }
 
 export const postOrganizations = withAudit({
-  eventType: "ORGANIZATION_CREATE",
+  eventType: "USER_ORG_CREATE",
   resourceType: "organization",
+  extractResourceId: (_body: unknown, _params: string[]) => undefined,
+  extractAuditContext: (_body, responseData) => {
+    const org =
+      responseData && typeof responseData === "object"
+        ? (responseData as { organization?: { organizationId?: string } }).organization
+        : undefined;
+    return org?.organizationId ? { organizationId: org.organizationId } : undefined;
+  },
 })(async function postOrganizations(
   context: Context,
   request: IncomingMessage,
@@ -91,9 +114,21 @@ export async function getOrganizationMembers(
   sendJson(response, 200, { members });
 }
 
+export async function getOrganizationAssignableRoles(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  organizationId: string
+) {
+  const session = await requireSession(context, request, false);
+  const roles = await listAssignableRoles(context, session.sub as string, organizationId);
+  sendJson(response, 200, { roles });
+}
+
 export const postOrganizationInvites = withAudit({
-  eventType: "ORGANIZATION_INVITE_CREATE",
+  eventType: "USER_ORG_MEMBER_ADD",
   resourceType: "organization_invite",
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
 })(async function postOrganizationInvites(
   context: Context,
   request: IncomingMessage,
@@ -118,8 +153,10 @@ export const postOrganizationInvites = withAudit({
 });
 
 export const postOrganizationMemberRoles = withAudit({
-  eventType: "ORGANIZATION_MEMBER_ROLES_ASSIGN",
+  eventType: "USER_ORG_MEMBER_ROLE_ADD",
   resourceType: "organization_member",
+  extractResourceId: (_body: unknown, params: string[]) => params[1],
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
 })(async function postOrganizationMemberRoles(
   context: Context,
   request: IncomingMessage,
@@ -150,8 +187,10 @@ export const postOrganizationMemberRoles = withAudit({
 });
 
 export const deleteOrganizationMemberRole = withAudit({
-  eventType: "ORGANIZATION_MEMBER_ROLE_REMOVE",
+  eventType: "USER_ORG_MEMBER_ROLE_REMOVE",
   resourceType: "organization_member",
+  extractResourceId: (_body: unknown, params: string[]) => params[1],
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
 })(async function deleteOrganizationMemberRole(
   context: Context,
   request: IncomingMessage,
@@ -171,17 +210,76 @@ export const deleteOrganizationMemberRole = withAudit({
   sendJson(response, 200, result);
 });
 
+export const deleteOrganizationMember = withAudit({
+  eventType: "USER_ORG_MEMBER_REMOVE",
+  resourceType: "organization_member",
+  extractResourceId: (_body: unknown, params: string[]) => params[1],
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
+})(async function deleteOrganizationMember(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  organizationId: string,
+  memberId: string
+) {
+  const session = await requireSession(context, request, false);
+  const result = await removeOrganizationMember(
+    context,
+    session.sub as string,
+    organizationId,
+    memberId
+  );
+  sendJson(response, 200, result);
+});
+
+export const postOrganizationLeave = withAudit({
+  eventType: "USER_ORG_LEAVE",
+  resourceType: "organization",
+  extractResourceId: (_body: unknown, params: string[]) => params[0],
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
+})(async function postOrganizationLeave(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  organizationId: string
+) {
+  const session = await requireSession(context, request, false);
+  const result = await leaveOrganization(context, session.sub as string, organizationId);
+  sendJson(response, 200, result);
+});
+
+export const deleteOrganizationController = withAudit({
+  eventType: "USER_ORG_DELETE",
+  resourceType: "organization",
+  extractResourceId: (_body: unknown, params: string[]) => params[0],
+  extractAuditContext: (_body, _responseData, params) => ({ organizationId: params[0] }),
+})(async function deleteOrganizationController(
+  context: Context,
+  request: IncomingMessage,
+  response: ServerResponse,
+  organizationId: string
+) {
+  const session = await requireSession(context, request, false);
+  const body = parseJsonSafely(await readBody(request));
+  const Req = z.object({ confirm: z.literal(true) });
+  Req.parse(body);
+  const result = await deleteOrganization(context, session.sub as string, organizationId);
+  sendJson(response, 200, result);
+});
+
 export const organizationsSchema = {
   method: "GET",
   path: "/organizations",
   tags: ["Organizations"],
   summary: "List organizations",
+  description:
+    "Lists the current user's active organization memberships with role summaries for app switcher UIs.",
   responses: {
     200: {
       description: "OK",
       content: {
         "application/json": {
-          schema: z.object({ organizations: z.array(OrganizationSchema) }),
+          schema: z.object({ organizations: z.array(OrganizationListItemSchema) }),
         },
       },
     },
@@ -250,6 +348,25 @@ export const organizationMembersSchema = {
       content: {
         "application/json": {
           schema: z.object({ members: z.array(MemberSchema) }),
+        },
+      },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const organizationAssignableRolesSchema = {
+  method: "GET",
+  path: "/organizations/{organizationId}/roles/assignable",
+  tags: ["Organizations"],
+  summary: "List assignable organization roles",
+  params: z.object({ organizationId: z.string().uuid() }),
+  responses: {
+    200: {
+      description: "OK",
+      content: {
+        "application/json": {
+          schema: z.object({ roles: z.array(AssignableRoleSchema) }),
         },
       },
     },
@@ -347,6 +464,57 @@ export const organizationMemberRoleDeleteSchema = {
           schema: z.object({ success: z.boolean() }),
         },
       },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const organizationMemberDeleteSchema = {
+  method: "DELETE",
+  path: "/organizations/{organizationId}/members/{memberId}",
+  tags: ["Organizations"],
+  summary: "Remove organization member",
+  params: z.object({ organizationId: z.string().uuid(), memberId: z.string().uuid() }),
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.object({ success: z.boolean() }) } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const organizationLeaveSchema = {
+  method: "POST",
+  path: "/organizations/{organizationId}/leave",
+  tags: ["Organizations"],
+  summary: "Leave organization",
+  params: z.object({ organizationId: z.string().uuid() }),
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.object({ success: z.boolean() }) } },
+    },
+    ...genericErrors,
+  },
+} as const satisfies ControllerSchema;
+
+export const organizationDeleteSchema = {
+  method: "DELETE",
+  path: "/organizations/{organizationId}",
+  tags: ["Organizations"],
+  summary: "Delete organization",
+  params: z.object({ organizationId: z.string().uuid() }),
+  body: {
+    description: "",
+    required: true,
+    contentType: "application/json",
+    schema: z.object({ confirm: z.literal(true) }),
+  },
+  responses: {
+    200: {
+      description: "OK",
+      content: { "application/json": { schema: z.object({ success: z.boolean() }) } },
     },
     ...genericErrors,
   },

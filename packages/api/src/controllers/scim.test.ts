@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { auditLogs } from "../db/schema.ts";
+import { auditLogs, organizations } from "../db/schema.ts";
 import { createScimBearerToken } from "../models/scim.ts";
 import type { Context } from "../types.ts";
 import { handleScim } from "./scim.ts";
@@ -81,10 +81,24 @@ function createResponse(): ServerResponse & { body: string; json: unknown } {
   return response as ServerResponse & { body: string; json: unknown };
 }
 
+async function createOrganization(context: Context) {
+  const organization = {
+    id: "11111111-1111-4111-8111-111111111111",
+    slug: "engineering",
+    name: "Engineering",
+  };
+  await context.db.insert(organizations).values(organization);
+  return organization;
+}
+
 test("SCIM resource mutations write safe audit events", async () => {
   const { context, cleanup } = await createContext();
   try {
-    const token = await createScimBearerToken(context, { name: "Directory" });
+    const organization = await createOrganization(context);
+    const token = await createScimBearerToken(context, {
+      name: "Directory",
+      organizationId: organization.id,
+    });
     const createResponseBody = createResponse();
     await handleScim(
       context,
@@ -125,6 +139,7 @@ test("SCIM resource mutations write safe audit events", async () => {
 
     assert.equal(createAudit?.resourceType, "scim_user");
     assert.equal(createAudit?.resourceId, userId);
+    assert.equal(createAudit?.organizationId, organization.id);
     assert.equal(createAudit?.success, true);
     assert.deepEqual(createAudit?.details, {
       token_id: token.id,
