@@ -4,6 +4,7 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../s
 import { installDarkAuth } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
 import { createUserViaAdmin, getAdminSession } from '../../setup/helpers/auth.js'
+import { getOnlyOrganizationMembershipForUser } from '../../setup/helpers/rbac.js'
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts'
 import { fromBase64Url, hkdf, sha256, sha256Base64Url, toBase64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
@@ -204,23 +205,6 @@ async function createOrganization(input: {
   if (!res.ok) throw new Error(`create organization failed: ${res.status} ${await res.text()}`)
   const json = await res.json() as { organization: { id: string } }
   return json.organization.id
-}
-
-async function listDefaultOrganization(input: {
-  servers: TestServers
-  adminSession: Session
-}): Promise<string> {
-  const res = await fetch(`${input.servers.adminUrl}/admin/organizations?limit=100`, {
-    headers: {
-      Cookie: input.adminSession.cookieHeader,
-      Origin: input.servers.adminUrl,
-    }
-  })
-  if (!res.ok) throw new Error(`list organizations failed: ${res.status} ${await res.text()}`)
-  const json = await res.json() as { organizations: Array<{ id: string; slug: string }> }
-  const organization = json.organizations.find((item) => item.slug === 'default')
-  if (!organization) throw new Error('default organization not found')
-  return organization.id
 }
 
 async function addOrganizationMember(input: {
@@ -456,7 +440,7 @@ test.describe('API - user key management delivery matrix', () => {
       name: 'User Key Delivery',
       password: 'Passw0rd!123'
     }
-    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user)
+    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user, { createPersonalOrganization: true })
     sub = created.sub
     userSession = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     keyId = await createAccountKey({
@@ -464,7 +448,9 @@ test.describe('API - user key management delivery matrix', () => {
       session: userSession,
       keyId: `ark_${sub}_delivery_1`,
     })
-    defaultOrganizationId = await listDefaultOrganization({ servers, adminSession })
+    defaultOrganizationId = (
+      await getOnlyOrganizationMembershipForUser(servers, adminSession, sub)
+    ).organizationId
     secondOrganizationId = await createOrganization({
       servers,
       adminSession,

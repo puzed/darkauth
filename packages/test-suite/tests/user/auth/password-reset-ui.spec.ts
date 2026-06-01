@@ -66,7 +66,7 @@ test.describe('User - Password reset UI', () => {
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
     const created = await createPasswordResetToken(servers.getContext(), {
       userSub: sub,

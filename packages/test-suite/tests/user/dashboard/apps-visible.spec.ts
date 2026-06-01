@@ -44,7 +44,7 @@ test.describe('User Dashboard - Apps Visibility', () => {
   })
 
   test('enabled client appears on dashboard after login', async ({ page }) => {
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
 
     await page.goto(`${servers.userUrl}/`)
     await page.fill('input[name="email"], input[type="email"]', user.email)

@@ -25,7 +25,7 @@ test.describe('Auth - User OTP setup and verify (UI)', () => {
 
   test('Setup via UI shows secret; verify produces backup codes', async ({ page }) => {
     const user = { email: `otp-${Date.now()}@example.com`, name: 'OTP User', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true });
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
     await page.fill('input[name="password"], input[type="password"]', user.password);

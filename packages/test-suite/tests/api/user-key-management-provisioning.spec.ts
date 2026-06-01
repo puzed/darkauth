@@ -6,6 +6,7 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../s
 import { installDarkAuth } from '../../setup/install.js'
 import { FIXED_TEST_ADMIN } from '../../fixtures/testData.js'
 import { getAdminSession } from '../../setup/helpers/auth.js'
+import { getDefaultOrganizationId } from '../../setup/helpers/rbac.js'
 import { sha256Base64Url } from '@DarkAuth/api/src/utils/crypto.ts'
 
 type Session = { cookieHeader: string; csrfToken: string }
@@ -134,6 +135,7 @@ async function createFederationConnection(input: {
   servers: TestServers
   adminSession: Session
   provider: MockOidcProvider
+  organizationId: string
 }) {
   const res = await fetch(`${input.servers.adminUrl}/admin/federation/connections`, {
     method: 'POST',
@@ -152,6 +154,7 @@ async function createFederationConnection(input: {
       jwksUri: input.provider.jwksUri,
       scopes: ['openid', 'profile', 'email'],
       accountLinkingPolicy: 'email_verified',
+      organizationId: input.organizationId,
       domains: ['example.com'],
       enabled: true,
     })
@@ -396,7 +399,7 @@ async function assertZkRequiresUnlock(input: {
   expect(await finalized.text()).toContain('Key unlock is required')
 }
 
-async function createScimToken(servers: TestServers, adminSession: Session) {
+async function createScimToken(servers: TestServers, adminSession: Session, organizationId: string) {
   const res = await fetch(`${servers.adminUrl}/admin/scim/tokens`, {
     method: 'POST',
     headers: {
@@ -405,7 +408,7 @@ async function createScimToken(servers: TestServers, adminSession: Session) {
       'x-csrf-token': adminSession.csrfToken,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ name: 'Provisioning E2E' }),
+    body: JSON.stringify({ name: 'Provisioning E2E', organizationId }),
   })
   if (!res.ok) throw new Error(`create scim token failed: ${res.status} ${await res.text()}`)
   const json = await res.json() as { token: string }
@@ -462,6 +465,7 @@ test.describe('API - user key management federation and SCIM E2E', () => {
   let servers: TestServers
   let provider: MockOidcProvider
   let adminSession: Session
+  let defaultOrganizationId: string
   let connectionId: string
   let scimToken: string
 
@@ -479,8 +483,14 @@ test.describe('API - user key management federation and SCIM E2E', () => {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password
     })
-    connectionId = await createFederationConnection({ servers, adminSession, provider })
-    scimToken = await createScimToken(servers, adminSession)
+    defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession)
+    connectionId = await createFederationConnection({
+      servers,
+      adminSession,
+      provider,
+      organizationId: defaultOrganizationId,
+    })
+    scimToken = await createScimToken(servers, adminSession, defaultOrganizationId)
   })
 
   test.afterAll(async () => {

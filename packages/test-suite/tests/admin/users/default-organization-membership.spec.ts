@@ -3,9 +3,9 @@ import { createTestServers, destroyTestServers, type TestServers } from '../../.
 import { installDarkAuth } from '../../../setup/install.js';
 import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { createUserViaAdmin, getAdminSession } from '../../../setup/helpers/auth.js';
-import { getDefaultOrganizationId } from '../../../setup/helpers/rbac.js';
+import { getOnlyOrganizationMembershipForUser } from '../../../setup/helpers/rbac.js';
 
-test.describe('Admin - Default organization membership', () => {
+test.describe('Admin - User organization assignment', () => {
   let servers: TestServers;
 
   test.beforeAll(async () => {
@@ -23,21 +23,24 @@ test.describe('Admin - Default organization membership', () => {
     if (servers) await destroyTestServers(servers);
   });
 
-  test('new users get default organization membership automatically', async () => {
-    const user = { email: `auto-default-${Date.now()}@example.com`, password: 'Passw0rd!auto', name: 'Auto Default' };
-    const { sub } = await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
+  test('new users can be created with a personal organization membership', async () => {
+    const user = {
+      email: `personal-org-${Date.now()}@example.com`,
+      password: 'Passw0rd!auto',
+      name: 'Personal Organization User',
+    };
+    const { sub } = await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { createPersonalOrganization: true }
+    );
 
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password,
     });
-    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
-    const res = await fetch(`${servers.adminUrl}/admin/organizations/${defaultOrganizationId}/members`, {
-      headers: { Cookie: adminSession.cookieHeader, Origin: servers.adminUrl }
-    });
-    expect(res.ok).toBeTruthy();
-    const json = await res.json() as { members: Array<{ userSub: string; status: string }> };
-    const member = json.members.find((entry) => entry.userSub === sub);
-    expect(member?.status).toBe('active');
+    const membership = await getOnlyOrganizationMembershipForUser(servers, adminSession, sub);
+    expect(membership.status).toBe('active');
   });
 });

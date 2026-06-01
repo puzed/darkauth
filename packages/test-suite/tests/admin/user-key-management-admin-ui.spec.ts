@@ -34,8 +34,13 @@ async function fillField(root: Page | Locator, label: string, value: string) {
 }
 
 async function selectField(root: Page | Locator, page: Page, label: string, option: string) {
-  await field(root, label).getByRole('combobox').click();
-  await page.getByRole('option', { name: option, exact: true }).click();
+  await clickElement(field(root, label).getByRole('combobox'));
+  await clickElement(page.getByRole('option', { name: option, exact: true }));
+}
+
+async function selectFirstFieldOption(root: Page | Locator, page: Page, label: string) {
+  await clickElement(field(root, label).getByRole('combobox'));
+  await page.keyboard.press('Enter');
 }
 
 async function openRowAction(row: Locator, name: string) {
@@ -96,7 +101,9 @@ test.describe('Admin - user key management UI', () => {
       password: 'Passw0rd!keyed-user',
       name: 'Keyed User',
     };
-    const created = await createUserViaAdmin(servers, adminCred, user);
+    const created = await createUserViaAdmin(servers, adminCred, user, {
+      createPersonalOrganization: true,
+    });
     keyedUserSub = created.sub;
     const context = servers.getContext();
     const keyId = `key-${uniqueId('admin-ui')}`;
@@ -157,6 +164,7 @@ test.describe('Admin - user key management UI', () => {
     await expect(dialog.getByRole('heading', { name: 'New Federation Connection' })).toBeVisible();
 
     await fillField(dialog, 'Name', name);
+    await selectFirstFieldOption(dialog, page, 'Organization *');
     await fillField(dialog, 'Issuer', issuer);
     await fillField(dialog, 'Client ID', `client-${suffix}`);
     await fillField(dialog, 'Client Secret', `secret-${suffix}`);
@@ -201,6 +209,7 @@ test.describe('Admin - user key management UI', () => {
     await page.getByRole('button', { name: 'New Token' }).click();
     const dialog = page.getByRole('dialog');
     await expect(dialog.getByRole('heading', { name: 'Create SCIM Token' })).toBeVisible();
+    await selectFirstFieldOption(dialog, page, 'Organization *');
     await fillField(dialog, 'Name', tokenName);
     await dialog.getByRole('button', { name: 'Create' }).click();
     await expect(page.getByText('Copy this SCIM bearer token now')).toBeVisible();

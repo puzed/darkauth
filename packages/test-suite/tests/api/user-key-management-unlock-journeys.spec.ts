@@ -547,7 +547,7 @@ test.describe('API - user key management unlock journeys', () => {
       name: 'User Key Unlock',
       password: 'Passw0rd!123'
     }
-    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user)
+    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user, { createPersonalOrganization: true })
     sub = created.sub
     passwordSession = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     keyId = await createAccountKey(servers, passwordSession, `ark_${sub}_unlock_1`)

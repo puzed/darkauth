@@ -112,7 +112,7 @@ test.describe('Security - Email verification', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
 
     await setAdminSetting(servers, 'users.require_email_verification', true, request);
@@ -139,7 +139,7 @@ test.describe('Security - Email verification', () => {
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     );
 
     await setAdminSetting(servers, 'users.require_email_verification', true, request);

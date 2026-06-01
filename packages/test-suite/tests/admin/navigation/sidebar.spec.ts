@@ -39,7 +39,7 @@ test.describe('Admin - Sidebar Navigation', () => {
     await expect(groups).toHaveCount(4);
     await expect(groups.nth(0)).toContainText(/Main[\s\S]*Dashboard/);
     await expect(groups.nth(1)).toContainText(/Identity[\s\S]*Users[\s\S]*Organizations[\s\S]*Roles[\s\S]*Permissions/);
-    await expect(groups.nth(2)).toContainText(/OAuth[\s\S]*Clients[\s\S]*Signing Keys/);
+    await expect(groups.nth(2)).toContainText(/OAuth[\s\S]*Clients[\s\S]*Federation[\s\S]*SCIM Tokens[\s\S]*Signing Keys/);
     await expect(groups.nth(3)).toContainText(/Settings[\s\S]*Admin Users[\s\S]*Audit Logs[\s\S]*Branding[\s\S]*Email Templates[\s\S]*Settings/);
 
     await expect(page.getByRole('link', { name: 'Signing Keys' })).toHaveAttribute(

@@ -69,19 +69,20 @@ test.describe('Security - Login gating by active organization membership', () =>
 
   test('user can/cannot login depending on active default organization membership', async () => {
     const user = { email: `gating-${Date.now()}@example.com`, password: 'Passw0rd!gating', name: 'Gate User' };
-    const { sub } = await createUserViaAdmin(
-      servers,
-      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
-    );
-
-    await loginFinishExpect(servers, user.email, user.password, true);
-
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
       password: FIXED_TEST_ADMIN.password,
     });
     const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    const { sub } = await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { organizationIds: [defaultOrganizationId] }
+    );
+
+    await loginFinishExpect(servers, user.email, user.password, true);
+
     const memberId = await getOrganizationMemberIdForUser(
       servers,
       adminSession,

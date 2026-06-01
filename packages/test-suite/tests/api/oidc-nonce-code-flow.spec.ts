@@ -100,7 +100,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
       password: 'Passw0rd!123'
     }
 
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
@@ -218,7 +218,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
       password: 'Passw0rd!123'
     }
 
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
@@ -304,7 +304,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
       password: 'Passw0rd!123'
     }
 
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,
@@ -419,7 +419,7 @@ test.describe('API - OIDC nonce auth code flow', () => {
       password: 'Passw0rd!123'
     }
 
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user)
+    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user, { createPersonalOrganization: true })
     const loginResult = await opaqueLoginFinish(servers.userUrl, user.email, user.password)
     const adminSession = await getAdminSession(servers, {
       email: FIXED_TEST_ADMIN.email,

@@ -7,7 +7,10 @@ import {
   establishUserSession,
   getAdminSession,
 } from '../../setup/helpers/auth.js'
-import { addOrganizationMember, getDefaultOrganizationId } from '../../setup/helpers/rbac.js'
+import {
+  addOrganizationMember,
+  getOnlyOrganizationMembershipForUser,
+} from '../../setup/helpers/rbac.js'
 import { installDarkAuth } from '../../setup/install.js'
 import { createTestServers, destroyTestServers, type TestServers } from '../../setup/server.js'
 
@@ -83,12 +86,14 @@ test.describe.serial('Organization switching browser flows', () => {
       installToken: 'test-install-token',
     })
     const adminSession = await getAdminSession(servers, FIXED_TEST_ADMIN)
-    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user)
+    const created = await createUserViaAdmin(servers, FIXED_TEST_ADMIN, user, { createPersonalOrganization: true })
     await servers.getContext().db
       .update(users)
       .set({ passwordResetRequired: false })
       .where(eq(users.sub, created.sub))
-    defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession)
+    defaultOrganizationId = (
+      await getOnlyOrganizationMembershipForUser(servers, adminSession, created.sub)
+    ).organizationId
     const suffix = Date.now().toString(36)
     secondOrganizationId = await createOrganization(servers, adminSession, {
       name: 'Browser Switch Org',

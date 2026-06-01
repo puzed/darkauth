@@ -71,8 +71,13 @@ test.describe('User - OTP - Forced verify UI', () => {
 
   test('When required and setup is pending, login redirects to /otp/setup?forced=1', async ({ page }) => {
     const user = { email: `otp-ui-${Date.now()}@example.com`, name: 'OTP UI', password: 'Passw0rd!123' };
-    await createUserViaAdmin(servers, { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password }, user);
     const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
+    await createUserViaAdmin(
+      servers,
+      { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
+      user,
+      { organizationIds: [defaultOrganizationId] }
+    );
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
 
     const session = await opaqueLogin(servers.userUrl, user.email, user.password);

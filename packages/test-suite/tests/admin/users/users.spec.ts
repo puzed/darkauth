@@ -40,7 +40,8 @@ test.describe('Admin - Users', () => {
     await expect(page.getByRole('heading', { name: 'Create User', exact: true })).toBeVisible();
     await page.fill('input#email, input[name="email"]', email);
     await page.fill('input#name, input[name="name"]', name);
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create personal' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByText('Temporary Password')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Done' }).click();
     await page.goto(`${servers.adminUrl}/users`);
@@ -54,7 +55,8 @@ test.describe('Admin - Users', () => {
     await page.getByRole('button', { name: 'Add User' }).click();
     await page.fill('input#email, input[name="email"]', email);
     await page.fill('input#name, input[name="name"]', name);
-    await page.getByRole('button', { name: 'Create' }).click();
+    await page.getByRole('button', { name: 'Create personal' }).click();
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
     await expect(page.getByText('Temporary Password')).toBeVisible({ timeout: 10000 });
     await page.getByRole('button', { name: 'Done' }).click();
     await page.goto(`${servers.adminUrl}/users`);

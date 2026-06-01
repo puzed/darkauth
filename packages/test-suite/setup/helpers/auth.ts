@@ -379,7 +379,13 @@ export async function establishUserSession(
 export async function createUserViaAdmin(
   servers: TestServers,
   admin: { email: string; password: string },
-  user: BasicUser
+  user: BasicUser,
+  options: {
+    organizationIds?: string[];
+    createPersonalOrganization?: boolean;
+    personalOrganizationName?: string;
+    personalOrganizationSlug?: string;
+  }
 ): Promise<{ sub: string }> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
   let session = await getAdminSession(servers, admin);
@@ -392,7 +398,11 @@ export async function createUserViaAdmin(
       Origin: servers.adminUrl,
       'x-csrf-token': session.csrfToken,
     },
-    body: JSON.stringify({ email: user.email, name: user.name })
+    body: JSON.stringify({
+      email: user.email,
+      name: user.name,
+      ...options,
+    })
   });
   if (createRes.status === 401) {
     adminSessionCache.delete(cacheKey);
@@ -405,7 +415,11 @@ export async function createUserViaAdmin(
         Origin: servers.adminUrl,
         'x-csrf-token': session.csrfToken,
       },
-      body: JSON.stringify({ email: user.email, name: user.name })
+      body: JSON.stringify({
+        email: user.email,
+        name: user.name,
+        ...options,
+      })
     });
   }
   if (!createRes.ok) throw new Error(`create user failed: ${createRes.status}`);

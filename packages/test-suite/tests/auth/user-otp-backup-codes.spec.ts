@@ -29,10 +29,16 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
 
   test('Setup via UI shows backup codes; a code works on /otp/verify', async ({ page }) => {
     const user = { email: `bc-${Date.now()}@example.com`, name: 'Backup Codes', password: 'Passw0rd!123' };
+    const adminSession = await getAdminSession(servers, {
+      email: FIXED_TEST_ADMIN.email,
+      password: FIXED_TEST_ADMIN.password,
+    });
+    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user,
+      { organizationIds: [defaultOrganizationId] }
     );
     await page.goto(`${servers.userUrl}/`);
     await page.fill('input[name="email"], input[type="email"]', user.email);
@@ -53,11 +59,6 @@ test.describe('Auth - User OTP backup codes (UI)', () => {
     const backupCode = await page.locator('ul li').first().textContent();
     expect(backupCode && backupCode.includes('-')).toBeTruthy();
 
-    const adminSession = await getAdminSession(servers, {
-      email: FIXED_TEST_ADMIN.email,
-      password: FIXED_TEST_ADMIN.password,
-    });
-    const defaultOrganizationId = await getDefaultOrganizationId(servers, adminSession);
     await setOrganizationForceOtp(servers, adminSession, defaultOrganizationId, true);
 
     await page.context().clearCookies();

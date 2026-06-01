@@ -36,7 +36,7 @@ test.describe('User portal responsive UX', () => {
     const created = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      user
+      user, { createPersonalOrganization: true }
     )
     await servers.getContext().db
       .update(users)

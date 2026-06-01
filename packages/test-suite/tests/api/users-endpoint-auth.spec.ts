@@ -114,6 +114,26 @@ async function getClientCredentialsAccessToken(
   return tokenJson.access_token as string
 }
 
+async function createOrganization(
+  servers: TestServers,
+  adminSession: { cookieHeader: string; csrfToken: string },
+  input: { slug: string; name: string }
+): Promise<string> {
+  const res = await fetch(`${servers.adminUrl}/admin/organizations`, {
+    method: 'POST',
+    headers: {
+      Cookie: adminSession.cookieHeader,
+      Origin: servers.adminUrl,
+      'x-csrf-token': adminSession.csrfToken,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(input)
+  })
+  if (!res.ok) throw new Error(`create organization failed: ${res.status} ${await res.text()}`)
+  const json = await res.json() as { organization: { id: string } }
+  return json.organization.id
+}
+
 test.describe('API - Users endpoint auth methods', () => {
   test.describe.configure({ mode: 'serial' })
 
@@ -198,21 +218,25 @@ test.describe('API - Users endpoint auth methods', () => {
       name: 'Directory Plain',
       password: 'Passw0rd!123'
     }
+    const organizationId = await createOrganization(servers, adminSession, {
+      slug: `directory-${Date.now()}`,
+      name: 'Directory Test'
+    })
 
     const { sub: readerSub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      reader
+      reader, { organizationIds: [organizationId] }
     )
     const { sub } = await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      target
+      target, { organizationIds: [organizationId] }
     )
     await createUserViaAdmin(
       servers,
       { email: FIXED_TEST_ADMIN.email, password: FIXED_TEST_ADMIN.password },
-      plain
+      plain, { organizationIds: [organizationId] }
     )
     targetSub = sub
     targetName = target.name
