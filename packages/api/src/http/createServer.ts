@@ -28,7 +28,7 @@ import { createUserRouter } from "./routers/userRouter.ts";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-type UserCorsPolicy = {
+export type UserCorsPolicy = {
   cachedAt: number;
   firstPartyOrigins: Set<string>;
   publicSpaOrigins: Set<string>;
@@ -86,7 +86,20 @@ async function buildUserCorsPolicy(context: Context): Promise<UserCorsPolicy> {
   };
 }
 
-function isUserCorsOriginAllowed(
+function isPublicSpaCorsPath(pathname: string): boolean {
+  return (
+    pathname === "/token" ||
+    pathname === "/api/token" ||
+    pathname === "/userinfo" ||
+    pathname === "/api/userinfo" ||
+    pathname === "/revoke" ||
+    pathname === "/api/revoke" ||
+    pathname === "/api/user/organizations" ||
+    pathname === "/api/user/session"
+  );
+}
+
+export function isUserCorsOriginAllowed(
   pathname: string,
   origin: string,
   policy: UserCorsPolicy
@@ -97,14 +110,7 @@ function isUserCorsOriginAllowed(
     pathname === "/api/.well-known/openid-configuration"
   )
     return true;
-  if (
-    pathname === "/token" ||
-    pathname === "/api/token" ||
-    pathname === "/userinfo" ||
-    pathname === "/api/userinfo" ||
-    pathname === "/revoke" ||
-    pathname === "/api/revoke"
-  ) {
+  if (isPublicSpaCorsPath(pathname)) {
     return policy.publicSpaOrigins.has(origin);
   }
   return false;
