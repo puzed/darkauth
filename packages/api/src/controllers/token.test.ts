@@ -166,6 +166,10 @@ test("assertRefreshTokenClientBinding allows unbound first-party cookie refresh"
   assert.doesNotThrow(() => assertRefreshTokenClientBinding(null, "demo-client", false));
 });
 
+test("assertRefreshTokenClientBinding allows bound first-party cookie refresh for another client", () => {
+  assert.doesNotThrow(() => assertRefreshTokenClientBinding("user", "demo-client", false));
+});
+
 test("shouldIssueFirstPartyRefreshCookies returns true for cookie-transport refresh requests", () => {
   assert.equal(
     shouldIssueFirstPartyRefreshCookies({

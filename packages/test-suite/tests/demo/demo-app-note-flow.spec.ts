@@ -84,6 +84,7 @@ test.describe('Demo App Note Flow', () => {
     await adminPage.close();
     const userData = await registerDemoUser(context, servers);
     await userData.page.close();
+    await context.clearCookies({ name: '__Host-DarkAuth-User-Refresh' });
     const snapshot = userData.snapshot;
 
     const denyPage = await context.newPage();

@@ -427,6 +427,43 @@ test("token allows unbound first-party cookie refresh", async () => {
   }
 });
 
+test("token allows hosted first-party cookie refresh for public SPA clients", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createUserOrganization(context);
+    await createPublicRefreshClient(context);
+    const issued = await createSession(context, "user", {
+      sub: "user-sub",
+      clientId: "user",
+      scope: "darkauth.users:read",
+    });
+    const request = createRequest({
+      method: "POST",
+      url: "/token",
+      cookie: `${USER_REFRESH_COOKIE_NAME}=${encodeURIComponent(issued.refreshToken)}`,
+      body: new URLSearchParams({
+        grant_type: "refresh_token",
+        client_id: "public-refresh-client",
+      }).toString(),
+    });
+    const response = createResponse();
+
+    await postToken(context, request, response);
+
+    const json = response.json as Record<string, unknown>;
+    const setCookie = response.getHeader("set-cookie");
+    assert.equal(response.statusCode, 200);
+    assert.equal(json.token_type, "Bearer");
+    assert.equal(json.scope, "openid profile");
+    assert.equal(json.refresh_token, undefined);
+    assert.ok(Array.isArray(setCookie));
+    assert.ok(setCookie.some((value) => value.includes(USER_REFRESH_COOKIE_NAME)));
+  } finally {
+    await cleanup();
+  }
+});
+
 test("introspect returns active metadata for same-client access tokens", async () => {
   const { context, cleanup } = await createContext();
   try {

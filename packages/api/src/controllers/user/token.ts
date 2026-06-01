@@ -181,6 +181,7 @@ export function assertRefreshTokenClientBinding(
     }
     return;
   }
+  if (!requireIssuedClientId) return;
   if (issuedClientId !== authenticatedClientId) {
     throw new InvalidGrantError("Refresh token was not issued to this client");
   }
@@ -378,11 +379,14 @@ export const postToken = withRateLimit("token")(
             : 300;
         let amr: string[] | undefined = ["pwd"];
         const data = sessionData as Record<string, unknown>;
-        if (data && data.otpVerified === true) amr = ["pwd", "otp"];
+        if (data.otpVerified === true) amr = ["pwd", "otp"];
+        const shouldReuseSessionScope = issuedClientId === providedClientId;
         const grantedScope =
-          typeof data.scope === "string" && data.scope.length > 0
+          shouldReuseSessionScope && typeof data.scope === "string" && data.scope.length > 0
             ? data.scope
-            : resolveGrantedScopes(resolveClientScopeKeys(client.scopes)).join(" ");
+            : resolveGrantedScopes(resolveClientScopeKeys(client.scopes), tokenRequest.scope).join(
+                " "
+              );
         const grantedScopes = parseScopeString(grantedScope);
         const delegatedPermissions = resolveDelegatedPermissions(uniquePermissions, grantedScopes);
         const issuer = await resolveIssuer(context);
