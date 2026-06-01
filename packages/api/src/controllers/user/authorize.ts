@@ -5,7 +5,6 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createPendingAuth } from "../../models/authorize.ts";
 import { getClient } from "../../models/clients.ts";
-import { getOrganizationForUser } from "../../models/organizations.ts";
 import { getSession, getSessionId } from "../../services/sessions.ts";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.ts";
 import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.ts";
@@ -106,17 +105,10 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   const sessionId = getSessionId(request);
   let userSub: string | undefined;
-  let sessionOrganizationId: string | undefined;
 
   if (sessionId) {
     const sessionData = await getSession(context, sessionId);
     userSub = sessionData?.sub;
-    const storedOrganizationId =
-      typeof sessionData?.organizationId === "string" ? sessionData.organizationId : undefined;
-    if (userSub && storedOrganizationId) {
-      const organization = await getOrganizationForUser(context, userSub, storedOrganizationId);
-      sessionOrganizationId = organization?.organizationId;
-    }
   }
 
   await createPendingAuth(context, {
@@ -133,7 +125,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     deliveredKeyKind: zkPubKid ? client.deliveredKeyKind : undefined,
     clientKeyScope: zkPubKid ? client.clientKeyScope : undefined,
     userSub,
-    organizationId: authRequest.organization_id || sessionOrganizationId,
+    organizationId: authRequest.organization_id,
     origin: `http://${request.headers.host}`,
     expiresAt,
   });
