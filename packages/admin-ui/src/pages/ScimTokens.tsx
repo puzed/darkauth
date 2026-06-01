@@ -2,6 +2,7 @@ import { Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
+import OrganizationCombobox from "@/components/form/organization-combobox";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -21,13 +22,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Table,
   TableBody,
   TableCell,
@@ -35,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import adminApiService, { type Organization, type ScimBearerToken } from "@/services/api";
+import adminApiService, { type ScimBearerToken } from "@/services/api";
 
 function isActive(token: ScimBearerToken) {
   if (token.revokedAt) return false;
@@ -51,7 +45,6 @@ export default function ScimTokens() {
   const [name, setName] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [organizationId, setOrganizationId] = useState("");
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [creating, setCreating] = useState(false);
   const [createdToken, setCreatedToken] = useState<ScimBearerToken | null>(null);
 
@@ -71,21 +64,6 @@ export default function ScimTokens() {
   useEffect(() => {
     loadTokens();
   }, [loadTokens]);
-
-  useEffect(() => {
-    let cancelled = false;
-    adminApiService
-      .getOrganizationsPaged({ page: 1, limit: 100, sortBy: "name", sortOrder: "asc" })
-      .then((response) => {
-        if (!cancelled) setOrganizations(response.organizations);
-      })
-      .catch(() => {
-        if (!cancelled) setOrganizations([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const create = async () => {
     if (!name.trim() || !organizationId) return;
@@ -278,23 +256,7 @@ export default function ScimTokens() {
           </DialogHeader>
           <FormGrid columns={1}>
             <FormField label={<Label>Organization *</Label>}>
-              <Select value={organizationId} onValueChange={setOrganizationId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an organization" />
-                </SelectTrigger>
-                <SelectContent>
-                  {organizations.map((organization) => (
-                    <SelectItem
-                      key={organization.organizationId}
-                      value={organization.organizationId}
-                    >
-                      {organization.slug
-                        ? `${organization.name} (${organization.slug})`
-                        : organization.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <OrganizationCombobox value={organizationId} onValueChange={setOrganizationId} />
             </FormField>
             <FormField label={<Label>Name</Label>}>
               <Input value={name} onChange={(event) => setName(event.target.value)} />

@@ -15,6 +15,7 @@ export interface AuditLogFilters {
   userId?: string;
   adminId?: string;
   clientId?: string;
+  organizationId?: string;
   resourceType?: string;
   resourceId?: string;
   success?: boolean;

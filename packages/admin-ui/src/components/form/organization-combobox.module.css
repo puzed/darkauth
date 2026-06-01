@@ -1,0 +1,61 @@
+.root {
+  position: relative;
+  width: 100%;
+}
+
+.trigger {
+  width: 100%;
+  justify-content: space-between;
+  font-weight: 400;
+}
+
+.value {
+  min-width: 0;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.popover {
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  left: 0;
+  width: 100%;
+  min-width: min(420px, 100vw);
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--popover));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42);
+}
+
+.item {
+  justify-content: space-between;
+}
+
+.itemLabel {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.itemLabel strong,
+.itemLabel small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.itemLabel small {
+  color: hsl(var(--muted-foreground));
+}
+
+.footer {
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  border-top: 1px solid hsl(var(--border));
+}

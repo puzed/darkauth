@@ -350,6 +350,7 @@ export interface AuditLogFilters extends ListQueryParams {
   success?: boolean;
   startDate?: string;
   endDate?: string;
+  organizationId?: string;
 }
 
 export interface AdminSetting {
@@ -1393,6 +1394,7 @@ class AdminApiService {
     if (filters?.success !== undefined) params.append("success", filters.success.toString());
     if (filters?.startDate) params.append("startDate", filters.startDate);
     if (filters?.endDate) params.append("endDate", filters.endDate);
+    if (filters?.organizationId) params.append("organizationId", filters.organizationId);
     if (filters?.search) params.append("search", filters.search);
     if (filters?.page) params.append("page", filters.page.toString());
     if (filters?.limit) params.append("limit", filters.limit.toString());
@@ -1416,6 +1418,7 @@ class AdminApiService {
     if (filters?.success !== undefined) params.append("success", filters.success.toString());
     if (filters?.startDate) params.append("startDate", filters.startDate);
     if (filters?.endDate) params.append("endDate", filters.endDate);
+    if (filters?.organizationId) params.append("organizationId", filters.organizationId);
 
     const queryString = params.toString();
     const endpoint = queryString ? `/audit-logs/export?${queryString}` : "/audit-logs/export";
