@@ -41,6 +41,21 @@ function setupEnvironment(config = {}) {
   });
 }
 
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function createIdToken(sub = "user-1") {
+  const header = toBase64Url(JSON.stringify({ alg: "none", typ: "JWT" }));
+  const payload = toBase64Url(
+    JSON.stringify({
+      sub,
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    })
+  );
+  return `${header}.${payload}.sig`;
+}
+
 test("refreshSession does not clear refresh token on server errors in token mode", async () => {
   setupEnvironment();
   globalThis.localStorage.setItem("refresh_token", "rt-1");
@@ -75,4 +90,34 @@ test("refreshSession keeps a newer refresh token on 401 in token mode", async ()
 
   assert.equal(result, null);
   assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-4");
+});
+
+test("refreshSession force refreshes even when stored id token is still valid", async () => {
+  setupEnvironment({ tokenStorage: "localStorage" });
+  const existingToken = createIdToken("user-1");
+  const refreshedToken = createIdToken("user-2");
+  globalThis.localStorage.setItem("id_token", existingToken);
+  globalThis.localStorage.setItem("refresh_token", "rt-5");
+  let fetchCalls = 0;
+  globalThis.fetch = async (_url, init) => {
+    fetchCalls += 1;
+    assert.equal(init.body.get("refresh_token"), "rt-5");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id_token: refreshedToken,
+        access_token: "at-5",
+        refresh_token: "rt-6",
+      }),
+    };
+  };
+
+  const cached = await refreshSession();
+  const refreshed = await refreshSession({ force: true });
+
+  assert.equal(fetchCalls, 1);
+  assert.equal(cached.idToken, existingToken);
+  assert.equal(refreshed.idToken, refreshedToken);
+  assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-6");
 });

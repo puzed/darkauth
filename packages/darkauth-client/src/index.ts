@@ -38,6 +38,80 @@ export interface JwtClaims {
   exp?: number;
   iat?: number;
   iss?: string;
+  org_id?: string;
+  org_slug?: string;
+  roles?: string[];
+  permissions?: string[];
+}
+
+export type DarkAuthOrganization = {
+  organizationId: string;
+  slug: string;
+  name: string;
+  status: string;
+  roles?: Array<{ id: string; key: string; name: string }>;
+};
+
+export type InitiateLoginOptions = {
+  organizationId?: string;
+  returnTo?: string;
+};
+
+export type SwitchOrganizationOptions = {
+  mode?: "authorize" | "hosted";
+  returnTo?: string;
+};
+
+export type RefreshSessionOptions = {
+  force?: boolean;
+};
+
+export type DarkAuthSessionInfo = {
+  authenticated: boolean;
+  sub?: string;
+  email?: string | null;
+  name?: string | null;
+  organizationId?: string;
+  organizationSlug?: string | null;
+};
+
+export type DarkAuthErrorCode =
+  | "unauthenticated_session"
+  | "invalid_organization"
+  | "org_context_required"
+  | "request_failed";
+
+export class DarkAuthError extends Error {
+  code: DarkAuthErrorCode;
+  status?: number;
+
+  constructor(message: string, code: DarkAuthErrorCode, status?: number) {
+    super(message);
+    this.name = "DarkAuthError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export class UnauthenticatedSessionError extends DarkAuthError {
+  constructor(message = "User session required", status = 401) {
+    super(message, "unauthenticated_session", status);
+    this.name = "UnauthenticatedSessionError";
+  }
+}
+
+export class InvalidOrganizationError extends DarkAuthError {
+  constructor(message = "Invalid organization", status = 403) {
+    super(message, "invalid_organization", status);
+    this.name = "InvalidOrganizationError";
+  }
+}
+
+export class OrgContextRequiredError extends DarkAuthError {
+  constructor(message = "Organization context required", status = 400) {
+    super(message, "org_context_required", status);
+    this.name = "OrgContextRequiredError";
+  }
 }
 
 type ViteLikeEnv = Record<string, string | undefined>;
@@ -139,6 +213,54 @@ function fetchCredentials(): RequestCredentials {
 
 function rootEndpoint(path: string): string {
   return new URL(path, cfg.issuer).toString();
+}
+
+function isSafeReturnTo(returnTo: string): boolean {
+  if (returnTo.startsWith("/")) {
+    return !returnTo.startsWith("//") && !returnTo.includes("\\");
+  }
+  try {
+    const url = new URL(returnTo);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function requestFailed(status: number, message = "DarkAuth request failed"): DarkAuthError {
+  return new DarkAuthError(message, "request_failed", status);
+}
+
+async function readErrorPayload(response: Response): Promise<Record<string, unknown> | null> {
+  try {
+    const data = (await response.json()) as unknown;
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      return data as Record<string, unknown>;
+    }
+  } catch {}
+  return null;
+}
+
+async function errorForResponse(response: Response): Promise<DarkAuthError> {
+  const payload = await readErrorPayload(response);
+  const code =
+    typeof payload?.code === "string"
+      ? payload.code
+      : typeof payload?.error === "string"
+        ? payload.error
+        : undefined;
+  const message =
+    typeof payload?.message === "string"
+      ? payload.message
+      : typeof payload?.error_description === "string"
+        ? payload.error_description
+        : undefined;
+  if (response.status === 401) return new UnauthenticatedSessionError(message, response.status);
+  if (code === "ORG_CONTEXT_REQUIRED" || code === "org_context_required") {
+    return new OrgContextRequiredError(message, response.status);
+  }
+  if (response.status === 403) return new InvalidOrganizationError(message, response.status);
+  return requestFailed(response.status, message);
 }
 
 async function resolveEndpoints(): Promise<ResolvedEndpoints> {
@@ -339,7 +461,7 @@ export function isTokenValid(token: string): boolean {
   return claims.exp * 1000 > Date.now() + 5000;
 }
 
-export async function initiateLogin(): Promise<void> {
+export async function initiateLogin(options: InitiateLoginOptions = {}): Promise<void> {
   const zkEnabled = cfg.zk !== false;
   let zkPubParam: string | undefined;
   if (zkEnabled) {
@@ -367,6 +489,7 @@ export async function initiateLogin(): Promise<void> {
   authUrl.searchParams.set("code_challenge", challenge);
   authUrl.searchParams.set("code_challenge_method", "S256");
   if (zkEnabled && zkPubParam) authUrl.searchParams.set("zk_pub", zkPubParam);
+  if (options.organizationId) authUrl.searchParams.set("organization_id", options.organizationId);
   location.assign(authUrl.toString());
 }
 
@@ -567,7 +690,13 @@ export function getStoredSession(): AuthSession | null {
   };
 }
 
-export async function refreshSession(): Promise<AuthSession | null> {
+export async function refreshSession(
+  options: RefreshSessionOptions = {}
+): Promise<AuthSession | null> {
+  if (!options.force) {
+    const current = getStoredSession();
+    if (current) return current;
+  }
   const currentRefreshMode = refreshMode();
   const refreshToken =
     currentRefreshMode === "token"
@@ -590,6 +719,8 @@ export async function refreshSession(): Promise<AuthSession | null> {
     credentials: fetchCredentials(),
   });
   if (!response.ok) {
+    const error = await errorForResponse(response);
+    if (error instanceof OrgContextRequiredError) throw error;
     if (response.status === 401) {
       if (currentRefreshMode === "token") {
         const latestRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
@@ -629,6 +760,62 @@ export async function refreshSession(): Promise<AuthSession | null> {
     refreshToken:
       currentRefreshMode === "token" ? newRefreshToken || refreshToken || undefined : undefined,
   });
+}
+
+export async function listOrganizations(): Promise<DarkAuthOrganization[]> {
+  const response = await fetch(rootEndpoint("/api/user/organizations"), {
+    credentials: fetchCredentials(),
+  });
+  if (!response.ok) throw await errorForResponse(response);
+  const data = (await response.json()) as { organizations?: unknown };
+  if (!Array.isArray(data.organizations)) return [];
+  return data.organizations.filter((org): org is DarkAuthOrganization => {
+    if (!org || typeof org !== "object") return false;
+    const candidate = org as Partial<DarkAuthOrganization>;
+    return (
+      typeof candidate.organizationId === "string" &&
+      typeof candidate.slug === "string" &&
+      typeof candidate.name === "string" &&
+      typeof candidate.status === "string"
+    );
+  });
+}
+
+export async function getSessionInfo(): Promise<DarkAuthSessionInfo> {
+  const response = await fetch(rootEndpoint("/api/user/session"), {
+    credentials: fetchCredentials(),
+  });
+  if (response.status === 401) return { authenticated: false };
+  if (!response.ok) throw await errorForResponse(response);
+  const data = (await response.json()) as Partial<DarkAuthSessionInfo>;
+  return {
+    authenticated: data.authenticated === true,
+    sub: typeof data.sub === "string" ? data.sub : undefined,
+    email: typeof data.email === "string" || data.email === null ? data.email : undefined,
+    name: typeof data.name === "string" || data.name === null ? data.name : undefined,
+    organizationId: typeof data.organizationId === "string" ? data.organizationId : undefined,
+    organizationSlug:
+      typeof data.organizationSlug === "string" || data.organizationSlug === null
+        ? data.organizationSlug
+        : undefined,
+  };
+}
+
+export async function switchOrganization(
+  organizationId: string,
+  options: SwitchOrganizationOptions = {}
+): Promise<void> {
+  if ((options.mode || "authorize") === "authorize") {
+    await initiateLogin({ organizationId, returnTo: options.returnTo });
+    return;
+  }
+  const switchUrl = new URL(rootEndpoint("/switch-org"));
+  switchUrl.searchParams.set("organization_id", organizationId);
+  switchUrl.searchParams.set("client_id", cfg.clientId);
+  if (options.returnTo && isSafeReturnTo(options.returnTo)) {
+    switchUrl.searchParams.set("return_to", options.returnTo);
+  }
+  location.assign(switchUrl.toString());
 }
 
 export function logout(): void {
