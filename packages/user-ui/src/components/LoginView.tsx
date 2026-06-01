@@ -8,6 +8,8 @@ type SessionData = {
   email?: string;
   passwordResetRequired?: boolean;
   keyState?: "locked" | "unlocked" | "setup_required";
+  organizationId?: string;
+  organizationSlug?: string;
 };
 
 export default function LoginView(props?: {

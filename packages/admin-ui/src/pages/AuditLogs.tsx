@@ -1,6 +1,6 @@
 import { Download, Eye, FileText, Filter, X } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";
@@ -59,6 +59,8 @@ const EVENT_TYPES = [
 export default function AuditLogs() {
   const uid = useId();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const organizationIdFilter = searchParams.get("organizationId") || "";
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,7 @@ export default function AuditLogs() {
     limit: pageSize,
     sortBy: "timestamp",
     sortOrder: "desc",
+    organizationId: organizationIdFilter || undefined,
   });
 
   const loadAuditLogs = useCallback(async () => {
@@ -100,6 +103,14 @@ export default function AuditLogs() {
   useEffect(() => {
     loadAuditLogs();
   }, [loadAuditLogs]);
+
+  useEffect(() => {
+    setFilters((prev) => ({
+      ...prev,
+      page: 1,
+      organizationId: organizationIdFilter || undefined,
+    }));
+  }, [organizationIdFilter]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedSearch(searchQuery.trim()), 300);
@@ -129,6 +140,11 @@ export default function AuditLogs() {
     setSuccessFilter("");
     setStartDate("");
     setEndDate("");
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.delete("organizationId");
+      return next;
+    });
     setFilters({ page: 1, limit: pageSize, sortBy: "timestamp", sortOrder: "desc" });
   };
 
@@ -305,7 +321,9 @@ export default function AuditLogs() {
 
       <ListCard
         title="Audit Events"
-        description={`Showing ${logs.length} of ${totalLogs} events`}
+        description={`Showing ${logs.length} of ${totalLogs} events${
+          organizationIdFilter ? " for the selected organization" : ""
+        }`}
         search={{ placeholder: "Search logs...", value: searchQuery, onChange: setSearchQuery }}
         rightActions={
           <Button variant="outline" size="icon" onClick={() => setShowFilters(!showFilters)}>

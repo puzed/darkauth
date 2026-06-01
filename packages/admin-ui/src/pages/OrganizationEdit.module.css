@@ -4,6 +4,12 @@
   gap: 6px;
 }
 
+.tabCard {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+}
+
 .roleTag {
   display: inline-flex;
   align-items: center;
@@ -142,4 +148,12 @@
 .enterpriseItem span {
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .tabCard {
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+    border-top: 1px solid hsl(var(--border));
+  }
 }

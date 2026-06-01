@@ -4,7 +4,7 @@
   height: auto;
   justify-content: flex-start;
   align-items: center;
-  gap: 4px;
+  gap: 0;
   padding: 0;
   background-color: transparent;
   border-bottom: 1px solid hsl(var(--border));
@@ -19,8 +19,8 @@
   height: 40px;
   padding: 0 1.25rem;
   white-space: nowrap;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 0.875rem;
+  font-weight: 600;
   transition: all 0.2s;
   background: transparent;
   border: 1px solid transparent;

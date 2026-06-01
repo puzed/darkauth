@@ -456,7 +456,7 @@ export default function OrganizationEdit() {
         </TabsList>
 
         <TabsContent value="members">
-          <Card>
+          <Card className={styles.tabCard}>
             <CardHeader>
               <CardTitle>Members</CardTitle>
               <MutedText size="sm">Manage organization members and roles</MutedText>
@@ -544,7 +544,7 @@ export default function OrganizationEdit() {
         </TabsContent>
 
         <TabsContent value="roles">
-          <Card>
+          <Card className={styles.tabCard}>
             <CardHeader>
               <CardTitle>Roles</CardTitle>
               <MutedText size="sm">Review role templates available to this organization</MutedText>
@@ -580,7 +580,7 @@ export default function OrganizationEdit() {
         </TabsContent>
 
         <TabsContent value="enterprise">
-          <Card>
+          <Card className={styles.tabCard}>
             <CardHeader>
               <CardTitle>Enterprise Connections</CardTitle>
               <MutedText size="sm">Organization-owned SSO and SCIM surfaces</MutedText>
@@ -655,7 +655,7 @@ export default function OrganizationEdit() {
         </TabsContent>
 
         <TabsContent value="security">
-          <Card>
+          <Card className={styles.tabCard}>
             <CardHeader>
               <CardTitle>Organization Details</CardTitle>
             </CardHeader>
@@ -699,13 +699,21 @@ export default function OrganizationEdit() {
         </TabsContent>
 
         <TabsContent value="audit">
-          <Card>
+          <Card className={styles.tabCard}>
             <CardHeader>
               <CardTitle>Audit</CardTitle>
               <MutedText size="sm">Organization-scoped audit events will appear here.</MutedText>
             </CardHeader>
             <CardContent>
-              <Button type="button" variant="outline" onClick={() => navigate("/audit-logs")}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  navigate(
+                    `/audit?organizationId=${encodeURIComponent(organization.organizationId)}`
+                  )
+                }
+              >
                 Open Audit Logs
               </Button>
             </CardContent>

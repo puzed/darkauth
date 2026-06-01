@@ -37,9 +37,9 @@ test("profile changes can refresh the portal header session state", () => {
 });
 
 test("profile keeps organization create, hosted switch, and detail entry points", () => {
-  assert.notEqual(source.indexOf(".getOrganizations"), -1);
+  assert.equal(source.indexOf(".getOrganizations"), -1);
   assert.notEqual(source.indexOf("apiService.createOrganization"), -1);
-  assert.notEqual(source.indexOf("apiService.setSessionOrganization"), -1);
+  assert.notEqual(source.indexOf("portal?.switchOrganization"), -1);
   assert.notEqual(
     source.indexOf("const canSwitchOrganizations = activeOrganizations.length > 1"),
     -1
@@ -52,6 +52,10 @@ test("profile keeps organization create, hosted switch, and detail entry points"
 test("profile and portal show the current active organization", () => {
   assert.notEqual(source.indexOf("Active organization"), -1);
   assert.notEqual(source.indexOf('<StatusPill tone="ready">Current</StatusPill>'), -1);
-  assert.notEqual(source.indexOf("organizationLabel={organizationLabel}"), -1);
+  assert.notEqual(source.indexOf("useUserPortal"), -1);
   assert.notEqual(appSource.indexOf("organizationSlug: session.organizationSlug"), -1);
+  assert.notEqual(appSource.indexOf("const [organizations, setOrganizations]"), -1);
+  assert.notEqual(appSource.indexOf("const organizationLabel = activeOrganizationLabel"), -1);
+  assert.notEqual(appSource.indexOf("setActiveOrganizationLabel(currentOrganization.name)"), -1);
+  assert.notEqual(appSource.indexOf("organizationId: session.organizationId"), -1);
 });

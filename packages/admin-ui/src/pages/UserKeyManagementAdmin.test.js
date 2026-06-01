@@ -58,6 +58,15 @@ test("user detail includes key status inventory and revoke hooks", () => {
   assert.notEqual(userSource.indexOf("revokeUserTrustedDevice"), -1);
 });
 
+test("user detail supports manual email verification", () => {
+  assert.notEqual(apiSource.indexOf("emailVerifiedAt?: string | null"), -1);
+  assert.notEqual(apiSource.indexOf("emailVerified?: boolean"), -1);
+  assert.notEqual(userSource.indexOf("Email Status"), -1);
+  assert.notEqual(userSource.indexOf('label="Verified"'), -1);
+  assert.notEqual(userSource.indexOf("setEmailVerified"), -1);
+  assert.notEqual(userSource.indexOf("emailVerified })"), -1);
+});
+
 test("federation page exposes enterprise federation policy controls", () => {
   assert.notEqual(apiSource.indexOf("FederationPolicyControls"), -1);
   assert.notEqual(federationSource.indexOf("defaultFederationPolicy"), -1);

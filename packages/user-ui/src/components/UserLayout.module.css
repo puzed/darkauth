@@ -117,43 +117,8 @@
   gap: 0.5rem;
 }
 
-.orgIndicator {
-  display: none;
-  min-width: 0;
-  max-width: 12rem;
-  padding: 0.375rem 0.625rem;
-  border: 1px solid color-mix(in srgb, var(--da-color-action) 30%, var(--da-color-border));
-  border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--da-color-action) 8%, transparent);
-  color: var(--da-color-text);
-  text-decoration: none;
-}
-
-.orgIndicator:hover {
-  background: color-mix(in srgb, var(--da-color-action) 12%, var(--da-color-surface));
-  text-decoration: none;
-}
-
-.orgIndicator span,
-.orgIndicator strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.orgIndicator span {
-  color: var(--da-color-text-muted);
-  font-size: 0.6875rem;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.orgIndicator strong {
-  color: var(--da-color-text);
-  font-size: 0.8125rem;
-  font-weight: 800;
+.accountMenu {
+  position: relative;
 }
 
 .userButton {
@@ -174,6 +139,11 @@
   border-color: color-mix(in srgb, var(--da-color-action) 38%, var(--da-color-border));
   background: var(--da-color-surface-raised);
   text-decoration: none;
+}
+
+.userButton[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--da-color-action) 38%, var(--da-color-border));
+  background: var(--da-color-surface-raised);
 }
 
 .avatar {
@@ -212,6 +182,140 @@
   font-size: 0.75rem;
 }
 
+.userChevron {
+  display: none;
+  color: var(--da-color-text-muted);
+}
+
+.accountPopover {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  width: min(21rem, calc(100vw - 1rem));
+  overflow: hidden;
+  border: 1px solid var(--da-color-border);
+  border-radius: 0.75rem;
+  background: var(--da-color-surface);
+  box-shadow: 0 18px 42px color-mix(in srgb, black 38%, transparent);
+}
+
+.accountSummary {
+  display: grid;
+  gap: 0.125rem;
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--da-color-border);
+}
+
+.accountSummary strong,
+.accountSummary span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.accountSummary strong {
+  color: var(--da-color-text);
+  font-size: 0.9375rem;
+}
+
+.accountSummary span {
+  color: var(--da-color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.accountGroup {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.625rem;
+}
+
+.accountGroupLabel {
+  padding: 0 0.375rem 0.25rem;
+  color: var(--da-color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.organizationItem,
+.organizationItemActive {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-width: 0;
+  gap: 0.75rem;
+  padding: 0.625rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--da-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.organizationItem:hover,
+.organizationItemActive {
+  border-color: color-mix(in srgb, var(--da-color-action) 24%, var(--da-color-border));
+  background: color-mix(in srgb, var(--da-color-action) 10%, transparent);
+}
+
+.organizationItem:disabled,
+.organizationItemActive:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.organizationItem span,
+.organizationItemActive span {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.organizationItem strong,
+.organizationItem small,
+.organizationItemActive strong,
+.organizationItemActive small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.organizationItem strong,
+.organizationItemActive strong {
+  font-size: 0.875rem;
+}
+
+.organizationItem small,
+.organizationItemActive small {
+  color: var(--da-color-text-muted);
+  font-size: 0.75rem;
+}
+
+.accountEmpty {
+  padding: 0.625rem;
+  color: var(--da-color-text-muted);
+  font-size: 0.875rem;
+}
+
+.accountProfileLink {
+  display: block;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--da-color-border);
+  color: var(--da-color-text);
+  font-size: 0.875rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.accountProfileLink:hover {
+  background: var(--da-color-surface-raised);
+  text-decoration: none;
+}
+
 .main {
   width: 100%;
   padding: var(--da-space-5) 0 5.25rem;
@@ -235,8 +339,8 @@
     display: none;
   }
 
-  .orgIndicator,
-  .userCopy {
+  .userCopy,
+  .userChevron {
     display: grid;
   }
 

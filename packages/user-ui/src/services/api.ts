@@ -456,6 +456,15 @@ class ApiService {
     return appConfig.__APP_CONFIG__?.clientId || appConfig.__APP_CONFIG__?.auth?.clientId || "user";
   }
 
+  private isOtpVerificationRequired(data: unknown): boolean {
+    return (
+      !!data &&
+      typeof data === "object" &&
+      "error" in data &&
+      (data as { error?: unknown }).error === "OTP verification required"
+    );
+  }
+
   private async refreshSessionWithToken(): Promise<boolean> {
     if (!this.refreshInFlight) {
       this.refreshInFlight = (async () => {
@@ -512,21 +521,25 @@ class ApiService {
 
     try {
       let response = await fetch(url, config);
+      let data = await response.json().catch(() => ({}));
       if (
         !response.ok &&
         (response.status === 401 || response.status === 403) &&
-        endpoint !== "/token"
+        endpoint !== "/token" &&
+        !this.isOtpVerificationRequired(data)
       ) {
         const refreshed = await this.refreshSessionWithToken();
         if (refreshed) {
           response = await fetch(url, config);
+          data = await response.json().catch(() => ({}));
         }
       }
 
-      const data = await response.json().catch(() => ({}));
-
       if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
+        if (
+          (response.status === 401 || response.status === 403) &&
+          !this.isOtpVerificationRequired(data)
+        ) {
           this.clearLegacyTokens();
           if (this.onSessionExpired) {
             this.onSessionExpired();

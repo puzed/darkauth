@@ -15,6 +15,7 @@ const UserSchema = z.object({
   name: z.string().nullable().optional(),
   createdAt: z.date().or(z.string()),
   lastActivityAt: z.date().or(z.string()).nullable().optional(),
+  emailVerifiedAt: z.date().or(z.string()).nullable().optional(),
   passwordResetRequired: z.boolean().optional(),
   organizationRoles: z
     .array(

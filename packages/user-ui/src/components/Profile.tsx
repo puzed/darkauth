@@ -1,11 +1,12 @@
 import { Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import apiService, { type UserOrganization, type UserProfile } from "../services/api";
+import apiService, { type UserProfile } from "../services/api";
 import Button from "./Button";
 import { cx, PortalHeader, PortalPage, PortalSection, StatusPill } from "./Portal";
 import styles from "./Profile.module.css";
 import UserLayout from "./UserLayout";
+import { useUserPortal } from "./UserPortalContext";
 
 interface ProfileProps {
   sessionData: {
@@ -17,10 +18,6 @@ interface ProfileProps {
     organizationSlug?: string;
   };
   onLogout: () => void;
-  onOrganizationChanged?: (organization: {
-    organizationId: string;
-    organizationSlug?: string;
-  }) => void;
   onProfileChanged?: (profile: {
     name?: string | null;
     email?: string | null;
@@ -56,13 +53,11 @@ function isEmailLike(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export default function Profile({
-  sessionData,
-  onLogout,
-  onOrganizationChanged,
-  onProfileChanged,
-}: ProfileProps) {
+export default function Profile({ sessionData, onLogout, onProfileChanged }: ProfileProps) {
   const navigate = useNavigate();
+  const portal = useUserPortal();
+  const organizations = portal?.organizations || [];
+  const organizationsLoading = portal?.organizationsLoading || false;
   const [profile, setProfile] = useState<UserProfile>(() => profileFromSession(sessionData));
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [editingField, setEditingField] = useState<EditingField>(null);
@@ -74,8 +69,6 @@ export default function Profile({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [resendingEmail, setResendingEmail] = useState(false);
   const [cancelingEmail, setCancelingEmail] = useState(false);
-  const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
-  const [loadingOrganizations, setLoadingOrganizations] = useState(true);
   const [copied, setCopied] = useState(false);
   const [showCreateOrg, setShowCreateOrg] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
@@ -123,24 +116,6 @@ export default function Profile({
     };
   }, [onProfileChanged]);
 
-  useEffect(() => {
-    let cancelled = false;
-    apiService
-      .getOrganizations()
-      .then((response) => {
-        if (!cancelled) setOrganizations(response.organizations || []);
-      })
-      .catch(() => {
-        if (!cancelled) setOrganizations([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingOrganizations(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const activeOrganizations = useMemo(
     () =>
       organizations.filter((organization) =>
@@ -148,11 +123,14 @@ export default function Profile({
       ),
     [organizations]
   );
-  const currentOrganization = activeOrganizations.find(
-    (organization) => organization.organizationId === sessionData.organizationId
-  );
+  const currentOrganization =
+    activeOrganizations.find(
+      (organization) => organization.organizationId === sessionData.organizationId
+    ) ||
+    (!sessionData.organizationId && activeOrganizations.length === 1
+      ? activeOrganizations[0]
+      : null);
   const canSwitchOrganizations = activeOrganizations.length > 1;
-  const organizationLabel = currentOrganization?.name || sessionData.organizationSlug || null;
   const activeEmail = profile.email || sessionData.email || "";
   const signInEmail = profile.signInEmail || activeEmail;
   const signInEmailDiffers =
@@ -308,12 +286,11 @@ export default function Profile({
         ...(slug ? { slug } : {}),
       });
       const nextOrganization = response.organization;
-      setOrganizations((current) => [...current, nextOrganization]);
+      portal?.addCreatedOrganization(nextOrganization);
       setShowCreateOrg(false);
       setNewOrgName("");
       setNewOrgSlug("");
-      const nextSession = await apiService.setSessionOrganization(nextOrganization.organizationId);
-      onOrganizationChanged?.(nextSession);
+      await portal?.switchOrganization(nextOrganization.organizationId);
     } catch (error) {
       setOrganizationError(
         error instanceof Error ? error.message : "Unable to create organization."
@@ -327,7 +304,6 @@ export default function Profile({
     <UserLayout
       userName={profile.name || sessionData.name}
       userEmail={activeEmail}
-      organizationLabel={organizationLabel}
       onLogout={onLogout}
     >
       <PortalPage>
@@ -474,7 +450,7 @@ export default function Profile({
           id="profile-organizations"
           title="Organizations"
           description={
-            loadingOrganizations
+            organizationsLoading
               ? "Loading organizations..."
               : activeOrganizations.length === 1
                 ? "1 active organization"

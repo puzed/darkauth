@@ -11,6 +11,7 @@ const Req = z
   .object({
     email: z.string().email().nullable().optional(),
     name: z.string().nullable().optional(),
+    emailVerified: z.boolean().optional(),
   })
   .partial();
 
@@ -19,6 +20,7 @@ const Resp = z
     sub: z.string(),
     email: z.string().nullable().optional(),
     name: z.string().nullable().optional(),
+    emailVerifiedAt: z.date().or(z.string()).nullable().optional(),
   })
   .partial();
 
@@ -53,6 +55,7 @@ async function updateUserHandler(
         : payload.name === null
           ? undefined
           : payload.name.trim(),
+    emailVerified: payload.emailVerified,
   });
   sendJson(response, 200, updated);
 }

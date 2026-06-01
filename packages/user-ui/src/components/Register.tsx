@@ -16,6 +16,8 @@ interface RegisterProps {
     email?: string;
     passwordResetRequired?: boolean;
     keyState?: "locked" | "unlocked" | "setup_required";
+    organizationId?: string;
+    organizationSlug?: string;
   }) => void;
   onSwitchToLogin: () => void;
 }
@@ -216,6 +218,8 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         email: sessionData.email,
         passwordResetRequired: !!sessionData.passwordResetRequired,
         keyState: "unlocked",
+        organizationId: sessionData.organizationId,
+        organizationSlug: sessionData.organizationSlug,
       });
     } catch (error) {
       logger.error(error, "Registration failed");

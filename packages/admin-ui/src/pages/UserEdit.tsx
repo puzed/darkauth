@@ -1,6 +1,7 @@
 import { AlertTriangle, KeyRound, ShieldCheck, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -38,6 +39,7 @@ export default function UserEdit() {
   const [keyStatusUnavailable, setKeyStatusUnavailable] = useState(false);
   const [resetEmailSending, setResetEmailSending] = useState(false);
   const [resetEmailMessage, setResetEmailMessage] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -53,6 +55,7 @@ export default function UserEdit() {
       setUser(u);
       setEmail(u.email);
       setName(u.name || "");
+      setEmailVerified(!!u.emailVerifiedAt);
       try {
         const s = await adminApiService.getUserOtpStatus(u.sub);
         setOtpStatus(s);
@@ -81,7 +84,7 @@ export default function UserEdit() {
     try {
       setSubmitting(true);
       setError(null);
-      await adminApiService.updateUser(user.sub, { email, name: name || null });
+      await adminApiService.updateUser(user.sub, { email, name: name || null, emailVerified });
       navigate("/users");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save user");
@@ -183,6 +186,15 @@ export default function UserEdit() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={submitting}
+              />
+            </FormField>
+            <FormField label={<Label>Email Status</Label>}>
+              <CheckboxRow
+                id="user-email-verified"
+                label="Verified"
+                checked={emailVerified}
+                disabled={submitting}
+                onCheckedChange={setEmailVerified}
               />
             </FormField>
             <FormField label={<Label>Name</Label>}>

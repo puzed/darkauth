@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
 import { opaqueRecords, organizationMembers, organizations, users } from "../db/schema.ts";
 import type { Context } from "../types.ts";
-import { createUser, getUserOpaqueRecordByEmail } from "./users.ts";
+import { createUser, getUserOpaqueRecordByEmail, listUsers, updateUserBasic } from "./users.ts";
 
 function createLogger() {
   return {
@@ -115,6 +115,65 @@ test("createUser can assign an existing organization without creating a personal
       membershipRows.map((row) => row.organizationId),
       [organization.id]
     );
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("listUsers returns email verification state", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-users-list-verified-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    const emailVerifiedAt = new Date("2026-05-30T10:00:00.000Z");
+    await db.insert(users).values({
+      sub: "verified-list-user",
+      email: "verified-list@example.com",
+      opaqueLoginIdentity: "verified-list@example.com",
+      name: "Verified List",
+      emailVerifiedAt,
+    });
+
+    const result = await listUsers(context, { search: "verified-list@example.com" });
+    assert.equal(result.users.length, 1);
+    assert.equal(result.users[0]?.emailVerifiedAt?.toISOString(), emailVerifiedAt.toISOString());
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("admin user update toggles email verification", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-users-mark-verified-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values({
+      sub: "manual-verify-user",
+      email: "old-verified@example.com",
+      opaqueLoginIdentity: "old-verified@example.com",
+      name: "Manual Verify",
+      emailVerifiedAt: new Date("2026-05-30T10:00:00.000Z"),
+    });
+
+    const updatedEmail = await updateUserBasic(context, "manual-verify-user", {
+      email: "new-verified@example.com",
+    });
+    assert.equal(updatedEmail.email, "new-verified@example.com");
+    assert.equal(updatedEmail.emailVerifiedAt, null);
+
+    const verified = await updateUserBasic(context, "manual-verify-user", {
+      emailVerified: true,
+    });
+    assert.ok(verified.emailVerifiedAt);
+
+    const unverified = await updateUserBasic(context, "manual-verify-user", {
+      emailVerified: false,
+    });
+    assert.equal(unverified.emailVerifiedAt, null);
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });

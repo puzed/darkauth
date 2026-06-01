@@ -2,6 +2,7 @@ import { Edit, GitBranch, Plus, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
+import OrganizationCombobox from "@/components/form/organization-combobox";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";
@@ -42,7 +43,6 @@ import adminApiService, {
   type FederationConnection,
   type FederationConnectionRequest,
   type FederationPolicyControls,
-  type Organization,
   type SortOrder,
 } from "@/services/api";
 
@@ -210,7 +210,6 @@ function buildPayload(form: FormState, isEdit: boolean): FederationConnectionReq
 
 export default function FederationConnections() {
   const [connections, setConnections] = useState<FederationConnection[]>([]);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -255,21 +254,6 @@ export default function FederationConnections() {
   useEffect(() => {
     loadConnections();
   }, [loadConnections]);
-
-  useEffect(() => {
-    let cancelled = false;
-    adminApiService
-      .getOrganizationsPaged({ page: 1, limit: 100, sortBy: "name", sortOrder: "asc" })
-      .then((response) => {
-        if (!cancelled) setOrganizations(response.organizations);
-      })
-      .catch(() => {
-        if (!cancelled) setOrganizations([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -597,28 +581,12 @@ export default function FederationConnections() {
               />
             </FormField>
             <FormField label={<Label>Organization{editing ? "" : " *"}</Label>}>
-              <Select
+              <OrganizationCombobox
                 value={form.organizationId}
                 onValueChange={(value) =>
                   setForm((current) => ({ ...current, organizationId: value }))
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an organization" />
-                </SelectTrigger>
-                <SelectContent>
-                  {organizations.map((organization) => (
-                    <SelectItem
-                      key={organization.organizationId}
-                      value={organization.organizationId}
-                    >
-                      {organization.slug
-                        ? `${organization.name} (${organization.slug})`
-                        : organization.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </FormField>
             <FormField label={<Label>Issuer</Label>}>
               <div style={{ display: "flex", gap: 8 }}>

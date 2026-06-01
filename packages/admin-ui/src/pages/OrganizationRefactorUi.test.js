@@ -11,6 +11,13 @@ const roleEditSource = readFileSync(resolve(here, "RoleEdit.tsx"), "utf8");
 const rolesSource = readFileSync(resolve(here, "Roles.tsx"), "utf8");
 const userCreateSource = readFileSync(resolve(here, "UserCreate.tsx"), "utf8");
 const orgEditSource = readFileSync(resolve(here, "OrganizationEdit.tsx"), "utf8");
+const scimTokensSource = readFileSync(resolve(here, "ScimTokens.tsx"), "utf8");
+const federationSource = readFileSync(resolve(here, "FederationConnections.tsx"), "utf8");
+const organizationComboboxSource = readFileSync(
+  resolve(here, "../components/form/organization-combobox.tsx"),
+  "utf8"
+);
+const auditLogsSource = readFileSync(resolve(here, "AuditLogs.tsx"), "utf8");
 
 test("admin role UI supports organization role flags", () => {
   const source = [apiSource, roleCreateSource, roleEditSource, rolesSource].join("\n");
@@ -33,4 +40,22 @@ test("admin organization detail exposes tabs and enterprise placeholders", () =>
   assert.notEqual(orgEditSource.indexOf("getScimTokens"), -1);
   assert.notEqual(orgEditSource.indexOf("Open Federation"), -1);
   assert.notEqual(orgEditSource.indexOf("Open SCIM Tokens"), -1);
+  assert.notEqual(orgEditSource.indexOf("/audit?organizationId="), -1);
+  assert.equal(orgEditSource.indexOf('navigate("/audit-logs")'), -1);
+});
+
+test("admin organization selectors use async typeahead", () => {
+  assert.notEqual(organizationComboboxSource.indexOf("getOrganizationsPaged"), -1);
+  assert.notEqual(organizationComboboxSource.indexOf("limit: 25"), -1);
+  assert.notEqual(organizationComboboxSource.indexOf("Load more"), -1);
+  assert.notEqual(scimTokensSource.indexOf("OrganizationCombobox"), -1);
+  assert.notEqual(federationSource.indexOf("OrganizationCombobox"), -1);
+  assert.equal(scimTokensSource.indexOf("limit: 100"), -1);
+  assert.equal(federationSource.indexOf("limit: 100"), -1);
+});
+
+test("admin audit logs preserve organization filters", () => {
+  assert.notEqual(auditLogsSource.indexOf("organizationIdFilter"), -1);
+  assert.notEqual(apiSource.indexOf("organizationId?: string"), -1);
+  assert.notEqual(apiSource.indexOf('params.append("organizationId"'), -1);
 });

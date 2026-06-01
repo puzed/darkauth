@@ -33,14 +33,37 @@ async function fillField(root: Page | Locator, label: string, value: string) {
   await field(root, label).locator('input, textarea').first().fill(value);
 }
 
+async function selectControl(root: Page | Locator, label: string) {
+  const container = field(root, label);
+  const combobox = container.locator('select, [role="combobox"]').first();
+  if ((await combobox.count()) > 0) return combobox;
+  return container.locator('button').first();
+}
+
 async function selectField(root: Page | Locator, page: Page, label: string, option: string) {
-  await clickElement(field(root, label).getByRole('combobox'));
+  const control = await selectControl(root, label);
+  if ((await control.evaluate((element) => element.tagName.toLowerCase())) === 'select') {
+    await control.selectOption({ label: option });
+    return;
+  }
+  await clickElement(control);
   await clickElement(page.getByRole('option', { name: option, exact: true }));
 }
 
 async function selectFirstFieldOption(root: Page | Locator, page: Page, label: string) {
-  await clickElement(field(root, label).getByRole('combobox'));
-  await page.keyboard.press('Enter');
+  const control = await selectControl(root, label);
+  if ((await control.evaluate((element) => element.tagName.toLowerCase())) === 'select') {
+    const value = await control.evaluate((element) => {
+      const select = element as HTMLSelectElement;
+      return Array.from(select.options).find((option) => !option.disabled)?.value ?? '';
+    });
+    await control.selectOption(value);
+    return;
+  }
+  await clickElement(control);
+  const option = page.getByRole('option').first();
+  await expect(option).toBeVisible();
+  await clickElement(option);
 }
 
 async function openRowAction(row: Locator, name: string) {
