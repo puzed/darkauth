@@ -222,9 +222,10 @@ function AppContent() {
 
   const sessionSub = sessionData?.sub || "";
   const activeOrganizationId = sessionData?.organizationId || "";
+  const isOtpRoute = location.pathname === "/otp/setup" || location.pathname === "/otp/verify";
 
   useEffect(() => {
-    if (!sessionSub) {
+    if (!sessionSub || isOtpRoute) {
       setOrganizations([]);
       setOrganizationsLoading(false);
       setActiveOrganizationLabel(null);
@@ -246,7 +247,7 @@ function AppContent() {
     return () => {
       cancelled = true;
     };
-  }, [sessionSub]);
+  }, [isOtpRoute, sessionSub]);
 
   useEffect(() => {
     const handleSessionExpired = () => {

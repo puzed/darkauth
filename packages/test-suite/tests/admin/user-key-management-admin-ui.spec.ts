@@ -34,13 +34,15 @@ async function fillField(root: Page | Locator, label: string, value: string) {
 }
 
 async function selectField(root: Page | Locator, page: Page, label: string, option: string) {
-  await clickElement(field(root, label).getByRole('combobox'));
+  await clickElement(field(root, label).locator('button, select, [role="combobox"]').first());
   await clickElement(page.getByRole('option', { name: option, exact: true }));
 }
 
 async function selectFirstFieldOption(root: Page | Locator, page: Page, label: string) {
-  await clickElement(field(root, label).getByRole('combobox'));
-  await page.keyboard.press('Enter');
+  await clickElement(field(root, label).locator('button, select, [role="combobox"]').first());
+  const option = page.getByRole('option').first();
+  await expect(option).toBeVisible();
+  await clickElement(option);
 }
 
 async function openRowAction(row: Locator, name: string) {

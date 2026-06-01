@@ -1,5 +1,6 @@
 import type { BrowserContext, Page } from '@playwright/test';
 import { OpaqueClient } from '@DarkAuth/api/src/lib/opaque/opaque-ts-wrapper.ts';
+import { setUserPasswordResetRequired } from '@DarkAuth/api/src/models/users.ts';
 import { toBase64Url, fromBase64Url, sha256Base64Url } from '@DarkAuth/api/src/utils/crypto.ts';
 import { totp, base32 } from '@DarkAuth/api/src/utils/totp.ts';
 import type { TestServers } from '../server.js';
@@ -385,6 +386,7 @@ export async function createUserViaAdmin(
     createPersonalOrganization?: boolean;
     personalOrganizationName?: string;
     personalOrganizationSlug?: string;
+    passwordResetRequired?: boolean;
   }
 ): Promise<{ sub: string }> {
   const cacheKey = `${servers.adminUrl}|${admin.email}`;
@@ -463,6 +465,9 @@ export async function createUserViaAdmin(
     })
   });
   if (!setFinishRes.ok) throw new Error(`password set finish failed: ${setFinishRes.status}`);
+  if (options.passwordResetRequired !== true) {
+    await setUserPasswordResetRequired(servers.getContext(), sub, false);
+  }
   return { sub };
 }
 
