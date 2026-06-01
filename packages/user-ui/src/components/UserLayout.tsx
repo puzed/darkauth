@@ -8,13 +8,19 @@ import styles from "./UserLayout.module.css";
 interface UserLayoutProps {
   userName?: string | null;
   userEmail?: string | null;
+  organizationLabel?: string | null;
   onChangePassword?: () => void;
   onManageSecurity?: () => void;
   onLogout?: () => void;
   children: ReactNode;
 }
 
-export default function UserLayout({ userName, userEmail, children }: UserLayoutProps) {
+export default function UserLayout({
+  userName,
+  userEmail,
+  organizationLabel,
+  children,
+}: UserLayoutProps) {
   const branding = useBranding();
   const logoUrl = branding.getLogoUrl();
   const isDefaultLogo = branding.isDefaultLogoUrl(logoUrl);
@@ -55,6 +61,16 @@ export default function UserLayout({ userName, userEmail, children }: UserLayout
           </Link>
           {renderNav(styles.desktopNav)}
           <div className={styles.headerActions}>
+            {organizationLabel ? (
+              <Link
+                to="/profile"
+                className={styles.orgIndicator}
+                aria-label={`Active organization: ${organizationLabel}`}
+              >
+                <span>Active org</span>
+                <strong>{organizationLabel}</strong>
+              </Link>
+            ) : null}
             <ThemeToggle />
             {(userName || userEmail) && (
               <Link to="/profile" className={styles.userButton}>

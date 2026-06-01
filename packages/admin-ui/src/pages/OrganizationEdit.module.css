@@ -93,3 +93,53 @@
   border: 1px solid hsl(var(--border));
   border-radius: var(--radius);
 }
+
+.roleCatalog {
+  display: grid;
+  gap: 12px;
+}
+
+.roleCatalogItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+
+.roleCatalogItem strong {
+  display: block;
+  color: hsl(var(--foreground));
+}
+
+.enterpriseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.enterprisePanel {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+
+.enterpriseItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px 0;
+  border-top: 1px solid hsl(var(--border));
+}
+
+.enterpriseItem span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

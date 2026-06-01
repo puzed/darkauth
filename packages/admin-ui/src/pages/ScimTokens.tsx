@@ -21,6 +21,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -28,7 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import adminApiService, { type ScimBearerToken } from "@/services/api";
+import adminApiService, { type Organization, type ScimBearerToken } from "@/services/api";
 
 function isActive(token: ScimBearerToken) {
   if (token.revokedAt) return false;
@@ -43,6 +50,8 @@ export default function ScimTokens() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
+  const [organizationId, setOrganizationId] = useState("");
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [creating, setCreating] = useState(false);
   const [createdToken, setCreatedToken] = useState<ScimBearerToken | null>(null);
 
@@ -63,18 +72,35 @@ export default function ScimTokens() {
     loadTokens();
   }, [loadTokens]);
 
+  useEffect(() => {
+    let cancelled = false;
+    adminApiService
+      .getOrganizationsPaged({ page: 1, limit: 100, sortBy: "name", sortOrder: "asc" })
+      .then((response) => {
+        if (!cancelled) setOrganizations(response.organizations);
+      })
+      .catch(() => {
+        if (!cancelled) setOrganizations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const create = async () => {
-    if (!name.trim()) return;
+    if (!name.trim() || !organizationId) return;
     try {
       setCreating(true);
       setError(null);
       const token = await adminApiService.createScimToken({
         name: name.trim(),
+        organizationId,
         expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
       });
       setCreatedToken(token);
       setName("");
       setExpiresAt("");
+      setOrganizationId("");
       setDialogOpen(false);
       await loadTokens();
     } catch (createError) {
@@ -181,6 +207,7 @@ export default function ScimTokens() {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
+                <TableHead>Organization</TableHead>
                 <TableHead>Prefix</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
@@ -193,6 +220,18 @@ export default function ScimTokens() {
               {tokens.map((token) => (
                 <TableRow key={token.id}>
                   <TableCell>{token.name}</TableCell>
+                  <TableCell>
+                    {token.organizationName ? (
+                      <div>
+                        <div>{token.organizationName}</div>
+                        {token.organizationSlug ? (
+                          <code style={{ fontSize: "0.75rem" }}>{token.organizationSlug}</code>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <Badge variant="outline">Unassigned</Badge>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <code>{token.tokenPrefix}</code>
                   </TableCell>
@@ -238,6 +277,25 @@ export default function ScimTokens() {
             </DialogDescription>
           </DialogHeader>
           <FormGrid columns={1}>
+            <FormField label={<Label>Organization *</Label>}>
+              <Select value={organizationId} onValueChange={setOrganizationId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map((organization) => (
+                    <SelectItem
+                      key={organization.organizationId}
+                      value={organization.organizationId}
+                    >
+                      {organization.slug
+                        ? `${organization.name} (${organization.slug})`
+                        : organization.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FormField>
             <FormField label={<Label>Name</Label>}>
               <Input value={name} onChange={(event) => setName(event.target.value)} />
             </FormField>
@@ -250,7 +308,7 @@ export default function ScimTokens() {
             </FormField>
           </FormGrid>
           <FormActions withMargin>
-            <Button disabled={creating || !name.trim()} onClick={create}>
+            <Button disabled={creating || !name.trim() || !organizationId} onClick={create}>
               Create
             </Button>
           </FormActions>

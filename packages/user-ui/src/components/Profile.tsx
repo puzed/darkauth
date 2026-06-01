@@ -151,7 +151,8 @@ export default function Profile({
   const currentOrganization = activeOrganizations.find(
     (organization) => organization.organizationId === sessionData.organizationId
   );
-  const primaryOrganization = currentOrganization || activeOrganizations[0] || null;
+  const canSwitchOrganizations = activeOrganizations.length > 1;
+  const organizationLabel = currentOrganization?.name || sessionData.organizationSlug || null;
   const activeEmail = profile.email || sessionData.email || "";
   const signInEmail = profile.signInEmail || activeEmail;
   const signInEmailDiffers =
@@ -288,6 +289,10 @@ export default function Profile({
     }
   };
 
+  const openSwitchOrg = () => {
+    if (canSwitchOrganizations) navigate("/switch-org");
+  };
+
   const createOrganization = async () => {
     const name = newOrgName.trim();
     const slug = newOrgSlug.trim();
@@ -322,13 +327,14 @@ export default function Profile({
     <UserLayout
       userName={profile.name || sessionData.name}
       userEmail={activeEmail}
+      organizationLabel={organizationLabel}
       onLogout={onLogout}
     >
       <PortalPage>
         <PortalHeader
           eyebrow="Profile"
           title={profile.name || activeEmail || "Your account"}
-          description="Manage account details, default organization, and this browser session."
+          description="Manage account details, active organization, and this browser session."
         />
 
         <PortalSection id="profile-details" title="Account details">
@@ -476,8 +482,8 @@ export default function Profile({
           }
           actions={
             <>
-              {activeOrganizations.length > 1 ? (
-                <Button type="button" variant="secondary" onClick={() => navigate("/switch-org")}>
+              {canSwitchOrganizations ? (
+                <Button type="button" variant="secondary" onClick={openSwitchOrg}>
                   Switch
                 </Button>
               ) : null}
@@ -488,28 +494,31 @@ export default function Profile({
             </>
           }
         >
-          {primaryOrganization ? (
+          {currentOrganization ? (
             <div className={styles.currentOrg}>
               <span className={styles.orgAvatar} aria-hidden="true">
-                {primaryOrganization.name.slice(0, 1).toUpperCase()}
+                {currentOrganization.name.slice(0, 1).toUpperCase()}
               </span>
               <div className={styles.orgCopy}>
-                <span>Default organization</span>
-                <strong>{primaryOrganization.name}</strong>
-                {primaryOrganization.slug ? <small>{primaryOrganization.slug}</small> : null}
+                <span>Active organization</span>
+                <strong>{currentOrganization.name}</strong>
+                {currentOrganization.slug ? <small>{currentOrganization.slug}</small> : null}
               </div>
-              <StatusPill
-                tone={
-                  primaryOrganization.organizationId === sessionData.organizationId
-                    ? "ready"
-                    : "neutral"
+              <StatusPill tone="ready">Current</StatusPill>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() =>
+                  navigate(
+                    `/organizations/${encodeURIComponent(currentOrganization.organizationId)}`
+                  )
                 }
               >
-                {primaryOrganization.organizationId === sessionData.organizationId
-                  ? "Current"
-                  : "Available"}
-              </StatusPill>
+                Manage
+              </Button>
             </div>
+          ) : activeOrganizations.length > 0 ? (
+            <div className={styles.empty}>No active organization is selected.</div>
           ) : null}
 
           {showCreateOrg ? (
@@ -566,14 +575,7 @@ export default function Profile({
                     className={cx(styles.orgItem, current && styles.orgItemCurrent)}
                     key={organization.organizationId}
                     onClick={() =>
-                      current
-                        ? undefined
-                        : apiService
-                            .setSessionOrganization(organization.organizationId)
-                            .then((nextSession) => {
-                              onOrganizationChanged?.(nextSession);
-                              navigate("/profile", { replace: true });
-                            })
+                      navigate(`/organizations/${encodeURIComponent(organization.organizationId)}`)
                     }
                   >
                     <span className={styles.orgItemText}>
@@ -581,7 +583,7 @@ export default function Profile({
                       {organization.slug ? <small>{organization.slug}</small> : null}
                     </span>
                     <StatusPill tone={current ? "ready" : "neutral"}>
-                      {current ? "Default" : "Use"}
+                      {current ? "Current" : "Available"}
                     </StatusPill>
                   </button>
                 );

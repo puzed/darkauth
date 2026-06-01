@@ -117,6 +117,45 @@
   gap: 0.5rem;
 }
 
+.orgIndicator {
+  display: none;
+  min-width: 0;
+  max-width: 12rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--da-color-action) 30%, var(--da-color-border));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--da-color-action) 8%, transparent);
+  color: var(--da-color-text);
+  text-decoration: none;
+}
+
+.orgIndicator:hover {
+  background: color-mix(in srgb, var(--da-color-action) 12%, var(--da-color-surface));
+  text-decoration: none;
+}
+
+.orgIndicator span,
+.orgIndicator strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.orgIndicator span {
+  color: var(--da-color-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.orgIndicator strong {
+  color: var(--da-color-text);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
 .userButton {
   display: inline-flex;
   align-items: center;
@@ -196,6 +235,7 @@
     display: none;
   }
 
+  .orgIndicator,
   .userCopy {
     display: grid;
   }

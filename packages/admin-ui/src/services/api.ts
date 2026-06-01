@@ -9,6 +9,20 @@ export interface ApiError {
 
 export type SortOrder = "asc" | "desc";
 
+export class AdminApiRequestError extends Error {
+  code?: string;
+  status: number;
+  details?: unknown;
+
+  constructor(message: string, status: number, code?: string, details?: unknown) {
+    super(message);
+    this.name = "AdminApiRequestError";
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+}
+
 export interface ListQueryParams {
   page?: number;
   limit?: number;
@@ -150,6 +164,11 @@ export interface Role {
   name: string;
   description?: string | null;
   system?: boolean;
+  assignable?: boolean;
+  defaultMember?: boolean;
+  default_member?: boolean;
+  defaultCreator?: boolean;
+  default_creator?: boolean;
   permissions?: Array<{ key: string; description?: string }>;
   permissionKeys?: string[];
   permissionCount?: number;
@@ -358,6 +377,9 @@ export interface FederationConnection {
   id: string;
   type: "oidc";
   name: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  organizationSlug?: string | null;
   issuer: string;
   clientId: string;
   discoveryUrl: string;
@@ -394,6 +416,7 @@ export interface OidcDiscoveryMetadata {
 
 export interface FederationConnectionRequest {
   name: string;
+  organizationId?: string;
   issuer: string;
   clientId: string;
   clientSecret?: string | null;
@@ -410,9 +433,25 @@ export interface FederationConnectionRequest {
   enabled?: boolean;
 }
 
+export type FederationDomainVerificationStatus = "pending" | "verified" | "failed" | string;
+
+export interface FederationConnectionDomain {
+  id: string;
+  domain: string;
+  verificationStatus: FederationDomainVerificationStatus;
+  recordName?: string | null;
+  recordValue?: string | null;
+  verifiedAt?: string | null;
+  lastCheckedAt?: string | null;
+  enabled?: boolean;
+}
+
 export interface ScimBearerToken {
   id: string;
   name: string;
+  organizationId?: string | null;
+  organizationName?: string | null;
+  organizationSlug?: string | null;
   tokenPrefix: string;
   createdByAdminId?: string | null;
   createdAt: string;
@@ -542,7 +581,12 @@ class AdminApiService {
           }
         }
 
-        throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+        const message =
+          (typeof data?.message === "string" && data.message) ||
+          (typeof data?.error === "string" && data.error) ||
+          `HTTP ${response.status}: ${response.statusText}`;
+        const code = typeof data?.code === "string" ? data.code : undefined;
+        throw new AdminApiRequestError(message, response.status, code, data?.details);
       }
 
       return data;
@@ -701,7 +745,13 @@ class AdminApiService {
     return this.request(this.getPagedEndpoint("/users", params));
   }
 
-  async createUser(user: { email: string; name?: string; sub?: string }): Promise<User> {
+  async createUser(user: {
+    email: string;
+    name?: string;
+    sub?: string;
+    organizationIds?: string[];
+    createPersonalOrganization?: boolean;
+  }): Promise<User> {
     return this.request("/users", {
       method: "POST",
       body: JSON.stringify(user),
@@ -957,6 +1007,9 @@ class AdminApiService {
     name: string;
     description?: string;
     permissionKeys?: string[];
+    assignable?: boolean;
+    defaultMember?: boolean;
+    defaultCreator?: boolean;
   }): Promise<Role> {
     const response = await this.request<Role | { role: Role }>("/roles", {
       method: "POST",
@@ -967,7 +1020,13 @@ class AdminApiService {
 
   async updateRole(
     roleId: string,
-    updates: { name?: string; description?: string }
+    updates: {
+      name?: string;
+      description?: string;
+      assignable?: boolean;
+      defaultMember?: boolean;
+      defaultCreator?: boolean;
+    }
   ): Promise<Role> {
     const response = await this.request<Role | { role: Role }>(`/roles/${roleId}`, {
       method: "PUT",
@@ -1125,10 +1184,11 @@ class AdminApiService {
   }
 
   async getFederationConnections(
-    params?: ListQueryParams & { enabled?: boolean }
+    params?: ListQueryParams & { enabled?: boolean; organizationId?: string }
   ): Promise<FederationConnectionsResponse> {
     const query = this.createListSearchParams(params);
     if (typeof params?.enabled === "boolean") query.append("enabled", String(params.enabled));
+    if (params?.organizationId) query.append("organizationId", params.organizationId);
     const endpoint = query.toString()
       ? `/federation/connections?${query.toString()}`
       : "/federation/connections";
@@ -1162,6 +1222,46 @@ class AdminApiService {
     await this.request(`/federation/connections/${encodeURIComponent(id)}`, { method: "DELETE" });
   }
 
+  async getFederationConnectionDomains(
+    connectionId: string
+  ): Promise<{ domains: FederationConnectionDomain[] }> {
+    const data = await this.request<
+      { domains: FederationConnectionDomain[] } | FederationConnectionDomain[]
+    >(`/federation/connections/${encodeURIComponent(connectionId)}/domains`);
+    return Array.isArray(data) ? { domains: data } : data;
+  }
+
+  async addFederationConnectionDomain(
+    connectionId: string,
+    domain: string
+  ): Promise<FederationConnectionDomain> {
+    return this.request(`/federation/connections/${encodeURIComponent(connectionId)}/domains`, {
+      method: "POST",
+      body: JSON.stringify({ domain }),
+    });
+  }
+
+  async deleteFederationConnectionDomain(connectionId: string, domainId: string): Promise<void> {
+    await this.request(
+      `/federation/connections/${encodeURIComponent(connectionId)}/domains/${encodeURIComponent(
+        domainId
+      )}`,
+      { method: "DELETE" }
+    );
+  }
+
+  async verifyFederationConnectionDomain(
+    connectionId: string,
+    domainId: string
+  ): Promise<FederationConnectionDomain> {
+    return this.request(
+      `/federation/connections/${encodeURIComponent(connectionId)}/domains/${encodeURIComponent(
+        domainId
+      )}/verify`,
+      { method: "POST" }
+    );
+  }
+
   async discoverFederationOidc(issuer: string): Promise<OidcDiscoveryMetadata> {
     return this.request(`/federation/oidc/discovery?issuer=${encodeURIComponent(issuer)}`);
   }
@@ -1178,6 +1278,7 @@ class AdminApiService {
 
   async createScimToken(data: {
     name: string;
+    organizationId?: string;
     expiresAt?: string | null;
   }): Promise<ScimBearerToken> {
     return this.request("/scim/tokens", {

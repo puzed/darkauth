@@ -28,6 +28,7 @@ import Keys from "./pages/Keys";
 import NotFound from "./pages/NotFound";
 import OrganizationCreate from "./pages/OrganizationCreate";
 import OrganizationEdit from "./pages/OrganizationEdit";
+import OrganizationFederationSetup from "./pages/OrganizationFederationSetup";
 import Organizations from "./pages/Organizations";
 import Permissions from "./pages/Permissions";
 import Preview from "./pages/Preview";
@@ -309,6 +310,14 @@ const App = () => {
               element={
                 <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
                   <OrganizationEdit />
+                </DashboardLayout>
+              }
+            />
+            <Route
+              path="/organizations/:organizationId/federation/:connectionId"
+              element={
+                <DashboardLayout adminSession={adminSession} onLogout={handleLogout}>
+                  <OrganizationFederationSetup />
                 </DashboardLayout>
               }
             />

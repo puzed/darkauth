@@ -1,0 +1,231 @@
+.area {
+  display: grid;
+  gap: var(--da-space-6);
+}
+
+.list {
+  display: grid;
+  gap: var(--da-space-3);
+}
+
+.card {
+  display: grid;
+  gap: var(--da-space-3);
+  padding: var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface-raised);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--da-space-3);
+  min-width: 0;
+}
+
+.cardTitle {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.cardTitle strong {
+  color: var(--da-color-text);
+  overflow-wrap: anywhere;
+}
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-2);
+  align-items: center;
+}
+
+.muted {
+  color: var(--da-color-text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.form {
+  display: grid;
+  gap: var(--da-space-3);
+  margin-top: var(--da-space-4);
+  padding: var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+}
+
+.formTitle {
+  margin: 0;
+  color: var(--da-color-text);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.field {
+  display: grid;
+  gap: var(--da-space-2);
+  color: var(--da-color-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.field input {
+  min-height: 44px;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: var(--da-color-surface);
+  color: var(--da-color-text);
+}
+
+.fieldRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--da-space-3);
+}
+
+.toggles {
+  display: grid;
+  gap: var(--da-space-2);
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--da-space-2);
+  color: var(--da-color-text);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.toggle input {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.formActions {
+  display: flex;
+  gap: var(--da-space-2);
+}
+
+.domains {
+  display: grid;
+  gap: var(--da-space-3);
+  margin-top: var(--da-space-4);
+}
+
+.inlineForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-2);
+  align-items: center;
+}
+
+.inlineForm input {
+  min-height: 44px;
+  min-width: min(100%, 18rem);
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: var(--da-color-surface);
+  color: var(--da-color-text);
+}
+
+.dns {
+  display: grid;
+  gap: var(--da-space-2);
+  padding: var(--da-space-3);
+  border: 1px dashed var(--da-color-border);
+  border-radius: var(--da-control-radius);
+}
+
+.copyField {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--da-space-3);
+  padding: var(--da-space-2) var(--da-space-3);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: var(--da-color-surface);
+}
+
+.copyFieldBody {
+  display: grid;
+  gap: 0.125rem;
+  min-width: 0;
+}
+
+.copyLabel {
+  color: var(--da-color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.copyValue {
+  font-family: var(--da-font-mono, monospace);
+  font-size: 0.8125rem;
+  color: var(--da-color-text);
+  overflow-wrap: anywhere;
+}
+
+.tokenSection {
+  display: grid;
+  gap: var(--da-space-3);
+}
+
+.tokenReveal {
+  display: grid;
+  gap: var(--da-space-2);
+  padding: var(--da-space-3);
+  border: 1px solid color-mix(in srgb, var(--da-color-action) 42%, var(--da-color-border));
+  border-radius: var(--da-control-radius);
+  background: color-mix(in srgb, var(--da-color-action) 9%, transparent);
+}
+
+.tokenRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--da-space-3);
+  padding: var(--da-space-2) var(--da-space-3);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+}
+
+.warning {
+  margin: 0;
+  color: var(--da-color-danger);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.error,
+.success {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.error {
+  color: var(--da-color-danger);
+}
+
+.success {
+  color: var(--da-color-success);
+}
+
+@media (max-width: 640px) {
+  .cardHeader,
+  .copyField,
+  .tokenRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

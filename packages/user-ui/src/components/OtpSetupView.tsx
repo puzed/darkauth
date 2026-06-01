@@ -11,7 +11,7 @@ export default function OtpSetupView({
   sessionData,
   onLogout,
 }: {
-  sessionData: { sub: string; name?: string; email?: string };
+  sessionData: { sub: string; name?: string; email?: string; organizationSlug?: string };
   onLogout: () => void;
 }) {
   const branding = useBranding();
@@ -60,6 +60,7 @@ export default function OtpSetupView({
     <UserLayout
       userName={sessionData.name}
       userEmail={sessionData.email}
+      organizationLabel={sessionData.organizationSlug || null}
       onChangePassword={() => navigate("/security/password")}
       onManageSecurity={() => navigate("/security")}
       onLogout={onLogout}

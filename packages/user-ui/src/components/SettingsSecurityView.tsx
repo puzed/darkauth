@@ -13,6 +13,7 @@ type SettingsSessionData = {
   name?: string;
   email?: string;
   keyState?: KeyState;
+  organizationSlug?: string;
 };
 
 function resolveKeyState(sessionData: SettingsSessionData): KeyState {
@@ -41,6 +42,7 @@ export default function SettingsSecurityView({
     <UserLayout
       userName={sessionData.name}
       userEmail={sessionData.email}
+      organizationLabel={sessionData.organizationSlug || null}
       onChangePassword={() => navigate("/security/password")}
       onManageSecurity={() => navigate("/security")}
       onLogout={onLogout}

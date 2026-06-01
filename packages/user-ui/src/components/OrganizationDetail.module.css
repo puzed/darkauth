@@ -1,0 +1,155 @@
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-2);
+}
+
+.tab {
+  min-height: 40px;
+  padding: 0.625rem 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: transparent;
+  color: var(--da-color-text-muted);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.tabActive {
+  border-color: color-mix(in srgb, var(--da-color-action) 42%, var(--da-color-border));
+  background: color-mix(in srgb, var(--da-color-action) 9%, transparent);
+  color: var(--da-color-text);
+}
+
+.grid {
+  display: grid;
+  gap: var(--da-space-4);
+}
+
+.member {
+  display: grid;
+  gap: var(--da-space-3);
+  padding: var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+}
+
+.memberHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--da-space-3);
+  min-width: 0;
+}
+
+.memberTitle {
+  display: grid;
+  min-width: 0;
+  gap: 0.125rem;
+}
+
+.memberTitle strong,
+.connection strong {
+  color: var(--da-color-text);
+  overflow-wrap: anywhere;
+}
+
+.memberTitle small,
+.muted {
+  color: var(--da-color-text-muted);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.roleList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-2);
+}
+
+.role {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.625rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: 999px;
+  background: var(--da-color-surface-raised);
+  color: var(--da-color-text);
+  font-size: 0.8125rem;
+  font-weight: 800;
+}
+
+.role button {
+  border: 0;
+  background: transparent;
+  color: var(--da-color-danger);
+  font: inherit;
+  cursor: pointer;
+}
+
+.inlineForm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-2);
+  align-items: flex-end;
+}
+
+.inlineForm label {
+  display: grid;
+  gap: var(--da-space-2);
+  min-width: min(100%, 18rem);
+  color: var(--da-color-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.inlineForm input,
+.inlineForm select {
+  min-height: 44px;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: var(--da-color-surface);
+  color: var(--da-color-text);
+}
+
+.connectionGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--da-space-4);
+}
+
+.connection {
+  display: grid;
+  gap: var(--da-space-2);
+  padding: var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface-raised);
+}
+
+.error,
+.success {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.error {
+  color: var(--da-color-danger);
+}
+
+.success {
+  color: var(--da-color-success);
+}
+
+@media (max-width: 640px) {
+  .memberHeader,
+  .inlineForm {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}

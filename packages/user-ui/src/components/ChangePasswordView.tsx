@@ -9,6 +9,7 @@ interface ChangePasswordViewProps {
     email?: string | null;
     signInEmail?: string | null;
     name?: string | null;
+    organizationSlug?: string | null;
   };
   onLogout: () => void;
 }
@@ -24,6 +25,7 @@ export default function ChangePasswordView({ sessionData, onLogout }: ChangePass
     <UserLayout
       userName={sessionData.name || null}
       userEmail={sessionData.email || null}
+      organizationLabel={sessionData.organizationSlug || null}
       onChangePassword={() => navigate("/security/password")}
       onLogout={onLogout}
     >

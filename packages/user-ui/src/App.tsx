@@ -13,6 +13,7 @@ import Dashboard from "./components/Dashboard";
 import EmailResetPasswordView from "./components/EmailResetPasswordView";
 import ForgotPasswordView from "./components/ForgotPasswordView";
 import LoginView from "./components/LoginView";
+import OrganizationDetail from "./components/OrganizationDetail";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
 import Profile from "./components/Profile";
@@ -549,6 +550,31 @@ function AppContent() {
                 onLogout={handleLogout}
                 onOrganizationChanged={updateSessionOrganization}
                 onProfileChanged={updateSessionProfile}
+              />
+            </OtpGate>
+          )
+        }
+      />
+      <Route
+        path="/organizations/:organizationId"
+        element={
+          loading ? (
+            <div className="app da-app">
+              <div className="container da-container">
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                  <p>Loading...</p>
+                </div>
+              </div>
+            </div>
+          ) : !sessionData ? (
+            <Navigate to="/login" replace />
+          ) : (
+            <OtpGate>
+              <OrganizationDetail
+                sessionData={sessionData}
+                onLogout={handleLogout}
+                onOrganizationChanged={updateSessionOrganization}
               />
             </OtpGate>
           )

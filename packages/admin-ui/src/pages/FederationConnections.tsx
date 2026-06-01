@@ -42,6 +42,7 @@ import adminApiService, {
   type FederationConnection,
   type FederationConnectionRequest,
   type FederationPolicyControls,
+  type Organization,
   type SortOrder,
 } from "@/services/api";
 
@@ -63,6 +64,7 @@ const defaultFederationPolicy: FederationPolicyControls = {
 
 type FormState = {
   name: string;
+  organizationId: string;
   issuer: string;
   clientId: string;
   clientSecret: string;
@@ -92,6 +94,7 @@ type FormState = {
 
 const emptyForm: FormState = {
   name: "",
+  organizationId: "",
   issuer: "",
   clientId: "",
   clientSecret: "",
@@ -118,6 +121,7 @@ function formFromConnection(connection: FederationConnection): FormState {
   const policy = { ...defaultFederationPolicy, ...(connection.metadata?.darkauth_policy || {}) };
   return {
     name: connection.name,
+    organizationId: connection.organizationId || "",
     issuer: connection.issuer,
     clientId: connection.clientId,
     clientSecret: "",
@@ -177,6 +181,7 @@ function buildPayload(form: FormState, isEdit: boolean): FederationConnectionReq
     : undefined;
   const payload: FederationConnectionRequest = {
     name: form.name.trim(),
+    organizationId: form.organizationId || undefined,
     issuer: form.issuer.trim(),
     clientId: form.clientId.trim(),
     discoveryUrl: form.discoveryUrl.trim() || undefined,
@@ -205,6 +210,7 @@ function buildPayload(form: FormState, isEdit: boolean): FederationConnectionReq
 
 export default function FederationConnections() {
   const [connections, setConnections] = useState<FederationConnection[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -249,6 +255,21 @@ export default function FederationConnections() {
   useEffect(() => {
     loadConnections();
   }, [loadConnections]);
+
+  useEffect(() => {
+    let cancelled = false;
+    adminApiService
+      .getOrganizationsPaged({ page: 1, limit: 100, sortBy: "name", sortOrder: "asc" })
+      .then((response) => {
+        if (!cancelled) setOrganizations(response.organizations);
+      })
+      .catch(() => {
+        if (!cancelled) setOrganizations([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -468,6 +489,7 @@ export default function FederationConnections() {
                     sortOrder={sortOrder}
                     onToggle={() => toggleSort("issuer")}
                   />
+                  <TableHead>Organization</TableHead>
                   <TableHead>Domains</TableHead>
                   <TableHead>Status</TableHead>
                   <SortableTableHead
@@ -502,6 +524,18 @@ export default function FederationConnections() {
                       </button>
                     </TableCell>
                     <TableCell>{connection.issuer}</TableCell>
+                    <TableCell>
+                      {connection.organizationName ? (
+                        <div>
+                          <div>{connection.organizationName}</div>
+                          {connection.organizationSlug ? (
+                            <code style={{ fontSize: 11 }}>{connection.organizationSlug}</code>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <Badge variant="outline">Unassigned</Badge>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {connection.domains.length > 0 ? connection.domains.join(", ") : "None"}
                     </TableCell>
@@ -561,6 +595,30 @@ export default function FederationConnections() {
                   setForm((current) => ({ ...current, name: event.target.value }))
                 }
               />
+            </FormField>
+            <FormField label={<Label>Organization{editing ? "" : " *"}</Label>}>
+              <Select
+                value={form.organizationId}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, organizationId: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {organizations.map((organization) => (
+                    <SelectItem
+                      key={organization.organizationId}
+                      value={organization.organizationId}
+                    >
+                      {organization.slug
+                        ? `${organization.name} (${organization.slug})`
+                        : organization.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </FormField>
             <FormField label={<Label>Issuer</Label>}>
               <div style={{ display: "flex", gap: 8 }}>
@@ -857,7 +915,11 @@ export default function FederationConnections() {
           <FormActions withMargin>
             <Button
               disabled={
-                submitting || !form.name.trim() || !form.issuer.trim() || !form.clientId.trim()
+                submitting ||
+                !form.name.trim() ||
+                !form.issuer.trim() ||
+                !form.clientId.trim() ||
+                (!editing && !form.organizationId)
               }
               onClick={save}
             >

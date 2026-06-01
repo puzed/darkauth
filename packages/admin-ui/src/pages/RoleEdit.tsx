@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import ErrorBanner from "@/components/feedback/error-banner";
+import CheckboxRow from "@/components/form/checkbox-row";
 import PermissionGrid from "@/components/group/permission-grid";
 import FormActions from "@/components/layout/form-actions";
 import { FormField, FormGrid } from "@/components/layout/form-grid";
@@ -22,6 +23,9 @@ export default function RoleEdit() {
   const [role, setRole] = useState<Role | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [assignable, setAssignable] = useState(false);
+  const [defaultMember, setDefaultMember] = useState(false);
+  const [defaultCreator, setDefaultCreator] = useState(false);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
 
@@ -42,6 +46,9 @@ export default function RoleEdit() {
       setRole(foundRole);
       setName(foundRole.name);
       setDescription(foundRole.description || "");
+      setAssignable(foundRole.assignable === true);
+      setDefaultMember(foundRole.defaultMember === true || foundRole.default_member === true);
+      setDefaultCreator(foundRole.defaultCreator === true || foundRole.default_creator === true);
       setSelectedPermissions(
         foundRole.permissionKeys || foundRole.permissions?.map((p) => p.key) || []
       );
@@ -65,6 +72,9 @@ export default function RoleEdit() {
       await adminApiService.updateRole(role.id, {
         name,
         description: description.trim() || undefined,
+        assignable,
+        defaultMember,
+        defaultCreator,
       });
       await adminApiService.updateRolePermissions(role.id, selectedPermissions);
       navigate("/roles");
@@ -126,6 +136,29 @@ export default function RoleEdit() {
                 />
               </FormField>
             </FormGrid>
+            <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+              <CheckboxRow
+                id="role-assignable"
+                label="Assignable by organization admins"
+                checked={assignable}
+                disabled={submitting}
+                onCheckedChange={setAssignable}
+              />
+              <CheckboxRow
+                id="role-default-member"
+                label="Default member role"
+                checked={defaultMember}
+                disabled={submitting}
+                onCheckedChange={setDefaultMember}
+              />
+              <CheckboxRow
+                id="role-default-creator"
+                label="Default organization creator role"
+                checked={defaultCreator}
+                disabled={submitting}
+                onCheckedChange={setDefaultCreator}
+              />
+            </div>
           </CardContent>
         </Card>
 
