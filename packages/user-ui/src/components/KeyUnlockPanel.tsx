@@ -427,6 +427,7 @@ export default function KeyUnlockPanel({
             <Button
               type="button"
               variant="primary"
+              className={styles.unlockAction}
               onClick={requestDeviceApproval}
               disabled={deviceApprovalLoading}
             >
@@ -437,6 +438,7 @@ export default function KeyUnlockPanel({
             <Button
               type="button"
               variant={trustedDeviceAllowed ? "secondary" : "primary"}
+              className={styles.unlockAction}
               onClick={() => setExpanded(true)}
               disabled={deviceApprovalLoading}
             >
