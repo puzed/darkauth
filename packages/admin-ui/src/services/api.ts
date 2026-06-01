@@ -89,6 +89,7 @@ export interface User {
   name?: string;
   createdAt: string;
   lastActivityAt?: string | null;
+  emailVerifiedAt?: string | null;
   passwordResetRequired?: boolean;
   permissions?: string[];
 }
@@ -760,7 +761,7 @@ class AdminApiService {
 
   async updateUser(
     userSub: string,
-    updates: { email?: string | null; name?: string | null }
+    updates: { email?: string | null; name?: string | null; emailVerified?: boolean }
   ): Promise<User> {
     return this.request(`/users/${userSub}`, {
       method: "PUT",

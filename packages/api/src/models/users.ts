@@ -145,6 +145,7 @@ export async function listUsers(
       name: users.name,
       createdAt: users.createdAt,
       lastActivityAt: users.lastActivityAt,
+      emailVerifiedAt: users.emailVerifiedAt,
       passwordResetRequired: users.passwordResetRequired,
     })
     .from(users);
@@ -340,7 +341,7 @@ export async function getUserByOpaqueLoginIdentity(context: Context, identity: s
 export async function updateUserBasic(
   context: Context,
   sub: string,
-  data: { email?: string | null; name?: string | null }
+  data: { email?: string | null; name?: string | null; emailVerified?: boolean }
 ) {
   const existing = await context.db.query.users.findFirst({ where: eq(users.sub, sub) });
   if (!existing) throw new NotFoundError("User not found");
@@ -348,7 +349,11 @@ export async function updateUserBasic(
     email?: string | null;
     name?: string | null;
     opaqueLoginIdentity?: string | null;
+    emailVerifiedAt?: Date | null;
+    pendingEmail?: string | null;
+    pendingEmailSetAt?: Date | null;
   } = {};
+  let emailChanged = false;
   if ("email" in data) {
     if (data.email === null || data.email === "") {
       updates.email = null;
@@ -365,11 +370,32 @@ export async function updateUserBasic(
     } else {
       throw new ValidationError("Invalid email value");
     }
+    emailChanged = updates.email !== existing.email;
+    if (emailChanged) {
+      updates.emailVerifiedAt = null;
+      updates.pendingEmail = null;
+      updates.pendingEmailSetAt = null;
+    }
   }
   if ("name" in data) {
     if (data.name === null) updates.name = null;
     else if (typeof data.name === "string") updates.name = data.name.trim();
     else throw new ValidationError("Invalid name value");
+  }
+  if ("emailVerified" in data) {
+    if (data.emailVerified === true) {
+      if (!("email" in updates ? updates.email : existing.email)) {
+        throw new ValidationError("User email is required");
+      }
+      updates.emailVerifiedAt =
+        existing.emailVerifiedAt && !emailChanged ? existing.emailVerifiedAt : new Date();
+      updates.pendingEmail = null;
+      updates.pendingEmailSetAt = null;
+    } else if (data.emailVerified === false) {
+      updates.emailVerifiedAt = null;
+    } else {
+      throw new ValidationError("Invalid email verification value");
+    }
   }
   if (Object.keys(updates).length === 0) return existing;
   if ("email" in updates && updates.email) {
