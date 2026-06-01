@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { test } from "node:test";
+import { eq } from "drizzle-orm";
 import { createPglite } from "../../db/pglite.ts";
 import { organizationMembers, organizations, sessions, users } from "../../db/schema.ts";
 import { ForbiddenError, InvalidRequestError } from "../../errors.ts";
@@ -231,6 +232,43 @@ test("getSession returns current organization context", async () => {
   }
 });
 
+test("getSession reports current forced OTP policy", async () => {
+  const { context, cleanup } = await createDatabaseContext();
+  try {
+    const organization = await createUserOrganization(
+      context,
+      "user-session-otp",
+      "session-otp-org"
+    );
+    await context.db
+      .update(organizations)
+      .set({ forceOtp: true })
+      .where(eq(organizations.id, organization.id));
+    await context.db.insert(organizationMembers).values({
+      organizationId: organization.id,
+      userSub: "user-session-otp",
+      status: "active",
+    });
+    await createUserSession(context, "session-otp-id", {
+      sub: "user-session-otp",
+      email: "user-session-otp@example.com",
+      name: "user-session-otp",
+      otpRequired: false,
+      otpVerified: false,
+    });
+    const request = createRequest({ sessionId: "session-otp-id" });
+    const response = createResponse();
+
+    await getSessionController(context, request, response);
+
+    assert.equal(response.statusCode, 200);
+    assert.equal((response.json as { otpRequired?: boolean }).otpRequired, true);
+    assert.equal((response.json as { otpVerified?: boolean }).otpVerified, false);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("postSessionOrganization updates session organization and returns validated redirect", async () => {
   const { context, cleanup } = await createDatabaseContext();
   try {
@@ -283,6 +321,47 @@ test("postSessionOrganization updates session organization and returns validated
     const session = await context.db.query.sessions.findFirst();
     assert.equal((session?.data as { organizationId?: string }).organizationId, organization.id);
     assert.equal((session?.data as { organizationSlug?: string }).organizationSlug, "switch-org");
+    assert.equal((session?.data as { otpRequired?: boolean }).otpRequired, false);
+    assert.equal((session?.data as { otpVerified?: boolean }).otpVerified, false);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("postSessionOrganization marks forced OTP organization in session", async () => {
+  const { context, cleanup } = await createDatabaseContext();
+  try {
+    const organization = await createUserOrganization(context, "user-switch-otp", "switch-otp-org");
+    await context.db
+      .update(organizations)
+      .set({ forceOtp: true })
+      .where(eq(organizations.id, organization.id));
+    await context.db.insert(organizationMembers).values({
+      organizationId: organization.id,
+      userSub: "user-switch-otp",
+      status: "active",
+    });
+    await createUserSession(context, "switch-otp-session-id", {
+      sub: "user-switch-otp",
+      email: "user-switch-otp@example.com",
+      otpRequired: false,
+      otpVerified: false,
+    });
+
+    const request = createRequest({
+      method: "POST",
+      url: "/session/organization",
+      sessionId: "switch-otp-session-id",
+      body: JSON.stringify({ organization_id: organization.id }),
+    });
+    const response = createResponse();
+
+    await postSessionOrganization(context, request, response);
+
+    assert.equal(response.statusCode, 200);
+    const session = await context.db.query.sessions.findFirst();
+    assert.equal((session?.data as { otpRequired?: boolean }).otpRequired, true);
+    assert.equal((session?.data as { otpVerified?: boolean }).otpVerified, false);
   } finally {
     await cleanup();
   }

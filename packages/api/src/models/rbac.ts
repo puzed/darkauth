@@ -30,6 +30,11 @@ export async function getUserOrganizations(context: Context, userSub: string) {
   return rows;
 }
 
+export async function isUserOtpRequired(context: Context, userSub: string): Promise<boolean> {
+  const organizations = await getUserOrganizations(context, userSub);
+  return organizations.some((membership) => membership.status === "active" && membership.forceOtp);
+}
+
 export async function hasUserActiveMembership(
   context: Context,
   userSub: string,

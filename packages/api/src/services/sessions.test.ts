@@ -5,7 +5,7 @@ import path from "node:path";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../db/pglite.ts";
-import { scimUsers, sessions, users } from "../db/schema.ts";
+import { organizationMembers, organizations, scimUsers, sessions, users } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import type { Context } from "../types.ts";
 import { sha256Base64Url } from "../utils/crypto.ts";
@@ -20,6 +20,7 @@ import {
   getSessionIdFromCookie,
   issueSessionCookies,
   refreshSessionWithToken,
+  requireSession,
   USER_AUTH_COOKIE_NAME,
   USER_CSRF_COOKIE_NAME,
 } from "./sessions.ts";
@@ -172,6 +173,57 @@ test("getActorFromRefreshToken resolves actor using hashed token storage", async
 
     assert.ok(actor);
     assert.equal(actor.userSub, "user-1");
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("requireSession enforces current forced OTP policy", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-sessions-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values({
+      sub: "otp-policy-user",
+      email: "otp-policy-user@example.com",
+      name: "OTP Policy",
+    });
+    const [organization] = await db
+      .insert(organizations)
+      .values({ slug: "otp-policy-org", name: "OTP Policy", forceOtp: true })
+      .returning();
+    assert.ok(organization);
+    await db.insert(organizationMembers).values({
+      organizationId: organization.id,
+      userSub: "otp-policy-user",
+      status: "active",
+    });
+    await db.insert(sessions).values({
+      id: "otp-policy-session",
+      cohort: "user",
+      userSub: "otp-policy-user",
+      expiresAt: new Date(Date.now() + 60_000),
+      data: {
+        sub: "otp-policy-user",
+        otpRequired: false,
+        otpVerified: false,
+      },
+    });
+    const request = {
+      url: "/crypto/wrapped-drk",
+      headers: {
+        host: "localhost",
+        cookie: `${USER_AUTH_COOKIE_NAME}=otp-policy-session`,
+      },
+    } as unknown as import("node:http").IncomingMessage;
+
+    await assert.rejects(
+      () => requireSession(context, request, false),
+      (error: unknown) =>
+        error instanceof UnauthorizedError && error.message === "OTP verification required"
+    );
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });

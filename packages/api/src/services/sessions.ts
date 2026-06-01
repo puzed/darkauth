@@ -383,7 +383,9 @@ export async function requireSession(
     const url = new URL(request.url || "", `http://${request.headers.host}`);
     const path = url.pathname || "";
     const otpAllowed = path.startsWith("/otp/") || path === "/logout" || path === "/session";
-    if (sessionData.otpRequired && !sessionData.otpVerified && !otpAllowed) {
+    const { isUserOtpRequired } = await import("../models/rbac.ts");
+    const otpRequired = await isUserOtpRequired(context, sessionData.sub);
+    if (otpRequired && !sessionData.otpVerified && !otpAllowed) {
       throw new UnauthorizedError("OTP verification required");
     }
   }

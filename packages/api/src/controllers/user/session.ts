@@ -4,6 +4,7 @@ import { ForbiddenError, InvalidRequestError, UnauthorizedError } from "../../er
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getClient } from "../../models/clients.ts";
 import { getOrganizationForUser } from "../../models/organizations.ts";
+import { isUserOtpRequired } from "../../models/rbac.ts";
 import { getUserBySub } from "../../models/users.ts";
 import { getClientIp, logAuditEvent } from "../../services/audit.ts";
 import {
@@ -106,6 +107,7 @@ export async function getSession(
 
   const user = sessionData.sub ? await getUserBySub(context, sessionData.sub) : null;
   const resetRequired = !!user?.passwordResetRequired;
+  const otpRequired = await isUserOtpRequired(context, sessionData.sub);
 
   const sessionInfo = {
     sub: sessionData.sub,
@@ -118,7 +120,7 @@ export async function getSession(
     signInEmail: user?.opaqueLoginIdentity || user?.email || sessionData.email || null,
     authenticated: true,
     passwordResetRequired: resetRequired,
-    otpRequired: !!sessionData.otpRequired,
+    otpRequired,
     otpVerified: !!sessionData.otpVerified,
     keyState:
       sessionData.keyState === "unlocked" || sessionData.keyState === "setup_required"
@@ -180,6 +182,8 @@ export async function postSessionOrganization(
     ...sessionData,
     organizationId: organization.organizationId,
     organizationSlug: organization.slug || undefined,
+    otpRequired: organization.forceOtp,
+    otpVerified: organization.forceOtp ? sessionData.otpVerified === true : false,
   };
   await updateSession(context, sessionId, nextSessionData);
 
