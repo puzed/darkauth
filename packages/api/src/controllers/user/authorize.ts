@@ -17,6 +17,22 @@ import { parseQueryParams } from "../../utils/http.ts";
 import { validateCodeChallenge } from "../../utils/pkce.ts";
 import { resolveGrantedScopes } from "./token.ts";
 
+function parseScopeSet(scope: unknown): Set<string> {
+  if (typeof scope !== "string") return new Set();
+  return new Set(scope.split(/\s+/).map((item) => item.trim()).filter(Boolean));
+}
+
+function sessionCoversAuthorization(
+  sessionData: Record<string, unknown> | null | undefined,
+  clientId: string,
+  grantedScopes: string[]
+): boolean {
+  if (!sessionData || sessionData.clientId !== clientId) return false;
+  const sessionScopes = parseScopeSet(sessionData.scope);
+  if (sessionScopes.size === 0) return false;
+  return grantedScopes.every((scope) => sessionScopes.has(scope));
+}
+
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1, { message: "client_id is required" }),
   redirect_uri: z.string().min(1, { message: "redirect_uri is required" }),
@@ -105,11 +121,14 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
 
   const sessionId = getSessionId(request);
   let userSub: string | undefined;
+  let sessionData: Record<string, unknown> | null = null;
 
   if (sessionId) {
-    const sessionData = await getSession(context, sessionId);
-    userSub = sessionData?.sub;
+    sessionData = (await getSession(context, sessionId)) as Record<string, unknown> | null;
+    userSub = typeof sessionData?.sub === "string" ? sessionData.sub : undefined;
   }
+  const autoFinalize =
+    !zkPubKid && sessionCoversAuthorization(sessionData, authRequest.client_id, grantedScopes);
 
   await createPendingAuth(context, {
     requestId,
@@ -154,6 +173,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (authRequest.redirect_uri) qs.set("redirect_uri", authRequest.redirect_uri);
   if (authRequest.state) qs.set("state", authRequest.state);
   if (authRequest.organization_id) qs.set("organization_id", authRequest.organization_id);
+  if (autoFinalize) qs.set("auto_finalize", "1");
   const redirectTo = `/${qs.toString() ? `?${qs.toString()}` : ""}`;
   response.statusCode = 302;
   response.setHeader("Location", redirectTo);

@@ -95,8 +95,7 @@ function isPublicSpaCorsPath(pathname: string): boolean {
     pathname === "/revoke" ||
     pathname === "/api/revoke" ||
     pathname === "/api/user/organizations" ||
-    pathname === "/api/user/session" ||
-    pathname === "/api/user/session/organization"
+    pathname === "/api/user/session"
   );
 }
 
