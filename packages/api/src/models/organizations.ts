@@ -4,6 +4,7 @@ import {
   organizationMemberRoles,
   organizationMembers,
   organizations,
+  rolePermissions,
   roles,
   users,
 } from "../db/schema.ts";
@@ -34,6 +35,8 @@ const personalSlugWords = [
 ];
 
 type DbLike = Pick<Context["db"], "delete" | "insert" | "query" | "select" | "update">;
+
+const ORG_MANAGE_PERMISSION = "darkauth.org:manage";
 
 function cleanSlug(value: string) {
   return value
@@ -413,11 +416,21 @@ export async function listOrganizationMembers(
           .innerJoin(roles, eq(organizationMemberRoles.roleId, roles.id))
           .where(inArray(organizationMemberRoles.organizationMemberId, membershipIds));
 
-  const rolesByMembership = new Map<string, Array<{ id: string; key: string; name: string }>>();
+  const manageRoleIds = await getOrgManageRoleIds(context);
+
+  const rolesByMembership = new Map<
+    string,
+    Array<{ id: string; key: string; name: string; grantsOrgManage: boolean }>
+  >();
 
   for (const row of roleRows) {
     const list = rolesByMembership.get(row.membershipId) || [];
-    list.push({ id: row.roleId, key: row.roleKey, name: row.roleName });
+    list.push({
+      id: row.roleId,
+      key: row.roleKey,
+      name: row.roleName,
+      grantsOrgManage: manageRoleIds.has(row.roleId),
+    });
     rolesByMembership.set(row.membershipId, list);
   }
 
@@ -515,6 +528,13 @@ export async function removeMemberRole(
   });
   if (!member) throw new NotFoundError("Organization member not found");
 
+  await assertRoleRemovalKeepsOrganizationManageAuthority(
+    context,
+    organizationId,
+    memberId,
+    roleId
+  );
+
   await context.db
     .delete(organizationMemberRoles)
     .where(
@@ -553,7 +573,52 @@ async function userHasOrganizationManagePermission(
   organizationId: string
 ) {
   const access = await getUserOrgAccess(context, userSub, organizationId);
-  return access.permissions.includes("darkauth.org:manage");
+  return access.permissions.includes(ORG_MANAGE_PERMISSION);
+}
+
+async function getOrgManageRoleIds(context: Context) {
+  const rows = await context.db
+    .select({ roleId: rolePermissions.roleId })
+    .from(rolePermissions)
+    .where(eq(rolePermissions.permissionKey, ORG_MANAGE_PERMISSION));
+  return new Set(rows.map((row) => row.roleId));
+}
+
+async function organizationHasOtherManagingMember(
+  context: Context,
+  organizationId: string,
+  excludeMembershipId: string
+) {
+  const members = await activeMembersForOrganization(context, organizationId);
+  for (const member of members) {
+    if (member.membershipId === excludeMembershipId) continue;
+    if (await userHasOrganizationManagePermission(context, member.userSub, organizationId))
+      return true;
+  }
+  return false;
+}
+
+async function assertRoleRemovalKeepsOrganizationManageAuthority(
+  context: Context,
+  organizationId: string,
+  memberId: string,
+  roleId: string
+) {
+  const manageRoleIds = await getOrgManageRoleIds(context);
+  if (!manageRoleIds.has(roleId)) return;
+
+  const memberRoleRows = await context.db
+    .select({ roleId: organizationMemberRoles.roleId })
+    .from(organizationMemberRoles)
+    .where(eq(organizationMemberRoles.organizationMemberId, memberId));
+  const retainsManageItself = memberRoleRows.some(
+    (row) => row.roleId !== roleId && manageRoleIds.has(row.roleId)
+  );
+  if (retainsManageItself) return;
+
+  if (await organizationHasOtherManagingMember(context, organizationId, memberId)) return;
+
+  throw new ValidationError("Organization must retain at least one administrator");
 }
 
 async function assertRemovalKeepsOrganizationManageAuthority(
@@ -561,12 +626,8 @@ async function assertRemovalKeepsOrganizationManageAuthority(
   organizationId: string,
   removedMemberId: string
 ) {
-  const members = await activeMembersForOrganization(context, organizationId);
-  for (const member of members) {
-    if (member.membershipId === removedMemberId) continue;
-    if (await userHasOrganizationManagePermission(context, member.userSub, organizationId)) return;
-  }
-  throw new ValidationError("Organization must retain at least one managing member");
+  if (await organizationHasOtherManagingMember(context, organizationId, removedMemberId)) return;
+  throw new ValidationError("Organization must retain at least one administrator");
 }
 
 async function assertMemberCanBeRemoved(

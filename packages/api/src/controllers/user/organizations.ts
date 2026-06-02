@@ -38,13 +38,17 @@ const OrganizationListItemSchema = OrganizationSchema.extend({
   roles: z.array(RoleSummarySchema),
 });
 
+const MemberRoleSchema = RoleSummarySchema.extend({
+  grantsOrgManage: z.boolean().optional(),
+});
+
 const MemberSchema = z.object({
   membershipId: z.string().uuid(),
   userSub: z.string(),
   status: z.string(),
   email: z.string().nullable().optional(),
   name: z.string().nullable().optional(),
-  roles: z.array(RoleSummarySchema),
+  roles: z.array(MemberRoleSchema),
 });
 
 const AssignableRoleSchema = z.object({

@@ -135,6 +135,7 @@ export interface OrganizationRole {
   name: string;
   description?: string | null;
   assignable?: boolean;
+  grantsOrgManage?: boolean;
 }
 
 export interface OrganizationMember {

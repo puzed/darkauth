@@ -21,6 +21,7 @@ import {
   createOrganizationInvite,
   leaveOrganization,
   listOrganizationsForUser,
+  removeMemberRole,
   removeOrganizationMember,
 } from "./organizations.ts";
 
@@ -228,10 +229,96 @@ test("removeOrganizationMember rejects removing the last managing member", async
       () => removeOrganizationMember(context, "manager", organization.id, managerMembership.id),
       (error: unknown) => {
         assert.ok(error instanceof ValidationError);
-        assert.equal(error.message, "Organization must retain at least one managing member");
+        assert.equal(error.message, "Organization must retain at least one administrator");
         return true;
       }
     );
+  } finally {
+    await close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("removeMemberRole rejects removing the last administrator role", async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-org-role-remove-test-"));
+  const { db, close } = await createPglite(directory);
+  const context = { db, logger: createLogger() } as Context;
+
+  try {
+    await db.insert(users).values([
+      { sub: "admin", email: "admin@example.com", name: "Admin" },
+      { sub: "member", email: "member@example.com", name: "Member" },
+    ]);
+    const [organization] = await db
+      .insert(organizations)
+      .values({ slug: "org-1", name: "Org One", createdByUserSub: "admin" })
+      .returning();
+    assert.ok(organization);
+
+    const [adminMembership] = await db
+      .insert(organizationMembers)
+      .values({ organizationId: organization.id, userSub: "admin", status: "active" })
+      .returning();
+    const [memberMembership] = await db
+      .insert(organizationMembers)
+      .values({ organizationId: organization.id, userSub: "member", status: "active" })
+      .returning();
+    assert.ok(adminMembership);
+    assert.ok(memberMembership);
+
+    const [adminRole] = await db
+      .insert(roles)
+      .values({ key: "org-admin", name: "Organization Admin", assignable: true })
+      .returning();
+    const [memberRole] = await db
+      .insert(roles)
+      .values({ key: "org-member", name: "Member", assignable: true })
+      .returning();
+    assert.ok(adminRole);
+    assert.ok(memberRole);
+
+    await db
+      .insert(permissions)
+      .values({ key: "darkauth.org:manage", description: "Manage org" })
+      .onConflictDoNothing();
+    await db
+      .insert(rolePermissions)
+      .values({ roleId: adminRole.id, permissionKey: "darkauth.org:manage" });
+    await db
+      .insert(organizationMemberRoles)
+      .values({ organizationMemberId: adminMembership.id, roleId: adminRole.id });
+    await db
+      .insert(organizationMemberRoles)
+      .values({ organizationMemberId: memberMembership.id, roleId: memberRole.id });
+
+    await assert.rejects(
+      () => removeMemberRole(context, "admin", organization.id, adminMembership.id, adminRole.id),
+      (error: unknown) => {
+        assert.ok(error instanceof ValidationError);
+        assert.equal(error.message, "Organization must retain at least one administrator");
+        return true;
+      }
+    );
+
+    // Granting a second administrator allows the role to be removed.
+    await db
+      .insert(organizationMemberRoles)
+      .values({ organizationMemberId: memberMembership.id, roleId: adminRole.id });
+
+    const result = await removeMemberRole(
+      context,
+      "admin",
+      organization.id,
+      adminMembership.id,
+      adminRole.id
+    );
+    assert.deepEqual(result, { success: true });
+
+    const remaining = await db
+      .select({ roleId: organizationMemberRoles.roleId })
+      .from(organizationMemberRoles)
+      .where(eq(organizationMemberRoles.organizationMemberId, adminMembership.id));
+    assert.equal(remaining.length, 0);
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });

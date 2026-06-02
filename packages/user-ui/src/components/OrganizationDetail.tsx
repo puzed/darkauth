@@ -88,6 +88,30 @@ export default function OrganizationDetail({
     [assignableRoles]
   );
 
+  const adminMemberCount = useMemo(
+    () => members.filter((member) => member.roles.some((role) => role.grantsOrgManage)).length,
+    [members]
+  );
+
+  const memberInitials = (member: OrganizationMember) => {
+    const source = (member.name || member.email || member.userSub || "").trim();
+    if (!source) return "?";
+    const parts = source.split(/\s+/).filter(Boolean);
+    const letters =
+      parts.length >= 2 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : source.slice(0, 2);
+    return letters.toUpperCase();
+  };
+
+  const isLastAdminRole = (member: OrganizationMember, role: OrganizationRole) => {
+    if (!role.grantsOrgManage) return false;
+    if (adminMemberCount > 1) return false;
+    const adminRolesForMember = member.roles.filter((item) => item.grantsOrgManage).length;
+    return adminRolesForMember <= 1;
+  };
+
+  const isLastAdminMember = (member: OrganizationMember) =>
+    adminMemberCount <= 1 && member.roles.some((role) => role.grantsOrgManage);
+
   const switchToOrganization = async () => {
     if (!organization) return;
     try {
@@ -264,34 +288,36 @@ export default function OrganizationDetail({
             title="Members"
             description={`${members.length} member${members.length === 1 ? "" : "s"}`}
           >
-            <form className={styles.inlineForm} onSubmit={createInvite}>
-              <label>
-                <span>Email</span>
-                <input
-                  type="email"
-                  value={inviteEmail}
-                  onChange={(event) => setInviteEmail(event.target.value)}
-                  placeholder="teammate@example.com"
-                />
-              </label>
-              {assignableRoles.length > 0 ? (
-                <label>
-                  <span>Invite role</span>
-                  <select
-                    value={inviteRoleIds[0] || ""}
-                    onChange={(event) =>
-                      setInviteRoleIds(event.target.value ? [event.target.value] : [])
-                    }
-                  >
-                    <option value="">No role</option>
-                    {assignableRoles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
+            <form className={styles.invite} onSubmit={createInvite}>
+              <div className={styles.inviteFields}>
+                <label className={styles.field}>
+                  <span>Email</span>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(event) => setInviteEmail(event.target.value)}
+                    placeholder="teammate@example.com"
+                  />
                 </label>
-              ) : null}
+                {assignableRoles.length > 0 ? (
+                  <label className={styles.field}>
+                    <span>Invite role</span>
+                    <select
+                      value={inviteRoleIds[0] || ""}
+                      onChange={(event) =>
+                        setInviteRoleIds(event.target.value ? [event.target.value] : [])
+                      }
+                    >
+                      <option value="">No role</option>
+                      {assignableRoles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ) : null}
+              </div>
               <Button type="submit" variant="primary" disabled={submitting || !inviteEmail.trim()}>
                 Invite
               </Button>
@@ -304,52 +330,87 @@ export default function OrganizationDetail({
                   text="No members are visible for this organization."
                 />
               ) : (
-                members.map((member) => (
-                  <div key={member.membershipId} className={styles.member}>
-                    <div className={styles.memberHeader}>
-                      <div className={styles.memberTitle}>
-                        <strong>{member.email || member.userSub}</strong>
-                        <small>{member.name || member.userSub}</small>
-                      </div>
-                      <div className={styles.inlineForm}>
-                        <StatusPill tone={member.status === "active" ? "ready" : "neutral"}>
-                          {member.status}
-                        </StatusPill>
-                        {member.userSub !== sessionData.sub ? (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            disabled={submitting}
-                            onClick={() => removeMember(member)}
-                          >
-                            Remove
-                          </Button>
-                        ) : null}
-                      </div>
-                    </div>
-                    <div className={styles.roleList}>
-                      {member.roles.length === 0 ? (
-                        <span className={styles.muted}>No roles</span>
-                      ) : (
-                        member.roles.map((role) => (
-                          <span key={role.id} className={styles.role}>
-                            {role.name}
-                            <button
+                members.map((member) => {
+                  const isSelf = member.userSub === sessionData.sub;
+                  const lastAdmin = isLastAdminMember(member);
+                  const availableRoles = assignableRoles.filter(
+                    (role) => !member.roles.some((assigned) => assigned.id === role.id)
+                  );
+                  return (
+                    <div key={member.membershipId} className={styles.member}>
+                      <div className={styles.memberHeader}>
+                        <div className={styles.memberIdentity}>
+                          <span className={styles.avatar} aria-hidden="true">
+                            {memberInitials(member)}
+                          </span>
+                          <div className={styles.memberTitle}>
+                            <strong>{member.name || member.email || member.userSub}</strong>
+                            {member.email && member.name ? <small>{member.email}</small> : null}
+                          </div>
+                        </div>
+                        <div className={styles.memberMeta}>
+                          <StatusPill tone={member.status === "active" ? "ready" : "neutral"}>
+                            {member.status}
+                          </StatusPill>
+                          {isSelf ? <span className={styles.youTag}>You</span> : null}
+                          {!isSelf ? (
+                            <Button
                               type="button"
-                              disabled={submitting || !roleOptionsById.has(role.id)}
-                              onClick={() => removeRole(member, role)}
+                              variant="secondary"
+                              disabled={submitting || lastAdmin}
+                              title={
+                                lastAdmin
+                                  ? "Promote another administrator before removing this member."
+                                  : undefined
+                              }
+                              onClick={() => removeMember(member)}
                             >
                               Remove
-                            </button>
-                          </span>
-                        ))
-                      )}
-                    </div>
-                    {assignableRoles.length > 0 ? (
-                      <div className={styles.inlineForm}>
-                        <label>
-                          <span>Add role</span>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div className={styles.roleList}>
+                        {member.roles.length === 0 ? (
+                          <span className={styles.muted}>No roles</span>
+                        ) : (
+                          member.roles.map((role) => {
+                            const lockedAdmin = isLastAdminRole(member, role);
+                            const canRemove =
+                              !submitting && roleOptionsById.has(role.id) && !lockedAdmin;
+                            return (
+                              <span
+                                key={role.id}
+                                className={cx(
+                                  styles.role,
+                                  role.grantsOrgManage && styles.roleAdmin
+                                )}
+                              >
+                                {role.name}
+                                {roleOptionsById.has(role.id) ? (
+                                  <button
+                                    type="button"
+                                    aria-label={`Remove ${role.name} role`}
+                                    title={
+                                      lockedAdmin
+                                        ? "The organization must keep at least one administrator."
+                                        : `Remove ${role.name}`
+                                    }
+                                    disabled={!canRemove}
+                                    onClick={() => removeRole(member, role)}
+                                  >
+                                    ×
+                                  </button>
+                                ) : null}
+                              </span>
+                            );
+                          })
+                        )}
+                      </div>
+                      {availableRoles.length > 0 ? (
+                        <div className={styles.roleAdd}>
                           <select
+                            aria-label="Add role"
                             value={roleSelectionByMember[member.membershipId] || ""}
                             onChange={(event) =>
                               setRoleSelectionByMember((current) => ({
@@ -358,25 +419,26 @@ export default function OrganizationDetail({
                               }))
                             }
                           >
-                            <option value="">Select role</option>
-                            {assignableRoles.map((role) => (
+                            <option value="">Add a role…</option>
+                            {availableRoles.map((role) => (
                               <option key={role.id} value={role.id}>
                                 {role.name}
                               </option>
                             ))}
                           </select>
-                        </label>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          onClick={() => assignRole(member)}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                ))
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            disabled={submitting || !roleSelectionByMember[member.membershipId]}
+                            onClick={() => assignRole(member)}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })
               )}
             </div>
           </PortalSection>

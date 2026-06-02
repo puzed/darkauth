@@ -22,9 +22,49 @@
   color: var(--da-color-text);
 }
 
+.invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--da-space-3);
+  padding: var(--da-space-4);
+  margin-bottom: var(--da-space-4);
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-surface-radius);
+  background: var(--da-color-surface-raised);
+}
+
+.inviteFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--da-space-3);
+  flex: 1 1 auto;
+}
+
+.field {
+  display: grid;
+  gap: var(--da-space-2);
+  flex: 1 1 14rem;
+  min-width: min(100%, 14rem);
+  color: var(--da-color-text);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.field input,
+.field select,
+.roleAdd select {
+  min-height: 44px;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius);
+  background: var(--da-color-surface);
+  color: var(--da-color-text);
+}
+
 .grid {
   display: grid;
-  gap: var(--da-space-4);
+  gap: var(--da-space-3);
 }
 
 .member {
@@ -33,14 +73,56 @@
   padding: var(--da-space-4);
   border: 1px solid var(--da-color-border);
   border-radius: var(--da-surface-radius);
+  transition: border-color 0.15s ease;
+}
+
+.member:hover {
+  border-color: color-mix(in srgb, var(--da-color-action) 30%, var(--da-color-border));
 }
 
 .memberHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: var(--da-space-3);
   min-width: 0;
+}
+
+.memberIdentity {
+  display: flex;
+  align-items: center;
+  gap: var(--da-space-3);
+  min-width: 0;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--da-color-action) 16%, var(--da-color-surface-raised));
+  color: var(--da-color-text);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.memberMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--da-space-2);
+  flex: 0 0 auto;
+}
+
+.youTag {
+  color: var(--da-color-text-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .memberTitle {
@@ -73,7 +155,7 @@
   align-items: center;
   gap: 0.35rem;
   min-height: 1.75rem;
-  padding: 0.25rem 0.625rem;
+  padding: 0.25rem 0.35rem 0.25rem 0.7rem;
   border: 1px solid var(--da-color-border);
   border-radius: 999px;
   background: var(--da-color-surface-raised);
@@ -82,12 +164,50 @@
   font-weight: 800;
 }
 
+.roleAdmin {
+  border-color: color-mix(in srgb, var(--da-color-action) 45%, var(--da-color-border));
+  background: color-mix(in srgb, var(--da-color-action) 12%, var(--da-color-surface-raised));
+}
+
 .role button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
   border: 0;
+  border-radius: 999px;
   background: transparent;
-  color: var(--da-color-danger);
-  font: inherit;
+  color: var(--da-color-text-muted);
+  font-size: 1rem;
+  line-height: 1;
   cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.role button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--da-color-danger) 16%, transparent);
+  color: var(--da-color-danger);
+}
+
+.role button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.roleAdd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--da-space-2);
+}
+
+.roleAdd select {
+  flex: 1 1 16rem;
+  min-width: min(100%, 12rem);
 }
 
 .inlineForm {
@@ -147,7 +267,15 @@
 }
 
 @media (max-width: 640px) {
-  .memberHeader,
+  .memberHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .memberMeta {
+    flex-wrap: wrap;
+  }
+
   .inlineForm {
     align-items: stretch;
     flex-direction: column;
