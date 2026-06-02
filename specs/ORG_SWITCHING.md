@@ -250,7 +250,7 @@ Add:
 export async function switchOrganization(
   organizationId: string,
   options?: SwitchOrganizationOptions
-): Promise<void>
+): Promise<AuthSession | null>
 ```
 
 Default behavior should be `mode: "silent"`:
