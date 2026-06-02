@@ -71,6 +71,7 @@ interface AuthorizeProps {
     state?: string;
     zkPub?: string;
     organizationId?: string;
+    autoFinalize?: boolean;
     unlockPolicy?: UnlockPolicy;
   };
   sessionData: {
@@ -110,6 +111,7 @@ export default function Authorize({
   const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
   const [deviceApprovalStatus, setDeviceApprovalStatus] = useState<string | null>(null);
   const deviceApprovalPollRef = useRef<number | null>(null);
+  const autoFinalizeStartedRef = useRef(false);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(
     authRequest.organizationId || sessionData.organizationId || ""
   );
@@ -639,6 +641,20 @@ export default function Authorize({
       );
     }
   };
+
+  useEffect(() => {
+    if (
+      !authRequest.autoFinalize ||
+      authRequest.hasZk ||
+      organizationsLoading ||
+      loading ||
+      autoFinalizeStartedRef.current
+    ) {
+      return;
+    }
+    autoFinalizeStartedRef.current = true;
+    handleAuthorize(true);
+  });
 
   const generateNewKeys = async () => {
     logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys start");

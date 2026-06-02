@@ -60,6 +60,7 @@ interface AuthRequest {
   state?: string;
   zkPub?: string;
   organizationId?: string;
+  autoFinalize?: boolean;
 }
 
 function decodeBase64Url(value: string): string {
@@ -166,6 +167,7 @@ function AppContent() {
     const state = params.get("state") || undefined;
     const zkPub = params.get("zk_pub") || undefined;
     const organizationId = params.get("organization_id") || undefined;
+    const autoFinalize = params.get("auto_finalize") === "1";
     setAuthRequest((current) => {
       if (
         current &&
@@ -182,6 +184,7 @@ function AppContent() {
         current.state === state &&
         current.zkPub === zkPub &&
         current.organizationId === organizationId &&
+        current.autoFinalize === autoFinalize &&
         current.scopes.join(" ") === scopes.join(" ")
       ) {
         return current;
@@ -200,6 +203,7 @@ function AppContent() {
         state,
         zkPub,
         organizationId,
+        autoFinalize,
       };
     });
     setAuthRequestSearch(search);

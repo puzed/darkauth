@@ -53,26 +53,19 @@ The client does not currently expose typed organization helpers, and `initiateLo
 
 DarkAuth should treat organization switching as selecting a new authorization context. The selected organization is not just UI state. It must be reflected in freshly issued tokens.
 
-Recommended app-owned flow for first-party browser apps with an existing DarkAuth session:
+Recommended app-owned flow:
 
 1. App asks DarkAuth for active organizations.
 2. User selects an organization inside the app.
 3. App calls `switchOrganization(<selected org>)`.
-4. DarkAuth validates the user's active membership and updates the first-party session organization.
-5. The SDK forces a token refresh.
-6. App receives a new org-scoped session/token.
-7. App clears tenant-local state and loads data for the selected org.
+4. The SDK starts a new authorization request with `organization_id=<selected org>`.
+5. DarkAuth validates the user's active membership.
+6. DarkAuth skips repeat consent when the current browser session was already issued for the same client and covers the requested scopes.
+7. DarkAuth returns an authorization code to the registered app callback.
+8. App handles the callback and receives a new org-scoped session/token.
+9. App clears tenant-local state and loads data for the selected org.
 
-Authorize fallback flow:
-
-1. App starts a new authorization request with `organization_id=<selected org>`.
-2. DarkAuth validates the user's active membership.
-3. DarkAuth skips repeat consent when the client, user, organization, and requested scopes are already authorized.
-4. DarkAuth returns an authorization code to the registered app callback.
-5. App handles the callback and receives a new org-scoped session/token.
-6. App clears tenant-local state and loads data for the selected org.
-
-The authorize fallback is safest for stricter third-party deployments because it stays inside OAuth redirect, PKCE, state, redirect URI, and token issuance rules.
+This stays inside OAuth redirect, PKCE, state, redirect URI, and token issuance rules while avoiding the repeated approval screen for already-authorized sessions.
 
 Hosted fallback flow:
 
@@ -253,19 +246,18 @@ export async function switchOrganization(
 ): Promise<AuthSession | null>
 ```
 
-Default behavior should be `mode: "silent"`:
-
-- Call `POST /api/user/session/organization`.
-- Force `refreshSession({ force: true })`.
-- Return the refreshed org-scoped session.
-- This avoids repeat consent when the browser already has a valid DarkAuth session and the client remains authorized for the requested scopes.
-
-Authorize behavior:
+Default behavior should be `mode: "authorize"`:
 
 - Call `initiateLogin({ organizationId, returnTo })`.
 - This produces a normal authorization-code flow and fresh org-scoped token.
 - The app handles the callback with existing `handleCallback()`.
-- Use `mode: "authorize"` when a deployment wants redirect-based OAuth controls for every switch.
+- DarkAuth may auto-finalize the request without showing consent when the browser session was already issued for the same client and covers the requested scopes.
+
+Silent behavior:
+
+- `mode: "silent"` may call `POST /api/user/session/organization` and force `refreshSession({ force: true })`.
+- Use this only in trusted first-party contexts where DarkAuth's same-origin/CSRF requirements can be satisfied.
+- Public cross-origin SPAs should use the default authorize behavior.
 
 Hosted behavior:
 
@@ -313,11 +305,6 @@ For app-owned Slack-style switching:
 - App shows organization rail using `listOrganizations()`.
 - Active item is derived from current token `org_id`.
 - Clicking another org calls `switchOrganization(orgId)`.
-- App validates the refreshed token's `org_id`, clears tenant-local state, and reloads.
-
-For authorize-based switching:
-
-- App calls `switchOrganization(orgId, { mode: "authorize" })`.
 - App handles callback, validates new `org_id`, clears tenant-local state, and reloads.
 
 For hosted switching:
@@ -347,7 +334,7 @@ For login:
 
 - An app can list the signed-in user's organizations through `@darkauth/client`.
 - An app can start login for a specific organization through `@darkauth/client`.
-- An app can switch organizations through `@darkauth/client` and receive a fresh token with the selected `org_id` without a repeat authorize/consent screen when the DarkAuth session can be used silently.
+- An app can switch organizations through `@darkauth/client` and receive a fresh token with the selected `org_id` without a repeat authorize/consent screen when the existing session already covers the same client and scopes.
 - The existing hosted `/switch-org` flow remains available and documented.
 - Refreshing after a hosted switch returns tokens for the new session organization.
 - Tokens contain roles and permissions only for the selected organization.
@@ -372,7 +359,7 @@ For login:
 - [x] Add `listOrganizations()`.
 - [x] Add `getSessionInfo()`.
 - [x] Add `switchOrganization(organizationId, options?)`.
-- [x] Default `switchOrganization(organizationId)` to session-org switch plus forced refresh.
+- [x] Default `switchOrganization(organizationId)` to authorize-code org switching.
 - [x] Add `refreshSession({ force })`.
 - [x] Add typed errors for unauthenticated session, invalid org, and org context required.
 - [x] Update SDK README examples for app-owned and hosted org switching.
@@ -389,8 +376,7 @@ For login:
 
 - [x] SDK test for `initiateLogin({ organizationId })` authorization URL.
 - [x] SDK test for `listOrganizations()`.
-- [x] SDK test for `switchOrganization()` silent mode.
-- [x] SDK test for `switchOrganization()` authorize mode.
+- [x] SDK test for `switchOrganization()` default authorize mode.
 - [x] SDK test for hosted switch URL generation.
 - [x] SDK test for `refreshSession({ force: true })`.
 - [x] API test that hosted session switch plus refresh mints token for new org.

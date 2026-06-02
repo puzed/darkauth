@@ -805,7 +805,7 @@ export async function switchOrganization(
   organizationId: string,
   options: SwitchOrganizationOptions = {}
 ): Promise<AuthSession | null> {
-  const mode = options.mode || "silent";
+  const mode = options.mode || "authorize";
   if (mode === "silent") {
     const response = await fetch(rootEndpoint("/api/user/session/organization"), {
       method: "POST",
