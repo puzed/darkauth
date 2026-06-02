@@ -8,7 +8,7 @@ import { test } from "node:test";
 import { createPglite } from "../../db/pglite.ts";
 import { authCodes, clients, organizationMembers, organizations, users } from "../../db/schema.ts";
 import { InvalidGrantError, UnauthorizedClientError } from "../../errors.ts";
-import { generateEdDSAKeyPair, signJWT, storeKeyPair } from "../../services/jwks.ts";
+import { generateEdDSAKeyPair, signJWT, storeKeyPair, verifyJWT } from "../../services/jwks.ts";
 import {
   createSession,
   getActiveRefreshTokenSession,
@@ -18,7 +18,7 @@ import type { Context } from "../../types.ts";
 import { sha256Base64Url } from "../../utils/crypto.ts";
 import { postIntrospect } from "./introspect.ts";
 import { postRevoke } from "./revoke.ts";
-import { postToken } from "./token.ts";
+import { postToken, postTokenOrganization } from "./token.ts";
 import { handleUserinfo } from "./userinfo.ts";
 import { getWellKnownOpenidConfiguration } from "./wellKnownOpenid.ts";
 
@@ -127,12 +127,12 @@ async function createUser(context: Context) {
   });
 }
 
-async function createUserOrganization(context: Context) {
+async function createUserOrganization(context: Context, slug = "test-org") {
   const [organization] = await context.db
     .insert(organizations)
     .values({
-      slug: "test-org",
-      name: "Test Org",
+      slug,
+      name: slug === "test-org" ? "Test Org" : "Second Org",
       createdByUserSub: "user-sub",
     })
     .returning();
@@ -457,6 +457,61 @@ test("token allows hosted first-party cookie refresh for public SPA clients", as
     assert.equal(json.token_type, "Bearer");
     assert.equal(json.scope, "openid profile");
     assert.equal(json.refresh_token, undefined);
+    assert.ok(Array.isArray(setCookie));
+    assert.ok(setCookie.some((value) => value.includes(USER_REFRESH_COOKIE_NAME)));
+  } finally {
+    await cleanup();
+  }
+});
+
+test("token organization switch mints target-org tokens from current app token", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createUserOrganization(context, "first-org");
+    const targetOrganization = await createUserOrganization(context, "second-org");
+    await createPublicRefreshClient(context);
+    const accessToken = await signJWT(
+      context,
+      {
+        iss: context.config.issuer,
+        sub: "user-sub",
+        aud: "public-refresh-client",
+        azp: "public-refresh-client",
+        scope: "openid profile",
+        token_use: "access",
+        grant_type: "authorization_code",
+      },
+      "5m"
+    );
+    const request = createRequest({
+      method: "POST",
+      url: "/token/organization",
+      authorization: `Bearer ${accessToken}`,
+      body: JSON.stringify({
+        organization_id: targetOrganization.id,
+        client_id: "public-refresh-client",
+      }),
+    });
+    const response = createResponse();
+
+    await postTokenOrganization(context, request, response);
+
+    const json = response.json as Record<string, unknown>;
+    const idTokenClaims = await verifyJWT(context, json.id_token as string, "public-refresh-client");
+    const accessTokenClaims = await verifyJWT(
+      context,
+      json.access_token as string,
+      "public-refresh-client"
+    );
+    const setCookie = response.getHeader("set-cookie");
+    assert.equal(response.statusCode, 200);
+    assert.equal(json.token_type, "Bearer");
+    assert.equal(json.scope, "openid profile");
+    assert.equal(typeof json.refresh_token, "string");
+    assert.equal(idTokenClaims.org_id, targetOrganization.id);
+    assert.equal(idTokenClaims.org_slug, "second-org");
+    assert.equal(accessTokenClaims.org_id, targetOrganization.id);
     assert.ok(Array.isArray(setCookie));
     assert.ok(setCookie.some((value) => value.includes(USER_REFRESH_COOKIE_NAME)));
   } finally {

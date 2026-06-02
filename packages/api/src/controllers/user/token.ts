@@ -2,10 +2,16 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { eq } from "drizzle-orm";
 import { z } from "zod/v4";
 import { users } from "../../db/schema.ts";
-import { InvalidGrantError, InvalidRequestError, UnauthorizedClientError } from "../../errors.ts";
+import {
+  ForbiddenError,
+  InvalidGrantError,
+  InvalidRequestError,
+  UnauthorizedClientError,
+  UnauthorizedError,
+} from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
 import { getCachedBody, withRateLimit } from "../../middleware/rateLimit.ts";
-import { signJWT } from "../../services/jwks.ts";
+import { signJWT, verifyJWT } from "../../services/jwks.ts";
 import {
   clearRefreshTokenCookie,
   createSession,
@@ -40,6 +46,11 @@ import {
   sendJson,
 } from "../../utils/http.ts";
 import { verifyCodeChallenge } from "../../utils/pkce.ts";
+
+const TokenOrganizationRequestSchema = z.object({
+  organization_id: z.string().uuid(),
+  client_id: z.string().min(1),
+});
 
 async function resolveIssuer(context: Context): Promise<string> {
   const issuerSetting = await getSetting(context, "issuer");
@@ -163,6 +174,34 @@ function resolveDelegatedPermissions(permissions: string[], grantedScopes: strin
   return permissions.filter((permission) => grantedScopeSet.has(permission));
 }
 
+function getBearerToken(request: IncomingMessage): string {
+  const auth = request.headers.authorization;
+  if (typeof auth !== "string") throw new UnauthorizedError("Bearer token required");
+  const [scheme, token] = auth.split(" ");
+  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
+    throw new UnauthorizedError("Bearer token required");
+  }
+  return token;
+}
+
+function tokenAudienceMatches(audience: unknown, clientId: string): boolean {
+  if (typeof audience === "string") return audience === clientId;
+  if (Array.isArray(audience)) return audience.some((item) => item === clientId);
+  return false;
+}
+
+function assertTokenIssuedToClient(payload: import("jose").JWTPayload, clientId: string): void {
+  if (typeof payload.azp === "string" && payload.azp !== clientId) {
+    throw new ForbiddenError("Token was not issued to this client");
+  }
+  if (!tokenAudienceMatches(payload.aud, clientId)) {
+    throw new ForbiddenError("Token was not issued to this client");
+  }
+  if (payload.grant_type === "client_credentials") {
+    throw new ForbiddenError("User token required");
+  }
+}
+
 export function resolveSessionClientId(sessionData: unknown): string | null {
   if (!sessionData || typeof sessionData !== "object") return null;
   const maybeClientId = (sessionData as { clientId?: unknown }).clientId;
@@ -227,6 +266,160 @@ export const TokenRequestSchema = z.union([
     scope: z.string().optional(),
   }),
 ]);
+
+export const postTokenOrganization = withRateLimit("token")(
+  withAudit({
+    eventType: "TOKEN_ISSUED",
+    resourceType: "token",
+    extractResourceId: (body) =>
+      body && typeof body === "object" && "client_id" in body
+        ? (body as { client_id?: string }).client_id
+        : undefined,
+  })(
+    async (
+      context: Context,
+      request: IncomingMessage,
+      response: ServerResponse,
+      ..._params: unknown[]
+    ): Promise<void> => {
+      const body = await getCachedBody(request);
+      let rawRequest: unknown;
+      try {
+        rawRequest = JSON.parse(body);
+      } catch {
+        throw new InvalidRequestError("Invalid JSON body");
+      }
+      const parsedRequest = TokenOrganizationRequestSchema.safeParse(rawRequest);
+      if (!parsedRequest.success) {
+        throw new InvalidRequestError(parsedRequest.error.issues[0]?.message || "Invalid request");
+      }
+
+      const token = getBearerToken(request);
+      const clientId = parsedRequest.data.client_id;
+      const requestedOrganizationId = parsedRequest.data.organization_id;
+      const payload = await verifyJWT(context, token, clientId);
+      if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+        throw new UnauthorizedError("User token required");
+      }
+      assertTokenIssuedToClient(payload, clientId);
+
+      const { getClient } = await import("../../models/clients.ts");
+      const client = await getClient(context, clientId);
+      if (!client) throw new UnauthorizedClientError("Unknown client");
+      if (!client.grantTypes.includes("authorization_code")) {
+        throw new UnauthorizedClientError("authorization_code grant not allowed for this client");
+      }
+
+      const { getUserBySub } = await import("../../models/users.ts");
+      const user = await getUserBySub(context, payload.sub);
+      if (!user) throw new InvalidGrantError("User not found");
+
+      const { getUserOrgAccess, resolveOrganizationContext } = await import(
+        "../../models/rbac.ts"
+      );
+      const { organizationId, organizationSlug } = await resolveOrganizationContext(
+        context,
+        user.sub,
+        requestedOrganizationId
+      );
+      const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
+        context,
+        user.sub,
+        organizationId
+      );
+      const directPermissionRows = await context.db.query.userPermissions.findMany({
+        where: (table, { eq }) => eq(table.userSub, user.sub),
+      });
+      const uniquePermissions = Array.from(
+        new Set([
+          ...organizationPermissions,
+          ...directPermissionRows.map((row) => row.permissionKey),
+        ])
+      ).sort();
+
+      const allowedScopes = resolveClientScopeKeys(client.scopes);
+      const grantedScope =
+        typeof payload.scope === "string" && payload.scope.length > 0
+          ? resolveGrantedScopes(allowedScopes, payload.scope).join(" ")
+          : resolveGrantedScopes(allowedScopes).join(" ");
+      const grantedScopes = parseScopeString(grantedScope);
+      const delegatedPermissions = resolveDelegatedPermissions(uniquePermissions, grantedScopes);
+      const now = Math.floor(Date.now() / 1000);
+      const idTokenTtl =
+        client.idTokenLifetimeSeconds && client.idTokenLifetimeSeconds > 0
+          ? client.idTokenLifetimeSeconds
+          : 300;
+      const issuer = await resolveIssuer(context);
+      const idTokenClaims = buildUserIdTokenClaims({
+        issuer,
+        subject: user.sub,
+        audience: clientId,
+        expiresAtSeconds: now + idTokenTtl,
+        issuedAtSeconds: now,
+        email: user.email,
+        name: user.name,
+        orgId: organizationId,
+        orgSlug: organizationSlug,
+        roles: roleKeys,
+        permissions: uniquePermissions,
+        amr: ["pwd"],
+      });
+      const idToken = await signJWT(
+        context,
+        idTokenClaims as import("jose").JWTPayload,
+        `${idTokenTtl}s`
+      );
+      const accessTokenTtl = resolveAccessTokenLifetimeSeconds(client);
+      const accessTokenClaims = buildUserAccessTokenClaims({
+        issuer,
+        subject: user.sub,
+        audience: clientId,
+        authorizedParty: clientId,
+        expiresAtSeconds: now + accessTokenTtl,
+        issuedAtSeconds: now,
+        scope: grantedScope,
+        grantType: "authorization_code",
+        orgId: organizationId,
+        orgSlug: organizationSlug,
+        roles: roleKeys,
+        permissions: delegatedPermissions,
+      });
+      const accessToken = await signJWT(
+        context,
+        accessTokenClaims as import("jose").JWTPayload,
+        `${accessTokenTtl}s`
+      );
+      const tokenResponse: TokenResponse = {
+        access_token: accessToken,
+        id_token: idToken,
+        token_type: "Bearer",
+        expires_in: accessTokenTtl,
+        scope: grantedScope,
+      };
+
+      if (shouldIssueRefreshTokenForClient(client.grantTypes)) {
+        const sessionData = {
+          sub: user.sub,
+          email: user.email || undefined,
+          name: user.name || undefined,
+          organizationId,
+          organizationSlug: organizationSlug || undefined,
+          clientId,
+          scope: grantedScope,
+          keyState: "locked",
+        } satisfies SessionData;
+        const s = await createSession(context, "user", sessionData);
+        tokenResponse.refresh_token = s.refreshToken;
+        const ttlSeconds = await getSessionTtlSeconds(context, "user");
+        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
+        issueSessionCookies(response, s.sessionId, ttlSeconds, false);
+        issueRefreshTokenCookie(response, s.refreshToken, refreshTtlSeconds, false);
+      }
+
+      sendJson(response, 200, tokenResponse);
+    }
+  )
+);
 
 export const postToken = withRateLimit("token")(
   withAudit({

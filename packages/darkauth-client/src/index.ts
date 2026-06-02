@@ -58,7 +58,7 @@ export type InitiateLoginOptions = {
 };
 
 export type SwitchOrganizationOptions = {
-  mode?: "silent" | "authorize" | "hosted";
+  mode?: "token" | "silent" | "authorize" | "hosted";
   returnTo?: string;
 };
 
@@ -805,7 +805,46 @@ export async function switchOrganization(
   organizationId: string,
   options: SwitchOrganizationOptions = {}
 ): Promise<AuthSession | null> {
-  const mode = options.mode || "authorize";
+  const mode = options.mode || "token";
+  if (mode === "token") {
+    const current = getStoredSession();
+    const bearerToken = current?.accessToken || current?.idToken;
+    if (!current || !bearerToken) {
+      await initiateLogin({ organizationId, returnTo: options.returnTo });
+      return null;
+    }
+    const response = await fetch(rootEndpoint("/api/token/organization"), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${bearerToken}`,
+      },
+      body: JSON.stringify({
+        organization_id: organizationId,
+        client_id: cfg.clientId,
+      }),
+      credentials: fetchCredentials(),
+    });
+    if (!response.ok) throw await errorForResponse(response);
+    const tokenResponse = await response.json();
+    const idToken = tokenResponse.id_token as string;
+    const accessToken =
+      typeof tokenResponse.access_token === "string"
+        ? (tokenResponse.access_token as string)
+        : undefined;
+    const refreshToken =
+      refreshMode() === "token" ? (tokenResponse.refresh_token as string | undefined) : undefined;
+    return storeSession({
+      idToken,
+      accessToken,
+      drk: current.drk || EMPTY_DRK,
+      clientAppKey: current.clientAppKey,
+      rootKey: current.rootKey,
+      deliveredKeyKind: current.deliveredKeyKind,
+      keyDeliveryVersion: current.keyDeliveryVersion,
+      refreshToken,
+    });
+  }
   if (mode === "silent") {
     const response = await fetch(rootEndpoint("/api/user/session/organization"), {
       method: "POST",

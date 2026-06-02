@@ -21,6 +21,10 @@ test("user CORS allows SDK user endpoints for registered public SPA origins", ()
     isUserCorsOriginAllowed("/api/user/session", "https://atlas.wylde.net", corsPolicy),
     true
   );
+  assert.equal(
+    isUserCorsOriginAllowed("/api/token/organization", "https://atlas.wylde.net", corsPolicy),
+    true
+  );
 });
 
 test("user CORS rejects SDK user endpoints for unregistered origins", () => {
