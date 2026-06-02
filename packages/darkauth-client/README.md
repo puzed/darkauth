@@ -118,7 +118,7 @@ If `tokenStorage: 'localStorage'` or `drkStorage: 'localStorage'` is configured 
 
 Refreshes the current session. In default first-party mode, the browser sends the DarkAuth refresh cookie and no JavaScript-readable refresh token is required. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
 
-Use `{ force: true }` after a hosted organization switch so the app receives tokens for the newly selected DarkAuth session organization even if the current in-memory ID token has not expired.
+Use `{ force: true }` after changing the DarkAuth session organization so the app receives tokens for the newly selected organization even if the current in-memory ID token has not expired.
 
 ### Organization Switching
 
@@ -132,9 +132,9 @@ Returns the current user's organizations for app-owned switcher UI. Use `status`
 
 Returns current first-party session and organization context for app chrome before a fresh OAuth callback is needed.
 
-#### `switchOrganization(organizationId: string, options?: SwitchOrganizationOptions): Promise<void>`
+#### `switchOrganization(organizationId: string, options?: SwitchOrganizationOptions): Promise<AuthSession | null>`
 
-Switches the selected organization. The default `authorize` mode starts a new authorization-code flow. `hosted` mode redirects to DarkAuth's `/switch-org` page.
+Switches the selected organization. The default `silent` mode updates the DarkAuth session organization, forces a token refresh, and returns the refreshed session. `authorize` mode starts a new authorization-code flow. `hosted` mode redirects to DarkAuth's `/switch-org` page.
 
 #### App-owned switcher
 
@@ -143,7 +143,6 @@ Use this pattern when the app owns the workspace rail, menu, or account switcher
 ```typescript
 import {
   getCurrentUser,
-  handleCallback,
   listOrganizations,
   switchOrganization,
 } from '@DarkAuth/client';
@@ -152,17 +151,14 @@ const organizations = await listOrganizations();
 const activeOrganizationId = getCurrentUser()?.org_id;
 
 async function selectOrganization(organizationId: string) {
-  await switchOrganization(organizationId, {
-    mode: 'authorize',
-    returnTo: window.location.href,
-  });
+  const session = await switchOrganization(organizationId);
+  const selectedOrganizationId = getCurrentUser()?.org_id;
 }
-
-const session = await handleCallback();
-const selectedOrganizationId = getCurrentUser()?.org_id;
 ```
 
-After the callback, verify that `selectedOrganizationId` matches the workspace being loaded. Treat the switch as a tenant or workspace state reset: clear tenant-local caches, selected resources, open realtime subscriptions, in-flight requests, and authorization decisions before loading data for the new `org_id`.
+After the refresh, verify that `selectedOrganizationId` matches the workspace being loaded. Treat the switch as a tenant or workspace state reset: clear tenant-local caches, selected resources, open realtime subscriptions, in-flight requests, and authorization decisions before loading data for the new `org_id`.
+
+Use `mode: 'authorize'` when a deployment should re-enter the redirect-based OAuth flow for every organization switch.
 
 #### Hosted switcher
 

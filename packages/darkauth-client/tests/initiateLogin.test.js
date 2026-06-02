@@ -53,6 +53,15 @@ function createLocation() {
   };
 }
 
+function token(claims = {}) {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${encode({ alg: "none", typ: "JWT" })}.${encode({
+    sub: "user-1",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    ...claims,
+  })}.sig`;
+}
+
 test("initiateLogin adds ZK parameters when zk is true", async () => {
   setupEnvironment();
   const { location, getAssignedUrl } = createLocation();
@@ -95,7 +104,49 @@ test("initiateLogin includes organization_id when organizationId is supplied", a
   assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
 });
 
-test("switchOrganization starts authorize flow by default", async () => {
+test("switchOrganization updates the session organization and refreshes by default", async () => {
+  setupEnvironment();
+  const { location, getAssignedUrl } = createLocation();
+  globalThis.location = location;
+  const idToken = token({ org_id: "8f9778b7-0f1d-46cb-ae32-74f03300f6ff" });
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url: String(url), init });
+    const parsed = new URL(String(url));
+    if (parsed.pathname === "/api/user/session/organization") {
+      assert.equal(init.method, "POST");
+      assert.equal(init.credentials, "include");
+      const body = JSON.parse(init.body);
+      assert.equal(body.organization_id, "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+      assert.equal(body.client_id, "client-id");
+      return { ok: true, json: async () => ({ organizationId: body.organization_id }) };
+    }
+    if (parsed.pathname === "/token") {
+      assert.equal(init.method, "POST");
+      assert.equal(init.credentials, "include");
+      const body = new URLSearchParams(init.body);
+      assert.equal(body.get("grant_type"), "refresh_token");
+      assert.equal(body.get("client_id"), "client-id");
+      return { ok: true, json: async () => ({ id_token: idToken }) };
+    }
+    throw new Error(`Unexpected fetch ${url}`);
+  };
+  setConfig({
+    issuer: "https://issuer.example",
+    clientId: "client-id",
+    redirectUri: "https://app.example/callback",
+    zk: false,
+    discovery: false,
+  });
+
+  const session = await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+
+  assert.equal(session.idToken, idToken);
+  assert.equal(getAssignedUrl(), "");
+  assert.equal(calls.length, 2);
+});
+
+test("switchOrganization can start authorize flow", async () => {
   setupEnvironment();
   const { location, getAssignedUrl } = createLocation();
   globalThis.location = location;
@@ -107,7 +158,7 @@ test("switchOrganization starts authorize flow by default", async () => {
     discovery: false,
   });
 
-  await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+  await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff", { mode: "authorize" });
 
   const url = new URL(getAssignedUrl());
   assert.equal(url.pathname, "/authorize");

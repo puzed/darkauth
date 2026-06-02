@@ -57,7 +57,6 @@ Use this pattern when the app renders its own workspace rail, account menu, or o
 ```typescript
 import {
   getCurrentUser,
-  handleCallback,
   listOrganizations,
   switchOrganization,
 } from "@DarkAuth/client";
@@ -66,17 +65,14 @@ const organizations = await listOrganizations();
 const activeOrganizationId = getCurrentUser()?.org_id;
 
 async function chooseOrganization(organizationId: string) {
-  await switchOrganization(organizationId, {
-    mode: "authorize",
-    returnTo: window.location.href,
-  });
+  const session = await switchOrganization(organizationId);
+  const selectedOrganizationId = getCurrentUser()?.org_id;
 }
-
-await handleCallback();
-const selectedOrganizationId = getCurrentUser()?.org_id;
 ```
 
-App-owned switching uses a normal authorization-code flow with PKCE and state. DarkAuth validates active membership before issuing a code. After the callback, verify the token `org_id` before loading workspace data.
+App-owned switching updates the DarkAuth session organization, forces a token refresh, and returns the refreshed org-scoped session. DarkAuth validates active membership before changing the session. After the refresh, verify the token `org_id` before loading workspace data.
+
+Use `mode: "authorize"` when a deployment should re-enter the redirect-based OAuth flow with PKCE and state for every organization switch.
 
 Treat every organization switch as a tenant or workspace state reset. Clear tenant-local caches, selected records, in-flight requests, realtime subscriptions, and cached authorization decisions before rendering data for the new organization.
 
@@ -105,7 +101,7 @@ Send `organization_id` on `/authorize` when the app already knows the intended o
 - A workspace URL or subdomain maps to a known organization.
 - The app is starting login from an organization-specific invite or deep link.
 
-With the SDK, call `initiateLogin({ organizationId })` or `switchOrganization(organizationId)`. Without the SDK, include `organization_id=<uuid>` in the authorization request. Omit it when DarkAuth should select the user's only active organization or show the hosted selector for multi-organization users.
+With the SDK, call `initiateLogin({ organizationId })` to send `organization_id` on `/authorize`. For an already signed-in first-party browser app, call `switchOrganization(organizationId)` to silently update the session organization and refresh tokens. Without the SDK, include `organization_id=<uuid>` in the authorization request. Omit it when DarkAuth should select the user's only active organization or show the hosted selector for multi-organization users.
 
 ### Selected organization claims
 

@@ -58,7 +58,7 @@ export type InitiateLoginOptions = {
 };
 
 export type SwitchOrganizationOptions = {
-  mode?: "authorize" | "hosted";
+  mode?: "silent" | "authorize" | "hosted";
   returnTo?: string;
 };
 
@@ -804,10 +804,26 @@ export async function getSessionInfo(): Promise<DarkAuthSessionInfo> {
 export async function switchOrganization(
   organizationId: string,
   options: SwitchOrganizationOptions = {}
-): Promise<void> {
-  if ((options.mode || "authorize") === "authorize") {
+): Promise<AuthSession | null> {
+  const mode = options.mode || "silent";
+  if (mode === "silent") {
+    const response = await fetch(rootEndpoint("/api/user/session/organization"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        organization_id: organizationId,
+        return_to: options.returnTo,
+        client_id: cfg.clientId,
+      }),
+      credentials: fetchCredentials(),
+    });
+    if (!response.ok) throw await errorForResponse(response);
+    await response.json().catch(() => null);
+    return await refreshSession({ force: true });
+  }
+  if (mode === "authorize") {
     await initiateLogin({ organizationId, returnTo: options.returnTo });
-    return;
+    return null;
   }
   const switchUrl = new URL(rootEndpoint("/switch-org"));
   switchUrl.searchParams.set("organization_id", organizationId);
@@ -816,6 +832,7 @@ export async function switchOrganization(
     switchUrl.searchParams.set("return_to", options.returnTo);
   }
   location.assign(switchUrl.toString());
+  return null;
 }
 
 export function logout(): void {
