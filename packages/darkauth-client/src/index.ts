@@ -58,7 +58,7 @@ export type InitiateLoginOptions = {
 };
 
 export type SwitchOrganizationOptions = {
-  mode?: "token" | "silent" | "authorize" | "hosted";
+  mode?: "token" | "authorize" | "hosted";
   returnTo?: string;
 };
 
@@ -763,7 +763,12 @@ export async function refreshSession(
 }
 
 export async function listOrganizations(): Promise<DarkAuthOrganization[]> {
+  const accessToken =
+    memorySession?.accessToken ||
+    (tokenStorageMode() === "localStorage" ? getStoredAccessToken() : null);
+  const headers = accessToken ? { authorization: `Bearer ${accessToken}` } : undefined;
   const response = await fetch(rootEndpoint("/api/user/organizations"), {
+    headers,
     credentials: fetchCredentials(),
   });
   if (!response.ok) throw await errorForResponse(response);
@@ -808,7 +813,7 @@ export async function switchOrganization(
   const mode = options.mode || "token";
   if (mode === "token") {
     const current = getStoredSession();
-    const bearerToken = current?.accessToken || current?.idToken;
+    const bearerToken = current?.accessToken;
     if (!current || !bearerToken) {
       await initiateLogin({ organizationId, returnTo: options.returnTo });
       return null;
@@ -844,21 +849,6 @@ export async function switchOrganization(
       keyDeliveryVersion: current.keyDeliveryVersion,
       refreshToken,
     });
-  }
-  if (mode === "silent") {
-    const response = await fetch(rootEndpoint("/api/user/session/organization"), {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        organization_id: organizationId,
-        return_to: options.returnTo,
-        client_id: cfg.clientId,
-      }),
-      credentials: fetchCredentials(),
-    });
-    if (!response.ok) throw await errorForResponse(response);
-    await response.json().catch(() => null);
-    return await refreshSession({ force: true });
   }
   if (mode === "authorize") {
     await initiateLogin({ organizationId, returnTo: options.returnTo });
