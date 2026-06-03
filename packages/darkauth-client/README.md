@@ -118,7 +118,7 @@ If `tokenStorage: 'localStorage'` or `drkStorage: 'localStorage'` is configured 
 
 Refreshes the current session. In default first-party mode, the browser sends the DarkAuth refresh cookie and no JavaScript-readable refresh token is required. For non-ZK sessions, returns `drk` as an empty `Uint8Array`.
 
-Use `{ force: true }` after changing the DarkAuth session organization so the app receives tokens for the newly selected organization even if the current in-memory ID token has not expired.
+Use `{ force: true }` after hosted first-party organization changes so the app receives tokens for the newly selected organization even if the current in-memory ID token has not expired.
 
 ### Organization Switching
 
@@ -126,7 +126,7 @@ DarkAuth treats organization switching as choosing a new authorization context. 
 
 #### `listOrganizations(): Promise<DarkAuthOrganization[]>`
 
-Returns the current user's organizations for app-owned switcher UI. Use `status` to decide which memberships are selectable.
+Returns the current user's organizations for app-owned switcher UI. When the SDK has a current app access token, the request is authorized with `Authorization: Bearer <access_token>` and does not depend on DarkAuth session cookies. Use `status` to decide which memberships are selectable.
 
 #### `getSessionInfo(): Promise<{ authenticated: boolean; sub?: string; email?: string | null; name?: string | null; organizationId?: string; organizationSlug?: string | null }>`
 
@@ -134,7 +134,7 @@ Returns current first-party session and organization context for app chrome befo
 
 #### `switchOrganization(organizationId: string, options?: SwitchOrganizationOptions): Promise<AuthSession | null>`
 
-Switches the selected organization. The default `silent` mode updates the DarkAuth session organization, forces a token refresh, and returns the refreshed session. `authorize` mode starts a new authorization-code flow. `hosted` mode redirects to DarkAuth's `/switch-org` page.
+Switches the selected organization. The default `token` mode exchanges the current app access token for fresh tokens scoped to the selected organization. `authorize` mode starts a new authorization-code flow. `hosted` mode redirects to DarkAuth's `/switch-org` page.
 
 #### App-owned switcher
 
@@ -156,7 +156,7 @@ async function selectOrganization(organizationId: string) {
 }
 ```
 
-After the refresh, verify that `selectedOrganizationId` matches the workspace being loaded. Treat the switch as a tenant or workspace state reset: clear tenant-local caches, selected resources, open realtime subscriptions, in-flight requests, and authorization decisions before loading data for the new `org_id`.
+After the exchange, verify that `selectedOrganizationId` matches the workspace being loaded. Treat the switch as a tenant or workspace state reset: clear tenant-local caches, selected resources, open realtime subscriptions, in-flight requests, and authorization decisions before loading data for the new `org_id`.
 
 Use `mode: 'authorize'` when a deployment should re-enter the redirect-based OAuth flow for every organization switch.
 

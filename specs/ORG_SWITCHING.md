@@ -4,9 +4,16 @@
 
 DarkAuth already supports organization-scoped login. The hosted authorize UI can ask a multi-org user which organization to use, `/authorize` accepts an `organization_id` hint, `/switch-org` lets a signed-in user change their DarkAuth session organization, and `/token` mints ID/access tokens with the selected `org_id`, `org_slug`, roles, and permissions.
 
-The remaining gap is product and SDK shape. A relying-party app such as Atlas wants a Slack-like organization rail inside its own UI: list my organizations, click one, receive a fresh token for that organization, clear app tenant state, and continue without forcing a logout/login loop. DarkAuth should make that flow feel like a normal identity-provider feature, comparable to organization switching in Auth0, Clerk, Frontegg, WorkOS, or similar providers.
+The key integration requirement is product and SDK shape. A relying-party app such as Atlas wants a Slack-like organization rail inside its own UI: list my organizations, click one, receive a fresh token for that organization, clear app tenant state, and continue without forcing a logout/login loop. DarkAuth should make that flow feel like a normal identity-provider feature, comparable to organization switching in Auth0, Clerk, Frontegg, WorkOS, or similar providers.
 
 This spec defines the DarkAuth API, SDK, and documentation work needed to support that pattern in an industry-standard way.
+
+## Research Notes
+
+- OAuth 2.0 Token Exchange, RFC 8693, defines the exact authorization-server pattern of presenting a current `subject_token` and receiving a new token with a different authorization context. DarkAuth's app-owned organization switch endpoint is a product-specific variant of that pattern.
+- OAuth 2.0 Security Best Current Practice, RFC 9700, allows CORS on browser-accessed token endpoints, but refresh tokens must be issued only after client risk assessment and must use replay detection such as rotation or sender constraint for public clients.
+- Browser-based OAuth guidance treats direct browser token handling as higher risk than server-mediated auth, so DarkAuth must keep access tokens short-lived, avoid broadening scope on exchange, and avoid relying on cross-site identity-provider cookies for app-owned switchers.
+- Auth0, Clerk, and WorkOS all model the active organization as token/session authorization context, not just UI state. Auth0 documents validating `org_id` in tokens and segmenting API data by it; Clerk includes active-organization claims in session tokens; WorkOS added organization switching by allowing refresh-token authentication to request an organization ID.
 
 ## Current State
 
@@ -15,7 +22,7 @@ DarkAuth has the important backend primitives:
 - `GET /authorize` accepts optional `organization_id`.
 - `POST /authorize/finalize` binds the selected org to the authorization code and session.
 - `POST /token` issues org-scoped ID/access tokens for authorization-code and refresh-token grants.
-- `GET /api/user/organizations` lists active organizations for the current user session.
+- `GET /api/user/organizations` lists active organizations for the current user session or a current app access token.
 - `GET /api/user/session` returns current session organization context.
 - `POST /api/user/session/organization` validates membership and updates `sessions.data.organizationId`.
 - `/switch-org` is a hosted first-party UI that calls the session organization endpoint and validates `return_to`.
@@ -55,7 +62,7 @@ DarkAuth should treat organization switching as selecting a new authorization co
 
 Recommended app-owned flow:
 
-1. App asks DarkAuth for active organizations.
+1. App asks DarkAuth for active organizations using its current app access token.
 2. User selects an organization inside the app.
 3. App calls `switchOrganization(<selected org>)`.
 4. The SDK presents the current app-issued DarkAuth access token to `POST /api/token/organization`.
@@ -64,7 +71,7 @@ Recommended app-owned flow:
 7. DarkAuth returns fresh org-scoped ID/access tokens for the same client.
 8. App stores the new session, clears tenant-local state, and loads data for the selected org.
 
-This avoids repeat consent screens for already-authorized apps without relying on cross-origin mutation of the DarkAuth browser session.
+This avoids repeat consent screens for already-authorized apps without relying on cross-origin mutation of the DarkAuth browser session or browser delivery of DarkAuth's first-party cookies.
 
 Hosted fallback flow:
 
@@ -101,6 +108,7 @@ Keep:
 
 ```text
 GET /api/user/organizations
+Authorization: Bearer <current app access token>
 ```
 
 Response should be stable and SDK-friendly:
@@ -123,9 +131,14 @@ Response should be stable and SDK-friendly:
 
 Rules:
 
-- Return only organizations where the current user has membership.
+- When an `Authorization` header is present, require a valid DarkAuth app access token.
+- Reject ID tokens and client-credentials access tokens.
+- Validate the token issuer, signature, expiry, and issuing client.
+- When no bearer token is present, fall back to the first-party DarkAuth session cookie for hosted DarkAuth UI compatibility.
+- Return only organizations where the current user has active membership.
 - SDK helpers should filter to active organizations by default.
 - Do not leak organizations where the user is not a member.
+- Do not require a DarkAuth session cookie when a valid bearer access token is provided.
 
 ### Session Organization
 
@@ -175,11 +188,13 @@ Request:
 
 Rules:
 
-- Require a valid DarkAuth JWT issued to `client_id`.
+- Require a valid DarkAuth access token issued to `client_id`.
+- Reject ID tokens because they are authentication evidence for the client, not API authorization.
 - Reject client-credentials tokens because they are not user authorization.
 - Validate active membership in `organization_id`.
 - Mint new ID/access tokens for the same client with only the selected organization's claims.
-- Issue a new refresh session for clients that support refresh tokens so future refreshes stay in the switched organization.
+- Issue a new refresh token response for clients that support refresh tokens so future token refreshes stay in the switched organization.
+- Do not set first-party DarkAuth session or refresh cookies from this endpoint.
 - Allow CORS only for registered public SPA origins.
 - Do not require first-party DarkAuth cookies or CSRF tokens; the bearer app token is the authority.
 
@@ -204,7 +219,7 @@ export type InitiateLoginOptions = {
 };
 
 export type SwitchOrganizationOptions = {
-  mode?: "silent" | "authorize" | "hosted";
+  mode?: "token" | "authorize" | "hosted";
   returnTo?: string;
 };
 ```
@@ -230,9 +245,10 @@ export async function listOrganizations(): Promise<DarkAuthOrganization[]>
 Behavior:
 
 - Fetch from `GET /api/user/organizations`.
-- Use `credentials: include`.
-- Return active and inactive memberships as the API returns them, or add `listActiveOrganizations()` if the SDK should filter.
-- Throw a typed auth/session error on 401.
+- If a stored app access token is available, send it as `Authorization: Bearer <access_token>`.
+- If no app access token exists yet, use the first-party session-cookie fallback.
+- Return active memberships.
+- Throw a typed auth/token error on 401.
 
 ### `getSessionInfo()`
 
@@ -274,12 +290,6 @@ Authorize behavior:
 - This produces a normal authorization-code flow and fresh org-scoped token.
 - The app handles the callback with existing `handleCallback()`.
 - DarkAuth may auto-finalize the request without showing consent when the browser session was already issued for the same client and covers the requested scopes.
-
-Silent behavior:
-
-- `mode: "silent"` may call `POST /api/user/session/organization` and force `refreshSession({ force: true })`.
-- Use this only in trusted first-party contexts where DarkAuth's same-origin/CSRF requirements can be satisfied.
-- Public cross-origin SPAs should use the default authorize behavior.
 
 Hosted behavior:
 
@@ -344,10 +354,15 @@ For login:
 
 - Never trust an org selected in app UI without server-side validation.
 - Never mint tokens for an org where the user lacks active membership.
+- Never use an ID token as authority for token exchange or organization listing.
 - Keep authorization-code flow protected by PKCE and state.
 - Validate redirect URI and `return_to` exactly as today.
 - Do not expose session organization mutation as an unprotected cross-origin API.
 - Token organization switching must require a current app-issued bearer token for the same client.
+- Token organization switching must not set first-party DarkAuth cookies as a side effect.
+- Do not broaden scope or permissions during organization exchange.
+- Keep exchanged access tokens short-lived.
+- If refresh tokens are issued to public browser clients, use refresh-token rotation or another replay detection strategy.
 - Do not show repeat consent when the user has already approved the same client and scope set unless the client explicitly requires it.
 - Do not include roles or permissions from non-selected orgs.
 - Audit org switching through hosted session changes and authorize-time changes.
@@ -355,9 +370,9 @@ For login:
 
 ## Acceptance Criteria
 
-- An app can list the signed-in user's organizations through `@darkauth/client`.
+- An app can list the signed-in user's organizations through `@darkauth/client` using the current app access token, without DarkAuth session cookies.
 - An app can start login for a specific organization through `@darkauth/client`.
-- An app can switch organizations through `@darkauth/client` and receive a fresh token with the selected `org_id` without a repeat authorize/consent screen when the existing session already covers the same client and scopes.
+- An app can switch organizations through `@darkauth/client` and receive a fresh token with the selected `org_id` without a repeat authorize/consent screen when the current access token is still valid and the user is an active member of the target org.
 - The existing hosted `/switch-org` flow remains available and documented.
 - Refreshing after a hosted switch returns tokens for the new session organization.
 - Tokens contain roles and permissions only for the selected organization.
@@ -371,6 +386,8 @@ For login:
 - [x] Confirm `/token` refresh grant returns the current session organization after `/api/user/session/organization`.
 - [x] Keep `POST /api/user/session/organization` same-origin and CSRF protected.
 - [x] Add bearer-token `POST /api/token/organization` for already-authorized app-owned org switching.
+- [x] Ensure `POST /api/token/organization` requires an access token and does not set first-party DarkAuth cookies.
+- [x] Allow `GET /api/user/organizations` to use a bearer app access token instead of requiring the DarkAuth session cookie.
 - [x] Ensure `GET /api/user/organizations` includes role summaries needed by app switcher UIs.
 - [x] Add or confirm `ORG_CONTEXT_REQUIRED` docs for refresh-token and authorize edge cases.
 - [x] Add OpenAPI docs for organization list, session info, and session organization endpoints.
