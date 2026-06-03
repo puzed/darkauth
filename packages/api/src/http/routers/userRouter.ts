@@ -225,9 +225,7 @@ export function createUserRouter(context: Context) {
         ].includes(pathname);
       const isOAuthPost =
         method === "POST" &&
-        ["/token", "/token/organization", "/userinfo", "/introspect", "/revoke"].includes(
-          pathname
-        );
+        ["/token", "/token/organization", "/userinfo", "/introspect", "/revoke"].includes(pathname);
       const isScimRequest = pathname.startsWith("/scim/v2/");
       const needsCsrf =
         !["GET", "HEAD", "OPTIONS"].includes(method) &&

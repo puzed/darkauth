@@ -1,6 +1,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
+import { ForbiddenError, UnauthorizedClientError, UnauthorizedError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { getClient } from "../../models/clients.ts";
 import {
   assignMemberRoles,
   createOrganization,
@@ -14,6 +16,7 @@ import {
   removeOrganizationMember,
   requireOrganizationMembership,
 } from "../../models/organizations.ts";
+import { verifyJWT } from "../../services/jwks.ts";
 import { requireSession } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
 import { withAudit } from "../../utils/auditWrapper.ts";
@@ -58,13 +61,55 @@ const AssignableRoleSchema = z.object({
   description: z.string().nullable().optional(),
 });
 
+function getBearerToken(request: IncomingMessage): string | null {
+  const auth = request.headers.authorization;
+  if (typeof auth !== "string") return null;
+  const [scheme, token] = auth.split(" ");
+  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
+    throw new UnauthorizedError("Bearer token required");
+  }
+  return token;
+}
+
+function resolveTokenClientId(payload: import("jose").JWTPayload): string {
+  if (typeof payload.azp === "string" && payload.azp.length > 0) return payload.azp;
+  if (typeof payload.aud === "string" && payload.aud.length > 0) return payload.aud;
+  if (Array.isArray(payload.aud)) {
+    const clientId = payload.aud.find((audience) => typeof audience === "string");
+    if (typeof clientId === "string" && clientId.length > 0) return clientId;
+  }
+  throw new ForbiddenError("Token was not issued to a known client");
+}
+
+async function getOrganizationsUserSub(context: Context, request: IncomingMessage) {
+  const token = getBearerToken(request);
+  if (!token) {
+    const session = await requireSession(context, request, false);
+    return session.sub as string;
+  }
+  let payload: import("jose").JWTPayload;
+  try {
+    payload = await verifyJWT(context, token);
+  } catch {
+    throw new UnauthorizedError("Invalid bearer token");
+  }
+  if (payload.token_use !== "access") throw new ForbiddenError("Access token required");
+  if (payload.grant_type === "client_credentials") throw new ForbiddenError("User token required");
+  if (typeof payload.sub !== "string" || payload.sub.length === 0) {
+    throw new UnauthorizedError("User token required");
+  }
+  const client = await getClient(context, resolveTokenClientId(payload));
+  if (!client) throw new UnauthorizedClientError("Unknown client");
+  return payload.sub;
+}
+
 export async function getOrganizations(
   context: Context,
   request: IncomingMessage,
   response: ServerResponse
 ) {
-  const session = await requireSession(context, request, false);
-  const organizations = await listOrganizationsForUser(context, session.sub as string);
+  const userSub = await getOrganizationsUserSub(context, request);
+  const organizations = await listOrganizationsForUser(context, userSub);
   sendJson(response, 200, { organizations });
 }
 
@@ -277,7 +322,7 @@ export const organizationsSchema = {
   tags: ["Organizations"],
   summary: "List organizations",
   description:
-    "Lists the current user's active organization memberships with role summaries for app switcher UIs.",
+    "Lists the current user's active organization memberships with role summaries for app switcher UIs. Accepts either a first-party session cookie or a current app access token in the Authorization header.",
   responses: {
     200: {
       description: "OK",
