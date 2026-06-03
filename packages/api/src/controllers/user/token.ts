@@ -191,6 +191,9 @@ function tokenAudienceMatches(audience: unknown, clientId: string): boolean {
 }
 
 function assertTokenIssuedToClient(payload: import("jose").JWTPayload, clientId: string): void {
+  if (payload.token_use !== "access") {
+    throw new ForbiddenError("Access token required");
+  }
   if (typeof payload.azp === "string" && payload.azp !== clientId) {
     throw new ForbiddenError("Token was not issued to this client");
   }
@@ -314,9 +317,7 @@ export const postTokenOrganization = withRateLimit("token")(
       const user = await getUserBySub(context, payload.sub);
       if (!user) throw new InvalidGrantError("User not found");
 
-      const { getUserOrgAccess, resolveOrganizationContext } = await import(
-        "../../models/rbac.ts"
-      );
+      const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
         user.sub,
@@ -410,10 +411,6 @@ export const postTokenOrganization = withRateLimit("token")(
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;
-        const ttlSeconds = await getSessionTtlSeconds(context, "user");
-        const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");
-        issueSessionCookies(response, s.sessionId, ttlSeconds, false);
-        issueRefreshTokenCookie(response, s.refreshToken, refreshTtlSeconds, false);
       }
 
       sendJson(response, 200, tokenResponse);

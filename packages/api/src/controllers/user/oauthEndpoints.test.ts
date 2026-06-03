@@ -7,7 +7,7 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createPglite } from "../../db/pglite.ts";
 import { authCodes, clients, organizationMembers, organizations, users } from "../../db/schema.ts";
-import { InvalidGrantError, UnauthorizedClientError } from "../../errors.ts";
+import { ForbiddenError, InvalidGrantError, UnauthorizedClientError } from "../../errors.ts";
 import { generateEdDSAKeyPair, signJWT, storeKeyPair, verifyJWT } from "../../services/jwks.ts";
 import {
   createSession,
@@ -17,6 +17,7 @@ import {
 import type { Context } from "../../types.ts";
 import { sha256Base64Url } from "../../utils/crypto.ts";
 import { postIntrospect } from "./introspect.ts";
+import { getOrganizations } from "./organizations.ts";
 import { postRevoke } from "./revoke.ts";
 import { postToken, postTokenOrganization } from "./token.ts";
 import { handleUserinfo } from "./userinfo.ts";
@@ -498,13 +499,16 @@ test("token organization switch mints target-org tokens from current app token",
     await postTokenOrganization(context, request, response);
 
     const json = response.json as Record<string, unknown>;
-    const idTokenClaims = await verifyJWT(context, json.id_token as string, "public-refresh-client");
+    const idTokenClaims = await verifyJWT(
+      context,
+      json.id_token as string,
+      "public-refresh-client"
+    );
     const accessTokenClaims = await verifyJWT(
       context,
       json.access_token as string,
       "public-refresh-client"
     );
-    const setCookie = response.getHeader("set-cookie");
     assert.equal(response.statusCode, 200);
     assert.equal(json.token_type, "Bearer");
     assert.equal(json.scope, "openid profile");
@@ -512,8 +516,81 @@ test("token organization switch mints target-org tokens from current app token",
     assert.equal(idTokenClaims.org_id, targetOrganization.id);
     assert.equal(idTokenClaims.org_slug, "second-org");
     assert.equal(accessTokenClaims.org_id, targetOrganization.id);
-    assert.ok(Array.isArray(setCookie));
-    assert.ok(setCookie.some((value) => value.includes(USER_REFRESH_COOKIE_NAME)));
+    assert.equal(response.getHeader("set-cookie"), undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("token organization switch rejects ID tokens", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    const targetOrganization = await createUserOrganization(context);
+    await createPublicRefreshClient(context);
+    const idToken = await signJWT(
+      context,
+      {
+        iss: context.config.issuer,
+        sub: "user-sub",
+        aud: "public-refresh-client",
+      },
+      "5m"
+    );
+    const request = createRequest({
+      method: "POST",
+      url: "/token/organization",
+      authorization: `Bearer ${idToken}`,
+      body: JSON.stringify({
+        organization_id: targetOrganization.id,
+        client_id: "public-refresh-client",
+      }),
+    });
+
+    await assert.rejects(
+      () => postTokenOrganization(context, request, createResponse()),
+      (error) => error instanceof ForbiddenError && error.message === "Access token required"
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("organizations list accepts current app access token without session cookie", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createUserOrganization(context);
+    await createPublicRefreshClient(context);
+    const accessToken = await signJWT(
+      context,
+      {
+        iss: context.config.issuer,
+        sub: "user-sub",
+        aud: "public-refresh-client",
+        azp: "public-refresh-client",
+        scope: "openid profile",
+        token_use: "access",
+        grant_type: "authorization_code",
+      },
+      "5m"
+    );
+    const request = createRequest({
+      method: "GET",
+      url: "/organizations",
+      authorization: `Bearer ${accessToken}`,
+    });
+    const response = createResponse();
+
+    await getOrganizations(context, request, response);
+
+    const json = response.json as {
+      organizations: Array<{ organizationId: string; slug: string; status: string }>;
+    };
+    assert.equal(response.statusCode, 200);
+    assert.equal(json.organizations.length, 1);
+    assert.equal(json.organizations[0]?.slug, "test-org");
+    assert.equal(json.organizations[0]?.status, "active");
   } finally {
     await cleanup();
   }

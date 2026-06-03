@@ -39,9 +39,12 @@ function setupEnvironment() {
 
 test("listOrganizations fetches user organizations with roles", async () => {
   setupEnvironment();
+  setConfig({ tokenStorage: "localStorage" });
+  globalThis.localStorage.setItem("access_token", "current-access-token");
   globalThis.fetch = async (url, init) => {
     assert.equal(url, "https://issuer.example/api/user/organizations");
     assert.equal(init.credentials, "include");
+    assert.equal(init.headers.authorization, "Bearer current-access-token");
     return {
       ok: true,
       json: async () => ({
@@ -69,6 +72,23 @@ test("listOrganizations fetches user organizations with roles", async () => {
       roles: [{ id: "6fcf00cb-a111-4ee2-ae62-676571e73a4d", key: "admin", name: "Admin" }],
     },
   ]);
+});
+
+test("listOrganizations falls back to session cookies before app tokens exist", async () => {
+  setupEnvironment();
+  globalThis.fetch = async (url, init) => {
+    assert.equal(url, "https://issuer.example/api/user/organizations");
+    assert.equal(init.credentials, "include");
+    assert.equal(init.headers, undefined);
+    return {
+      ok: true,
+      json: async () => ({ organizations: [] }),
+    };
+  };
+
+  const organizations = await listOrganizations();
+
+  assert.deepEqual(organizations, []);
 });
 
 test("listOrganizations throws typed unauthenticated error on 401", async () => {

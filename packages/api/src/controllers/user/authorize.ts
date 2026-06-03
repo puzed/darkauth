@@ -19,7 +19,12 @@ import { resolveGrantedScopes } from "./token.ts";
 
 function parseScopeSet(scope: unknown): Set<string> {
   if (typeof scope !== "string") return new Set();
-  return new Set(scope.split(/\s+/).map((item) => item.trim()).filter(Boolean));
+  return new Set(
+    scope
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
 }
 
 function sessionCoversAuthorization(
