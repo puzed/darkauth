@@ -91,7 +91,7 @@ import {
 import { postRevoke } from "../../controllers/user/revoke.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
-import { postToken } from "../../controllers/user/token.ts";
+import { postToken, postTokenOrganization } from "../../controllers/user/token.ts";
 import {
   getDeviceApprovalRequests,
   getTrustedDevices,
@@ -224,7 +224,10 @@ export function createUserRouter(context: Context) {
           "/webauthn/login/finish",
         ].includes(pathname);
       const isOAuthPost =
-        method === "POST" && ["/token", "/userinfo", "/introspect", "/revoke"].includes(pathname);
+        method === "POST" &&
+        ["/token", "/token/organization", "/userinfo", "/introspect", "/revoke"].includes(
+          pathname
+        );
       const isScimRequest = pathname.startsWith("/scim/v2/");
       const needsCsrf =
         !["GET", "HEAD", "OPTIONS"].includes(method) &&
@@ -545,6 +548,10 @@ export function createUserRouter(context: Context) {
 
       if (method === "POST" && pathname === "/token") {
         return await postToken(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/token/organization") {
+        return await postTokenOrganization(context, request, response);
       }
 
       if ((method === "GET" || method === "POST") && pathname === "/userinfo") {

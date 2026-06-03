@@ -53,6 +53,14 @@ function createLocation() {
   };
 }
 
+function base64UrlEncodeJson(value) {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+function createJwt(payload) {
+  return `${base64UrlEncodeJson({ alg: "none", typ: "JWT" })}.${base64UrlEncodeJson(payload)}.sig`;
+}
+
 test("initiateLogin adds ZK parameters when zk is true", async () => {
   setupEnvironment();
   const { location, getAssignedUrl } = createLocation();
@@ -95,24 +103,78 @@ test("initiateLogin includes organization_id when organizationId is supplied", a
   assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
 });
 
-test("switchOrganization starts authorize flow by default", async () => {
+test("switchOrganization exchanges current app token by default", async () => {
   setupEnvironment();
   const { location, getAssignedUrl } = createLocation();
   globalThis.location = location;
+  const currentAccessToken = createJwt({
+    sub: "user-sub",
+    aud: "client-id",
+    azp: "client-id",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    scope: "openid profile",
+    token_use: "access",
+  });
+  const currentIdToken = createJwt({
+    sub: "user-sub",
+    aud: "client-id",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  });
+  const switchedIdToken = createJwt({
+    sub: "user-sub",
+    aud: "client-id",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    org_id: "8f9778b7-0f1d-46cb-ae32-74f03300f6ff",
+  });
+  const switchedAccessToken = createJwt({
+    sub: "user-sub",
+    aud: "client-id",
+    azp: "client-id",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+    org_id: "8f9778b7-0f1d-46cb-ae32-74f03300f6ff",
+    scope: "openid profile",
+    token_use: "access",
+  });
+  globalThis.localStorage.setItem("id_token", currentIdToken);
+  globalThis.localStorage.setItem("access_token", currentAccessToken);
+  globalThis.fetch = async (url, options) => {
+    assert.equal(url, "https://issuer.example/api/token/organization");
+    assert.equal(options.method, "POST");
+    assert.equal(options.headers.authorization, `Bearer ${currentAccessToken}`);
+    assert.deepEqual(JSON.parse(options.body), {
+      organization_id: "8f9778b7-0f1d-46cb-ae32-74f03300f6ff",
+      client_id: "client-id",
+    });
+    return {
+      ok: true,
+      json: async () => ({
+        token_type: "Bearer",
+        expires_in: 600,
+        id_token: switchedIdToken,
+        access_token: switchedAccessToken,
+        refresh_token: "new-refresh-token",
+      }),
+    };
+  };
   setConfig({
     issuer: "https://issuer.example",
     clientId: "client-id",
     redirectUri: "https://app.example/callback",
     zk: false,
     discovery: false,
+    tokenStorage: "localStorage",
+    refreshMode: "token",
   });
 
-  await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
+  const session = await switchOrganization("8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
 
-  const url = new URL(getAssignedUrl());
-  assert.equal(url.pathname, "/authorize");
-  assert.equal(url.searchParams.get("organization_id"), "8f9778b7-0f1d-46cb-ae32-74f03300f6ff");
-  assert.equal(url.searchParams.get("client_id"), "client-id");
+  assert.equal(getAssignedUrl(), "");
+  assert.equal(session.idToken, switchedIdToken);
+  assert.equal(session.accessToken, switchedAccessToken);
+  assert.equal(session.refreshToken, "new-refresh-token");
+  assert.equal(globalThis.localStorage.getItem("id_token"), switchedIdToken);
+  assert.equal(globalThis.localStorage.getItem("access_token"), switchedAccessToken);
+  assert.equal(globalThis.localStorage.getItem("refresh_token"), "new-refresh-token");
 });
 
 test("switchOrganization can start authorize flow", async () => {

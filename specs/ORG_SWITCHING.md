@@ -58,14 +58,13 @@ Recommended app-owned flow:
 1. App asks DarkAuth for active organizations.
 2. User selects an organization inside the app.
 3. App calls `switchOrganization(<selected org>)`.
-4. The SDK starts a new authorization request with `organization_id=<selected org>`.
-5. DarkAuth validates the user's active membership.
-6. DarkAuth skips repeat consent when the current browser session was already issued for the same client and covers the requested scopes.
-7. DarkAuth returns an authorization code to the registered app callback.
-8. App handles the callback and receives a new org-scoped session/token.
-9. App clears tenant-local state and loads data for the selected org.
+4. The SDK presents the current app-issued DarkAuth access token to `POST /api/token/organization`.
+5. DarkAuth verifies the token was issued to the same client.
+6. DarkAuth validates the user's active membership in the requested organization.
+7. DarkAuth returns fresh org-scoped ID/access tokens for the same client.
+8. App stores the new session, clears tenant-local state, and loads data for the selected org.
 
-This stays inside OAuth redirect, PKCE, state, redirect URI, and token issuance rules while avoiding the repeated approval screen for already-authorized sessions.
+This avoids repeat consent screens for already-authorized apps without relying on cross-origin mutation of the DarkAuth browser session.
 
 Hosted fallback flow:
 
@@ -155,17 +154,34 @@ Rules:
 - If the session org is missing and the user has multiple active orgs, return `ORG_CONTEXT_REQUIRED`.
 - Do not accept arbitrary `organization_id` on refresh-token grant unless DarkAuth intentionally implements an extension with clear security rules.
 
-### Optional Future Extension
+### Token Organization Switch
 
-If DarkAuth later wants a non-redirect token switch, use a formal extension instead of an ad hoc parameter:
+Add:
 
-- OAuth 2.0 Token Exchange style endpoint or grant.
-- Request includes subject token/session context and requested organization.
-- Server validates active membership and client authorization.
-- Response returns fresh org-scoped tokens.
-- Public browser clients still need PKCE/session protections and should prefer redirect-based authorization unless the extension is carefully designed.
+```text
+POST /api/token/organization
+Authorization: Bearer <current app access token>
+Content-Type: application/json
+```
 
-This is a future optimization, not required for Atlas.
+Request:
+
+```json
+{
+  "organization_id": "uuid",
+  "client_id": "atlas"
+}
+```
+
+Rules:
+
+- Require a valid DarkAuth JWT issued to `client_id`.
+- Reject client-credentials tokens because they are not user authorization.
+- Validate active membership in `organization_id`.
+- Mint new ID/access tokens for the same client with only the selected organization's claims.
+- Issue a new refresh session for clients that support refresh tokens so future refreshes stay in the switched organization.
+- Allow CORS only for registered public SPA origins.
+- Do not require first-party DarkAuth cookies or CSRF tokens; the bearer app token is the authority.
 
 ## SDK Contract
 
@@ -246,9 +262,15 @@ export async function switchOrganization(
 ): Promise<AuthSession | null>
 ```
 
-Default behavior should be `mode: "authorize"`:
+Default behavior should be `mode: "token"`:
 
-- Call `initiateLogin({ organizationId, returnTo })`.
+- Call `POST /api/token/organization` using the current stored app access token.
+- Store and return the fresh org-scoped session.
+- Fall back to `initiateLogin({ organizationId, returnTo })` only when there is no current app token.
+
+Authorize behavior:
+
+- `mode: "authorize"` calls `initiateLogin({ organizationId, returnTo })`.
 - This produces a normal authorization-code flow and fresh org-scoped token.
 - The app handles the callback with existing `handleCallback()`.
 - DarkAuth may auto-finalize the request without showing consent when the browser session was already issued for the same client and covers the requested scopes.
@@ -305,7 +327,7 @@ For app-owned Slack-style switching:
 - App shows organization rail using `listOrganizations()`.
 - Active item is derived from current token `org_id`.
 - Clicking another org calls `switchOrganization(orgId)`.
-- App handles callback, validates new `org_id`, clears tenant-local state, and reloads.
+- App validates new `org_id`, clears tenant-local state, and reloads.
 
 For hosted switching:
 
@@ -325,6 +347,7 @@ For login:
 - Keep authorization-code flow protected by PKCE and state.
 - Validate redirect URI and `return_to` exactly as today.
 - Do not expose session organization mutation as an unprotected cross-origin API.
+- Token organization switching must require a current app-issued bearer token for the same client.
 - Do not show repeat consent when the user has already approved the same client and scope set unless the client explicitly requires it.
 - Do not include roles or permissions from non-selected orgs.
 - Audit org switching through hosted session changes and authorize-time changes.
@@ -347,6 +370,7 @@ For login:
 - [x] Confirm `GET /authorize?organization_id=...` works for public clients with PKCE and current tests cover the Atlas client shape.
 - [x] Confirm `/token` refresh grant returns the current session organization after `/api/user/session/organization`.
 - [x] Keep `POST /api/user/session/organization` same-origin and CSRF protected.
+- [x] Add bearer-token `POST /api/token/organization` for already-authorized app-owned org switching.
 - [x] Ensure `GET /api/user/organizations` includes role summaries needed by app switcher UIs.
 - [x] Add or confirm `ORG_CONTEXT_REQUIRED` docs for refresh-token and authorize edge cases.
 - [x] Add OpenAPI docs for organization list, session info, and session organization endpoints.
@@ -359,7 +383,7 @@ For login:
 - [x] Add `listOrganizations()`.
 - [x] Add `getSessionInfo()`.
 - [x] Add `switchOrganization(organizationId, options?)`.
-- [x] Default `switchOrganization(organizationId)` to authorize-code org switching.
+- [x] Default `switchOrganization(organizationId)` to bearer-token org switching.
 - [x] Add `refreshSession({ force })`.
 - [x] Add typed errors for unauthenticated session, invalid org, and org context required.
 - [x] Update SDK README examples for app-owned and hosted org switching.
@@ -376,7 +400,9 @@ For login:
 
 - [x] SDK test for `initiateLogin({ organizationId })` authorization URL.
 - [x] SDK test for `listOrganizations()`.
-- [x] SDK test for `switchOrganization()` default authorize mode.
+- [x] SDK test for `switchOrganization()` explicit authorize mode.
+- [x] SDK test for `switchOrganization()` default token mode.
+- [x] API test for bearer-token organization switch minting target-org tokens.
 - [x] SDK test for hosted switch URL generation.
 - [x] SDK test for `refreshSession({ force: true })`.
 - [x] API test that hosted session switch plus refresh mints token for new org.
