@@ -312,7 +312,7 @@ All endpoints in this section are served on port `9080` (user). Admin UI/API run
 ### 7.1 Discovery
 
 * **GET `/.well-known/openid-configuration`**
-  Returns JSON with: `issuer`, `authorization_endpoint`, `token_endpoint`, `userinfo_endpoint`, `introspection_endpoint`, `revocation_endpoint`, `jwks_uri`, `scopes_supported`, `response_types_supported`, `grant_types_supported`, `code_challenge_methods_supported`.
+  Returns JSON with: `issuer`, `authorization_endpoint`, `token_endpoint`, `userinfo_endpoint`, `introspection_endpoint`, `revocation_endpoint`, `end_session_endpoint`, `jwks_uri`, `scopes_supported`, `response_types_supported`, `grant_types_supported`, `code_challenge_methods_supported`.
 
 * **GET `/.well-known/jwks.json`**
   `{ "keys": [ {kty, crv/kid/x/y/..., alg, use} ] }`
@@ -415,7 +415,13 @@ Endpoints for publishing a user’s public encryption key and storing their wrap
 ### 7.5 Session + Logout (optional)
 
 * **GET `/session`** → minimal info for Auth UI.
-* **POST `/logout`** → revokes current session.
+
+* **GET `/logout`** (`end_session_endpoint`, advertised as `<publicOrigin>/api/logout`) → OIDC RP-Initiated Logout. RPs redirect the browser here.
+  **Query**: `id_token_hint` (recommended), `post_logout_redirect_uri` (optional), `client_id` (optional), `state` (optional).
+  **Behavior**: `id_token_hint` is a previously-issued ID Token; its signature and issuer are verified and expired tokens are accepted (per the RP-Initiated Logout spec), and its `aud` identifies the client. `client_id` resolves the client when no `id_token_hint` is present; if both are present, `client_id` MUST equal `id_token_hint.aud`. `post_logout_redirect_uri` must exactly match an entry in the resolved client's per-client allowlist (`post_logout_redirect_uris`) and requires a resolvable client. With a valid `id_token_hint`, DarkAuth ends the current SSO session (deletes the session, clears cookies) and 302-redirects to the allowlisted `post_logout_redirect_uri` (echoing `state`), or to a signed-out page if none. Without a valid `id_token_hint`, an active session shows a confirmation page before logging out and redirecting, while no active session redirects straight to the validated target. An invalid `post_logout_redirect_uri`, unknown client, or `client_id`≠`aud` returns `400`.
+
+* **POST `/logout`** → first-party logout used by the user portal and the confirmation page. Requires a session and CSRF, always clears the session, and returns JSON: `{ logged_out: true, redirect_uri }` when a valid allowlisted `post_logout_redirect_uri` was supplied, else `{ message, logged_out: true }`.
+
 * **POST `/token`** with `grant_type=refresh_token` rotates refresh tokens atomically, enforces `client_id` binding, and rejects replay after first successful use.
 
 ### 7.6 User Directory
