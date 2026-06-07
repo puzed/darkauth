@@ -1,6 +1,8 @@
 import { eq } from "drizzle-orm";
 import {
   type CryptoKey,
+  compactVerify,
+  decodeJwt,
   exportJWK,
   generateKeyPair,
   importJWK,
@@ -163,6 +165,40 @@ export async function verifyJWT(
   }
 
   throw new Error("Invalid JWT signature");
+}
+
+export async function verifyIdTokenHint(
+  context: Context,
+  token: string
+): Promise<JWTPayload | null> {
+  const publicKeys = await getPublicKeys(context);
+  let verified = false;
+  for (const jwk of publicKeys) {
+    try {
+      const publicKey = await importJWK(jwk, "EdDSA");
+      await compactVerify(token, publicKey, { algorithms: ["EdDSA"] });
+      verified = true;
+      break;
+    } catch {
+      // Continue to next key
+    }
+  }
+  if (!verified) return null;
+
+  const issuerSetting = await getSetting(context, "issuer");
+  const issuer =
+    typeof issuerSetting === "string" && issuerSetting.length > 0
+      ? issuerSetting
+      : context.config.issuer;
+
+  let claims: JWTPayload;
+  try {
+    claims = decodeJwt(token);
+  } catch {
+    return null;
+  }
+  if (claims.iss !== issuer) return null;
+  return claims;
 }
 
 export async function rotateKeys(context: Context): Promise<{ kid: string }> {
