@@ -804,6 +804,14 @@ class ApiService {
     this.clearLegacyTokens();
   }
 
+  async endSession(params: {
+    post_logout_redirect_uri?: string;
+    client_id?: string;
+    state?: string;
+  }): Promise<{ logged_out: boolean; redirect_uri?: string }> {
+    return this.request("/logout", { method: "POST", body: JSON.stringify(params) });
+  }
+
   async getOtpStatus(): Promise<OtpStatusResponse> {
     return this.request("/otp/status");
   }
