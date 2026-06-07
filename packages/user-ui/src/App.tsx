@@ -13,6 +13,7 @@ import Dashboard from "./components/Dashboard";
 import EmailResetPasswordView from "./components/EmailResetPasswordView";
 import ForgotPasswordView from "./components/ForgotPasswordView";
 import LoginView from "./components/LoginView";
+import LogoutView from "./components/LogoutView";
 import OrganizationDetail from "./components/OrganizationDetail";
 import OtpSetupView from "./components/OtpSetupView";
 import OtpVerifyView from "./components/OtpVerifyView";
@@ -745,6 +746,7 @@ function AppContent() {
           }
         />
         <Route path="/change-password" element={<Navigate to="/security/password" replace />} />
+        <Route path="/logout" element={<LogoutView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </UserPortalProvider>

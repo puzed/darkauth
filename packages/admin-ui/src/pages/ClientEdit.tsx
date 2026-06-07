@@ -1102,7 +1102,10 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                       }
                       rows={3}
                     />
-                    <FieldHint>Optional but recommended for controlled post-logout UX.</FieldHint>
+                    <FieldHint>
+                      Exact-match allowlist of URIs DarkAuth may redirect to after RP-Initiated
+                      Logout (OIDC end_session_endpoint). One per line.
+                    </FieldHint>
                   </FormField>
 
                   <FormField

@@ -42,7 +42,7 @@ import {
   postKeyEnvelope,
   postRotateAccountKey,
 } from "../../controllers/user/keybag.ts";
-import { postLogout } from "../../controllers/user/logout.ts";
+import { getLogout, postLogout } from "../../controllers/user/logout.ts";
 import { postOpaqueLoginFinish } from "../../controllers/user/opaqueLoginFinish.ts";
 import { postOpaqueLoginStart } from "../../controllers/user/opaqueLoginStart.ts";
 import { postOpaqueRegisterFinish } from "../../controllers/user/opaqueRegisterFinish.ts";
@@ -856,6 +856,10 @@ export function createUserRouter(context: Context) {
         response.setHeader("X-Content-Type-Options", "nosniff");
         response.end(icon.dashboardIconData);
         return;
+      }
+
+      if (method === "GET" && pathname === "/logout") {
+        return await getLogout(context, request, response);
       }
 
       if (method === "POST" && pathname === "/logout") {

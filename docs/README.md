@@ -12,6 +12,7 @@ This directory contains concise implementation-aligned documentation for DarkAut
 - [Organization RBAC](./organization-rbac.md): org memberships, role/permission derivation, org context resolution (`ORG_CONTEXT_REQUIRED`), user org endpoints, admin org/member/role endpoints (including member role add/remove compatibility routes), token org claims, and global-group UI status.
 - [Admin Table and List Standards](./admin-list-standards.md): shared admin table UX, list query contract, pagination shape, and list bounds.
 - [Email Password Reset](./password-reset.md): SMTP-gated self-service reset flow, token storage, API endpoints, template variables, session invalidation, and zero-knowledge recovery boundaries.
+- [RP-Initiated Logout](./rp-initiated-logout.md): OIDC `end_session_endpoint`, `id_token_hint` verification, per-client post-logout redirect allowlist, the no-hint confirmation flow, and the first-party logout endpoint.
 
 ## Development Guides
 
