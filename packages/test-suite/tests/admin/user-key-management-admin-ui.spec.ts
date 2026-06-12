@@ -25,7 +25,7 @@ function escapeXPathText(value: string) {
 
 function field(root: Page | Locator, label: string) {
   return root.locator(
-    `xpath=.//label[normalize-space(.)=${escapeXPathText(label)}]/ancestor::div[contains(@class, "field")][1]`
+    `xpath=.//label[normalize-space(.)=${escapeXPathText(label)}]/ancestor::div[contains(concat(" ", normalize-space(@class), " "), " field ") or contains(@class, "_field_")][1]`
   );
 }
 
@@ -35,9 +35,7 @@ async function fillField(root: Page | Locator, label: string, value: string) {
 
 async function selectControl(root: Page | Locator, label: string) {
   const container = field(root, label);
-  const combobox = container.locator('select, [role="combobox"]').first();
-  if ((await combobox.count()) > 0) return combobox;
-  return container.locator('button').first();
+  return container.locator('select, [role="combobox"], button[aria-expanded]').first();
 }
 
 async function selectField(root: Page | Locator, page: Page, label: string, option: string) {
@@ -46,8 +44,10 @@ async function selectField(root: Page | Locator, page: Page, label: string, opti
     await control.selectOption({ label: option });
     return;
   }
+  const item = page.getByRole('option', { name: option, exact: true });
   await clickElement(control);
-  await clickElement(page.getByRole('option', { name: option, exact: true }));
+  await expect(item).toBeVisible();
+  await clickElement(item);
 }
 
 async function selectFirstFieldOption(root: Page | Locator, page: Page, label: string) {
