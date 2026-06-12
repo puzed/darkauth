@@ -33,9 +33,10 @@ jobs:
       PW_BROWSER_CHANNEL: chrome
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run test -w @DarkAuth/api -w @darkauth/client -w @DarkAuth/md-to-pdf -w opaque-ts -w @DarkAuth/user-ui
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @DarkAuth/api --filter @darkauth/client --filter opaque-ts --filter @DarkAuth/user-ui test

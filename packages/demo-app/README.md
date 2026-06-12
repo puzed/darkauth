@@ -47,20 +47,20 @@ A beautiful, secure notes application that demonstrates DarkAuth's zero-knowledg
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Set up environment variables
 cp .env.example .env
 # Edit .env with your configuration
 
 # Initialize database
-npm run demodb:push
+pnpm demodb:push
 
 # Start the API server
-npm run server
+pnpm server
 
 # In another terminal, start the dev server
-npm run dev
+pnpm dev
 ```
 
 ### Environment Variables

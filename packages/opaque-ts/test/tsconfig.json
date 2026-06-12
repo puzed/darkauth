@@ -5,7 +5,10 @@
         "testdata/*.json"
     ],
     "compilerOptions": {
-        "resolveJsonModule": true
+        "resolveJsonModule": true,
+        "types": [
+            "node"
+        ]
     },
     "references": [
         {

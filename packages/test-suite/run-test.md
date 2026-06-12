@@ -27,20 +27,20 @@ Once PostgreSQL is running:
 
 ```bash
 # Install dependencies and Playwright browsers
-npm install
-npm run test:install
+pnpm install
+pnpm test:install
 
 # Run all tests
-npm test
+pnpm test
 
 # Run specific test suites
-npm run test:auth
+pnpm test:auth
 
 # Run with headed browser (for debugging)
-npm run test:headed
+pnpm test:headed
 
 # Run with Playwright debugger
-npm run test:debug
+pnpm test:debug
 ```
 
 ## Test Architecture Validation

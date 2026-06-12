@@ -56,7 +56,7 @@ async function wipeDatabase() {
 		await pool.query(`DROP TABLE IF EXISTS ${tableNames} CASCADE`);
 
 		console.log("✅ Database wiped successfully!");
-		console.log("ℹ️  Run 'npm run db:push' to recreate the schema.");
+		console.log("ℹ️  Run 'pnpm db:push' to recreate the schema.");
 	} catch (error) {
 		console.error("❌ Failed to wipe database:", error);
 		process.exit(1);

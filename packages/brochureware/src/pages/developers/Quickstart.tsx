@@ -14,10 +14,10 @@ git clone https://github.com/puzed/darkauth.git
 cd darkauth
 
 # Install dependencies
-npm install
+pnpm install
 
 # Run all services (API + user UI + admin UI)
-npm run dev`;
+pnpm dev`;
 
 const OIDC_CONFIG = `// Use any OIDC library — this example uses generic OAuth 2.0 / OIDC
 const issuer = "http://localhost:9080";

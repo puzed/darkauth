@@ -11,13 +11,13 @@
     "type": "module",
     "main": "./lib/src/index.js",
     "module": "./lib/src/index.js",
-  "types": "./lib/src/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./lib/src/index.d.ts",
-      "default": "./lib/src/index.js"
-    }
-  },
+    "types": "./lib/src/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./lib/src/index.d.ts",
+            "default": "./lib/src/index.js"
+        }
+    },
     "files": [
         "lib/src/**/*.!(tsbuildinfo)"
     ],
@@ -34,14 +34,15 @@
         "node": ">=20"
     },
     "devDependencies": {
-        "@eslint/js": "9.39.2",
-        "eslint": "9.39.2",
+        "@eslint/js": "10.0.1",
+        "@types/node": "^25.9.3",
+        "eslint": "10.5.0",
         "eslint-config-prettier": "10.1.8",
-        "eslint-plugin-prettier": "5.5.5",
-        "eslint-plugin-security": "3.0.1",
-        "prettier": "3.8.0",
-        "typescript": "5.9.3",
-        "typescript-eslint": "8.53.0"
+        "eslint-plugin-prettier": "5.5.6",
+        "eslint-plugin-security": "4.0.1",
+        "prettier": "3.8.4",
+        "typescript": "6.0.3",
+        "typescript-eslint": "8.61.0"
     },
     "scripts": {
         "prepack": "tsc -b",
@@ -54,6 +55,6 @@
     },
     "dependencies": {
         "@cloudflare/voprf-ts": "1.0.0",
-        "@noble/hashes": "2.0.1"
+        "@noble/hashes": "2.2.0"
     }
 }

@@ -374,8 +374,7 @@ export default function SettingsSecurity({
         throw new Error("Unlock this browser before creating a recovery key.");
       }
       const keyId = await getOrCreateAccountKeyId();
-      secretBytes = new Uint8Array(32);
-      crypto.getRandomValues(secretBytes);
+      secretBytes = crypto.getRandomValues(new Uint8Array(new ArrayBuffer(32)));
       const secret = toBase64Url(secretBytes);
       recoveryWrapKey = await cryptoService.deriveRecoveryKeyMaterial(secretBytes, sessionData.sub);
       verifier = await cryptoService.deriveRecoveryVerifier(secretBytes);

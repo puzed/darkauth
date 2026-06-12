@@ -16,4 +16,4 @@ Only the main top level thread/agent should follow these:
   - frontend-developer
   - security-auditor
   - test-writer
-- After making your change make sure you run the `npm run tidy` and `npm run build` when you have finished.
+- After making your change make sure you run the `pnpm tidy` and `pnpm build` when you have finished.

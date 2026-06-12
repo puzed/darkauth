@@ -9,7 +9,7 @@ This is a Typescript library for the Asymmetric Password-Authenticated Key Excha
 Available at: [@cloudflare/opaque-ts](https://www.npmjs.com/package/@cloudflare/opaque-ts)
 
 ```sh
-npm install @cloudflare/opaque-ts
+pnpm install @cloudflare/opaque-ts
 ```
 
 ## Specification
@@ -19,8 +19,8 @@ IETF Draft: [OPAQUE v07](https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-o
 ## Test and Coverage
 
 ```sh
-npm ci
-npm test
+pnpm install --frozen-lockfile
+pnpm test
 ```
 
 ## Dependencies

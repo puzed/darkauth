@@ -23,15 +23,16 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm --workspace @DarkAuth/test-suite run pretest
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @DarkAuth/test-suite pretest
       - run: |
           cd packages/test-suite
-          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-light-${{ matrix.suite }}
+          COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on pnpm exec playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-light-${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -55,15 +56,16 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: npm --workspace @DarkAuth/test-suite run pretest
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @DarkAuth/test-suite pretest
       - run: |
           cd packages/test-suite
-          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-dark-${{ matrix.suite }}
+          COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on pnpm exec playwright test tests/${{ matrix.suite }} --reporter=dot --workers=1 --retries=0 --output=test-results-dark-${{ matrix.suite }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -81,14 +83,13 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: |
-          cd packages/brochureware
-          npm run build
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @DarkAuth/brochureware build
 
   test-docs:
     name: Docs Build
@@ -99,11 +100,10 @@ jobs:
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 1
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
-      - run: |
-          cd packages/docs
-          npm run build
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @DarkAuth/docs build

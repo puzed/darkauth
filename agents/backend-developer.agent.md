@@ -30,5 +30,5 @@ Guardrails:
 - Do not add comments unless absolutely necessary.
 
 When finished you MUST:
-- Run `npm run tidy` and fix problems until it passes.
-- Run `npm run build` and fix problems until it passes.
+- Run `pnpm tidy` and fix problems until it passes.
+- Run `pnpm build` and fix problems until it passes.

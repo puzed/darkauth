@@ -6,20 +6,24 @@
   "description": "End-to-end test suite for DarkAuth",
   "type": "module",
   "scripts": {
-    "pretest": "npm --workspace @darkauth/client run build && npm --workspace @DarkAuth/admin-ui run build && npm --workspace @DarkAuth/user-ui run build && npm --workspace @DarkAuth/demo-app run build",
-    "test": "npm run pretest && PW_REPORTER=dot PW_ARTIFACTS=off npx playwright test --reporter=dot",
-    "test:screenshots": "export APP_VERSION=\"${APP_VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || printf 1.0.0)}\" COMMIT_HASH=\"${COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || printf local)}\"; rm -rf test-results-light test-results-dark && npm run pretest && (COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-light) && (COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on npx playwright test --reporter=dot --workers=1 --output=test-results-dark) && node ../brochureware/scripts/collect-screenshots.js",
-    "test:report": "npm run pretest && PW_REPORTER=html PW_ARTIFACTS=on npx playwright test --reporter=html && npx playwright show-report",
-    "install:playwright": "npx playwright install"
+    "pretest": "pnpm --filter @darkauth/client build && pnpm --filter @DarkAuth/admin-ui build && pnpm --filter @DarkAuth/user-ui build && pnpm --filter @DarkAuth/demo-app build",
+    "test": "pnpm run pretest && PW_REPORTER=dot PW_ARTIFACTS=off pnpm exec playwright test --reporter=dot",
+    "test:screenshots": "export APP_VERSION=\"${APP_VERSION:-$(git describe --tags --abbrev=0 2>/dev/null || printf 1.0.0)}\" COMMIT_HASH=\"${COMMIT_HASH:-$(git rev-parse HEAD 2>/dev/null || printf local)}\"; rm -rf test-results-light test-results-dark && pnpm run pretest && (COLOR_SCHEME=light PW_REPORTER=dot PW_ARTIFACTS=on pnpm exec playwright test --reporter=dot --workers=1 --output=test-results-light) && (COLOR_SCHEME=dark PW_REPORTER=dot PW_ARTIFACTS=on pnpm exec playwright test --reporter=dot --workers=1 --output=test-results-dark) && node ../brochureware/scripts/collect-screenshots.js",
+    "test:report": "pnpm run pretest && PW_REPORTER=html PW_ARTIFACTS=on pnpm exec playwright test --reporter=html && pnpm exec playwright show-report",
+    "install:playwright": "pnpm exec playwright install"
   },
   "dependencies": {
-    "@DarkAuth/api": "*"
+    "@DarkAuth/api": "workspace:*"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
-    "@types/node": "^25.0.9",
-    "drizzle-orm": "^0.45.1",
-    "pg": "^8.17.1",
-    "typescript": "^5.9.3"
+    "@DarkAuth/demo-app": "workspace:*",
+    "@electric-sql/pglite": "^0.5.2",
+    "@playwright/test": "^1.60.0",
+    "@types/node": "^25.9.3",
+    "drizzle-orm": "^0.45.2",
+    "esbuild": "^0.25.10",
+    "jose": "^6.2.3",
+    "pg": "^8.21.0",
+    "typescript": "^6.0.3"
   }
 }

@@ -8,5 +8,6 @@
 export * from "./opaque-cloudflare";
 
 import opaqueService from "./opaque-cloudflare";
+
 export { opaqueService };
 export default opaqueService;

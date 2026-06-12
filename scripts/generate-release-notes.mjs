@@ -17,7 +17,7 @@ const message = [
 ].join(" ");
 
 const args = [
-  "-y",
+  "dlx",
   "opencode-ai@latest",
   "run",
   "--model",
@@ -41,7 +41,7 @@ const permission = {
   },
 };
 
-const child = spawn("npx", args, {
+const child = spawn("pnpm", args, {
   stdio: "inherit",
   env: {
     ...process.env,
