@@ -11,7 +11,7 @@ COPY packages ./packages
 COPY scripts ./scripts
 RUN pnpm install --frozen-lockfile
 RUN pnpm run build
-RUN CI=true pnpm prune --prod
+RUN CI=true pnpm prune --prod && pnpm install --prod --frozen-lockfile --ignore-scripts
 
 FROM node:24-alpine
 WORKDIR /app
@@ -22,6 +22,7 @@ COPY --from=builder /app/pnpm-lock.yaml ./pnpm-lock.yaml
 COPY --from=builder /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/packages/api/package.json ./packages/api/package.json
+COPY --from=builder /app/packages/api/node_modules ./packages/api/node_modules
 COPY --from=builder /app/packages/api/src ./packages/api/src
 COPY --from=builder /app/packages/api/drizzle ./packages/api/drizzle
 COPY --from=builder /app/packages/user-ui/package.json ./packages/user-ui/package.json
