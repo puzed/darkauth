@@ -121,3 +121,45 @@ test("refreshSession force refreshes even when stored id token is still valid", 
   assert.equal(refreshed.idToken, refreshedToken);
   assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-6");
 });
+
+test("refreshSession prefers the latest localStorage refresh token over stale memory in token mode", async () => {
+  setupEnvironment({ tokenStorage: "localStorage" });
+  const firstToken = createIdToken("user-1");
+  const secondToken = createIdToken("user-2");
+  globalThis.localStorage.setItem("refresh_token", "rt-memory");
+  let fetchCalls = 0;
+  globalThis.fetch = async (_url, init) => {
+    fetchCalls += 1;
+    if (fetchCalls === 1) {
+      assert.equal(init.body.get("refresh_token"), "rt-memory");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id_token: firstToken,
+          access_token: "at-1",
+          refresh_token: "rt-memory-next",
+        }),
+      };
+    }
+
+    assert.equal(init.body.get("refresh_token"), "rt-other-tab");
+    return {
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id_token: secondToken,
+        access_token: "at-2",
+        refresh_token: "rt-final",
+      }),
+    };
+  };
+
+  await refreshSession({ force: true });
+  globalThis.localStorage.setItem("refresh_token", "rt-other-tab");
+  const refreshed = await refreshSession({ force: true });
+
+  assert.equal(fetchCalls, 2);
+  assert.equal(refreshed.idToken, secondToken);
+  assert.equal(globalThis.localStorage.getItem("refresh_token"), "rt-final");
+});

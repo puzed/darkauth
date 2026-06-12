@@ -700,7 +700,9 @@ export async function refreshSession(
   const currentRefreshMode = refreshMode();
   const refreshToken =
     currentRefreshMode === "token"
-      ? memoryRefreshToken || localStorage.getItem(REFRESH_TOKEN_KEY)
+      ? tokenStorageMode() === "localStorage"
+        ? localStorage.getItem(REFRESH_TOKEN_KEY) || memoryRefreshToken
+        : memoryRefreshToken || localStorage.getItem(REFRESH_TOKEN_KEY)
       : null;
   if (currentRefreshMode === "token" && !refreshToken) return null;
   const endpoints = await resolveEndpoints();
