@@ -16,9 +16,12 @@
     "@DarkAuth/api": "workspace:*"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.2",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.3",
     "drizzle-orm": "^0.45.2",
+    "esbuild": "^0.25.10",
+    "jose": "^6.2.3",
     "pg": "^8.21.0",
     "typescript": "^6.0.3"
   }
