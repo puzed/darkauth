@@ -11,13 +11,13 @@
   "dependencies": {
     "react": "*",
     "react-dom": "*",
-    "react-router-dom": "*"
+    "react-router-dom": "^7.17.0"
   },
   "devDependencies": {
     "@types/react": "*",
     "@types/react-dom": "*",
     "@vitejs/plugin-react": "*",
     "typescript": "*",
-    "vite": "*"
+    "vite": "^8.0.16"
   }
 }
