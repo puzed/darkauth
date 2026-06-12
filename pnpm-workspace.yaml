@@ -6,4 +6,5 @@ allowBuilds:
   esbuild: true
   sharp: true
 overrides:
-  esbuild: ^0.25.10
+  esbuild: ^0.28.1
+  yaml: ^2.9.0
