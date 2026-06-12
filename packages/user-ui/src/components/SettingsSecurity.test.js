@@ -47,7 +47,10 @@ test("Settings security distinguishes passkey authentication from PRF unlock", (
 
 test("Settings security creates high entropy recovery key envelopes", () => {
   assert.notEqual(source.indexOf("Recovery Key"), -1);
-  assert.notEqual(source.indexOf("crypto.getRandomValues(secretBytes)"), -1);
+  assert.notEqual(
+    source.indexOf("crypto.getRandomValues(new Uint8Array(new ArrayBuffer(32)))"),
+    -1
+  );
   assert.notEqual(source.indexOf("cryptoService.deriveRecoveryKeyMaterial"), -1);
   assert.notEqual(source.indexOf("cryptoService.deriveRecoveryVerifier"), -1);
   assert.notEqual(source.indexOf("api.createRecoveryKey"), -1);

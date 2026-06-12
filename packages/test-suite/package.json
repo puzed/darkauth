@@ -16,6 +16,7 @@
     "@DarkAuth/api": "workspace:*"
   },
   "devDependencies": {
+    "@DarkAuth/demo-app": "workspace:*",
     "@electric-sql/pglite": "^0.5.2",
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.9.3",

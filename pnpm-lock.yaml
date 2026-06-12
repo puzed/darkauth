@@ -572,6 +572,9 @@ importers:
         specifier: workspace:*
         version: link:../api
     devDependencies:
+      '@DarkAuth/demo-app':
+        specifier: workspace:*
+        version: link:../demo-app
       '@electric-sql/pglite':
         specifier: ^0.5.2
         version: 0.5.2
