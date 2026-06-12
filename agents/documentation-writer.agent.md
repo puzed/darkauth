@@ -28,5 +28,5 @@ Guardrails:
 
 Done criteria:
 - Docs are accurate, updated, and easy to scan.
-- `npm run tidy` passes.
-- `npm run build` passes.
+- `pnpm tidy` passes.
+- `pnpm build` passes.

@@ -54,13 +54,13 @@ Or use an existing PostgreSQL instance and configure the `postgresUri` in `confi
 ### 2. Install Dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 3. Run Database Migrations
 
 ```bash
-npm run db:push
+pnpm db:push
 ```
 
 ### 4. Configuration
@@ -93,7 +93,7 @@ kekPassphrase: "your-strong-passphrase"
 #### Option A: Interactive Web Installer (Recommended)
 
 ```bash
-npm start
+pnpm start
 ```
 
 Visit the installation URL shown in the console (includes a one-time token).
@@ -106,13 +106,13 @@ The installer will guide you through:
 #### Option B: CLI Installation
 
 ```bash
-npm run install:script
+pnpm install:script
 ```
 
 ### 6. Start the Server
 
 ```bash
-npm start
+pnpm start
 ```
 
 ### 7. Access the System
@@ -127,7 +127,7 @@ Run with hot-reloading and Vite dev servers:
 
 ```bash
 # Set proxyUi: true in config.yaml for proxied development
-npm run dev
+pnpm dev
 ```
 
 This runs all three services concurrently:
@@ -144,7 +144,7 @@ This runs all three services concurrently:
 
 ### Project Structure
 
-DarkAuth is organized as a monorepo with npm workspaces:
+DarkAuth is organized as a monorepo with pnpm workspaces:
 
 ```
 packages/
@@ -326,19 +326,19 @@ use the existing old-password recovery flow or generate new keys.
 
 ```bash
 # Build all packages
-npm run build
+pnpm build
 
 # Type checking
-npm run typecheck
+pnpm typecheck
 
 # Linting
-npm run lint
+pnpm lint
 
 # Code formatting
-npm run format
+pnpm format
 
 # Start production server (ensure config.yaml is configured)
-npm start
+pnpm start
 ```
 
 ## Testing
@@ -347,19 +347,19 @@ The project uses Playwright for end-to-end testing:
 
 ```bash
 # Install Playwright browsers (first time only)
-npm run test:install
+pnpm test:install
 
 # Run all tests
-npm test
+pnpm test
 
 # Run with detailed output
-npm run test:report
+pnpm test:report
 
 # Run in headed mode (with browser UI)
-npm run test:headed
+pnpm test:headed
 
 # Debug tests
-npm run test:debug
+pnpm test:debug
 ```
 
 ## Security Considerations

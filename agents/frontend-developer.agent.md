@@ -30,5 +30,5 @@ Guardrails:
 
 Done criteria:
 - UI behavior matches backend contracts and existing user flows.
-- `npm run tidy` passes.
-- `npm run build` passes.
+- `pnpm tidy` passes.
+- `pnpm build` passes.

@@ -30,5 +30,5 @@ Guardrails:
 
 Done criteria:
 - Tests prove expected behavior and prevent regressions.
-- `npm run tidy` passes.
-- `npm run build` passes.
+- `pnpm tidy` passes.
+- `pnpm build` passes.

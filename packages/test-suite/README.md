@@ -12,7 +12,7 @@ End-to-end test suite for DarkAuth using real databases, real servers, and Playw
 
 1. Install dependencies:
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. Ensure PostgreSQL is running and accessible with the default credentials:
@@ -30,29 +30,29 @@ End-to-end test suite for DarkAuth using real databases, real servers, and Playw
 
 3. Make sure the `@darkauth/api` package is built:
    ```bash
-   cd ../api && npm run build
+   cd ../api && pnpm build
    ```
 
 ## Running Tests
 
 Run all tests:
 ```bash
-npm test
+pnpm test
 ```
 
 Run specific test suites:
 ```bash
-npm run test:auth
+pnpm test:auth
 ```
 
 Debug tests with headed browser:
 ```bash
-npm run test:headed
+pnpm test:headed
 ```
 
 Debug tests with Playwright inspector:
 ```bash
-npm run test:debug
+pnpm test:debug
 ```
 
 ## Test Architecture

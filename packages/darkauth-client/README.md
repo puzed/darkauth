@@ -19,7 +19,7 @@ The client supports both:
 ## Installation
 
 ```bash
-npm install @DarkAuth/client
+pnpm install @DarkAuth/client
 ```
 
 ## Quick Start
@@ -367,17 +367,17 @@ This library requires a modern browser with support for:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build the package
-npm run build
+pnpm build
 
 # Type checking
-npm run typecheck
+pnpm typecheck
 
 # Linting and formatting
-npm run lint
-npm run format
+pnpm lint
+pnpm format
 ```
 
 ## License

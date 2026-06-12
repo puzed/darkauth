@@ -376,7 +376,7 @@ See [how-opaque-ts-works.ts](../how-opaque-ts-works.ts) for a fully commented, w
 
 To run it:
 ```bash
-npx tsx how-opaque-ts-works.ts
+pnpm dlx tsx how-opaque-ts-works.ts
 ```
 
 ## Security Considerations

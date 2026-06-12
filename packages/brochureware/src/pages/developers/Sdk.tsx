@@ -64,7 +64,7 @@ export default function Sdk() {
 
           <section className={styles.section}>
             <h2>Installation</h2>
-            <CodeBlock code="npm install @darkauth/client" lang="bash" />
+            <CodeBlock code="pnpm install @darkauth/client" lang="bash" />
             <p>License: MIT. No peer dependencies on the crypto layer — uses the Web Crypto API (<code>crypto.subtle</code>) directly.</p>
           </section>
 
