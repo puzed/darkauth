@@ -11,7 +11,7 @@
   "dependencies": {
     "react": "*",
     "react-dom": "*",
-    "react-router-dom": "*"
+    "react-router-dom": "^7.17.0"
   },
   "devDependencies": {
     "@types/react": "*",

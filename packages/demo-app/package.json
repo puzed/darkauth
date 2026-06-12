@@ -62,7 +62,7 @@
     "prosemirror-view": "^1.41.5",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "react-router-dom": "^7.12.0",
+    "react-router-dom": "^7.17.0",
     "yaml": "^2.8.2",
     "zod": "^4.3.5",
     "zustand": "^5.0.10"
