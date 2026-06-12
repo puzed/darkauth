@@ -105,7 +105,7 @@ async function runMigrations(dbName: string): Promise<void> {
     // Run drizzle-kit push from the api directory where drizzle.config.ts is located
     const cwd = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../packages/api');
     
-    execSync('npx drizzle-kit push', { 
+    execSync('pnpm exec drizzle-kit push', {
       env,
       cwd,
       stdio: 'pipe' // Don't spam the console with multiple parallel outputs

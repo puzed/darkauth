@@ -28,14 +28,14 @@ if (workspaces.length === 0) {
   process.exit(0);
 }
 
-const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+const command = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
 const tasks = workspaces
   .filter(Boolean)
   .sort((a, b) => a.localeCompare(b))
   .map(
     (workspace) =>
       new Promise((resolve, reject) => {
-        const child = spawn(command, ['run', 'build', '-w', workspace], {
+        const child = spawn(command, ['--filter', workspace, 'run', 'build'], {
           stdio: 'inherit',
           cwd: root,
         });

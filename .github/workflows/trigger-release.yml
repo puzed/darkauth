@@ -19,15 +19,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: npx -y semantic-release
+        run: pnpm exec semantic-release
       - name: Resolve release tag
         id: release_tag
         run: |
@@ -81,13 +82,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
-      - run: npm ci
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
       - name: Build release screenshots
-        run: npm --workspace @DarkAuth/test-suite run test:screenshots
+        run: pnpm --filter @DarkAuth/test-suite test:screenshots
       - name: Deploy release screenshots
         env:
           RELEASE_DEPLOY_STORAGE_ZONE: ${{ vars.RELEASE_DEPLOY_STORAGE_ZONE }}
@@ -194,24 +196,25 @@ jobs:
       RELEASE_TAG: ${{ needs.release.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: 'npm'
+          cache: 'pnpm'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
+      - run: pnpm install --frozen-lockfile
       - id: release_version
         run: echo "value=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
-      - run: npm version ${{ steps.release_version.outputs.value }} --no-git-tag-version -w @darkauth/client
-      - run: npm run build -w @darkauth/client
+      - run: pnpm --dir packages/darkauth-client version ${{ steps.release_version.outputs.value }} --no-git-tag-version
+      - run: pnpm --filter @darkauth/client build
       - id: published
         env:
           VERSION: ${{ steps.release_version.outputs.value }}
         run: |
-          if npm view @darkauth/client@"$VERSION" version >/dev/null 2>&1; then
+          if pnpm view @darkauth/client@"$VERSION" version >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
       - if: steps.published.outputs.exists != 'true'
-        run: npm publish -w @darkauth/client --provenance --access public
+        run: pnpm --dir packages/darkauth-client publish --provenance --access public --no-git-checks

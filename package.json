@@ -5,54 +5,52 @@
   "description": "Zero-knowledge authentication system with OIDC compatibility",
   "type": "module",
   "private": true,
+  "packageManager": "pnpm@11.6.0",
   "workspaces": [
     "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:ui\" \"npm run dev:admin\" \"npm run dev:api\"",
-    "dev:api": "npm run dev -w @DarkAuth/api",
-    "dev:ui": "npm run dev -w @DarkAuth/user-ui",
-    "dev:admin": "npm run dev -w @DarkAuth/admin-ui",
-    "dev:brochureware": "npm run dev -w @DarkAuth/brochureware",
-    "dev:docs": "npm run dev -w @DarkAuth/docs",
+    "dev": "concurrently \"pnpm dev:ui\" \"pnpm dev:admin\" \"pnpm dev:api\"",
+    "dev:api": "pnpm --filter @DarkAuth/api dev",
+    "dev:ui": "pnpm --filter @DarkAuth/user-ui dev",
+    "dev:admin": "pnpm --filter @DarkAuth/admin-ui dev",
+    "dev:brochureware": "pnpm --filter @DarkAuth/brochureware dev",
+    "dev:docs": "pnpm --filter @DarkAuth/docs dev",
     "build": "node scripts/build-workspaces.mjs",
-    "build:ui": "npm run build -w @DarkAuth/user-ui",
-    "build:admin": "npm run build -w @DarkAuth/admin-ui",
-    "build:api": "npm run build -w @DarkAuth/api",
-    "start": "npm run start -w @DarkAuth/api",
-    "test:report": "npm run test:report -w @DarkAuth/test-suite",
-    "test:install": "npm run install:playwright -w @DarkAuth/test-suite",
-    "test:screenshots": "npm --workspace @DarkAuth/test-suite run test:screenshots",
-    "typecheck": "npm run typecheck --workspaces --if-present",
-    "format": "npm run format --workspaces --if-present",
-    "lint": "npm run lint --workspaces --if-present",
-    "check": "npm run check --workspaces --if-present",
-    "check:fix": "npm run check:fix --workspaces --if-present",
-    "tidy": "npm run tidy --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "db:push": "npm run db:push -w @DarkAuth/api",
-    "db:generate": "npm run db:generate -w @DarkAuth/api",
-    "db:migrate": "npm run db:migrate -w @DarkAuth/api",
-    "db:wipe": "npm run db:wipe -w @DarkAuth/api",
-    "install:script": "npm run install:script -w @DarkAuth/api",
-    "demodb:wipe": "npm run demodb:wipe -w @DarkAuth/demo-app",
-    "demodb:push": "npm run demodb:push -w @DarkAuth/demo-app",
-    "demo:dev": "concurrently \"npm run dev -w @DarkAuth/demo-app\" \"npm run server -w @DarkAuth/demo-app\"",
+    "build:ui": "pnpm --filter @DarkAuth/user-ui build",
+    "build:admin": "pnpm --filter @DarkAuth/admin-ui build",
+    "build:api": "pnpm --filter @DarkAuth/api build",
+    "start": "pnpm --filter @DarkAuth/api start",
+    "test:report": "pnpm --filter @DarkAuth/test-suite test:report",
+    "test:install": "pnpm --filter @DarkAuth/test-suite install:playwright",
+    "test:screenshots": "pnpm --filter @DarkAuth/test-suite test:screenshots",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "format": "pnpm -r --if-present format",
+    "lint": "pnpm -r --if-present lint",
+    "check": "pnpm -r --if-present check",
+    "check:fix": "pnpm -r --if-present check:fix",
+    "tidy": "pnpm -r --if-present tidy",
+    "test": "pnpm -r --if-present test",
+    "db:push": "pnpm --filter @DarkAuth/api db:push",
+    "db:generate": "pnpm --filter @DarkAuth/api db:generate",
+    "db:migrate": "pnpm --filter @DarkAuth/api db:migrate",
+    "db:wipe": "pnpm --filter @DarkAuth/api db:wipe",
+    "install:script": "pnpm --filter @DarkAuth/api install:script",
+    "demodb:wipe": "pnpm --filter @DarkAuth/demo-app demodb:wipe",
+    "demodb:push": "pnpm --filter @DarkAuth/demo-app demodb:push",
+    "demo:dev": "concurrently \"pnpm --filter @DarkAuth/demo-app dev\" \"pnpm --filter @DarkAuth/demo-app server\"",
     "clean": "rm -rf packages/api/data packages/demo-app/data ./config.yaml ../config.yaml ../../config.yaml ../../../config.yaml packages/api/config.yaml && echo \"Clean complete: install state removed.\""
   },
   "engines": {
     "node": ">=24.0.0"
   },
-  "overrides": {
-    "esbuild": "^0.25.10"
-  },
   "dependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^10.0.3"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/github": "^12.0.2",
-    "@semantic-release/release-notes-generator": "^14.1.0",
-    "semantic-release": "^25.0.2"
+    "@semantic-release/github": "^12.0.8",
+    "@semantic-release/release-notes-generator": "^14.1.1",
+    "semantic-release": "^25.0.5"
   }
 }

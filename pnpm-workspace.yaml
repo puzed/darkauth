@@ -1,0 +1,9 @@
+packages:
+  - packages/*
+minimumReleaseAge: 0
+allowBuilds:
+  argon2: true
+  esbuild: true
+  sharp: true
+overrides:
+  esbuild: ^0.25.10
