@@ -798,14 +798,60 @@ function isBlockedAddress(address: string) {
   const normalized = address.toLowerCase().replace(/^\[|\]$/g, "");
   if (isBlockedIpv4(normalized)) return true;
   if (isIP(normalized) !== 6) return false;
-  const first = Number.parseInt(normalized.split(":")[0] || "0", 16);
-  return (
-    normalized === "::" ||
-    normalized === "::1" ||
-    normalized.startsWith("::ffff:") ||
-    (first >= 0xfc00 && first <= 0xfdff) ||
-    (first >= 0xfe80 && first <= 0xfebf)
-  );
+  const value = parseIpv6(normalized);
+  if (value === null) return true;
+  return IPV6_BLOCKED_RANGES.some(([base, bits]) => isIpv6InRange(value, base, bits));
+}
+
+const IPV6_BLOCKED_RANGES = [
+  [parseIpv6("::") as bigint, 96],
+  [parseIpv6("::ffff:0:0") as bigint, 96],
+  [parseIpv6("64:ff9b::") as bigint, 96],
+  [parseIpv6("64:ff9b:1::") as bigint, 48],
+  [parseIpv6("100::") as bigint, 64],
+  [parseIpv6("2001::") as bigint, 23],
+  [parseIpv6("2002::") as bigint, 16],
+  [parseIpv6("fc00::") as bigint, 7],
+  [parseIpv6("fe80::") as bigint, 10],
+  [parseIpv6("ff00::") as bigint, 8],
+] as const;
+
+function isIpv6InRange(value: bigint, base: bigint, bits: number) {
+  const shift = 128n - BigInt(bits);
+  return value >> shift === base >> shift;
+}
+
+function parseIpv6(address: string) {
+  const withoutZone = address.split("%")[0] || "";
+  const expanded = expandEmbeddedIpv4(withoutZone);
+  if (!expanded) return null;
+  const halves = expanded.split("::");
+  if (halves.length > 2) return null;
+  const left = halves[0] ? halves[0].split(":") : [];
+  const right = halves[1] ? halves[1].split(":") : [];
+  const missing = halves.length === 1 ? 0 : 8 - left.length - right.length;
+  if (missing < 0) return null;
+  const groups = [...left, ...Array.from({ length: missing }, () => "0"), ...right];
+  if (groups.length !== 8) return null;
+  let value = 0n;
+  for (const group of groups) {
+    if (!/^[0-9a-f]{1,4}$/i.test(group)) return null;
+    value = (value << 16n) + BigInt(Number.parseInt(group, 16));
+  }
+  return value;
+}
+
+function expandEmbeddedIpv4(address: string) {
+  if (!address.includes(".")) return address;
+  const index = address.lastIndexOf(":");
+  if (index < 0) return null;
+  const ipv4 = address.slice(index + 1);
+  if (isIP(ipv4) !== 4) return null;
+  const parts = ipv4.split(".").map((part) => Number.parseInt(part, 10));
+  const [a = 0, b = 0, c = 0, d = 0] = parts;
+  const high = (a << 8) + b;
+  const low = (c << 8) + d;
+  return `${address.slice(0, index)}:${high.toString(16)}:${low.toString(16)}`;
 }
 
 function isBlockedIpv4(address: string) {
@@ -815,10 +861,14 @@ function isBlockedIpv4(address: string) {
   return (
     a === 0 ||
     a === 10 ||
+    (a === 100 && b >= 64 && b <= 127) ||
     a === 127 ||
     (a === 169 && b === 254) ||
     (a === 172 && b >= 16 && b <= 31) ||
-    (a === 192 && b === 168)
+    (a === 192 && b === 0) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    a >= 224
   );
 }
 
@@ -1250,6 +1300,7 @@ async function encryptSecret(context: Context, secret: string | null | undefined
 
 function normalizeIssuer(value: string) {
   const url = normalizeHttpsUrl(value, "issuer");
+  if (new URL(url).search) throw new ValidationError("issuer must not include a query string");
   return url.endsWith("/") ? url.slice(0, -1) : url;
 }
 
@@ -1258,6 +1309,8 @@ function normalizeHttpsUrl(value: string, name: string) {
     const url = new URL(value);
     const host = url.hostname.toLowerCase();
     const local = host === "localhost" || host === "127.0.0.1" || host === "::1";
+    if (url.username || url.password)
+      throw new ValidationError(`${name} must not include credentials`);
     if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
       throw new ValidationError(`${name} must use https`);
     }
