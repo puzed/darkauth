@@ -3,6 +3,7 @@ import { test } from "node:test";
 import {
   hasRequiredPermission,
   hasRequiredScope,
+  parseBearerToken,
   resolveUsersReadModeFromPayload,
 } from "./user/usersDirectory.ts";
 
@@ -38,4 +39,18 @@ test("resolveUsersReadModeFromPayload returns null when missing required permiss
     scope: "openid",
   });
   assert.equal(mode, null);
+});
+
+test("parseBearerToken extracts a bounded bearer token without regex parsing", () => {
+  assert.equal(parseBearerToken("Bearer access-token"), "access-token");
+  assert.equal(parseBearerToken("Bearer   access-token"), "access-token");
+  assert.equal(parseBearerToken("Bearer\taccess-token"), "access-token");
+});
+
+test("parseBearerToken rejects missing, padded, and oversized tokens", () => {
+  assert.equal(parseBearerToken(""), null);
+  assert.equal(parseBearerToken("Bearer"), null);
+  assert.equal(parseBearerToken("Bearer   "), null);
+  assert.equal(parseBearerToken("Bearer access-token "), null);
+  assert.equal(parseBearerToken(`Bearer ${"a".repeat(16_379)}`), null);
 });
