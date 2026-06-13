@@ -3,9 +3,29 @@ import type { Context, Route } from "./types.ts";
 import { initDemoSchema } from "./models/notes.ts";
 import { getRoutes } from "./controllers/routes.ts";
 
+export function isDemoCorsOriginAllowed(origin: string) {
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (url.pathname !== "/" || url.search || url.hash || url.username || url.password) return false;
+    if (url.protocol !== "http:" && url.protocol !== "https:") return false;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 function sendCorsHeaders(request: http.IncomingMessage, response: http.ServerResponse) {
   const origin = request.headers.origin as string | undefined;
   if (!origin) return false;
+  if (!isDemoCorsOriginAllowed(origin)) {
+    if (request.method === "OPTIONS") {
+      response.statusCode = 403;
+      response.end();
+      return true;
+    }
+    return false;
+  }
   response.setHeader("Access-Control-Allow-Origin", origin);
   response.setHeader("Vary", "Origin");
   response.setHeader(
@@ -16,7 +36,6 @@ function sendCorsHeaders(request: http.IncomingMessage, response: http.ServerRes
     "Access-Control-Allow-Methods",
     request.headers["access-control-request-method"] || "GET,POST,PUT,DELETE,OPTIONS"
   );
-  response.setHeader("Access-Control-Allow-Credentials", "true");
   if (request.method === "OPTIONS") {
     response.statusCode = 204;
     response.end();

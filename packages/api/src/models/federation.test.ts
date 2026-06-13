@@ -62,7 +62,7 @@ async function createContext() {
   return { context, cleanup };
 }
 
-const publicLookup = async () => [{ address: "203.0.113.10" }];
+const publicLookup = async () => [{ address: "93.184.216.34" }];
 
 const metadata = {
   issuer: "https://idp.example.com",
@@ -390,6 +390,44 @@ test("OIDC discovery blocks local and private issuer hosts before fetch", async 
         { address: "192.168.1.8" },
       ]),
     /issuer host is not allowed/
+  );
+
+  assert.equal(fetchImpl.mock.callCount(), 0);
+});
+
+test("OIDC discovery blocks non-public resolved and translated addresses before fetch", async () => {
+  const fetchImpl = mock.fn(async () => ({ ok: true, json: async () => metadata }) as Response);
+
+  await assert.rejects(
+    () =>
+      discoverOidcMetadata("https://idp.example.com", fetchImpl, async () => [
+        { address: "100.64.0.1" },
+      ]),
+    /issuer host is not allowed/
+  );
+  await assert.rejects(
+    () => discoverOidcMetadata("https://[64:ff9b::7f00:1]", fetchImpl, publicLookup),
+    /issuer host is not allowed/
+  );
+
+  assert.equal(fetchImpl.mock.callCount(), 0);
+});
+
+test("OIDC discovery rejects ambiguous issuer URLs before fetch", async () => {
+  const fetchImpl = mock.fn(async () => ({ ok: true, json: async () => metadata }) as Response);
+
+  await assert.rejects(
+    () => discoverOidcMetadata("https://user:pass@idp.example.com", fetchImpl, publicLookup),
+    /issuer must not include credentials/
+  );
+  await assert.rejects(
+    () =>
+      discoverOidcMetadata(
+        "https://idp.example.com?next=https://127.0.0.1",
+        fetchImpl,
+        publicLookup
+      ),
+    /issuer must not include a query string/
   );
 
   assert.equal(fetchImpl.mock.callCount(), 0);

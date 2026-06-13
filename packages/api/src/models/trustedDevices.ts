@@ -1,9 +1,9 @@
-import type { webcrypto } from "node:crypto";
+import { randomInt, type webcrypto } from "node:crypto";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import { deviceApprovalRequests, keyEnvelopes, trustedDevices } from "../db/schema.ts";
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "../errors.ts";
 import type { Context } from "../types.ts";
-import { generateRandomBytes, generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
+import { generateRandomString, sha256Base64Url } from "../utils/crypto.ts";
 import { assertScimTrustedDeviceApprovalPolicy } from "./scimPolicy.ts";
 
 const DEVICE_APPROVAL_STATUSES = new Set(["pending", "approved", "consumed", "denied"]);
@@ -318,7 +318,7 @@ function validateCiphertext(value: Buffer, name: string) {
 }
 
 function generateVerificationCode() {
-  const value = generateRandomBytes(4).readUInt32BE(0) % 1_000_000;
+  const value = randomInt(0, 1_000_000);
   return value.toString().padStart(6, "0");
 }
 

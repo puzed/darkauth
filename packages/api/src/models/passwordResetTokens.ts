@@ -16,7 +16,8 @@ export interface PasswordResetTokenRow {
 }
 
 export function hashPasswordResetToken(context: Context, token: string): string {
-  const pepper = context.config?.kekPassphrase || context.config?.installToken || "DarkAuth";
+  const pepper = context.config?.kekPassphrase;
+  if (!pepper) throw new ValidationError("Password reset token pepper is not configured");
   return createHmac("sha256", pepper).update(token).digest("base64url");
 }
 

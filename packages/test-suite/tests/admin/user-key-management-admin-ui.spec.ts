@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { createAccountKey, createKeyEnvelope } from '@DarkAuth/api/src/models/keybag.ts';
 import { createTrustedDevice } from '@DarkAuth/api/src/models/trustedDevices.ts';
@@ -12,7 +13,7 @@ const adminCred = {
 };
 
 function uniqueId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `${prefix}-${Date.now()}-${randomUUID()}`;
 }
 
 function escapeXPathText(value: string) {

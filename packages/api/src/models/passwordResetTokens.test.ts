@@ -11,6 +11,7 @@ import type { Context } from "../types.ts";
 import {
   createPasswordResetToken,
   getActivePasswordResetToken,
+  hashPasswordResetToken,
   invalidateActivePasswordResetTokens,
   type PasswordResetTokenRow,
 } from "./passwordResetTokens.ts";
@@ -63,7 +64,11 @@ async function findActiveToken(
 test("createPasswordResetToken stores only token hashes and invalidates older active tokens", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-password-reset-token-test-"));
   const { db, client, close } = await createPglite(directory);
-  const context = { db, logger: createLogger() } as Context;
+  const context = {
+    db,
+    logger: createLogger(),
+    config: { kekPassphrase: "test-password-reset-pepper" },
+  } as Context;
 
   try {
     await ensurePasswordResetTokenTable(client);
@@ -92,6 +97,8 @@ test("createPasswordResetToken stores only token hashes and invalidates older ac
     assert.equal(rows.filter((row) => row.consumedAt === null).length, 1);
     assert.ok(rows.every((row) => row.tokenHash !== first.token));
     assert.ok(rows.every((row) => row.tokenHash !== second.token));
+    assert.ok(rows.some((row) => row.tokenHash === hashPasswordResetToken(context, first.token)));
+    assert.ok(rows.some((row) => row.tokenHash === hashPasswordResetToken(context, second.token)));
 
     assert.equal(await findActiveToken(context, first.token), null);
     const active = await findActiveToken(context, second.token);
@@ -106,7 +113,11 @@ test("createPasswordResetToken stores only token hashes and invalidates older ac
 test("invalidateActivePasswordResetTokens and expiry prevent token validation", async () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "darkauth-password-reset-token-test-"));
   const { db, client, close } = await createPglite(directory);
-  const context = { db, logger: createLogger() } as Context;
+  const context = {
+    db,
+    logger: createLogger(),
+    config: { kekPassphrase: "test-password-reset-pepper" },
+  } as Context;
 
   try {
     await ensurePasswordResetTokenTable(client);

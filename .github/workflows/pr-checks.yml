@@ -3,6 +3,9 @@ name: PR Checks
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
   group: pr-checks-${{ github.ref }}
   cancel-in-progress: true

@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 export interface TestUser {
   username: string;
   email: string;
@@ -12,7 +14,7 @@ export interface TestAdmin {
 }
 
 function randomId(): string {
-  return Math.random().toString(36).slice(2, 8);
+  return randomBytes(4).toString('hex');
 }
 
 export function createTestAdmin(overrides: Partial<TestAdmin> = {}): TestAdmin {

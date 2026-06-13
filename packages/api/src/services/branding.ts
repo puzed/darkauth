@@ -80,22 +80,12 @@ export function sanitizeCSS(css: string): string {
   return sanitized;
 }
 
-export function sanitizeSvg(svg: string): string {
-  let s = svg;
-  s = s.replace(/<script[\s\S]*?<\/script>/gi, "");
-  s = s.replace(/on[a-z]+\s*=\s*"[^"]*"/gi, "");
-  s = s.replace(/on[a-z]+\s*=\s*'[^']*'/gi, "");
-  s = s.replace(/xlink:href\s*=\s*"javascript:[^"]*"/gi, "");
-  s = s.replace(/xlink:href\s*=\s*'javascript:[^']*'/gi, "");
-  return s;
-}
-
 export function validateImageBase64(data: string, mimeType: string): void {
   const buffer = Buffer.from(data, "base64");
   if (buffer.length > 2 * 1024 * 1024) {
     throw new Error("Image too large (max 2MB)");
   }
-  const allowed = ["image/png", "image/jpeg", "image/svg+xml", "image/x-icon"];
+  const allowed = ["image/png", "image/jpeg", "image/x-icon"];
   if (!allowed.includes(mimeType)) {
     throw new Error("Invalid image type");
   }

@@ -30,6 +30,8 @@ type BrandingTab = ThemeMode | "language";
 type PreviewScreen = "login" | "apps" | "security" | "authorize" | "profile";
 type BrandingImage = { data: string | null; mimeType: string | null };
 type BrandingIdentity = { title: string; tagline: string };
+const allowedBrandingImageTypes = new Set(["image/png", "image/jpeg", "image/x-icon"]);
+const brandingImageAccept = "image/png,image/jpeg,image/x-icon";
 
 const colorFields = [
   { key: "brandColor", label: "Brand Color" },
@@ -376,7 +378,7 @@ export default function Branding() {
       if (event.origin !== window.location.origin) return;
       if (event.source !== iframeRef.current?.contentWindow) return;
       const data = event.data as { type?: string; theme?: unknown } | null;
-      if (!data || data.type !== "da:theme-changed") return;
+      if (data?.type !== "da:theme-changed") return;
       if (data.theme === "light" || data.theme === "dark") setActiveMode(data.theme);
     };
     window.addEventListener("message", onMessage);
@@ -386,6 +388,10 @@ export default function Branding() {
   const onPickImage = async (file: File, setter: (value: BrandingImage) => void) => {
     if (file.size > 2 * 1024 * 1024) {
       toast({ title: "Image too large (max 2MB)", variant: "destructive" });
+      return;
+    }
+    if (!allowedBrandingImageTypes.has(file.type)) {
+      toast({ title: "Invalid image type", variant: "destructive" });
       return;
     }
     try {
@@ -512,7 +518,7 @@ export default function Branding() {
         <Label>Logo</Label>
         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
           <FileInput
-            accept="image/png,image/jpeg,image/svg+xml,image/x-icon"
+            accept={brandingImageAccept}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onPickImage(f, setLogo);
@@ -551,7 +557,7 @@ export default function Branding() {
         <Label>Favicon</Label>
         <div style={{ display: "flex", gap: 8, marginTop: 8, alignItems: "center" }}>
           <FileInput
-            accept="image/png,image/jpeg,image/svg+xml,image/x-icon"
+            accept={brandingImageAccept}
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) onPickImage(f, setFavicon);

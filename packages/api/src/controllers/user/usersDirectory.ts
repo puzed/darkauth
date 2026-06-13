@@ -11,6 +11,7 @@ import type { Context, ControllerSchema } from "../../types.ts";
 import { sendJson } from "../../utils/http.ts";
 
 const usersReadPermissionKey = "darkauth.users:read";
+const maxAuthorizationHeaderLength = 16_384;
 
 export function hasRequiredPermission(permissions: unknown): boolean {
   return (
@@ -63,17 +64,50 @@ function hasMatchingAudience(payload: Record<string, unknown>, clientId: string)
   return false;
 }
 
+function isBearerSeparator(charCode: number): boolean {
+  return charCode === 0x20 || charCode === 0x09;
+}
+
+function isBearerAuthAttempt(auth: string): boolean {
+  if (!auth.startsWith("Bearer")) return false;
+  return auth.length === "Bearer".length || isBearerSeparator(auth.charCodeAt("Bearer".length));
+}
+
+export function parseBearerToken(auth: string): string | null {
+  if (auth.length === 0 || auth.length > maxAuthorizationHeaderLength) return null;
+  if (!auth.startsWith("Bearer")) return null;
+
+  let tokenStart = "Bearer".length;
+  if (tokenStart >= auth.length || !isBearerSeparator(auth.charCodeAt(tokenStart))) return null;
+
+  while (tokenStart < auth.length && isBearerSeparator(auth.charCodeAt(tokenStart))) {
+    tokenStart += 1;
+  }
+
+  if (tokenStart >= auth.length) return null;
+
+  for (let index = tokenStart; index < auth.length; index += 1) {
+    if (isBearerSeparator(auth.charCodeAt(index))) return null;
+  }
+
+  return auth.slice(tokenStart);
+}
+
 async function requireUsersReadPermission(
   context: Context,
   request: IncomingMessage
 ): Promise<UsersReadPermission> {
   const auth = request.headers.authorization || "";
-  const tokenMatch = /^Bearer\s+(.+)$/.exec(auth);
+  const bearerToken = parseBearerToken(auth);
 
-  if (tokenMatch?.[1]) {
+  if (!bearerToken && isBearerAuthAttempt(auth)) {
+    throw new UnauthorizedError("Invalid bearer token");
+  }
+
+  if (bearerToken) {
     const JWKS = createRemoteJWKSet(new URL(`${context.config.issuer}/.well-known/jwks.json`));
     try {
-      const verified = await jwtVerify(tokenMatch[1], JWKS, { issuer: context.config.issuer });
+      const verified = await jwtVerify(bearerToken, JWKS, { issuer: context.config.issuer });
       const payload = verified.payload as Record<string, unknown>;
 
       const mode = resolveUsersReadModeFromPayload(payload);

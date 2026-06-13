@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod/v4";
 import { ForbiddenError, ValidationError } from "../../errors.ts";
 import { genericErrors } from "../../http/openapi-helpers.ts";
+import { validateImageBase64 } from "../../services/branding.ts";
 import { isEmailSendingAvailable } from "../../services/email.ts";
 import { requireSession } from "../../services/sessions.ts";
 import { getSetting, setSetting } from "../../services/settings.ts";
@@ -86,6 +87,8 @@ async function updateSettingsHandler(
     await validatePasswordResetEnable(context, data.value);
   } else if (data.key === "email.smtp.enabled") {
     await validateSmtpEnable(context, data.value);
+  } else if (isBrandingImageSetting(data.key)) {
+    validateBrandingImageSetting(data.value);
   }
 
   // Get the old value for audit logging
@@ -111,6 +114,33 @@ async function updateSettingsHandler(
     oldValue,
     newValue: data.value,
   });
+}
+
+function isBrandingImageSetting(key: string): boolean {
+  return [
+    "branding.logo",
+    "branding.logo_dark",
+    "branding.favicon",
+    "branding.favicon_dark",
+  ].includes(key);
+}
+
+function validateBrandingImageSetting(value: unknown): void {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new ValidationError("Branding image must be an object");
+  }
+  const image = value as { data?: unknown; mimeType?: unknown };
+  const hasData = typeof image.data === "string" && image.data.length > 0;
+  const hasMimeType = typeof image.mimeType === "string" && image.mimeType.length > 0;
+  if (!hasData && !hasMimeType) return;
+  if (!hasData || !hasMimeType) {
+    throw new ValidationError("Branding image data and MIME type are required");
+  }
+  try {
+    validateImageBase64(image.data as string, image.mimeType as string);
+  } catch (error) {
+    throw new ValidationError(error instanceof Error ? error.message : "Invalid image");
+  }
 }
 
 function validateSmtpPort(value: unknown): void {
