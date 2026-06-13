@@ -15,6 +15,9 @@ importers:
       concurrently:
         specifier: ^10.0.3
         version: 10.0.3
+      upload-to-bunny:
+        specifier: ^2.1.1
+        version: 2.1.1
     devDependencies:
       '@semantic-release/commit-analyzer':
         specifier: ^13.0.1
@@ -297,6 +300,9 @@ importers:
       react-router-dom:
         specifier: ^7.17.0
         version: 7.17.0(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      upload-to-bunny:
+        specifier: ^2.1.1
+        version: 2.1.1
     devDependencies:
       '@types/react':
         specifier: ^19.2.17

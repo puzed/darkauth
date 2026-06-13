@@ -45,7 +45,8 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "concurrently": "^10.0.3"
+    "concurrently": "^10.0.3",
+    "upload-to-bunny": "^2.1.1"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
