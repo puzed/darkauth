@@ -12,6 +12,7 @@ type Config = {
   zk?: boolean;
   authorizationEndpoint?: string;
   tokenEndpoint?: string;
+  endSessionEndpoint?: string;
   discovery?: boolean;
   firstParty?: boolean;
   tokenStorage?: "memory" | "localStorage";
@@ -64,6 +65,13 @@ export type SwitchOrganizationOptions = {
 
 export type RefreshSessionOptions = {
   force?: boolean;
+};
+
+export type EndSessionOptions = {
+  postLogoutRedirectUri?: string;
+  state?: string;
+  idTokenHint?: string;
+  clientId?: string;
 };
 
 export type DarkAuthSessionInfo = {
@@ -164,6 +172,7 @@ const V2_KEY_JWE_MAX_TTL_SECONDS = 600;
 type ResolvedEndpoints = {
   authorizationEndpoint: string;
   tokenEndpoint: string;
+  endSessionEndpoint: string;
 };
 
 let memorySession: AuthSession | null = null;
@@ -269,6 +278,7 @@ async function resolveEndpoints(): Promise<ResolvedEndpoints> {
     cfg.scope || "",
     cfg.authorizationEndpoint || "",
     cfg.tokenEndpoint || "",
+    cfg.endSessionEndpoint || "",
     cfg.discovery === false ? "0" : "1",
   ].join("|");
   if (endpointsInFlight && endpointsCacheKey === cacheKey) return endpointsInFlight;
@@ -277,8 +287,9 @@ async function resolveEndpoints(): Promise<ResolvedEndpoints> {
     const fallback = {
       authorizationEndpoint: cfg.authorizationEndpoint || rootEndpoint("/authorize"),
       tokenEndpoint: cfg.tokenEndpoint || rootEndpoint("/token"),
+      endSessionEndpoint: cfg.endSessionEndpoint || rootEndpoint("/api/logout"),
     };
-    if (cfg.authorizationEndpoint && cfg.tokenEndpoint) return fallback;
+    if (cfg.authorizationEndpoint && cfg.tokenEndpoint && cfg.endSessionEndpoint) return fallback;
     if (cfg.discovery === false || typeof fetch !== "function") return fallback;
     try {
       const discoveryUrl = new URL("/.well-known/openid-configuration", cfg.issuer);
@@ -287,6 +298,7 @@ async function resolveEndpoints(): Promise<ResolvedEndpoints> {
       const metadata = (await response.json()) as {
         authorization_endpoint?: unknown;
         token_endpoint?: unknown;
+        end_session_endpoint?: unknown;
       };
       return {
         authorizationEndpoint:
@@ -299,6 +311,11 @@ async function resolveEndpoints(): Promise<ResolvedEndpoints> {
           (typeof metadata.token_endpoint === "string"
             ? metadata.token_endpoint
             : fallback.tokenEndpoint),
+        endSessionEndpoint:
+          cfg.endSessionEndpoint ||
+          (typeof metadata.end_session_endpoint === "string"
+            ? metadata.end_session_endpoint
+            : fallback.endSessionEndpoint),
       };
     } catch {
       return fallback;
@@ -866,7 +883,7 @@ export async function switchOrganization(
   return null;
 }
 
-export function logout(): void {
+function clearLocalSession(): void {
   memorySession = null;
   memoryRefreshToken = null;
   clearStoredIdToken();
@@ -876,6 +893,28 @@ export function logout(): void {
   sessionStorage.removeItem("pkce_verifier");
   sessionStorage.removeItem(OAUTH_STATE_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export function logout(): void {
+  clearLocalSession();
+}
+
+export async function endSession(options: EndSessionOptions = {}): Promise<void> {
+  const idTokenHint =
+    options.idTokenHint ||
+    memorySession?.idToken ||
+    (tokenStorageMode() === "localStorage" ? getStoredIdToken() : null) ||
+    undefined;
+  const endpoints = await resolveEndpoints();
+  const url = new URL(endpoints.endSessionEndpoint);
+  if (idTokenHint) url.searchParams.set("id_token_hint", idTokenHint);
+  if (options.postLogoutRedirectUri) {
+    url.searchParams.set("post_logout_redirect_uri", options.postLogoutRedirectUri);
+    url.searchParams.set("client_id", options.clientId || cfg.clientId);
+  }
+  if (options.state) url.searchParams.set("state", options.state);
+  clearLocalSession();
+  location.assign(url.toString());
 }
 
 export function getCurrentUser(): JwtClaims | null {
