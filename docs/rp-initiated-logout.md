@@ -44,6 +44,25 @@ Example:
 <issuer>/api/logout?id_token_hint=...&post_logout_redirect_uri=https%3A%2F%2Frp.example.com%2Floggedout&state=abc123
 ```
 
+## SDK Integration (`@darkauth/client`)
+
+The JavaScript client exposes `endSession()`, which performs the redirect for you. It clears the
+local session (same as `logout()`) and then sends the browser to the `end_session_endpoint` resolved
+from discovery (falling back to `<issuer>/api/logout`, or the `endSessionEndpoint` config override).
+
+```ts
+import { endSession } from "@darkauth/client";
+
+await endSession({
+  postLogoutRedirectUri: `${window.location.origin}/login`,
+  state: "abc123",
+});
+```
+
+By default `endSession()` uses the current session's ID token as `id_token_hint` and the configured
+`clientId`. The `postLogoutRedirectUri` must be registered in the client's allowlist (see below).
+Use `logout()` instead when you only want to clear local tokens without ending the SSO session.
+
 ## No-Hint Confirmation Behavior
 
 When no valid `id_token_hint` is provided:

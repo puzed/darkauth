@@ -72,7 +72,8 @@ setConfig({
   tokenStorage: 'memory',                  // Optional. Default 'memory'. Use 'localStorage' only for legacy flows.
   drkStorage: 'memory',                    // Optional. Default 'memory'. Use 'localStorage' only for explicit convenience mode.
   refreshMode: 'cookie',                   // Optional. Default 'cookie'. Use 'token' only for legacy refresh-token clients.
-  credentials: 'include'                   // Optional. Default 'include' for cookie refresh.
+  credentials: 'include',                  // Optional. Default 'include' for cookie refresh.
+  endSessionEndpoint: 'https://auth.example.com/api/logout' // Optional. Override the RP-initiated logout endpoint (otherwise read from discovery).
 });
 ```
 
@@ -106,7 +107,28 @@ Behavior:
 
 #### `logout(): void`
 
-Clears the in-memory session, callback state, PKCE verifier, ephemeral ZK key, and any explicitly configured legacy storage.
+Clears the in-memory session, callback state, PKCE verifier, ephemeral ZK key, and any explicitly configured legacy storage. This is a **local-only** logout — it does not end the DarkAuth SSO session, so a subsequent `initiateLogin()` may silently re-authenticate. Use `endSession()` when you need to end the IdP session too.
+
+#### `endSession(options?: EndSessionOptions): Promise<void>`
+
+Performs OIDC [RP-initiated logout](https://openid.net/specs/openid-connect-rpinitiated-1_0.html). Clears the local session (same as `logout()`) and then redirects the browser to DarkAuth's `end_session_endpoint`, which ends the SSO session and redirects back to your app.
+
+```typescript
+import { endSession } from '@DarkAuth/client';
+
+await endSession({
+  postLogoutRedirectUri: `${window.location.origin}/login`,
+  state: 'optional-csrf-value',
+});
+```
+
+Options (`EndSessionOptions`):
+- `postLogoutRedirectUri?`: Where DarkAuth redirects after ending the session. **Must be registered in the client's `post_logout_redirect_uris` allowlist** on the DarkAuth server (exact match), otherwise the request is rejected. When provided, the SDK also sends `client_id` (the configured `clientId` unless overridden).
+- `state?`: Opaque value echoed back on the post-logout redirect (use it to protect against CSRF / restore app state).
+- `idTokenHint?`: The ID token to send as `id_token_hint`. Defaults to the current session's ID token. With a valid hint DarkAuth ends the session without a confirmation prompt.
+- `clientId?`: Override the `client_id` sent alongside `post_logout_redirect_uri` (defaults to the configured `clientId`).
+
+The `end_session_endpoint` is resolved from the server's `/.well-known/openid-configuration` discovery document, falling back to `<issuer>/api/logout`, or to the `endSessionEndpoint` config value when set.
 
 #### `getStoredSession(): AuthSession | null`
 
@@ -300,6 +322,17 @@ type Config = {
   drkStorage?: 'memory' | 'localStorage';
   refreshMode?: 'cookie' | 'token';
   credentials?: RequestCredentials;
+  endSessionEndpoint?: string;
+}
+```
+
+### `EndSessionOptions`
+```typescript
+type EndSessionOptions = {
+  postLogoutRedirectUri?: string;
+  state?: string;
+  idTokenHint?: string;
+  clientId?: string;
 }
 ```
 

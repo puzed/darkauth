@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "pnpm run build && node --test --test-reporter=dot --experimental-specifier-resolution=node",
+    "test": "tsc -p tsconfig.test.json && node --test --test-reporter=dot \".test-build/**/*.test.js\"",
     "prepack": "pnpm run build",
     "typecheck": "tsc --noEmit",
     "prepare": "tsc",
