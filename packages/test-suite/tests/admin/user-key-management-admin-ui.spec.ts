@@ -322,6 +322,12 @@ test.describe('Admin - user key management UI', () => {
     await expect(page.getByRole('heading', { name: 'Create Client' })).toBeVisible();
     await fillField(page, 'Client ID', clientId);
     await fillField(page, 'Name', 'Admin UI Key Delivery Client');
+    await page.getByRole('tab', { name: 'OAuth' }).click();
+    const scopeKeyInput = page.getByPlaceholder('openid').first();
+    await scopeKeyInput.fill('custom-scope');
+    await expect(scopeKeyInput).toBeFocused();
+    await page.keyboard.type('-extra');
+    await expect(scopeKeyInput).toHaveValue('custom-scope-extra');
     await page.getByRole('tab', { name: 'Security' }).click();
     await selectField(page, page, 'ZK Delivery', 'fragment-jwe');
     await selectField(page, page, 'ZK Required', 'Yes');

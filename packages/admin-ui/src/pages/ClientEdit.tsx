@@ -40,8 +40,9 @@ const parseList = (v: string) =>
     .filter(Boolean);
 const DEFAULT_DASHBOARD_EMOJI = "🚀";
 const DEFAULT_DASHBOARD_LETTER = "D";
-type ScopeRow = { key: string; description: string };
+type ScopeRow = { id: string; key: string; description: string };
 const CLIENT_EDIT_TABS = ["identity", "dashboard", "security", "token", "oauth", "crypto"];
+let scopeRowId = 0;
 
 function deliveredKeyKindFor(version: Client["keyDeliveryVersion"]): Client["deliveredKeyKind"] {
   return version === "v1-drk" ? "root_key" : "client_app_key";
@@ -53,7 +54,8 @@ function isClientEditTab(value: string | null): value is (typeof CLIENT_EDIT_TAB
 }
 
 function normalizeScopeRows(scopes: ClientScope[]): ScopeRow[] {
-  return scopes.map((scope) => ({
+  return scopes.map((scope, index) => ({
+    id: `scope-${index}-${scopeRowId++}`,
     key: scope.key,
     description: scope.description || "",
   }));
@@ -61,9 +63,13 @@ function normalizeScopeRows(scopes: ClientScope[]): ScopeRow[] {
 
 function buildDefaultScopes(): ScopeRow[] {
   return [
-    { key: "openid", description: "Authenticate you" },
-    { key: "profile", description: "Access your profile information" },
+    { id: "default-openid", key: "openid", description: "Authenticate you" },
+    { id: "default-profile", key: "profile", description: "Access your profile information" },
   ];
+}
+
+function buildEmptyScope(): ScopeRow {
+  return { id: `scope-${scopeRowId++}`, key: "", description: "" };
 }
 
 function FieldLabel({ title, tooltip }: { title: string; tooltip: string }) {
@@ -342,7 +348,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
   const addScope = () => {
     setForm((current) => ({
       ...current,
-      scopes: [...current.scopes, { key: "", description: "" }],
+      scopes: [...current.scopes, buildEmptyScope()],
     }));
   };
 
@@ -1162,7 +1168,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                       </TableHeader>
                       <TableBody>
                         {form.scopes.map((scope, index) => (
-                          <TableRow key={`${scope.key}-${index}`}>
+                          <TableRow key={scope.id}>
                             <TableCell>
                               <Input
                                 value={scope.key}
