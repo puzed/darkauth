@@ -1,5 +1,11 @@
 export { default as Authorize } from "./components/Authorize";
+export { default as AuthorizePageFrame } from "./components/AuthorizePageFrame";
+export { default as Dashboard } from "./components/Dashboard";
 export { default as Login } from "./components/Login";
 export { default as LoginView } from "./components/LoginView";
+export { default as Profile } from "./components/Profile";
 export { default as Register } from "./components/Register";
+export type { SettingsSecurityPreviewData } from "./components/SettingsSecurity";
+export { default as SettingsSecurityView } from "./components/SettingsSecurityView";
+export { UserPortalProvider } from "./components/UserPortalContext";
 export { useBranding } from "./hooks/useBranding";

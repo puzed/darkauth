@@ -23,6 +23,7 @@ interface ProfileProps {
     email?: string | null;
     signInEmail?: string | null;
   }) => void;
+  previewProfile?: UserProfile;
 }
 
 type EditingField = "name" | "email" | null;
@@ -53,13 +54,20 @@ function isEmailLike(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export default function Profile({ sessionData, onLogout, onProfileChanged }: ProfileProps) {
+export default function Profile({
+  sessionData,
+  onLogout,
+  onProfileChanged,
+  previewProfile,
+}: ProfileProps) {
   const navigate = useNavigate();
   const portal = useUserPortal();
   const organizations = portal?.organizations || [];
   const organizationsLoading = portal?.organizationsLoading || false;
-  const [profile, setProfile] = useState<UserProfile>(() => profileFromSession(sessionData));
-  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profile, setProfile] = useState<UserProfile>(
+    () => previewProfile || profileFromSession(sessionData)
+  );
+  const [loadingProfile, setLoadingProfile] = useState(!previewProfile);
   const [editingField, setEditingField] = useState<EditingField>(null);
   const [nameDraft, setNameDraft] = useState(sessionData.name || "");
   const [emailDraft, setEmailDraft] = useState("");
@@ -88,10 +96,19 @@ export default function Profile({ sessionData, onLogout, onProfileChanged }: Pro
   }, [onProfileChanged]);
 
   useEffect(() => {
+    if (previewProfile) {
+      setProfile(previewProfile);
+      setNameDraft(previewProfile.name || "");
+      setLoadingProfile(false);
+      return;
+    }
     setProfile((current) => ({ ...profileFromSession(sessionData), ...current }));
-  }, [sessionData]);
+  }, [previewProfile, sessionData]);
 
   useEffect(() => {
+    if (previewProfile) {
+      return;
+    }
     let cancelled = false;
     apiService
       .getProfile()
@@ -114,7 +131,7 @@ export default function Profile({ sessionData, onLogout, onProfileChanged }: Pro
     return () => {
       cancelled = true;
     };
-  }, [onProfileChanged]);
+  }, [onProfileChanged, previewProfile]);
 
   const activeOrganizations = useMemo(
     () =>

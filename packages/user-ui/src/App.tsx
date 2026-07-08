@@ -8,6 +8,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import Authorize from "./components/Authorize";
+import AuthorizePageFrame from "./components/AuthorizePageFrame";
 import ChangePasswordView from "./components/ChangePasswordView";
 import Dashboard from "./components/Dashboard";
 import EmailResetPasswordView from "./components/EmailResetPasswordView";
@@ -572,22 +573,9 @@ function AppContent() {
             ) : sessionData.passwordResetRequired ? (
               <Navigate to="/security/password" replace />
             ) : (
-              <div className="app da-app">
-                <div className="container da-container">
-                  <div className="header da-header authorize-page-header">
-                    <div className="brand da-brand">
-                      <span className="brand-icon da-brand-icon">
-                        <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-                      </span>
-                      <h1 className="da-brand-title">{branding.getTitle()}</h1>
-                    </div>
-                    <div className="user-info da-user-info authorize-page-actions">
-                      <ThemeToggle />
-                    </div>
-                  </div>
-                  <Authorize authRequest={authRequest} sessionData={sessionData} />
-                </div>
-              </div>
+              <AuthorizePageFrame>
+                <Authorize authRequest={authRequest} sessionData={sessionData} />
+              </AuthorizePageFrame>
             )
           }
         />

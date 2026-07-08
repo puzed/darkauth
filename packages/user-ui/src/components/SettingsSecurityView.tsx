@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { loadUnlockedArk } from "../services/unlockedArk";
 import KeyUnlockPanel from "./KeyUnlockPanel";
 import { PortalHeader, PortalPage, PortalSection } from "./Portal";
-import SettingsSecurity from "./SettingsSecurity";
+import SettingsSecurity, { type SettingsSecurityPreviewData } from "./SettingsSecurity";
 import UserLayout from "./UserLayout";
 
 type KeyState = "locked" | "unlocked" | "setup_required";
@@ -25,9 +25,11 @@ function resolveKeyState(sessionData: SettingsSessionData): KeyState {
 export default function SettingsSecurityView({
   sessionData,
   onLogout,
+  previewData,
 }: {
   sessionData: SettingsSessionData;
   onLogout: () => void;
+  previewData?: SettingsSecurityPreviewData;
 }) {
   const navigate = useNavigate();
   const [keyState, setKeyState] = useState<KeyState>(() => resolveKeyState(sessionData));
@@ -68,7 +70,7 @@ export default function SettingsSecurityView({
             />
           </PortalSection>
         ) : null}
-        <SettingsSecurity sessionData={effectiveSessionData} />
+        <SettingsSecurity sessionData={effectiveSessionData} previewData={previewData} />
       </PortalPage>
     </UserLayout>
   );
