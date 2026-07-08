@@ -7,4 +7,6 @@ allowBuilds:
   sharp: true
 overrides:
   esbuild: ^0.28.1
+  undici@^6.23.0: 6.27.0
+  undici@^7.0.0: 7.28.0
   yaml: ^2.9.0

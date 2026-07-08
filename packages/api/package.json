@@ -31,7 +31,7 @@
 		"drizzle-orm": "^0.45.2",
 		"drizzle-zod": "^0.8.3",
 		"jose": "^6.2.3",
-		"nodemailer": "^8.0.11",
+		"nodemailer": "^9.0.3",
 		"opaque-ts": "workspace:*",
 		"pg": "^8.21.0",
 		"pino": "^10.3.1",
