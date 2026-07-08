@@ -102,6 +102,7 @@ export const clients = pgTable("clients", {
   keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   clientKeyScope: text("client_key_scope").default("organization").notNull(),
+  requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
   allowedJweAlgs: text("allowed_jwe_algs").array().default([]).notNull(),
   allowedJweEncs: text("allowed_jwe_encs").array().default([]).notNull(),
   redirectUris: text("redirect_uris").array().default([]).notNull(),
@@ -553,6 +554,7 @@ export const authCodes = pgTable("auth_codes", {
   zkKeyHash: text("zk_key_hash"),
   zkKeyKind: text("zk_key_kind"),
   zkKeyVersion: text("zk_key_version"),
+  requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -597,6 +599,7 @@ export const pendingAuth = pgTable("pending_auth", {
   keyDeliveryVersion: text("key_delivery_version").default("v2").notNull(),
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   clientKeyScope: text("client_key_scope").default("organization").notNull(),
+  requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   userSub: text("user_sub").references(() => users.sub, {

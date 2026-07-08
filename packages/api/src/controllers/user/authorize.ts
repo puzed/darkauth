@@ -148,6 +148,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     keyDeliveryVersion: zkPubKid ? client.keyDeliveryVersion : undefined,
     deliveredKeyKind: zkPubKid ? client.deliveredKeyKind : undefined,
     clientKeyScope: zkPubKid ? client.clientKeyScope : undefined,
+    requireOrganizationSelection: client.requireOrganizationSelection,
     userSub,
     organizationId: authRequest.organization_id,
     origin: `http://${request.headers.host}`,
@@ -173,6 +174,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (zkPubKid) qs.set("key_delivery_version", client.keyDeliveryVersion);
   if (zkPubKid) qs.set("delivered_key_kind", client.deliveredKeyKind);
   if (zkPubKid) qs.set("client_key_scope", client.clientKeyScope);
+  qs.set("require_organization_selection", client.requireOrganizationSelection ? "1" : "0");
   if (authRequest.zk_pub && canonicalZkPub) qs.set("zk_pub", canonicalZkPub);
   if (authRequest.client_id) qs.set("client_id", authRequest.client_id);
   if (authRequest.redirect_uri) qs.set("redirect_uri", authRequest.redirect_uri);

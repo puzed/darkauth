@@ -233,14 +233,17 @@ test("createClient and updateClient enforce key delivery version and delivered k
     assert.equal(created.keyDeliveryVersion, "v2");
     assert.equal(created.deliveredKeyKind, "client_app_key");
     assert.equal(created.clientKeyScope, "organization");
+    assert.equal(created.requireOrganizationSelection, true);
 
     const listedCreated = await listClients(context, { search: "v2-client" });
     assert.equal(listedCreated.clients[0]?.clientKeyScope, "organization");
+    assert.equal(listedCreated.clients[0]?.requireOrganizationSelection, true);
 
     await updateClient(context, "v2-client", {
       keyDeliveryVersion: "v1-drk",
       deliveredKeyKind: "root_key",
       clientKeyScope: "account",
+      requireOrganizationSelection: false,
     });
 
     const updated = await getClient(context, "v2-client");
@@ -248,9 +251,11 @@ test("createClient and updateClient enforce key delivery version and delivered k
     assert.equal(updated.keyDeliveryVersion, "v1-drk");
     assert.equal(updated.deliveredKeyKind, "root_key");
     assert.equal(updated.clientKeyScope, "account");
+    assert.equal(updated.requireOrganizationSelection, false);
 
     const listedUpdated = await listClients(context, { search: "v2-client" });
     assert.equal(listedUpdated.clients[0]?.clientKeyScope, "account");
+    assert.equal(listedUpdated.clients[0]?.requireOrganizationSelection, false);
 
     await assert.rejects(
       () =>

@@ -526,30 +526,34 @@ export const postToken = withRateLimit("token")(
         );
         if (!client) throw new UnauthorizedClientError("Unknown client");
 
+        const directPermissionRows = await context.db.query.userPermissions.findMany({
+          where: (table, { eq }) => eq(table.userSub, user.sub),
+        });
+        const directPermissions = directPermissionRows.map((row) => row.permissionKey);
         const sessionOrganizationId =
           typeof (sessionData as SessionData).organizationId === "string"
             ? (sessionData as SessionData).organizationId
             : undefined;
-        const { organizationId, organizationSlug } = await resolveAuthorizationOrganizationContext(
-          context,
-          user.sub,
-          { sessionOrganizationId }
-        );
-        const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
-          context,
-          user.sub,
-          organizationId
-        );
-        const directPermissionRows = await context.db.query.userPermissions.findMany({
-          where: (table, { eq }) => eq(table.userSub, user.sub),
-        });
-        const uniquePermissions = Array.from(
-          new Set([
-            ...organizationPermissions,
-            ...directPermissionRows.map((row) => row.permissionKey),
-          ])
-        ).sort();
-        if (sessionOrganizationId !== organizationId) {
+        let organizationId: string | undefined;
+        let organizationSlug: string | null | undefined;
+        let roleKeys: string[] = [];
+        let uniquePermissions = Array.from(new Set(directPermissions)).sort();
+        if (client.requireOrganizationSelection) {
+          const resolvedOrganization = await resolveAuthorizationOrganizationContext(
+            context,
+            user.sub,
+            { sessionOrganizationId }
+          );
+          organizationId = resolvedOrganization.organizationId;
+          organizationSlug = resolvedOrganization.organizationSlug;
+          const { roleKeys: resolvedRoleKeys, permissions: organizationPermissions } =
+            await getUserOrgAccess(context, user.sub, organizationId);
+          roleKeys = resolvedRoleKeys;
+          uniquePermissions = Array.from(
+            new Set([...organizationPermissions, ...directPermissions])
+          ).sort();
+        }
+        if (organizationId && sessionOrganizationId !== organizationId) {
           await updateSession(context, rotated.sessionId, {
             ...(sessionData as SessionData),
             organizationId,
@@ -831,26 +835,32 @@ export const postToken = withRateLimit("token")(
         throw new InvalidGrantError("User not found");
       }
 
-      const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
-      const { organizationId, organizationSlug } = await resolveOrganizationContext(
-        context,
-        user.sub,
-        authCode.organizationId || undefined
-      );
-      const { roleKeys, permissions: organizationPermissions } = await getUserOrgAccess(
-        context,
-        user.sub,
-        organizationId
-      );
       const directPermissionRows = await context.db.query.userPermissions.findMany({
         where: (table, { eq }) => eq(table.userSub, user.sub),
       });
-      const uniquePermissions = Array.from(
-        new Set([
-          ...organizationPermissions,
-          ...directPermissionRows.map((row) => row.permissionKey),
-        ])
-      ).sort();
+      const directPermissions = directPermissionRows.map((row) => row.permissionKey);
+      let organizationId: string | undefined;
+      let organizationSlug: string | null | undefined;
+      let roleKeys: string[] = [];
+      let uniquePermissions = Array.from(new Set(directPermissions)).sort();
+      if (authCode.requireOrganizationSelection || authCode.organizationId) {
+        const { getUserOrgAccess, resolveOrganizationContext } = await import(
+          "../../models/rbac.ts"
+        );
+        const resolvedOrganization = await resolveOrganizationContext(
+          context,
+          user.sub,
+          authCode.organizationId || undefined
+        );
+        organizationId = resolvedOrganization.organizationId;
+        organizationSlug = resolvedOrganization.organizationSlug;
+        const { roleKeys: resolvedRoleKeys, permissions: organizationPermissions } =
+          await getUserOrgAccess(context, user.sub, organizationId);
+        roleKeys = resolvedRoleKeys;
+        uniquePermissions = Array.from(
+          new Set([...organizationPermissions, ...directPermissions])
+        ).sort();
+      }
 
       const codeConsumed = await (await import("../../models/authCodes.ts")).consumeAuthCode(
         context,
