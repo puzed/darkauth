@@ -1,5 +1,7 @@
+import ThemeToggle from "@DarkAuth/user-ui/src/components/ThemeToggle";
 import UserLayout from "@DarkAuth/user-ui/src/components/UserLayout";
 import { LoginView } from "@DarkAuth/user-ui/src/exports";
+import { useBranding } from "@DarkAuth/user-ui/src/hooks/useBranding";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import "@DarkAuth/user-ui/src/index.css";
@@ -54,7 +56,12 @@ type BrandingMessage = {
   };
 };
 type PreviewScreen = "login" | "apps" | "security" | "authorize" | "profile";
-type PreviewScreenMessage = { type: "da:preview-screen"; screen: PreviewScreen };
+type AuthorizePreviewVariant = "with-orgs" | "without-orgs" | "no-active-orgs" | "zk-key";
+type PreviewScreenMessage = {
+  type: "da:preview-screen";
+  screen: PreviewScreen;
+  authorizeVariant?: AuthorizePreviewVariant;
+};
 
 const isBrandingMessage = (v: unknown): v is BrandingMessage => {
   if (typeof v !== "object" || v === null) return false;
@@ -64,14 +71,19 @@ const isBrandingMessage = (v: unknown): v is BrandingMessage => {
 
 const isPreviewScreenMessage = (v: unknown): v is PreviewScreenMessage => {
   if (typeof v !== "object" || v === null) return false;
-  const obj = v as { type?: unknown; screen?: unknown };
+  const obj = v as { type?: unknown; screen?: unknown; authorizeVariant?: unknown };
   return (
     obj.type === "da:preview-screen" &&
     (obj.screen === "login" ||
       obj.screen === "apps" ||
       obj.screen === "security" ||
       obj.screen === "authorize" ||
-      obj.screen === "profile")
+      obj.screen === "profile") &&
+    (obj.authorizeVariant === undefined ||
+      obj.authorizeVariant === "with-orgs" ||
+      obj.authorizeVariant === "without-orgs" ||
+      obj.authorizeVariant === "no-active-orgs" ||
+      obj.authorizeVariant === "zk-key")
   );
 };
 
@@ -237,6 +249,7 @@ const { issuer, overrides: initialOverrides } = parseOptions();
 let overrides = initialOverrides;
 let revision = 0;
 let previewScreen: PreviewScreen = "login";
+let authorizeVariant: AuthorizePreviewVariant = "with-orgs";
 
 const w = window as ThemedWindow;
 if (w.__APP_CONFIG__?.branding) {
@@ -312,51 +325,135 @@ function PreviewSecurity() {
   );
 }
 
+function PreviewOrganizations({ variant }: { variant: AuthorizePreviewVariant }) {
+  if (variant === "without-orgs" || variant === "zk-key") return null;
+  if (variant === "no-active-orgs") {
+    return (
+      <div className="authorize-organizations">
+        <h3>Organization</h3>
+        <div className="authorize-organization-empty">
+          <p>No active organizations are available for this sign-in.</p>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="authorize-organizations">
+      <h3>Organization</h3>
+      <fieldset className="authorize-organization-fieldset">
+        <legend>Choose which organization to use for this sign-in.</legend>
+        <div className="authorize-organization-list">
+          <label className="authorize-organization-option" data-selected="true">
+            <input type="radio" name="preview_organization_id" checked readOnly />
+            <span className="authorize-organization-option-text">
+              <span className="authorize-scope-name">Puzed</span>
+              <span className="authorize-scope-description">Organization Admin, Member</span>
+            </span>
+          </label>
+          <label className="authorize-organization-option">
+            <input type="radio" name="preview_organization_id" readOnly />
+            <span className="authorize-organization-option-text">
+              <span className="authorize-scope-name">Family</span>
+              <span className="authorize-scope-description">Organization Admin, Member</span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+  );
+}
+
+function PreviewAuthorizeScopes({ variant }: { variant: AuthorizePreviewVariant }) {
+  const scopes =
+    variant === "zk-key"
+      ? [
+          ["K", "Encrypted app key", "Share an encrypted app key with Gitea"],
+          ["@", "Email address", "Access your email address"],
+          ["P", "Profile information", "Access your profile information"],
+        ]
+      : [
+          ["@", "", "Access your email address"],
+          ["P", "", "Access your profile information"],
+          ["O", "", "Authenticate you"],
+        ];
+  return (
+    <div className="authorize-scopes da-authorize-scopes">
+      <h3>Permissions</h3>
+      <ul className="authorize-scope-list">
+        {scopes.map(([icon, name, description]) => (
+          <li className="authorize-scope-item da-authorize-scope" key={`${icon}-${description}`}>
+            <span className="authorize-scope-icon">{icon}</span>
+            <div className="authorize-scope-text">
+              {name ? <span className="authorize-scope-name">{name}</span> : null}
+              <span className="authorize-scope-description">{description}</span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function PreviewAuthorize() {
+  const branding = useBranding();
+  const appName = authorizeVariant === "zk-key" ? "Atlas" : "Gitea";
+  const appInitial = authorizeVariant === "zk-key" ? "A" : "G";
   return (
     <div className="app da-app">
       <div className="container da-container">
+        <div className="header da-header authorize-page-header">
+          <div className="brand da-brand">
+            <span className="brand-icon da-brand-icon">
+              <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
+            </span>
+            <h1 className="da-brand-title">{branding.getTitle() || "DarkAuth"}</h1>
+          </div>
+          <div className="user-info da-user-info authorize-page-actions">
+            <ThemeToggle />
+          </div>
+        </div>
         <div className="authorize-container da-authorize-container">
           <div className="authorize-card da-container">
             <div className="authorize-header">
               <div className="authorize-app">
-                <div className="authorize-app-icon">A</div>
+                <div className="authorize-app-icon">{appInitial}</div>
                 <div className="authorize-app-text">
-                  <h2 className="authorize-title da-auth-title">Continue to Atlas</h2>
+                  <h2 className="authorize-title da-auth-title">
+                    {authorizeVariant === "zk-key"
+                      ? `Continue to ${appName}`
+                      : "Authorize Application"}
+                  </h2>
                   <p className="authorize-description">
-                    Review what this app can access before continuing.
+                    {authorizeVariant === "zk-key"
+                      ? "Review what this app can access before continuing."
+                      : `${appName} would like to:`}
                   </p>
                 </div>
               </div>
+              <div className="authorize-account">
+                <div className="authorize-avatar">M</div>
+                <div className="authorize-account-text">
+                  <p className="authorize-account-label">Signed in as</p>
+                  <p className="authorize-account-name">Mark Wylde</p>
+                  <p className="authorize-account-email">mark@wylde.net</p>
+                </div>
+              </div>
             </div>
-            <div className="authorize-scopes da-authorize-scopes">
-              <h3>Permissions</h3>
-              <ul className="authorize-scope-list">
-                <li className="authorize-scope-item da-authorize-scope">
-                  <span className="authorize-scope-icon">K</span>
-                  <div className="authorize-scope-text">
-                    <span className="authorize-scope-name">Encrypted app key</span>
-                    <span className="authorize-scope-description">
-                      Share an encrypted app key with Atlas
-                    </span>
-                  </div>
-                </li>
-                <li className="authorize-scope-item da-authorize-scope">
-                  <span className="authorize-scope-icon">@</span>
-                  <div className="authorize-scope-text">
-                    <span className="authorize-scope-name">Email address</span>
-                    <span className="authorize-scope-description">Access your email address</span>
-                  </div>
-                </li>
-              </ul>
-            </div>
+            <PreviewOrganizations variant={authorizeVariant} />
+            <PreviewAuthorizeScopes variant={authorizeVariant} />
             <div className="actions da-authorize-actions">
               <button className="secondary-button" type="button">
                 Deny
               </button>
-              <button className="primary-button" type="button">
-                Continue
+              <button className="primary-button success-button" type="button">
+                {authorizeVariant === "zk-key" ? "Continue" : "Authorize"}
               </button>
+            </div>
+            <div className="authorize-footnote">
+              <p>
+                By continuing, you allow {appName} to access the requested information. You can
+                revoke this access later.
+              </p>
             </div>
           </div>
         </div>
@@ -419,6 +516,7 @@ window.addEventListener("message", (e: MessageEvent) => {
   }
   if (isPreviewScreenMessage(data)) {
     previewScreen = data.screen;
+    if (data.authorizeVariant) authorizeVariant = data.authorizeVariant;
     revision += 1;
     render();
     return;

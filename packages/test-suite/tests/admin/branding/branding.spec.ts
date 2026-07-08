@@ -5,6 +5,12 @@ import { FIXED_TEST_ADMIN } from '../../../fixtures/testData.js';
 import { ensureAdminDashboard, createSecondaryAdmin } from '../../../setup/helpers/admin.js';
 import { createAdminUserViaAdmin } from '../../../setup/helpers/auth.js';
 
+const colorInput = (
+  page: import('@playwright/test').Page,
+  label: string,
+  mode: 'Light' | 'Dark' = 'Light'
+) => page.getByLabel(`${mode} ${label}`, { exact: true });
+
 test.describe('Admin - Branding Settings', () => {
   let servers: TestServers;
   
@@ -37,15 +43,14 @@ test.describe('Admin - Branding Settings', () => {
   test.beforeEach(async ({ page }) => {
     await ensureAdminDashboard(page, servers, adminCred);
     
-    // Navigate to Branding page
     await page.click('a[href="/branding"], button:has-text("Branding")');
     await expect(page.getByRole('heading', { name: 'Branding', exact: true })).toBeVisible();
     await expect(page.getByText('Customize logos, colors, text, and CSS')).toBeVisible();
   });
 
   test('can change brand color for light mode', async ({ page }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const lightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
+    const lightColorInput = colorInput(page, 'Brand color');
 
     await lightColorInput.clear();
     await lightColorInput.fill('#ff0000');
@@ -54,18 +59,18 @@ test.describe('Admin - Branding Settings', () => {
     await expect(page.getByText('Branding saved').first()).toBeVisible({ timeout: 5000 });
 
     await page.locator('button:has-text("Reload")').first().click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
 
     await page.waitForTimeout(500);
-    const savedLightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const savedLightColorInput = colorInput(page, 'Brand color');
     await expect(savedLightColorInput).toHaveValue('#ff0000');
   });
 
   test('can change brand color for dark mode', async ({ page }) => {
     await page.getByRole('tab', { name: 'Dark' }).click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color', 'Dark')).toBeVisible({ timeout: 10000 });
 
-    const darkColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const darkColorInput = colorInput(page, 'Brand color', 'Dark');
     await darkColorInput.clear();
     await darkColorInput.fill('#00ff00');
 
@@ -74,22 +79,22 @@ test.describe('Admin - Branding Settings', () => {
 
     await page.locator('button:has-text("Reload")').first().click();
     await page.getByRole('tab', { name: 'Dark' }).click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color', 'Dark')).toBeVisible({ timeout: 10000 });
 
     await page.waitForTimeout(500);
-    const savedDarkColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const savedDarkColorInput = colorInput(page, 'Brand color', 'Dark');
     await expect(savedDarkColorInput).toHaveValue('#00ff00');
   });
 
   test('can change both light and dark mode colors', async ({ page }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const lightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
+    const lightColorInput = colorInput(page, 'Brand color');
     await lightColorInput.clear();
     await lightColorInput.fill('#0000ff');
 
     await page.getByRole('tab', { name: 'Dark' }).click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const darkColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    await expect(colorInput(page, 'Brand color', 'Dark')).toBeVisible({ timeout: 10000 });
+    const darkColorInput = colorInput(page, 'Brand color', 'Dark');
     await darkColorInput.clear();
     await darkColorInput.fill('#ffff00');
 
@@ -97,37 +102,33 @@ test.describe('Admin - Branding Settings', () => {
     await expect(page.getByText('Branding saved').first()).toBeVisible({ timeout: 5000 });
 
     await page.locator('button:has-text("Reload")').first().click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await page.getByRole('tab', { name: 'Light' }).click();
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
 
     await page.waitForTimeout(500);
-    await page.getByRole('tab', { name: 'Light' }).click();
-    const savedLightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const savedLightColorInput = colorInput(page, 'Brand color');
     await expect(savedLightColorInput).toHaveValue('#0000ff');
 
     await page.getByRole('tab', { name: 'Dark' }).click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const savedDarkColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    await expect(colorInput(page, 'Brand color', 'Dark')).toBeVisible({ timeout: 10000 });
+    const savedDarkColorInput = colorInput(page, 'Brand color', 'Dark');
     await expect(savedDarkColorInput).toHaveValue('#ffff00');
   });
 
   test('branding changes are reflected in user UI at localhost:9080', async ({ page, context }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
 
-    const lightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
-    const lightPrimaryBackgroundInput = page
-      .locator('label:has-text("Primary Background Color") + div input')
-      .nth(1);
+    const lightColorInput = colorInput(page, 'Brand color');
+    const lightPrimaryBackgroundInput = colorInput(page, 'Primary action');
     await lightColorInput.clear();
     await lightColorInput.fill('#ff00ff');
     await lightPrimaryBackgroundInput.clear();
     await lightPrimaryBackgroundInput.fill('#ff00ff');
 
     await page.getByRole('tab', { name: 'Dark' }).click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const darkColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
-    const darkPrimaryBackgroundInput = page
-      .locator('label:has-text("Primary Background Color") + div input')
-      .nth(1);
+    await expect(colorInput(page, 'Brand color', 'Dark')).toBeVisible({ timeout: 10000 });
+    const darkColorInput = colorInput(page, 'Brand color', 'Dark');
+    const darkPrimaryBackgroundInput = colorInput(page, 'Primary action', 'Dark');
     await darkColorInput.clear();
     await darkColorInput.fill('#ff00ff');
     await darkPrimaryBackgroundInput.clear();
@@ -157,8 +158,8 @@ test.describe('Admin - Branding Settings', () => {
   });
 
   test('can use color picker to change colors', async ({ page }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
-    const lightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
+    const lightColorInput = colorInput(page, 'Brand color');
 
     await lightColorInput.clear();
     await lightColorInput.fill('#123456');
@@ -169,17 +170,17 @@ test.describe('Admin - Branding Settings', () => {
     await expect(page.getByText('Branding saved').first()).toBeVisible({ timeout: 5000 });
 
     await page.locator('button:has-text("Reload")').first().click();
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
 
     await page.waitForTimeout(500);
-    const savedLightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const savedLightColorInput = colorInput(page, 'Brand color');
     await expect(savedLightColorInput).toHaveValue('#123456');
   });
 
   test('preview updates in real-time when changing colors', async ({ page }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
 
-    const lightColorInput = page.locator('label:has-text("Brand Color") + div input').nth(1);
+    const lightColorInput = colorInput(page, 'Brand color');
     await lightColorInput.clear();
     await lightColorInput.fill('#ff69b4');
 
@@ -194,7 +195,7 @@ test.describe('Admin - Branding Settings', () => {
   });
 
   test('can upload and save a large logo without corrupting base64 data', async ({ page }) => {
-    await page.waitForSelector('text="Brand Color"', { timeout: 10000 });
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
     const png = Buffer.concat([
       Buffer.from(
         'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mM88R8AAtUB6C8zHs0AAAAASUVORK5CYII=',
@@ -224,5 +225,37 @@ test.describe('Admin - Branding Settings', () => {
       'src',
       `data:image/png;base64,${expectedLogo}`
     );
+  });
+
+  test('blocks invalid visible color values before save', async ({ page }) => {
+    await expect(colorInput(page, 'Brand color')).toBeVisible({ timeout: 10000 });
+
+    await colorInput(page, 'Brand color').fill('not-a-color');
+
+    await expect(page.getByText('Use #RGB or #RRGGBB.')).toBeVisible();
+    await expect(page.locator('button:has-text("Save")').first()).toBeDisabled();
+  });
+
+  test('authorize preview exposes org and no-org variants in light and dark', async ({ page }) => {
+    await page.getByRole('button', { name: 'Authorize' }).click();
+    const frame = page.frameLocator('iframe[title="Branding Preview"]');
+
+    await expect(frame.getByText('Choose which organization to use for this sign-in.')).toBeVisible();
+    await expect(frame.getByText('Puzed')).toBeVisible();
+
+    await page.getByRole('button', { name: 'No org prompt' }).click();
+    await expect(frame.getByText('Choose which organization to use for this sign-in.')).toHaveCount(0);
+    await expect(frame.getByText('Permissions')).toBeVisible();
+
+    await page.getByRole('tab', { name: 'Dark' }).click();
+    await page.getByRole('button', { name: 'App key' }).click();
+    await expect(frame.getByText('Continue to Atlas')).toBeVisible();
+    await expect(frame.getByText('Encrypted app key', { exact: true })).toBeVisible();
+
+    const buttonColor = await frame.getByRole('button', { name: 'Continue' }).evaluate((element) => {
+      const styles = window.getComputedStyle(element);
+      return { backgroundColor: styles.backgroundColor, color: styles.color };
+    });
+    expect(buttonColor.backgroundColor).not.toBe(buttonColor.color);
   });
 });
