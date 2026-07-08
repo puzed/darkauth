@@ -8,6 +8,7 @@
     "dev": "vite --port 5174",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "test": "node --test \"src/**/*.test.js\"",
     "typecheck": "tsc --noEmit",
     "format": "biome format --write .",
     "lint": "biome lint .",

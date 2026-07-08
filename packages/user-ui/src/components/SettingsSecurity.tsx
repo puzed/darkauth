@@ -45,16 +45,37 @@ type SecuritySection =
   | "mfa"
   | "advanced";
 
+export type SettingsSecurityPreviewData = {
+  status: {
+    enabled: boolean;
+    verified: boolean;
+    created_at?: string | null;
+    last_used_at?: string | null;
+    backup_codes_remaining?: number;
+    required?: boolean;
+  } | null;
+  keybag: KeybagResponse | null;
+  trustedDevices: TrustedDeviceResponse[];
+  deviceApprovals: DeviceApprovalResponse[];
+  recoveryKeys: RecoveryKeyResponse[];
+  passkeys: WebAuthnCredentialResponse[];
+  unlockPolicy: UnlockPolicy;
+  connectedIdentities: ConnectedIdentityResponse[];
+  enterpriseSsoRoute: FederationConnectionRoute | null;
+};
+
 export default function SettingsSecurity({
   sessionData,
+  previewData,
 }: {
   sessionData: {
     sub: string;
     email?: string;
     keyState?: "locked" | "unlocked" | "setup_required";
   };
+  previewData?: SettingsSecurityPreviewData;
 }) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!previewData);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<{
     enabled: boolean;
@@ -63,29 +84,41 @@ export default function SettingsSecurity({
     last_used_at?: string | null;
     backup_codes_remaining?: number;
     required?: boolean;
-  } | null>(null);
+  } | null>(previewData?.status || null);
   const [provisioningUri, setProvisioningUri] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [backupCodes, setBackupCodes] = useState<string[] | null>(null);
-  const [keybag, setKeybag] = useState<KeybagResponse | null>(null);
-  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceResponse[]>([]);
-  const [deviceApprovals, setDeviceApprovals] = useState<DeviceApprovalResponse[]>([]);
+  const [keybag, setKeybag] = useState<KeybagResponse | null>(previewData?.keybag || null);
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDeviceResponse[]>(
+    previewData?.trustedDevices || []
+  );
+  const [deviceApprovals, setDeviceApprovals] = useState<DeviceApprovalResponse[]>(
+    previewData?.deviceApprovals || []
+  );
   const [deviceActionLoading, setDeviceActionLoading] = useState<string | null>(null);
   const [trustDeviceLoading, setTrustDeviceLoading] = useState(false);
   const [trustedDeviceMessage, setTrustedDeviceMessage] = useState<string | null>(null);
-  const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKeyResponse[]>([]);
+  const [recoveryKeys, setRecoveryKeys] = useState<RecoveryKeyResponse[]>(
+    previewData?.recoveryKeys || []
+  );
   const [recoverySecret, setRecoverySecret] = useState<string | null>(null);
   const [recoverySecretSaved, setRecoverySecretSaved] = useState(false);
   const [recoveryActionLoading, setRecoveryActionLoading] = useState<string | null>(null);
   const [passkeyActionLoading, setPasskeyActionLoading] = useState(false);
   const [passkeyRevokeLoading, setPasskeyRevokeLoading] = useState<string | null>(null);
   const [passkeyMessage, setPasskeyMessage] = useState<string | null>(null);
-  const [passkeys, setPasskeys] = useState<WebAuthnCredentialResponse[]>([]);
-  const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(defaultUnlockPolicy);
-  const [connectedIdentities, setConnectedIdentities] = useState<ConnectedIdentityResponse[]>([]);
+  const [passkeys, setPasskeys] = useState<WebAuthnCredentialResponse[]>(
+    previewData?.passkeys || []
+  );
+  const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(
+    previewData?.unlockPolicy || defaultUnlockPolicy
+  );
+  const [connectedIdentities, setConnectedIdentities] = useState<ConnectedIdentityResponse[]>(
+    previewData?.connectedIdentities || []
+  );
   const [enterpriseSsoRoute, setEnterpriseSsoRoute] = useState<FederationConnectionRoute | null>(
-    null
+    previewData?.enterpriseSsoRoute || null
   );
   const [passkeyCompatibility, setPasskeyCompatibility] = useState<{
     webauthn: boolean;
@@ -97,6 +130,23 @@ export default function SettingsSecurity({
   const [activeSection, setActiveSection] = useState<SecuritySection>("overview");
 
   const reload = useCallback(async () => {
+    if (previewData) {
+      setLoading(false);
+      setError(null);
+      setBackupCodes(null);
+      setStatus(previewData.status);
+      setKeybag(previewData.keybag);
+      setTrustedDevices(previewData.trustedDevices);
+      setDeviceApprovals(previewData.deviceApprovals);
+      setRecoveryKeys(previewData.recoveryKeys);
+      setPasskeys(previewData.passkeys);
+      setUnlockPolicy(previewData.unlockPolicy);
+      setConnectedIdentities(previewData.connectedIdentities);
+      setEnterpriseSsoRoute(previewData.enterpriseSsoRoute);
+      setProvisioningUri(null);
+      setSecret(null);
+      return;
+    }
     try {
       setLoading(true);
       setError(null);
@@ -129,7 +179,7 @@ export default function SettingsSecurity({
     } finally {
       setLoading(false);
     }
-  }, [sessionData.email]);
+  }, [previewData, sessionData.email]);
 
   const refreshDeviceApprovals = useCallback(async () => {
     try {
@@ -144,6 +194,7 @@ export default function SettingsSecurity({
   }, [reload]);
 
   useEffect(() => {
+    if (previewData) return undefined;
     const activeDeviceCount = trustedDevices.filter((device) => !device.revoked_at).length;
     if (loading || activeDeviceCount < 1) return undefined;
     const interval = window.setInterval(() => {
@@ -153,7 +204,7 @@ export default function SettingsSecurity({
         .catch(() => {});
     }, 10000);
     return () => window.clearInterval(interval);
-  }, [loading, trustedDevices]);
+  }, [loading, previewData, trustedDevices]);
 
   useEffect(() => {
     const credentialApi = window.PublicKeyCredential as

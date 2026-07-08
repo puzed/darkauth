@@ -32,6 +32,8 @@ interface App {
 interface DashboardProps {
   sessionData: SessionData;
   onLogout: () => void;
+  previewApps?: App[];
+  previewKeyState?: KeyState;
 }
 
 function resolveKeyState(sessionData: SessionData): KeyState {
@@ -58,11 +60,13 @@ function AppIcon({ app }: { app: App }) {
   return <span>{appInitial(app)}</span>;
 }
 
-export default function Dashboard({ sessionData }: DashboardProps) {
-  const [apps, setApps] = useState<App[]>([]);
+export default function Dashboard({ sessionData, previewApps, previewKeyState }: DashboardProps) {
+  const [apps, setApps] = useState<App[]>(previewApps || []);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [keyState, setKeyState] = useState<KeyState>(resolveKeyState(sessionData));
+  const [loading, setLoading] = useState(!previewApps);
+  const [keyState, setKeyState] = useState<KeyState>(
+    previewKeyState || resolveKeyState(sessionData)
+  );
 
   const loadUserApps = useCallback(async () => {
     try {
@@ -77,12 +81,17 @@ export default function Dashboard({ sessionData }: DashboardProps) {
   }, []);
 
   useEffect(() => {
+    if (previewApps) {
+      setApps(previewApps);
+      setLoading(false);
+      return;
+    }
     loadUserApps();
-  }, [loadUserApps]);
+  }, [loadUserApps, previewApps]);
 
   useEffect(() => {
-    setKeyState(resolveKeyState(sessionData));
-  }, [sessionData]);
+    setKeyState(previewKeyState || resolveKeyState(sessionData));
+  }, [previewKeyState, sessionData]);
 
   const filteredApps = useMemo(() => {
     const normalized = query.trim().toLowerCase();

@@ -85,12 +85,19 @@ interface AuthorizeProps {
     keyState?: "locked" | "unlocked" | "setup_required";
   };
   onRecoverWithOldPassword?: () => void;
+  previewData?: {
+    organizations?: UserOrganization[];
+    organizationsLoading?: boolean;
+    trustedDeviceCount?: number;
+    hasZkDeliveryScope?: boolean;
+  };
 }
 
 export default function Authorize({
   authRequest,
   sessionData,
   onRecoverWithOldPassword: _onRecoverWithOldPassword,
+  previewData,
 }: AuthorizeProps) {
   const branding = useBranding();
   const [loading, setLoading] = useState(false);
@@ -101,9 +108,15 @@ export default function Authorize({
   const [recoverySecret, setRecoverySecret] = useState("");
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [keyUnlocked, setKeyUnlocked] = useState(sessionData.keyState === "unlocked");
-  const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
-  const [organizationsLoading, setOrganizationsLoading] = useState(true);
-  const [trustedDeviceCount, setTrustedDeviceCount] = useState(0);
+  const [organizations, setOrganizations] = useState<UserOrganization[]>(
+    previewData?.organizations || []
+  );
+  const [organizationsLoading, setOrganizationsLoading] = useState(
+    previewData?.organizationsLoading ?? !previewData
+  );
+  const [trustedDeviceCount, setTrustedDeviceCount] = useState(
+    previewData?.trustedDeviceCount || 0
+  );
   const [unlockPolicy, setUnlockPolicy] = useState<UnlockPolicy>(
     authRequest.unlockPolicy || defaultUnlockPolicy
   );
@@ -127,7 +140,8 @@ export default function Authorize({
   const sessionOrganizationId = sessionData.organizationId || "";
   const requireOrganizationSelection = authRequest.requireOrganizationSelection !== false;
   const hasZkDeliveryScope =
-    authRequest.hasZk && new URL(window.location.href).searchParams.has("zk_pub");
+    previewData?.hasZkDeliveryScope ??
+    (authRequest.hasZk && new URL(window.location.href).searchParams.has("zk_pub"));
   const activeOrganizations = organizations.filter((organization) =>
     organization.status ? organization.status === "active" : true
   );
@@ -167,12 +181,49 @@ export default function Authorize({
   }, []);
 
   useEffect(() => {
+    if (previewData) {
+      return;
+    }
     if (authRequest.hasZk) {
       generateZkKeyPair();
     }
-  }, [authRequest.hasZk, generateZkKeyPair]);
+  }, [authRequest.hasZk, generateZkKeyPair, previewData]);
 
   useEffect(() => {
+    if (previewData) {
+      const nextOrganizations = previewData.organizations || [];
+      const nextActiveOrganizations = nextOrganizations.filter((organization) =>
+        organization.status ? organization.status === "active" : true
+      );
+      setOrganizations(nextOrganizations);
+      setOrganizationsLoading(previewData.organizationsLoading ?? false);
+      setTrustedDeviceCount(previewData.trustedDeviceCount || 0);
+      setUnlockPolicy(authRequest.unlockPolicy || defaultUnlockPolicy);
+      setError(null);
+      setRecoveryVisible(false);
+      setDeviceApproval(null);
+      setDeviceApprovalCode(null);
+      setDeviceApprovalStatus(null);
+      setSelectedOrganizationId(() => {
+        if (!requireOrganizationSelection) return "";
+        if (
+          explicitOrganizationId &&
+          nextActiveOrganizations.some((org) => org.organizationId === explicitOrganizationId)
+        ) {
+          return explicitOrganizationId;
+        }
+        if (
+          sessionOrganizationId &&
+          nextActiveOrganizations.some((org) => org.organizationId === sessionOrganizationId)
+        ) {
+          return sessionOrganizationId;
+        }
+        return nextActiveOrganizations.length === 1
+          ? nextActiveOrganizations[0].organizationId
+          : "";
+      });
+      return;
+    }
     if (!requireOrganizationSelection) {
       setOrganizations([]);
       setOrganizationsLoading(false);
@@ -218,9 +269,19 @@ export default function Authorize({
     return () => {
       cancelled = true;
     };
-  }, [explicitOrganizationId, requireOrganizationSelection, sessionOrganizationId]);
+  }, [
+    authRequest.unlockPolicy,
+    explicitOrganizationId,
+    previewData,
+    requireOrganizationSelection,
+    sessionOrganizationId,
+  ]);
 
   useEffect(() => {
+    if (previewData) {
+      setTrustedDeviceCount(previewData.trustedDeviceCount || 0);
+      return;
+    }
     if (!authRequest.hasZk || keyUnlocked) {
       setTrustedDeviceCount(0);
       return;
@@ -240,7 +301,7 @@ export default function Authorize({
     return () => {
       cancelled = true;
     };
-  }, [authRequest.hasZk, keyUnlocked]);
+  }, [authRequest.hasZk, keyUnlocked, previewData]);
 
   useEffect(() => {
     return () => {
@@ -251,6 +312,10 @@ export default function Authorize({
   }, []);
 
   useEffect(() => {
+    if (previewData) {
+      setUnlockPolicy(authRequest.unlockPolicy || defaultUnlockPolicy);
+      return;
+    }
     if (!authRequest.hasZk) {
       setUnlockPolicy(authRequest.unlockPolicy || defaultUnlockPolicy);
       return;
@@ -267,7 +332,7 @@ export default function Authorize({
     return () => {
       cancelled = true;
     };
-  }, [authRequest.hasZk, authRequest.unlockPolicy]);
+  }, [authRequest.hasZk, authRequest.unlockPolicy, previewData]);
 
   useEffect(() => {
     if (!isUnlockMethodAllowed(unlockPolicy, unlockMethod)) {
@@ -560,6 +625,9 @@ export default function Authorize({
       !selectedOrganizationId
     ) {
       setError("Choose which organization to use for this sign-in.");
+      return;
+    }
+    if (previewData) {
       return;
     }
 

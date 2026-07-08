@@ -412,13 +412,13 @@ export default function Branding() {
     faviconDark,
   ]);
 
-  useEffect(() => {
+  const postPreviewState = useCallback(() => {
     try {
-      iframeRef.current?.contentWindow?.postMessage(
-        { type: "da:theme", theme: activeMode },
-        window.location.origin
-      );
-      iframeRef.current?.contentWindow?.postMessage(
+      const target = iframeRef.current?.contentWindow;
+      if (!target) return;
+      target.postMessage({ type: "da:theme", theme: activeMode }, window.location.origin);
+      target.postMessage({ type: "da:branding", payload: previewPayload }, window.location.origin);
+      target.postMessage(
         {
           type: "da:preview-screen",
           screen: previewScreen,
@@ -429,21 +429,14 @@ export default function Branding() {
     } catch {
       return;
     }
-  }, [activeMode, previewScreen, authorizePreviewVariant]);
+  }, [activeMode, authorizePreviewVariant, previewPayload, previewScreen]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      try {
-        iframeRef.current?.contentWindow?.postMessage(
-          { type: "da:branding", payload: previewPayload },
-          window.location.origin
-        );
-      } catch {
-        return;
-      }
+      postPreviewState();
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [previewPayload]);
+  }, [postPreviewState]);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -955,28 +948,7 @@ export default function Branding() {
                   ref={iframeRef}
                   title="Branding Preview"
                   src={previewUrl}
-                  onLoad={() => {
-                    try {
-                      iframeRef.current?.contentWindow?.postMessage(
-                        { type: "da:theme", theme: activeMode },
-                        window.location.origin
-                      );
-                      iframeRef.current?.contentWindow?.postMessage(
-                        { type: "da:branding", payload: previewPayload },
-                        window.location.origin
-                      );
-                      iframeRef.current?.contentWindow?.postMessage(
-                        {
-                          type: "da:preview-screen",
-                          screen: previewScreen,
-                          authorizeVariant: authorizePreviewVariant,
-                        },
-                        window.location.origin
-                      );
-                    } catch {
-                      return;
-                    }
-                  }}
+                  onLoad={postPreviewState}
                   style={{
                     width: previewWidth,
                     height: 760,

@@ -249,10 +249,10 @@ test.describe('Admin - Branding Settings', () => {
 
     await page.getByRole('tab', { name: 'Dark' }).click();
     await page.getByRole('button', { name: 'App key' }).click();
-    await expect(frame.getByText('Continue to Atlas')).toBeVisible();
+    await expect(frame.getByText('Example Client 1 would like to:')).toBeVisible();
     await expect(frame.getByText('Encrypted app key', { exact: true })).toBeVisible();
 
-    const buttonColor = await frame.getByRole('button', { name: 'Continue' }).evaluate((element) => {
+    const buttonColor = await frame.getByRole('button', { name: 'Authorize' }).evaluate((element) => {
       const styles = window.getComputedStyle(element);
       return { backgroundColor: styles.backgroundColor, color: styles.color };
     });
