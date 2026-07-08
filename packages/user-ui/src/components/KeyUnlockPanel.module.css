@@ -1,8 +1,8 @@
 .panel {
   width: 100%;
-  border: 1px solid #f59e0b;
+  border: 1px solid color-mix(in srgb, var(--da-color-warning) 48%, var(--da-color-border));
   border-radius: 0.75rem;
-  background: #fffbeb;
+  background: color-mix(in srgb, var(--da-color-warning) 10%, var(--da-color-surface));
   padding: 1.125rem;
   text-align: left;
 }
@@ -29,14 +29,14 @@
 
 .title {
   margin: 0;
-  color: #92400e;
+  color: var(--da-color-text);
   font-size: 1rem;
   font-weight: 700;
 }
 
 .description {
   margin: 0;
-  color: #78350f;
+  color: var(--da-color-text-secondary);
   font-size: 0.875rem;
   line-height: 1.4;
 }
@@ -52,18 +52,18 @@
   gap: 0.875rem;
   margin-top: 1.125rem;
   padding-top: 1.125rem;
-  border-top: 1px solid #fbbf24;
+  border-top: 1px solid color-mix(in srgb, var(--da-color-warning) 42%, var(--da-color-border));
 }
 
 .approval h4 {
   margin: 0;
-  color: #92400e;
+  color: var(--da-color-text);
   font-size: 0.95rem;
 }
 
 .approval p {
   margin: 0;
-  color: #78350f;
+  color: var(--da-color-text-secondary);
   font-size: 0.875rem;
   line-height: 1.4;
 }
@@ -74,16 +74,16 @@
   justify-self: start;
   min-width: 11rem;
   border-radius: 0.5rem;
-  background: white;
+  background: var(--da-color-icon-bg);
   padding: 0.75rem 1rem;
-  color: #111827;
+  color: var(--da-color-icon-text);
   font-family: monospace;
   font-size: 1.5rem;
   letter-spacing: 0.35rem;
 }
 
 .status {
-  color: #78350f;
+  color: var(--da-color-text-secondary);
   font-size: 0.875rem;
 }
 
@@ -95,23 +95,23 @@
 .field label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: #78350f;
+  color: var(--da-color-text);
 }
 
 .field input {
   width: 100%;
-  border: 1px solid #fbbf24;
+  border: 1px solid color-mix(in srgb, var(--da-color-warning) 48%, var(--da-color-border));
   border-radius: 0.5rem;
   padding: 0.7rem 0.8rem;
-  background: white;
-  color: #111827;
+  background: var(--da-color-surface);
+  color: var(--da-color-text);
   font-size: 1rem;
 }
 
 .field input:focus {
-  outline: none;
-  border-color: var(--primary-500);
-  box-shadow: 0 0 0 3px rgb(245 158 11 / 0.2);
+  border-color: var(--da-color-action);
+  outline: 2px solid color-mix(in srgb, var(--da-focus-ring) 34%, transparent);
+  outline-offset: 2px;
 }
 
 .actions {
@@ -138,15 +138,15 @@
 }
 
 .error {
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #991b1b;
+  border: 1px solid color-mix(in srgb, var(--da-color-danger) 34%, var(--da-color-border));
+  background: color-mix(in srgb, var(--da-color-danger) 10%, var(--da-color-surface));
+  color: var(--da-color-danger);
 }
 
 .success {
-  border: 1px solid #bbf7d0;
-  background: #f0fdf4;
-  color: #166534;
+  border: 1px solid color-mix(in srgb, var(--da-color-success) 34%, var(--da-color-border));
+  background: color-mix(in srgb, var(--da-color-success) 10%, var(--da-color-surface));
+  color: var(--da-color-success);
 }
 
 @media (max-width: 768px) {
@@ -164,54 +164,7 @@
   }
 }
 
-[data-da-theme="dark"] .panel {
-  border-color: #92400e;
-  background: #451a0399;
-}
-
 [data-da-theme="dark"] .inlinePanel {
   border: 0;
   background: transparent;
-}
-
-[data-da-theme="dark"] .title {
-  color: #fbbf24;
-}
-
-[data-da-theme="dark"] .description,
-[data-da-theme="dark"] .field label {
-  color: #fde68a;
-}
-
-[data-da-theme="dark"] .field input {
-  border-color: #92400e;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-[data-da-theme="dark"] .approval {
-  border-color: #92400e;
-}
-
-[data-da-theme="dark"] .approval h4,
-[data-da-theme="dark"] .approval p,
-[data-da-theme="dark"] .status {
-  color: #fde68a;
-}
-
-[data-da-theme="dark"] .code {
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-[data-da-theme="dark"] .error {
-  border-color: #f871714d;
-  background: #7f1d1d33;
-  color: #fca5a5;
-}
-
-[data-da-theme="dark"] .success {
-  border-color: #22c55e4d;
-  background: #14532d33;
-  color: #86efac;
 }

@@ -57,8 +57,8 @@
   width: 2rem;
   height: 2rem;
   border-radius: var(--da-control-radius);
-  background: color-mix(in srgb, currentColor 10%, transparent);
-  color: var(--da-color-action);
+  background: var(--da-color-icon-bg);
+  color: var(--da-color-icon-text);
 }
 
 .menuCopy {
@@ -310,8 +310,8 @@
   display: block;
   padding: 0.75rem;
   border-radius: var(--da-control-radius);
-  background: color-mix(in srgb, var(--da-color-text) 92%, black);
-  color: var(--da-color-surface);
+  background: var(--da-color-icon-bg);
+  color: var(--da-color-icon-text);
   font-family: var(--font-mono);
   font-size: 0.875rem;
   overflow-wrap: anywhere;

@@ -87,7 +87,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
         <p>Loading...</p>
       </div>
     );
-  if (error) return <div style={{ color: "hsl(var(--destructive))" }}>{error}</div>;
+  if (error) return <div style={{ color: "var(--da-color-danger)" }}>{error}</div>;
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", textAlign: "center" }}>
@@ -117,7 +117,9 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
                 <div
                   style={{
                     wordBreak: "break-all",
-                    background: "hsl(var(--muted))",
+                    background: "var(--da-color-surface-raised)",
+                    border: "1px solid var(--da-color-border)",
+                    color: "var(--da-color-text)",
                     padding: 8,
                     borderRadius: 6,
                     textAlign: "center",

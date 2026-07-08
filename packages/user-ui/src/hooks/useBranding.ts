@@ -1,3 +1,4 @@
+import { bestTextColor, readableTextColor } from "@DarkAuth/branding";
 import { useEffect, useState } from "react";
 
 type BrandingFont = { family?: string; size?: string; weight?: Record<string, string> };
@@ -88,69 +89,26 @@ const colorMap: Record<string, string[]> = {
     "--da-text-secondary",
   ],
   textMutedColor: ["--gray-500", "--da-color-text-muted", "--da-text-muted"],
+  surfaceColor: ["--da-card-bg", "--da-color-surface"],
+  surfaceRaisedColor: ["--da-color-surface-raised"],
+  inputBackgroundColor: ["--da-input-bg", "--da-color-input-bg"],
+  inputBorderColor: ["--da-color-input-border"],
+  inputFocusColor: ["--da-color-input-focus"],
+  borderColor: ["--da-border", "--da-color-border"],
+  iconBackgroundColor: ["--da-color-icon-bg"],
+  iconForegroundColor: ["--da-color-icon-text"],
+  selectionBackgroundColor: ["--da-color-selection-bg"],
+  selectionBorderColor: ["--da-color-selection-border"],
+  selectionForegroundColor: ["--da-color-selection-text"],
+  authorizeButtonColor: ["--da-color-success"],
+  authorizeButtonForegroundColor: ["--da-color-success-text"],
+  warningColor: ["--da-color-warning"],
+  dangerColor: ["--da-color-danger"],
 };
 
-function parseCssColor(value: string): { r: number; g: number; b: number } | null {
-  const trimmed = value.trim();
-  const hex = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
-  if (hex) {
-    const raw = hex[1] || "";
-    if (!raw) return null;
-    const expanded =
-      raw.length === 3
-        ? raw
-            .split("")
-            .map((part) => part + part)
-            .join("")
-        : raw;
-    return {
-      r: Number.parseInt(expanded.slice(0, 2), 16),
-      g: Number.parseInt(expanded.slice(2, 4), 16),
-      b: Number.parseInt(expanded.slice(4, 6), 16),
-    };
-  }
-  const rgb = trimmed.match(/^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/i);
-  if (!rgb) return null;
-  const r = rgb[1] || "";
-  const g = rgb[2] || "";
-  const b = rgb[3] || "";
-  if (!r || !g || !b) return null;
-  return {
-    r: Math.min(255, Number.parseInt(r, 10)),
-    g: Math.min(255, Number.parseInt(g, 10)),
-    b: Math.min(255, Number.parseInt(b, 10)),
-  };
-}
-
-function channelLuminance(value: number): number {
-  const normalized = value / 255;
-  if (normalized <= 0.03928) return normalized / 12.92;
-  return ((normalized + 0.055) / 1.055) ** 2.4;
-}
-
-function relativeLuminance(color: { r: number; g: number; b: number }): number {
-  return (
-    0.2126 * channelLuminance(color.r) +
-    0.7152 * channelLuminance(color.g) +
-    0.0722 * channelLuminance(color.b)
-  );
-}
-
-function colorContrast(foreground: string, background: string): number | null {
-  const fg = parseCssColor(foreground);
-  const bg = parseCssColor(background);
-  if (!fg || !bg) return null;
-  const fgLum = relativeLuminance(fg);
-  const bgLum = relativeLuminance(bg);
-  const lighter = Math.max(fgLum, bgLum);
-  const darker = Math.min(fgLum, bgLum);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-function readableTextColor(foreground: string, background: string, fallback: string): string {
-  const ratio = colorContrast(foreground, background);
-  if (ratio !== null && ratio < 4.5) return fallback;
-  return foreground;
+function isUsableCssColor(value: string | undefined) {
+  if (!value) return false;
+  return typeof CSS === "undefined" || CSS.supports("color", value);
 }
 
 function clearInlineBranding() {
@@ -158,19 +116,30 @@ function clearInlineBranding() {
   const vars = new Set(Object.values(colorMap).flat());
   for (const v of vars) root.style.removeProperty(v);
   root.style.removeProperty("--da-input-bg");
+  root.style.removeProperty("--da-color-input-bg");
+  root.style.removeProperty("--da-color-input-border");
+  root.style.removeProperty("--da-color-input-focus");
   root.style.removeProperty("--da-card-bg");
   root.style.removeProperty("--da-page-bg");
   root.style.removeProperty("--da-color-surface");
   root.style.removeProperty("--da-color-surface-raised");
+  root.style.removeProperty("--da-color-surface-muted");
   root.style.removeProperty("--da-color-text-secondary");
   root.style.removeProperty("--da-color-text-muted");
   root.style.removeProperty("--da-text");
   root.style.removeProperty("--da-text-secondary");
   root.style.removeProperty("--da-text-muted");
+  root.style.removeProperty("--da-border");
   root.style.removeProperty("--da-color-border");
   root.style.removeProperty("--da-color-success");
+  root.style.removeProperty("--da-color-success-text");
   root.style.removeProperty("--da-color-warning");
   root.style.removeProperty("--da-color-danger");
+  root.style.removeProperty("--da-color-icon-bg");
+  root.style.removeProperty("--da-color-icon-text");
+  root.style.removeProperty("--da-color-selection-bg");
+  root.style.removeProperty("--da-color-selection-border");
+  root.style.removeProperty("--da-color-selection-text");
   document.body.style.removeProperty("background");
 }
 
@@ -184,27 +153,35 @@ function applyColorVariables(
   const lightColors = colors || {};
   const darkColors = colorsDark || {};
   const activeColors = isDark ? darkColors : lightColors;
+  const colorValue = (key: string) => {
+    const value = activeColors[key];
+    return isUsableCssColor(value) ? value : undefined;
+  };
 
   if (!Object.keys(activeColors).length) return;
   if (isDark) {
     root.style.removeProperty("--da-input-bg");
+    root.style.removeProperty("--da-color-input-bg");
+    root.style.removeProperty("--da-color-input-border");
+    root.style.removeProperty("--da-color-input-focus");
     root.style.removeProperty("--da-card-bg");
   }
   Object.entries(colorMap).forEach(([brandingKey, cssVars]) => {
-    if (!activeColors[brandingKey]) return;
+    const value = colorValue(brandingKey);
+    if (!value) return;
     cssVars.forEach((cssVar) => {
-      root.style.setProperty(cssVar, activeColors[brandingKey]);
+      root.style.setProperty(cssVar, value);
     });
   });
 
-  const brandColor = activeColors.brandColor;
+  const brandColor = colorValue("brandColor");
   if (brandColor) {
     root.style.setProperty("--da-primary", brandColor);
     root.style.setProperty("--primary-500", brandColor);
     root.style.setProperty("--da-color-brand", brandColor);
   }
 
-  const primaryBackground = activeColors.primaryBackgroundColor;
+  const primaryBackground = colorValue("primaryBackgroundColor");
   if (primaryBackground) {
     root.style.setProperty("--primary-600", primaryBackground);
     root.style.setProperty("--primary-700", primaryBackground);
@@ -212,43 +189,74 @@ function applyColorVariables(
     root.style.setProperty("--da-focus-ring", primaryBackground);
   }
 
-  const primaryForeground = activeColors.primaryForegroundColor;
-  if (primaryForeground) {
+  const primaryForeground = colorValue("primaryForegroundColor");
+  if (primaryBackground) {
+    const actionText = readableTextColor(
+      primaryForeground || (isDark ? "#111827" : "#ffffff"),
+      primaryBackground,
+      bestTextColor(primaryBackground)
+    );
+    root.style.setProperty("--primary-button-text", actionText);
+    root.style.setProperty("--da-color-action-text", actionText);
+  } else if (primaryForeground) {
     root.style.setProperty("--primary-button-text", primaryForeground);
     root.style.setProperty("--da-color-action-text", primaryForeground);
   }
 
-  const textColor = activeColors.textColor;
+  const textColor = colorValue("textColor");
   if (textColor) {
     root.style.setProperty("--gray-900", textColor);
     root.style.setProperty("--da-color-text", textColor);
     root.style.setProperty("--da-text", textColor);
   }
 
-  const pageBackground = activeColors.backgroundColor;
+  const pageBackground = colorValue("backgroundColor");
   if (pageBackground) {
     root.style.setProperty("--da-page-bg", pageBackground);
     root.style.setProperty("--da-color-page", pageBackground);
     document.body.style.background = pageBackground;
   }
 
-  const surfaceColor = activeColors.cardBackground || (isDark ? "#111827" : "#ffffff");
-  const surfaceRaisedColor = activeColors.surfaceRaised || (isDark ? "#1f2937" : "#f8fafc");
+  const surfaceColor =
+    colorValue("surfaceColor") || colorValue("cardBackground") || (isDark ? "#111827" : "#ffffff");
+  const surfaceRaisedColor =
+    colorValue("surfaceRaisedColor") ||
+    colorValue("surfaceRaised") ||
+    colorValue("inputBackgroundColor") ||
+    colorValue("inputBackground") ||
+    (isDark ? "#1f2937" : "#f8fafc");
+  const inputBackground =
+    colorValue("inputBackgroundColor") || colorValue("inputBackground") || surfaceRaisedColor;
+  const borderColor =
+    colorValue("borderColor") || colorValue("border") || (isDark ? "#334155" : "#e2e8f0");
+  const inputBorder = colorValue("inputBorderColor") || colorValue("inputBorder") || borderColor;
+  const inputFocus =
+    colorValue("inputFocusColor") ||
+    colorValue("inputFocus") ||
+    colorValue("primaryBackgroundColor") ||
+    colorValue("brandColor") ||
+    (isDark ? "#c5d3e8" : "#6600cc");
   const secondaryFallback = isDark ? "#e2e8f0" : "#334155";
   const mutedFallback = isDark ? "#cbd5e1" : "#475569";
+  const bodyText = colorValue("textColor") || (isDark ? "#f8fafc" : "#111827");
   const secondaryColor = readableTextColor(
-    activeColors.textSecondaryColor || secondaryFallback,
+    colorValue("textSecondaryColor") || secondaryFallback,
     surfaceColor,
     secondaryFallback
   );
   const mutedColor = readableTextColor(
-    activeColors.textMutedColor || mutedFallback,
+    colorValue("textMutedColor") || mutedFallback,
     surfaceColor,
     mutedFallback
   );
 
   root.style.setProperty("--da-color-surface", surfaceColor);
+  root.style.setProperty("--da-card-bg", surfaceColor);
   root.style.setProperty("--da-color-surface-raised", surfaceRaisedColor);
+  root.style.setProperty("--da-input-bg", inputBackground);
+  root.style.setProperty("--da-color-input-bg", inputBackground);
+  root.style.setProperty("--da-color-input-border", inputBorder);
+  root.style.setProperty("--da-color-input-focus", inputFocus);
   root.style.setProperty("--da-color-text-secondary", secondaryColor);
   root.style.setProperty("--da-color-text-muted", mutedColor);
   root.style.setProperty("--da-text-secondary", secondaryColor);
@@ -256,10 +264,52 @@ function applyColorVariables(
   root.style.setProperty("--gray-700", secondaryColor);
   root.style.setProperty("--gray-600", secondaryColor);
   root.style.setProperty("--gray-500", mutedColor);
-  root.style.setProperty("--da-color-border", isDark ? "#334155" : "#e2e8f0");
-  root.style.setProperty("--da-color-success", "#16a34a");
-  root.style.setProperty("--da-color-warning", "#d97706");
-  root.style.setProperty("--da-color-danger", "#dc2626");
+  root.style.setProperty("--da-border", borderColor);
+  root.style.setProperty("--da-color-border", borderColor);
+
+  const iconBackground = colorValue("iconBackgroundColor") || surfaceRaisedColor;
+  const iconForeground = readableTextColor(
+    colorValue("iconForegroundColor") ||
+      colorValue("brandColor") ||
+      colorValue("primaryBackgroundColor") ||
+      bodyText,
+    iconBackground,
+    bestTextColor(iconBackground)
+  );
+  root.style.setProperty("--da-color-icon-bg", iconBackground);
+  root.style.setProperty("--da-color-icon-text", iconForeground);
+
+  const selectionBackground =
+    colorValue("selectionBackgroundColor") || (isDark ? "#475569" : "#f3f4f6");
+  const selectionBorder =
+    colorValue("selectionBorderColor") ||
+    colorValue("primaryBackgroundColor") ||
+    colorValue("brandColor") ||
+    (isDark ? "#c5d3e8" : "#6600cc");
+  const selectionText = readableTextColor(
+    colorValue("selectionForegroundColor") || bodyText,
+    selectionBackground,
+    bestTextColor(selectionBackground)
+  );
+  root.style.setProperty("--da-color-selection-bg", selectionBackground);
+  root.style.setProperty("--da-color-selection-border", selectionBorder);
+  root.style.setProperty("--da-color-selection-text", selectionText);
+
+  const successColor =
+    colorValue("authorizeButtonColor") ||
+    colorValue("successColor") ||
+    (isDark ? "#22c55e" : "#16a34a");
+  const successText = readableTextColor(
+    colorValue("authorizeButtonForegroundColor") ||
+      colorValue("successForegroundColor") ||
+      "#ffffff",
+    successColor,
+    bestTextColor(successColor)
+  );
+  root.style.setProperty("--da-color-success", successColor);
+  root.style.setProperty("--da-color-success-text", successText);
+  root.style.setProperty("--da-color-warning", colorValue("warningColor") || "#d97706");
+  root.style.setProperty("--da-color-danger", colorValue("dangerColor") || "#dc2626");
 }
 
 function applyTypography(font: BrandingFont | undefined) {
