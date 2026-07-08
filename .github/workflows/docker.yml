@@ -146,6 +146,62 @@ jobs:
           path: |
             digest.txt
 
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: app_version
+        run: |
+          version="$(git describe --tags --exact-match 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -z "$version" ]; then
+            version="$(sed -n 's/.*"version": *"\([^"]*\)".*/\1/p' package.json | head -n 1)"
+          fi
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build runtime smoke image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          load: true
+          tags: darkauth:runtime-smoke
+          platforms: linux/amd64
+          build-args: |
+            APP_VERSION=${{ steps.app_version.outputs.value }}
+            COMMIT_HASH=${{ github.sha }}
+          cache-from: type=gha
+
+      - name: Verify runtime imports
+        run: |
+          docker run --rm --workdir /app/packages/api --entrypoint node darkauth:runtime-smoke -e "import('@DarkAuth/branding').then((m)=>{ if (!m.normalizeBrandingColors) process.exit(2); console.log('branding import ok'); })"
+          docker run --rm --workdir /app --entrypoint node darkauth:runtime-smoke -e "import('./packages/api/src/http/routers/userRouter.ts').then(()=>console.log('userRouter import ok'))"
+
+      - name: Verify server startup
+        run: |
+          cid="$(docker run -d -p 19080:9080 -p 19081:9081 darkauth:runtime-smoke)"
+          cleanup() {
+            docker rm -f "$cid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:19081/install >/dev/null; then
+              docker logs "$cid"
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' "$cid")" != "true" ]; then
+              docker logs "$cid"
+              exit 1
+            fi
+            sleep 1
+          done
+          docker logs "$cid"
+          exit 1
+
   manifest:
     needs: [build-amd64, build-arm64]
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
