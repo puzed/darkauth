@@ -4,6 +4,10 @@
 **Version:** 1.0  
 **Created:** 2025-09-04
 
+## Implementation Note
+
+The current implementation uses the semantic color contract and admin preview behavior defined in [IMPROVE_BRANDING.md](./IMPROVE_BRANDING.md). Legacy color keys from this document remain supported as fallbacks, while new user-facing UI should consume the semantic `--da-color-*` variables.
+
 ## Executive Summary
 
 This specification defines a comprehensive custom branding system for DarkAuth that enables administrators to fully customize the appearance and text of the user-facing authentication interface through the admin portal. The system supports logo customization, color theming, text localization, and advanced CSS customization while maintaining security and performance.
