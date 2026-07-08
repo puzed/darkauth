@@ -140,6 +140,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     zkRequired: false,
     keyDeliveryVersion: "v2" as Client["keyDeliveryVersion"],
     clientKeyScope: "organization" as Client["clientKeyScope"],
+    requireOrganizationSelection: true,
     showOnUserDashboard: false,
     dashboardAutoLogin: false,
     dashboardPosition: "0",
@@ -224,6 +225,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         zkRequired: c.zkRequired,
         keyDeliveryVersion: c.keyDeliveryVersion || "v2",
         clientKeyScope: c.clientKeyScope || "organization",
+        requireOrganizationSelection: c.requireOrganizationSelection ?? true,
         redirectUris: joinList(c.redirectUris),
         postLogoutRedirectUris: joinList(c.postLogoutRedirectUris),
         grantTypes: joinList(c.grantTypes),
@@ -266,6 +268,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         keyDeliveryVersion: form.keyDeliveryVersion,
         deliveredKeyKind: deliveredKeyKindFor(form.keyDeliveryVersion),
         clientKeyScope: form.clientKeyScope,
+        requireOrganizationSelection: form.requireOrganizationSelection,
         showOnUserDashboard: form.showOnUserDashboard,
         dashboardAutoLogin: form.dashboardAutoLogin,
         dashboardPosition: Number(form.dashboardPosition || "0"),
@@ -991,6 +994,37 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     <FieldHint>
                       Organization scoped keys differ by selected organization. Account scoped keys
                       stay stable across organizations.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Require Organization Selection"
+                        tooltip="Controls whether hosted authorization must bind this client to a selected organization."
+                      />
+                    }
+                  >
+                    <Select
+                      value={form.requireOrganizationSelection ? "yes" : "no"}
+                      onValueChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          requireOrganizationSelection: v === "yes",
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldHint>
+                      Disable this for generic OIDC clients that do not understand organization
+                      context.
                     </FieldHint>
                   </FormField>
                 </FormGrid>
