@@ -1,12 +1,19 @@
-import ThemeToggle from "@DarkAuth/user-ui/src/components/ThemeToggle";
-import UserLayout from "@DarkAuth/user-ui/src/components/UserLayout";
-import { LoginView } from "@DarkAuth/user-ui/src/exports";
-import { useBranding } from "@DarkAuth/user-ui/src/hooks/useBranding";
+import {
+  Authorize,
+  AuthorizePageFrame,
+  Dashboard,
+  LoginView,
+  Profile,
+  type SettingsSecurityPreviewData,
+  SettingsSecurityView,
+  UserPortalProvider,
+} from "@DarkAuth/user-ui/src/exports";
+import type { UserOrganization } from "@DarkAuth/user-ui/src/services/api";
+import { defaultUnlockPolicy } from "@DarkAuth/user-ui/src/services/unlockPolicy";
 import { createRoot } from "react-dom/client";
 import { MemoryRouter } from "react-router-dom";
 import "@DarkAuth/user-ui/src/index.css";
 import "@DarkAuth/user-ui/src/App.css";
-import "./preview.css";
 
 type BrandingConfig = {
   identity?: { title?: string; tagline?: string };
@@ -268,223 +275,211 @@ if (initialOverrides) {
   applyBranding(initialOverrides, issuer);
 }
 
+const previewSession = {
+  sub: "usr_preview",
+  name: "Mark Wylde",
+  email: "mark@wylde.net",
+  signInEmail: "mark@wylde.net",
+  organizationId: "org_puzed",
+  organizationSlug: "puzed",
+  keyState: "unlocked" as const,
+};
+
+const previewOrganizations: UserOrganization[] = [
+  {
+    organizationId: "org_puzed",
+    slug: "puzed",
+    name: "Puzed",
+    status: "active",
+    roles: [
+      { key: "admin", name: "Organization Admin" },
+      { key: "member", name: "Member" },
+    ],
+  },
+  {
+    organizationId: "org_family",
+    slug: "family",
+    name: "Family",
+    status: "active",
+    roles: [
+      { key: "admin", name: "Organization Admin" },
+      { key: "member", name: "Member" },
+    ],
+  },
+];
+
+const inactivePreviewOrganizations: UserOrganization[] = [
+  {
+    organizationId: "org_archived",
+    slug: "archived",
+    name: "Archived",
+    status: "inactive",
+  },
+];
+
+const previewSecurityData: SettingsSecurityPreviewData = {
+  status: { enabled: true, verified: true, backup_codes_remaining: 8 },
+  keybag: {
+    account_keys: [{ key_id: "ak_preview", sub: "usr_preview", version: "v2", status: "active" }],
+    envelopes: [
+      {
+        envelope_id: "env_password",
+        key_id: "ak_preview",
+        sub: "usr_preview",
+        type: "password",
+        label: "Password",
+        wrapping_alg: "OPAQUE-ExportKey-HKDF-SHA256+A256GCM/v2",
+        wrapped_key: "",
+        aad: "",
+      },
+      {
+        envelope_id: "env_recovery",
+        key_id: "ak_preview",
+        sub: "usr_preview",
+        type: "recovery",
+        label: "Recovery key",
+        wrapping_alg: "DarkAuth-Recovery-HKDF-SHA256+A256GCM/v2",
+        wrapped_key: "",
+        aad: "",
+      },
+    ],
+  },
+  trustedDevices: [
+    {
+      device_id: "dev_preview",
+      label: "This browser",
+      created_at: "2026-07-08T12:00:00Z",
+      last_seen_at: "2026-07-08T12:30:00Z",
+    },
+  ],
+  deviceApprovals: [],
+  recoveryKeys: [
+    {
+      recovery_key_id: "rk_preview",
+      envelope_id: "env_recovery",
+      label: "Recovery key",
+      created_at: "2026-07-08T12:00:00Z",
+    },
+  ],
+  passkeys: [
+    {
+      credential_id: "cred_preview",
+      sub: "usr_preview",
+      label: "MacBook passkey",
+      can_unlock: true,
+      prf_supported: true,
+      created_at: "2026-07-08T12:00:00Z",
+    },
+  ],
+  unlockPolicy: defaultUnlockPolicy,
+  connectedIdentities: [],
+  enterpriseSsoRoute: null,
+};
+
+function noop() {}
+
 function PreviewApps() {
   return (
-    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
-      <div className="preview-screen">
-        <p className="preview-kicker">Apps</p>
-        <h2>Your apps</h2>
-        <p className="preview-muted">2 apps are available for this account.</p>
-        <div className="preview-app-grid">
-          <a className="preview-app-tile" href="/">
-            <span className="preview-app-icon">A</span>
-            <span>
-              <strong>Atlas</strong>
-              <small>Customer operations workspace</small>
-            </span>
-            <b>Open</b>
-          </a>
-          <a className="preview-app-tile" href="/">
-            <span className="preview-app-icon">N</span>
-            <span>
-              <strong>Notes</strong>
-              <small>Encrypted team notes</small>
-            </span>
-            <b>Open</b>
-          </a>
-        </div>
-      </div>
-    </UserLayout>
+    <Dashboard
+      sessionData={previewSession}
+      onLogout={noop}
+      previewKeyState="unlocked"
+      previewApps={[
+        {
+          id: "example-client-1",
+          name: "Example Client 1",
+          description: "Example application",
+          url: "https://client-1.example.com",
+          iconMode: "letter",
+          iconLetter: "1",
+        },
+        {
+          id: "example-client-2",
+          name: "Example Client 2",
+          description: "Example application",
+          url: "https://client-2.example.com",
+          iconMode: "letter",
+          iconLetter: "2",
+        },
+      ]}
+    />
   );
 }
 
 function PreviewSecurity() {
   return (
-    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
-      <div className="preview-screen preview-narrow">
-        <p className="preview-kicker">Security</p>
-        <h2>Security overview</h2>
-        <p className="preview-muted">Review sign-in, encrypted access, and recovery.</p>
-        <div className="preview-status-list">
-          {[
-            ["Sign-in", "Password and enterprise identity", "Ready"],
-            ["Encrypted app access", "Passkey unlock and trusted browser", "Ready"],
-            ["Recovery", "Offline recovery key", "Action needed"],
-          ].map(([title, detail, state]) => (
-            <button className="preview-status-row" type="button" key={title}>
-              <span>
-                <strong>{title}</strong>
-                <small>{detail}</small>
-              </span>
-              <b>{state}</b>
-            </button>
-          ))}
-        </div>
-      </div>
-    </UserLayout>
+    <SettingsSecurityView
+      sessionData={previewSession}
+      onLogout={noop}
+      previewData={previewSecurityData}
+    />
   );
 }
 
-function PreviewOrganizations({ variant }: { variant: AuthorizePreviewVariant }) {
-  if (variant === "without-orgs" || variant === "zk-key") return null;
-  if (variant === "no-active-orgs") {
-    return (
-      <div className="authorize-organizations">
-        <h3>Organization</h3>
-        <div className="authorize-organization-empty">
-          <p>No active organizations are available for this sign-in.</p>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="authorize-organizations">
-      <h3>Organization</h3>
-      <fieldset className="authorize-organization-fieldset">
-        <legend>Choose which organization to use for this sign-in.</legend>
-        <div className="authorize-organization-list">
-          <label className="authorize-organization-option" data-selected="true">
-            <input type="radio" name="preview_organization_id" checked readOnly />
-            <span className="authorize-organization-option-text">
-              <span className="authorize-scope-name">Puzed</span>
-              <span className="authorize-scope-description">Organization Admin, Member</span>
-            </span>
-          </label>
-          <label className="authorize-organization-option">
-            <input type="radio" name="preview_organization_id" readOnly />
-            <span className="authorize-organization-option-text">
-              <span className="authorize-scope-name">Family</span>
-              <span className="authorize-scope-description">Organization Admin, Member</span>
-            </span>
-          </label>
-        </div>
-      </fieldset>
-    </div>
-  );
-}
-
-function PreviewAuthorizeScopes({ variant }: { variant: AuthorizePreviewVariant }) {
-  const scopes =
-    variant === "zk-key"
-      ? [
-          ["K", "Encrypted app key", "Share an encrypted app key with Gitea"],
-          ["@", "Email address", "Access your email address"],
-          ["P", "Profile information", "Access your profile information"],
-        ]
-      : [
-          ["@", "", "Access your email address"],
-          ["P", "", "Access your profile information"],
-          ["O", "", "Authenticate you"],
-        ];
-  return (
-    <div className="authorize-scopes da-authorize-scopes">
-      <h3>Permissions</h3>
-      <ul className="authorize-scope-list">
-        {scopes.map(([icon, name, description]) => (
-          <li className="authorize-scope-item da-authorize-scope" key={`${icon}-${description}`}>
-            <span className="authorize-scope-icon">{icon}</span>
-            <div className="authorize-scope-text">
-              {name ? <span className="authorize-scope-name">{name}</span> : null}
-              <span className="authorize-scope-description">{description}</span>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
+function authorizeOrganizationsForVariant() {
+  if (authorizeVariant === "without-orgs" || authorizeVariant === "zk-key") return [];
+  if (authorizeVariant === "no-active-orgs") return inactivePreviewOrganizations;
+  return previewOrganizations;
 }
 
 function PreviewAuthorize() {
-  const branding = useBranding();
-  const appName = authorizeVariant === "zk-key" ? "Atlas" : "Gitea";
-  const appInitial = authorizeVariant === "zk-key" ? "A" : "G";
+  const isZkKey = authorizeVariant === "zk-key";
+  const requireOrganizationSelection = authorizeVariant !== "without-orgs" && !isZkKey;
   return (
-    <div className="app da-app">
-      <div className="container da-container">
-        <div className="header da-header authorize-page-header">
-          <div className="brand da-brand">
-            <span className="brand-icon da-brand-icon">
-              <img src={branding.getLogoUrl()} alt={branding.getTitle()} />
-            </span>
-            <h1 className="da-brand-title">{branding.getTitle() || "DarkAuth"}</h1>
-          </div>
-          <div className="user-info da-user-info authorize-page-actions">
-            <ThemeToggle />
-          </div>
-        </div>
-        <div className="authorize-container da-authorize-container">
-          <div className="authorize-card da-container">
-            <div className="authorize-header">
-              <div className="authorize-app">
-                <div className="authorize-app-icon">{appInitial}</div>
-                <div className="authorize-app-text">
-                  <h2 className="authorize-title da-auth-title">
-                    {authorizeVariant === "zk-key"
-                      ? `Continue to ${appName}`
-                      : "Authorize Application"}
-                  </h2>
-                  <p className="authorize-description">
-                    {authorizeVariant === "zk-key"
-                      ? "Review what this app can access before continuing."
-                      : `${appName} would like to:`}
-                  </p>
-                </div>
-              </div>
-              <div className="authorize-account">
-                <div className="authorize-avatar">M</div>
-                <div className="authorize-account-text">
-                  <p className="authorize-account-label">Signed in as</p>
-                  <p className="authorize-account-name">Mark Wylde</p>
-                  <p className="authorize-account-email">mark@wylde.net</p>
-                </div>
-              </div>
-            </div>
-            <PreviewOrganizations variant={authorizeVariant} />
-            <PreviewAuthorizeScopes variant={authorizeVariant} />
-            <div className="actions da-authorize-actions">
-              <button className="secondary-button" type="button">
-                Deny
-              </button>
-              <button className="primary-button success-button" type="button">
-                {authorizeVariant === "zk-key" ? "Continue" : "Authorize"}
-              </button>
-            </div>
-            <div className="authorize-footnote">
-              <p>
-                By continuing, you allow {appName} to access the requested information. You can
-                revoke this access later.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <AuthorizePageFrame>
+      <Authorize
+        sessionData={previewSession}
+        authRequest={{
+          requestId: "req_preview",
+          clientName: isZkKey ? "Example Client 1" : "Gitea",
+          scopes: ["email", "profile", "openid"],
+          hasZk: isZkKey,
+          keyDeliveryVersion: isZkKey ? "v2" : undefined,
+          deliveredKeyKind: isZkKey ? "client_app_key" : undefined,
+          clientKeyScope: requireOrganizationSelection ? "organization" : "account",
+          requireOrganizationSelection,
+          clientId: isZkKey ? "example-client-1" : "gitea",
+          organizationId: "",
+          unlockPolicy: defaultUnlockPolicy,
+        }}
+        previewData={{
+          organizations: authorizeOrganizationsForVariant(),
+          organizationsLoading: false,
+          trustedDeviceCount: 1,
+          hasZkDeliveryScope: isZkKey,
+        }}
+      />
+    </AuthorizePageFrame>
   );
 }
 
 function PreviewProfile() {
   return (
-    <UserLayout userName="Avery Stone" userEmail="avery@example.com">
-      <div className="preview-screen preview-narrow">
-        <p className="preview-kicker">Profile</p>
-        <h2>Avery Stone</h2>
-        <p className="preview-muted">Manage account details and organization context.</p>
-        <div className="preview-status-list">
-          <div className="preview-profile-row">
-            <span>Name</span>
-            <strong>Avery Stone</strong>
-          </div>
-          <div className="preview-profile-row">
-            <span>Email</span>
-            <strong>avery@example.com</strong>
-          </div>
-          <div className="preview-profile-row">
-            <span>Current organization</span>
-            <strong>Acme Labs</strong>
-          </div>
-        </div>
-      </div>
-    </UserLayout>
+    <UserPortalProvider
+      value={{
+        organizations: previewOrganizations,
+        organizationsLoading: false,
+        activeOrganizationId: "org_puzed",
+        activeOrganizationLabel: "Puzed",
+        switchOrganization: async () => {},
+        refreshOrganizations: async () => previewOrganizations,
+        addCreatedOrganization: noop,
+      }}
+    >
+      <Profile
+        sessionData={previewSession}
+        onLogout={noop}
+        previewProfile={{
+          sub: previewSession.sub,
+          name: previewSession.name,
+          email: previewSession.email,
+          emailVerified: true,
+          pendingEmail: null,
+          pendingEmailSetAt: null,
+          signInEmail: previewSession.signInEmail,
+        }}
+      />
+    </UserPortalProvider>
   );
 }
 
