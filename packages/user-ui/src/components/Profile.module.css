@@ -148,8 +148,8 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: var(--da-control-radius);
-  background: color-mix(in srgb, var(--da-color-action) 14%, transparent);
-  color: var(--da-color-action);
+  background: var(--da-color-icon-bg);
+  color: var(--da-color-icon-text);
   font-size: 1rem;
   font-weight: 850;
 }

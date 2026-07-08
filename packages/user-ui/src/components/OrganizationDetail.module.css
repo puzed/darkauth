@@ -103,8 +103,8 @@
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--da-color-action) 16%, var(--da-color-surface-raised));
-  color: var(--da-color-text);
+  background: var(--da-color-icon-bg);
+  color: var(--da-color-icon-text);
   font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0.02em;

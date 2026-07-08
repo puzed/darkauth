@@ -65,6 +65,9 @@
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
   --da-input-bg: #ffffff;
+  --da-color-input-bg: #ffffff;
+  --da-color-input-border: #cbd5e1;
+  --da-color-input-focus: #6600cc;
   --da-card-bg: #ffffff;
   --da-page-bg: #f3f4f6;
   --da-color-brand: var(--primary-500);
@@ -81,7 +84,14 @@
   --da-text-secondary: var(--da-color-text-secondary);
   --da-text-muted: var(--da-color-text-muted);
   --da-color-border: #e2e8f0;
+  --da-border: #e2e8f0;
+  --da-color-icon-bg: #f8fafc;
+  --da-color-icon-text: #6600cc;
+  --da-color-selection-bg: #f3f4f6;
+  --da-color-selection-border: #6600cc;
+  --da-color-selection-text: #111827;
   --da-color-success: #16a34a;
+  --da-color-success-text: #ffffff;
   --da-color-warning: #d97706;
   --da-color-danger: #dc2626;
   --da-focus-ring: var(--primary-600);
@@ -113,6 +123,16 @@
   --da-text-secondary: var(--da-color-text-secondary);
   --da-text-muted: var(--da-color-text-muted);
   --da-color-border: #334155;
+  --da-border: #334155;
+  --da-color-icon-bg: #1f2937;
+  --da-color-icon-text: #aec1e0;
+  --da-color-selection-bg: #475569;
+  --da-color-selection-border: #c5d3e8;
+  --da-color-selection-text: #ffffff;
+  --da-color-success: #22c55e;
+  --da-color-success-text: #111827;
+  --da-color-warning: #d97706;
+  --da-color-danger: #dc2626;
   --da-focus-ring: #c5d3e8;
   --primary-button-text: #1f2937;
 }
@@ -636,8 +656,8 @@ body {
 .authorize-app-icon {
   width: 3rem;
   height: 3rem;
-  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 12%, transparent);
-  color: var(--da-color-action, var(--da-primary));
+  background: var(--da-color-icon-bg, var(--da-color-surface-raised));
+  color: var(--da-color-icon-text, var(--da-color-action));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -676,8 +696,8 @@ body {
 .authorize-avatar {
   width: 2.25rem;
   height: 2.25rem;
-  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 12%, transparent);
-  color: var(--da-color-action, var(--da-primary));
+  background: var(--da-color-icon-bg, var(--da-color-surface-raised));
+  color: var(--da-color-icon-text, var(--da-color-action));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -751,8 +771,8 @@ body {
 .authorize-scope-icon {
   width: 2rem;
   height: 2rem;
-  background: color-mix(in srgb, var(--da-color-action, var(--da-primary)) 10%, transparent);
-  color: var(--da-color-action, var(--da-primary));
+  background: var(--da-color-icon-bg, var(--da-color-surface-raised));
+  color: var(--da-color-icon-text, var(--da-color-action));
   border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
@@ -1007,7 +1027,10 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] {
-  --da-input-bg: rgba(0, 0, 0, 0.2);
+  --da-input-bg: #0f172a;
+  --da-color-input-bg: #0f172a;
+  --da-color-input-border: #475569;
+  --da-color-input-focus: #c5d3e8;
   --da-card-bg: #1e293b;
   --da-page-bg: #0f172a;
 }
@@ -1133,26 +1156,14 @@ button .loading-spinner {
   color: var(--gray-700);
 }
 
-[data-da-theme="dark"] .authorize-app-icon {
-  background: var(--da-primary-light, var(--primary-100));
-}
-
 [data-da-theme="dark"] .authorize-account {
   background: var(--da-input-bg, var(--gray-100));
   border-color: var(--da-border, var(--gray-300));
 }
 
-[data-da-theme="dark"] .authorize-avatar {
-  background: var(--da-primary-light, var(--gray-200));
-}
-
 [data-da-theme="dark"] .authorize-scope-item {
   background: var(--da-input-bg, var(--gray-100));
   border-color: var(--da-border, var(--gray-300));
-}
-
-[data-da-theme="dark"] .authorize-scope-icon {
-  background: var(--da-primary-light, var(--primary-100));
 }
 
 [data-da-theme="dark"] .authorize-recovery {
@@ -1220,31 +1231,54 @@ button .loading-spinner {
 }
 
 .authorize-organization-option[data-selected="true"] {
-  background: color-mix(
-    in srgb,
-    var(--da-primary, var(--primary-500)) 12%,
-    var(--da-input-bg, #fff)
-  );
-  border-color: var(--da-primary, var(--primary-500));
-  box-shadow: 0 0 0 1px var(--da-primary, var(--primary-500));
+  background: var(--da-color-selection-bg, var(--da-color-surface-raised));
+  border-color: var(--da-color-selection-border, var(--da-color-action));
+  color: var(--da-color-selection-text, var(--da-color-text));
 }
 
 .authorize-organization-option:hover,
 .authorize-organization-option:focus-within {
-  border-color: var(--da-primary, var(--primary-500));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--da-primary, var(--primary-500)) 16%, transparent);
+  border-color: var(--da-color-selection-border, var(--da-color-action));
+  box-shadow: 0 0 0 3px
+    color-mix(in srgb, var(--da-color-selection-border, var(--da-color-action)) 18%, transparent);
 }
 
 .authorize-organization-option input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--da-primary, var(--primary-500));
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  border: 2px solid var(--da-color-border, var(--da-border));
+  border-radius: 999px;
+  background: var(--da-color-surface, var(--da-card-bg));
   flex-shrink: 0;
 }
 
+.authorize-organization-option input::before {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--da-color-selection-border, var(--da-color-action));
+  content: "";
+  transform: scale(0);
+  transition: transform 0.14s ease;
+}
+
 .authorize-organization-option input:checked {
-  outline: 2px solid color-mix(in srgb, var(--da-primary, var(--primary-500)) 35%, transparent);
-  outline-offset: 2px;
+  border-color: var(--da-color-selection-text, var(--da-color-text));
+  background: var(--da-color-surface, var(--da-card-bg));
+}
+
+.authorize-organization-option input:checked::before {
+  background: var(--da-color-selection-text, var(--da-color-text));
+  transform: scale(1);
+}
+
+.authorize-organization-option[data-selected="true"] .authorize-scope-name,
+.authorize-organization-option[data-selected="true"] .authorize-scope-description {
+  color: var(--da-color-selection-text, var(--da-color-text));
 }
 
 .authorize-organization-option-text {
@@ -1261,10 +1295,6 @@ button .loading-spinner {
 }
 
 [data-da-theme="dark"] .authorize-organization-option[data-selected="true"] {
-  background: color-mix(
-    in srgb,
-    var(--da-primary, var(--primary-500)) 18%,
-    var(--da-input-bg, var(--gray-100))
-  );
-  border-color: var(--da-primary, var(--primary-500));
+  background: var(--da-color-selection-bg, var(--da-color-surface-raised));
+  border-color: var(--da-color-selection-border, var(--da-color-action));
 }

@@ -1,4 +1,15 @@
 import {
+  colorContrast,
+  copyKnownBrandingColorsForMode,
+  defaultDarkSemanticBrandingColors,
+  defaultLightSemanticBrandingColors,
+  getSemanticBrandingColorDefaults,
+  isHexBrandingColor,
+  normalizeBrandingColors,
+  type SemanticBrandingColorKey,
+  type ThemeMode,
+} from "@DarkAuth/branding";
+import {
   type Dispatch,
   type SetStateAction,
   useCallback,
@@ -25,37 +36,107 @@ declare global {
   }
 }
 
-type ThemeMode = "light" | "dark";
 type BrandingTab = ThemeMode | "language";
 type PreviewScreen = "login" | "apps" | "security" | "authorize" | "profile";
+type AuthorizePreviewVariant = "with-orgs" | "without-orgs" | "no-active-orgs" | "zk-key";
 type BrandingImage = { data: string | null; mimeType: string | null };
 type BrandingIdentity = { title: string; tagline: string };
 const allowedBrandingImageTypes = new Set(["image/png", "image/jpeg", "image/x-icon"]);
 const brandingImageAccept = "image/png,image/jpeg,image/x-icon";
 
-const colorFields = [
-  { key: "brandColor", label: "Brand Color" },
-  { key: "primaryForegroundColor", label: "Primary Foreground Color" },
-  { key: "primaryBackgroundColor", label: "Primary Background Color" },
-  { key: "backgroundColor", label: "Dark Color" },
-  { key: "textColor", label: "Text Color" },
+const colorFieldGroups = [
+  {
+    title: "Brand and actions",
+    fields: [
+      { key: "brandColor", label: "Brand color", help: "Logo fallback, brand accents, and marks." },
+      {
+        key: "primaryBackgroundColor",
+        label: "Primary action",
+        help: "Primary buttons, focus rings, and active controls.",
+      },
+      {
+        key: "primaryForegroundColor",
+        label: "Primary action text",
+        help: "Text shown on primary action buttons.",
+      },
+      {
+        key: "authorizeButtonColor",
+        label: "Authorize button",
+        help: "Approve consent and trusted-browser confirmation buttons.",
+      },
+      {
+        key: "authorizeButtonForegroundColor",
+        label: "Authorize button text",
+        help: "Text shown on authorize buttons.",
+      },
+    ],
+  },
+  {
+    title: "Surfaces and text",
+    fields: [
+      { key: "backgroundColor", label: "Page background", help: "Outer page background." },
+      { key: "surfaceColor", label: "Card background", help: "Main panels and cards." },
+      {
+        key: "surfaceRaisedColor",
+        label: "Raised surface",
+        help: "Account panels, secondary rows, and nested surfaces.",
+      },
+      {
+        key: "inputBackgroundColor",
+        label: "Input background",
+        help: "Text fields and password fields.",
+      },
+      {
+        key: "inputBorderColor",
+        label: "Input border",
+        help: "Text field borders.",
+      },
+      {
+        key: "inputFocusColor",
+        label: "Input focus",
+        help: "Focused text field borders and rings.",
+      },
+      { key: "borderColor", label: "Border", help: "Panel, input, and row borders." },
+      { key: "textColor", label: "Text", help: "Primary page text." },
+      { key: "textSecondaryColor", label: "Secondary text", help: "Descriptions and metadata." },
+      { key: "textMutedColor", label: "Muted text", help: "Footnotes and less prominent labels." },
+    ],
+  },
+  {
+    title: "Authorize details",
+    fields: [
+      { key: "iconBackgroundColor", label: "Icon background", help: "Initial and scope chips." },
+      {
+        key: "iconForegroundColor",
+        label: "Icon text",
+        help: "Text inside initial and scope chips.",
+      },
+      {
+        key: "selectionBackgroundColor",
+        label: "Selected row",
+        help: "Selected organization and choice rows.",
+      },
+      {
+        key: "selectionBorderColor",
+        label: "Selected row border",
+        help: "Selected and focused choice borders.",
+      },
+      {
+        key: "selectionForegroundColor",
+        label: "Selected row text",
+        help: "Text inside selected rows.",
+      },
+    ],
+  },
+  {
+    title: "Status colors",
+    fields: [
+      { key: "warningColor", label: "Warning", help: "Warning states and notices." },
+      { key: "dangerColor", label: "Danger", help: "Destructive actions and error states." },
+    ],
+  },
 ] as const;
-
-const defaultLightColors: Record<string, string> = {
-  brandColor: "#6600cc",
-  primaryForegroundColor: "#ffffff",
-  primaryBackgroundColor: "#6600cc",
-  backgroundColor: "#f3f4f6",
-  textColor: "#111827",
-};
-
-const defaultDarkColors: Record<string, string> = {
-  brandColor: "#aec1e0",
-  primaryForegroundColor: "#1f2937",
-  primaryBackgroundColor: "#c5d3e8",
-  backgroundColor: "#0f172a",
-  textColor: "#f8fafc",
-};
+const colorFields = colorFieldGroups.flatMap((group) => group.fields);
 
 const wordingFields = [
   { key: "welcomeBack", label: "Welcome title", fallback: "Welcome back" },
@@ -73,18 +154,6 @@ const wordingFields = [
   { key: "noAccount", label: "No account prompt", fallback: "Don't have an account?" },
   { key: "signup", label: "Sign up link", fallback: "Sign up" },
 ] as const;
-
-function normalizeColors(colors: Record<string, string> | undefined, mode: ThemeMode) {
-  const defaults = mode === "dark" ? defaultDarkColors : defaultLightColors;
-  const c = colors || {};
-  return {
-    brandColor: c.brandColor || defaults.brandColor,
-    primaryForegroundColor: c.primaryForegroundColor || defaults.primaryForegroundColor,
-    primaryBackgroundColor: c.primaryBackgroundColor || defaults.primaryBackgroundColor,
-    backgroundColor: c.backgroundColor || defaults.backgroundColor,
-    textColor: c.textColor || defaults.textColor,
-  };
-}
 
 function normalizeWording(wording: Record<string, string> | undefined) {
   const normalized: Record<string, string> = { ...(wording || {}) };
@@ -137,53 +206,17 @@ function toDataSvg(svg: string) {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
-function expandHex(value: string) {
-  const trimmed = value.trim().replace(/^#/, "");
-  if (/^[0-9a-f]{3}$/i.test(trimmed)) {
-    return trimmed
-      .split("")
-      .map((char) => `${char}${char}`)
-      .join("");
-  }
-  return trimmed;
-}
-
-function parseHexColor(value: string) {
-  const hex = expandHex(value);
-  if (!/^[0-9a-f]{6}$/i.test(hex)) return null;
-  return {
-    r: Number.parseInt(hex.slice(0, 2), 16) / 255,
-    g: Number.parseInt(hex.slice(2, 4), 16) / 255,
-    b: Number.parseInt(hex.slice(4, 6), 16) / 255,
-  };
-}
-
-function channelToLinear(value: number) {
-  return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(value: { r: number; g: number; b: number }) {
-  return (
-    0.2126 * channelToLinear(value.r) +
-    0.7152 * channelToLinear(value.g) +
-    0.0722 * channelToLinear(value.b)
-  );
-}
-
-function contrastRatio(foreground: string, background: string) {
-  const fg = parseHexColor(foreground);
-  const bg = parseHexColor(background);
-  if (!fg || !bg) return null;
-  const lighter = Math.max(luminance(fg), luminance(bg));
-  const darker = Math.min(luminance(fg), luminance(bg));
-  return (lighter + 0.05) / (darker + 0.05);
+function getInvalidColorLabels(colorValues: Record<string, string>) {
+  return colorFields
+    .filter((field) => !isHexBrandingColor(String(colorValues[field.key] || "")))
+    .map((field) => field.label);
 }
 
 function getContrastChecks(colorValues: Record<string, string>) {
   return [
     {
       label: "Button text",
-      ratio: contrastRatio(
+      ratio: colorContrast(
         colorValues.primaryForegroundColor || "",
         colorValues.primaryBackgroundColor || ""
       ),
@@ -191,7 +224,36 @@ function getContrastChecks(colorValues: Record<string, string>) {
     },
     {
       label: "Page text",
-      ratio: contrastRatio(colorValues.textColor || "", colorValues.backgroundColor || ""),
+      ratio: colorContrast(colorValues.textColor || "", colorValues.backgroundColor || ""),
+      minimum: 4.5,
+    },
+    {
+      label: "Authorize button text",
+      ratio: colorContrast(
+        colorValues.authorizeButtonForegroundColor || "",
+        colorValues.authorizeButtonColor || ""
+      ),
+      minimum: 4.5,
+    },
+    {
+      label: "Selected row text",
+      ratio: colorContrast(
+        colorValues.selectionForegroundColor || "",
+        colorValues.selectionBackgroundColor || ""
+      ),
+      minimum: 4.5,
+    },
+    {
+      label: "Input text",
+      ratio: colorContrast(colorValues.textColor || "", colorValues.inputBackgroundColor || ""),
+      minimum: 4.5,
+    },
+    {
+      label: "Icon text",
+      ratio: colorContrast(
+        colorValues.iconForegroundColor || "",
+        colorValues.iconBackgroundColor || ""
+      ),
       minimum: 4.5,
     },
   ];
@@ -212,8 +274,12 @@ export default function Branding() {
     return mode === "dark" ? "dark" : "light";
   });
   const [identity, setIdentity] = useState<BrandingIdentity>({ title: "", tagline: "" });
-  const [colorsLight, setColorsLight] = useState<Record<string, string>>(defaultLightColors);
-  const [colorsDark, setColorsDark] = useState<Record<string, string>>(defaultDarkColors);
+  const [colorsLight, setColorsLight] = useState<Record<string, string>>(
+    defaultLightSemanticBrandingColors
+  );
+  const [colorsDark, setColorsDark] = useState<Record<string, string>>(
+    defaultDarkSemanticBrandingColors
+  );
   const [logoLight, setLogoLight] = useState<BrandingImage>({ data: null, mimeType: null });
   const [logoDark, setLogoDark] = useState<BrandingImage>({ data: null, mimeType: null });
   const [faviconLight, setFaviconLight] = useState<BrandingImage>({ data: null, mimeType: null });
@@ -228,6 +294,8 @@ export default function Branding() {
 
   const [previewWidth, setPreviewWidth] = useState<number>(420);
   const [previewScreen, setPreviewScreen] = useState<PreviewScreen>("login");
+  const [authorizePreviewVariant, setAuthorizePreviewVariant] =
+    useState<AuthorizePreviewVariant>("with-orgs");
   const [previewUrl, setPreviewUrl] = useState("");
   const previewCacheBustRef = useRef<string>(`${Date.now()}`);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -254,8 +322,8 @@ export default function Branding() {
         (branding.get("branding.colors_dark") as Record<string, string> | undefined) || {};
 
       setIdentity({ title: loadedIdentity.title || "", tagline: loadedIdentity.tagline || "" });
-      setColorsLight(normalizeColors(loadedLight, "light"));
-      setColorsDark(normalizeColors(loadedDark, "dark"));
+      setColorsLight(normalizeBrandingColors(loadedLight, "light"));
+      setColorsDark(normalizeBrandingColors(loadedDark, "dark"));
       setLogoLight(normalizeImage(branding.get("branding.logo")));
       setLogoDark(normalizeImage(branding.get("branding.logo_dark")));
       setFaviconLight(normalizeImage(branding.get("branding.favicon")));
@@ -351,13 +419,17 @@ export default function Branding() {
         window.location.origin
       );
       iframeRef.current?.contentWindow?.postMessage(
-        { type: "da:preview-screen", screen: previewScreen },
+        {
+          type: "da:preview-screen",
+          screen: previewScreen,
+          authorizeVariant: authorizePreviewVariant,
+        },
         window.location.origin
       );
     } catch {
       return;
     }
-  }, [activeMode, previewScreen]);
+  }, [activeMode, previewScreen, authorizePreviewVariant]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -408,19 +480,29 @@ export default function Branding() {
 
   const copyCurrentToOther = () => {
     if (activeMode === "light") {
-      setColorsDark({ ...colorsLight });
+      setColorsDark((prev) => copyKnownBrandingColorsForMode(colorsLight, prev, "light", "dark"));
       setLogoDark(cloneImage(logoLight));
       setFaviconDark(cloneImage(faviconLight));
-      toast({ title: "Copied light mode values to dark mode" });
+      toast({ title: "Copied light mode brand values to dark mode" });
       return;
     }
-    setColorsLight({ ...colorsDark });
+    setColorsLight((prev) => copyKnownBrandingColorsForMode(colorsDark, prev, "dark", "light"));
     setLogoLight(cloneImage(logoDark));
     setFaviconLight(cloneImage(faviconDark));
-    toast({ title: "Copied dark mode values to light mode" });
+    toast({ title: "Copied dark mode brand values to light mode" });
   };
 
   const saveAll = async () => {
+    const invalidLight = getInvalidColorLabels(colorsLight);
+    const invalidDark = getInvalidColorLabels(colorsDark);
+    if (invalidLight.length || invalidDark.length) {
+      toast({
+        title: "Invalid branding colors",
+        description: "Use #RGB or #RRGGBB for visible color fields before saving.",
+        variant: "destructive",
+      });
+      return;
+    }
     try {
       setSaving(true);
       await adminApiService.updateSetting("branding.identity", identity);
@@ -460,6 +542,8 @@ export default function Branding() {
   const updateWording = (key: string, value: string) => {
     setWording((prev) => ({ ...prev, [key]: value }));
   };
+  const hasInvalidColorValues =
+    getInvalidColorLabels(colorsLight).length > 0 || getInvalidColorLabels(colorsDark).length > 0;
 
   const renderThemeFields = (
     mode: ThemeMode,
@@ -471,19 +555,62 @@ export default function Branding() {
     setFavicon: Dispatch<SetStateAction<BrandingImage>>
   ) => (
     <div style={{ display: "grid", gap: 16 }}>
-      {colorFields.map((field) => (
-        <div key={`${mode}-${field.key}`}>
-          <Label>{field.label}</Label>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <ColorInput
-              value={String(colorValues[field.key] || "")}
-              onChange={(v) => setColors((prev) => ({ ...prev, [field.key]: v }))}
-            />
-            <Input
-              value={String(colorValues[field.key] || "")}
-              onChange={(e) => setColors((prev) => ({ ...prev, [field.key]: e.target.value }))}
-            />
-          </div>
+      {colorFieldGroups.map((group) => (
+        <div
+          key={`${mode}-${group.title}`}
+          style={{
+            display: "grid",
+            gap: 12,
+            border: "1px solid hsl(var(--border))",
+            borderRadius: 8,
+            padding: 12,
+          }}
+        >
+          <strong>{group.title}</strong>
+          {group.fields.map((field) => {
+            const value = String(colorValues[field.key] || "");
+            const invalid = !isHexBrandingColor(value);
+            const defaultValue =
+              getSemanticBrandingColorDefaults(mode)[field.key as SemanticBrandingColorKey];
+            return (
+              <div key={`${mode}-${field.key}`} style={{ display: "grid", gap: 6 }}>
+                <div style={{ display: "grid", gap: 2 }}>
+                  <Label>{field.label}</Label>
+                  <span style={{ color: "hsl(var(--muted-foreground))", fontSize: 13 }}>
+                    {field.help}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <ColorInput
+                    value={value}
+                    onChange={(v) => setColors((prev) => ({ ...prev, [field.key]: v }))}
+                    aria-label={`${field.label} picker`}
+                  />
+                  <Input
+                    value={value}
+                    aria-label={`${mode === "light" ? "Light" : "Dark"} ${field.label}`}
+                    aria-invalid={invalid}
+                    onChange={(e) =>
+                      setColors((prev) => ({ ...prev, [field.key]: e.target.value }))
+                    }
+                  />
+                  <Button
+                    variant="outline"
+                    type="button"
+                    disabled={value === defaultValue}
+                    onClick={() => setColors((prev) => ({ ...prev, [field.key]: defaultValue }))}
+                  >
+                    Reset
+                  </Button>
+                </div>
+                {invalid ? (
+                  <span style={{ color: "hsl(var(--destructive))", fontSize: 13 }}>
+                    Use #RGB or #RRGGBB.
+                  </span>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ))}
 
@@ -619,7 +746,7 @@ export default function Branding() {
             <Button variant="outline" onClick={() => void load()}>
               Reload
             </Button>
-            <Button onClick={saveAll} disabled={saving}>
+            <Button onClick={saveAll} disabled={saving || hasInvalidColorValues}>
               {saving ? "Saving..." : "Save"}
             </Button>
           </div>
@@ -732,7 +859,7 @@ export default function Branding() {
               <Button variant="outline" onClick={load}>
                 Reset
               </Button>
-              <Button onClick={saveAll} disabled={saving}>
+              <Button onClick={saveAll} disabled={saving || hasInvalidColorValues}>
                 {saving ? "Saving..." : "Save"}
               </Button>
             </div>
@@ -794,6 +921,35 @@ export default function Branding() {
                   </Button>
                 ))}
               </div>
+              {previewScreen === "authorize" ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    justifyContent: "center",
+                    marginBottom: 12,
+                  }}
+                >
+                  {(
+                    [
+                      ["with-orgs", "Organizations"],
+                      ["without-orgs", "No org prompt"],
+                      ["no-active-orgs", "No active orgs"],
+                      ["zk-key", "App key"],
+                    ] as const
+                  ).map(([variant, label]) => (
+                    <Button
+                      key={variant}
+                      variant={authorizePreviewVariant === variant ? "default" : "outline"}
+                      onClick={() => setAuthorizePreviewVariant(variant)}
+                      size="sm"
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
               <div style={{ display: "flex", justifyContent: "center" }}>
                 <iframe
                   ref={iframeRef}
@@ -810,7 +966,11 @@ export default function Branding() {
                         window.location.origin
                       );
                       iframeRef.current?.contentWindow?.postMessage(
-                        { type: "da:preview-screen", screen: previewScreen },
+                        {
+                          type: "da:preview-screen",
+                          screen: previewScreen,
+                          authorizeVariant: authorizePreviewVariant,
+                        },
                         window.location.origin
                       );
                     } catch {
@@ -822,7 +982,7 @@ export default function Branding() {
                     height: 760,
                     border: "1px solid hsl(var(--border))",
                     borderRadius: 12,
-                    background: "white",
+                    background: activeMode === "dark" ? "#0f172a" : "#f3f4f6",
                   }}
                 />
               </div>

@@ -149,28 +149,32 @@ export default function SwitchOrg({ sessionData, onOrganizationChanged }: Switch
             <fieldset className="authorize-organization-fieldset">
               <legend>Select the organization to make active for connected apps.</legend>
               <div className="authorize-organization-list">
-                {activeOrganizations.map((organization) => (
-                  <label
-                    className="authorize-organization-option"
-                    key={organization.organizationId}
-                  >
-                    <input
-                      type="radio"
-                      name="organization_id"
-                      value={organization.organizationId}
-                      checked={selectedOrganizationId === organization.organizationId}
-                      onChange={() => setSelectedOrganizationId(organization.organizationId)}
-                    />
-                    <span className="authorize-organization-option-text">
-                      <span className="authorize-scope-name">{organization.name}</span>
-                      <span className="authorize-scope-description">
-                        {organization.slug
-                          ? `Connected apps will use ${organization.slug}`
-                          : "Connected apps will use this organization"}
+                {activeOrganizations.map((organization) => {
+                  const selected = selectedOrganizationId === organization.organizationId;
+                  return (
+                    <label
+                      className="authorize-organization-option"
+                      data-selected={selected ? "true" : undefined}
+                      key={organization.organizationId}
+                    >
+                      <input
+                        type="radio"
+                        name="organization_id"
+                        value={organization.organizationId}
+                        checked={selected}
+                        onChange={() => setSelectedOrganizationId(organization.organizationId)}
+                      />
+                      <span className="authorize-organization-option-text">
+                        <span className="authorize-scope-name">{organization.name}</span>
+                        <span className="authorize-scope-description">
+                          {organization.slug
+                            ? `Connected apps will use ${organization.slug}`
+                            : "Connected apps will use this organization"}
+                        </span>
                       </span>
-                    </span>
-                  </label>
-                ))}
+                    </label>
+                  );
+                })}
               </div>
             </fieldset>
           )}

@@ -1,3 +1,4 @@
+import { normalizeBrandingColors } from "@DarkAuth/branding";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { isSafeDashboardIcon } from "../../controllers/admin/clientCreate.ts";
 import { handleScimRateLimited } from "../../controllers/scim.ts";
@@ -320,8 +321,14 @@ export function createUserRouter(context: Context) {
           getSetting(context, "branding.font"),
           getSetting(context, "branding.custom_css"),
         ]);
-        const c = (colors as Record<string, string>) || {};
-        const cd = (colorsDark as Record<string, string>) || {};
+        const c: Record<string, string> = normalizeBrandingColors(
+          (colors as Record<string, string>) || {},
+          "light"
+        );
+        const cd: Record<string, string> = normalizeBrandingColors(
+          (colorsDark as Record<string, string>) || {},
+          "dark"
+        );
         const f =
           (font as { family?: string; size?: string; weight?: Record<string, string> }) || {};
         const lightBrand = readColor(c, "brandColor", "#6600cc", "primary");
@@ -332,8 +339,11 @@ export function createUserRouter(context: Context) {
         const lightText = readColor(c, "textColor", "#111827", "text");
         const lightBorder = readColor(c, "borderColor", "#e5e7eb", "border");
         const lightBg = readColor(c, "backgroundColor", "#f3f4f6", "backgroundGradientStart");
-        const lightCardBg = String(c.cardBackground || "#ffffff");
-        const lightInputBg = String(c.inputBackground || "#ffffff");
+        const lightCardBg = readColor(c, "surfaceColor", "#ffffff", "cardBackground");
+        const lightRaisedBg = readColor(c, "surfaceRaisedColor", "#f8fafc", "surfaceRaised");
+        const lightInputBg = readColor(c, "inputBackgroundColor", "#ffffff", "inputBackground");
+        const lightInputBorder = readColor(c, "inputBorderColor", lightBorder, "inputBorder");
+        const lightInputFocus = readColor(c, "inputFocusColor", lightBrand, "inputFocus");
         const lightTextSecondary = readableTextColor(
           readColor(c, "textSecondaryColor", "#334155", "textSecondary"),
           lightCardBg,
@@ -350,9 +360,12 @@ export function createUserRouter(context: Context) {
         const darkPrimaryLight = readColor(cd, "primaryLightColor", darkPrimaryBg, "primaryLight");
         const darkText = readColor(cd, "textColor", "#f9fafb", "text");
         const darkBorder = readColor(cd, "borderColor", "#374151", "border");
-        const darkBg = readColor(cd, "backgroundColor", "#1f2937", "backgroundGradientStart");
-        const darkCardBg = String(cd.cardBackground || "rgba(255,255,255,0.05)");
-        const darkInputBg = String(cd.inputBackground || "rgba(0,0,0,0.2)");
+        const darkBg = readColor(cd, "backgroundColor", "#0f172a", "backgroundGradientStart");
+        const darkCardBg = readColor(cd, "surfaceColor", "#111827", "cardBackground");
+        const darkRaisedBg = readColor(cd, "surfaceRaisedColor", "#1f2937", "surfaceRaised");
+        const darkInputBg = readColor(cd, "inputBackgroundColor", "#0f172a", "inputBackground");
+        const darkInputBorder = readColor(cd, "inputBorderColor", darkBorder, "inputBorder");
+        const darkInputFocus = readColor(cd, "inputFocusColor", darkBrand, "inputFocus");
         const darkTextSecondary = readableTextColor(
           readColor(cd, "textSecondaryColor", "#e2e8f0", "textSecondary"),
           darkCardBg,
@@ -369,10 +382,10 @@ export function createUserRouter(context: Context) {
           "--da-color-action": lightPrimaryBg,
           "--da-color-action-hover": lightPrimaryHover,
           "--da-color-action-text": String(c.primaryForegroundColor || "#ffffff"),
-          "--da-color-focus-ring": String(c.inputFocus || lightBrand),
-          "--da-focus-ring": String(c.inputFocus || lightBrand),
+          "--da-color-focus-ring": lightInputFocus,
+          "--da-focus-ring": lightInputFocus,
           "--da-color-surface": lightCardBg,
-          "--da-color-surface-raised": String(c.surfaceRaised || "#f8fafc"),
+          "--da-color-surface-raised": lightRaisedBg,
           "--da-color-surface-muted": String(c.surfaceMuted || "#f1f5f9"),
           "--da-color-border": lightBorder,
           "--da-color-border-strong": String(c.borderStrong || lightBorder),
@@ -381,8 +394,8 @@ export function createUserRouter(context: Context) {
           "--da-color-text-muted": lightTextMuted,
           "--da-color-text-inverse": String(c.textInverse || "#ffffff"),
           "--da-color-input-bg": lightInputBg,
-          "--da-color-input-border": String(c.inputBorder || lightBorder),
-          "--da-color-input-focus": String(c.inputFocus || lightBrand),
+          "--da-color-input-border": lightInputBorder,
+          "--da-color-input-focus": lightInputFocus,
           "--da-color-input-placeholder": String(c.inputPlaceholder || lightTextMuted),
           "--da-color-success": String(c.success || "#16a34a"),
           "--da-color-success-bg": String(c.successBg || "#f0fdf4"),
@@ -415,8 +428,8 @@ export function createUserRouter(context: Context) {
           "--da-card-bg": lightCardBg,
           "--da-card-shadow": String(c.cardShadow || "rgba(0,0,0,0.1)"),
           "--da-input-bg": lightInputBg,
-          "--da-input-border": String(c.inputBorder || lightBorder),
-          "--da-input-focus": String(c.inputFocus || lightBrand),
+          "--da-input-border": lightInputBorder,
+          "--da-input-focus": lightInputFocus,
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
           "--da-font-size": String(f.size || "16px"),
           "--da-font-weight-normal": String(f.weight?.normal || "400"),
@@ -443,10 +456,10 @@ export function createUserRouter(context: Context) {
           "--da-color-action": darkPrimaryBg,
           "--da-color-action-hover": darkPrimaryHover,
           "--da-color-action-text": String(cd.primaryForegroundColor || "#1f2937"),
-          "--da-color-focus-ring": String(cd.inputFocus || darkBrand),
-          "--da-focus-ring": String(cd.inputFocus || darkBrand),
+          "--da-color-focus-ring": darkInputFocus,
+          "--da-focus-ring": darkInputFocus,
           "--da-color-surface": darkCardBg,
-          "--da-color-surface-raised": String(cd.surfaceRaised || "#1f2937"),
+          "--da-color-surface-raised": darkRaisedBg,
           "--da-color-surface-muted": String(cd.surfaceMuted || "#0f172a"),
           "--da-color-border": darkBorder,
           "--da-color-border-strong": String(cd.borderStrong || darkBorder),
@@ -455,8 +468,8 @@ export function createUserRouter(context: Context) {
           "--da-color-text-muted": darkTextMuted,
           "--da-color-text-inverse": String(cd.textInverse || "#0f172a"),
           "--da-color-input-bg": darkInputBg,
-          "--da-color-input-border": String(cd.inputBorder || darkBorder),
-          "--da-color-input-focus": String(cd.inputFocus || darkBrand),
+          "--da-color-input-border": darkInputBorder,
+          "--da-color-input-focus": darkInputFocus,
           "--da-color-input-placeholder": String(cd.inputPlaceholder || darkTextMuted),
           "--da-color-success": String(cd.success || "#22c55e"),
           "--da-color-success-bg": String(cd.successBg || "#052e16"),
@@ -482,8 +495,8 @@ export function createUserRouter(context: Context) {
           "--da-card-bg": darkCardBg,
           "--da-card-shadow": String(cd.cardShadow || "rgba(0,0,0,0.3)"),
           "--da-input-bg": darkInputBg,
-          "--da-input-border": String(cd.inputBorder || darkBorder),
-          "--da-input-focus": String(cd.inputFocus || darkBrand),
+          "--da-input-border": darkInputBorder,
+          "--da-input-focus": darkInputFocus,
           "--da-font-family": String(f.family || "system-ui, -apple-system, sans-serif"),
           "--da-font-size": String(f.size || "16px"),
           "--da-font-weight-normal": String(f.weight?.normal || "400"),

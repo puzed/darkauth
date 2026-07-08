@@ -36,6 +36,9 @@ importers:
 
   packages/admin-ui:
     dependencies:
+      '@DarkAuth/branding':
+        specifier: workspace:*
+        version: link:../branding
       '@DarkAuth/user-ui':
         specifier: workspace:*
         version: link:../user-ui
@@ -226,6 +229,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@DarkAuth/branding':
+        specifier: workspace:*
+        version: link:../branding
       '@cloudflare/voprf-ts':
         specifier: 1.0.0
         version: 1.0.0
@@ -290,6 +296,8 @@ importers:
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
+
+  packages/branding: {}
 
   packages/brochureware:
     dependencies:
@@ -611,6 +619,9 @@ importers:
 
   packages/user-ui:
     dependencies:
+      '@DarkAuth/branding':
+        specifier: workspace:*
+        version: link:../branding
       '@types/react-router-dom':
         specifier: ^5.3.3
         version: 5.3.3

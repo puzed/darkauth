@@ -54,7 +54,7 @@
 .success {
   border-color: color-mix(in srgb, var(--da-color-success, var(--primary-600)) 70%, black);
   background: var(--da-color-success, var(--da-primary, var(--primary-600)));
-  color: white;
+  color: var(--da-color-success-text, white);
 }
 
 .success:hover:not(:disabled) {
@@ -62,23 +62,24 @@
 }
 
 .danger {
-  background: var(--error-600);
-  color: white;
+  border-color: color-mix(in srgb, var(--da-color-danger, var(--error-600)) 55%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--da-color-danger, var(--error-600)) 12%,
+    var(--da-color-surface, transparent)
+  );
+  color: var(--da-color-danger, var(--error-600));
 }
 
 .danger:hover:not(:disabled) {
-  background: var(--error-700);
+  background: color-mix(
+    in srgb,
+    var(--da-color-danger, var(--error-600)) 18%,
+    var(--da-color-surface, transparent)
+  );
 }
 
 .button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-[data-da-theme="dark"] .danger {
-  background: #b91c1c;
-}
-
-[data-da-theme="dark"] .danger:hover:not(:disabled) {
-  background: #991b1b;
 }

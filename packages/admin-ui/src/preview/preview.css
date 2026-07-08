@@ -63,8 +63,8 @@
   width: 2.75rem;
   height: 2.75rem;
   border-radius: 0.5rem;
-  background: color-mix(in srgb, var(--da-color-action) 10%, var(--da-color-surface-raised));
-  color: var(--da-color-action);
+  background: var(--da-color-icon-bg);
+  color: var(--da-color-icon-text);
   font-weight: 800;
 }
 
@@ -105,6 +105,28 @@
   width: 100%;
   text-align: left;
   cursor: default;
+}
+
+.authorize-organization-empty {
+  padding: 0.875rem;
+  border: 1px solid var(--da-color-border);
+  border-radius: var(--da-control-radius, 0.5rem);
+  background: var(--da-color-surface-raised);
+  color: var(--da-color-text-muted);
+}
+
+.authorize-organization-empty p {
+  margin: 0;
+}
+
+[data-da-theme] .success-button {
+  border-color: color-mix(in srgb, var(--da-color-success, var(--da-color-action)) 70%, black);
+  background: var(--da-color-success, var(--da-color-action));
+  color: var(--da-color-success-text, var(--da-color-action-text));
+}
+
+[data-da-theme] .success-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--da-color-success, var(--da-color-action)) 88%, black);
 }
 
 .preview-profile-row {
