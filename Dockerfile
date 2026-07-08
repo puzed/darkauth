@@ -31,6 +31,8 @@ COPY --from=builder /app/packages/user-ui/package.json ./packages/user-ui/packag
 COPY --from=builder /app/packages/user-ui/dist ./packages/user-ui/dist
 COPY --from=builder /app/packages/admin-ui/package.json ./packages/admin-ui/package.json
 COPY --from=builder /app/packages/admin-ui/dist ./packages/admin-ui/dist
+COPY --from=builder /app/packages/branding/package.json ./packages/branding/package.json
+COPY --from=builder /app/packages/branding/src ./packages/branding/src
 COPY --from=builder /app/packages/opaque-ts ./packages/opaque-ts
 EXPOSE 9080 9081
 CMD ["node","packages/api/src/main.ts"]
