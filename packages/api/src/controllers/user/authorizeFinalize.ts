@@ -124,15 +124,17 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
 
       const sessionOrganizationId =
         typeof sessionData.organizationId === "string" ? sessionData.organizationId : undefined;
-      const resolvedOrganization = await resolveAuthorizationOrganizationContext(
-        context,
-        sessionData.sub,
-        {
-          explicitOrganizationId: parsed.organization_id,
-          pendingOrganizationId: pendingRequest.organizationId,
-          sessionOrganizationId,
-        }
-      );
+      const shouldResolveOrganization =
+        pendingRequest.requireOrganizationSelection ||
+        !!pendingRequest.organizationId ||
+        !!parsed.organization_id;
+      const resolvedOrganization = shouldResolveOrganization
+        ? await resolveAuthorizationOrganizationContext(context, sessionData.sub, {
+            explicitOrganizationId: parsed.organization_id,
+            pendingOrganizationId: pendingRequest.organizationId,
+            sessionOrganizationId,
+          })
+        : null;
 
       const consumedPendingRequest = await consumePendingAuth(context, requestId, sessionData.sub);
       if (!consumedPendingRequest) {
@@ -143,7 +145,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         code,
         clientId: consumedPendingRequest.clientId,
         userSub: sessionData.sub,
-        organizationId: resolvedOrganization.organizationId,
+        organizationId: resolvedOrganization?.organizationId ?? null,
         redirectUri: consumedPendingRequest.redirectUri,
         scope: consumedPendingRequest.scope,
         nonce: consumedPendingRequest.nonce,
@@ -156,9 +158,10 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         zkKeyHash: hasZk ? keyHashFromClient : undefined,
         zkKeyKind: hasZk ? deliveredKeyKind : undefined,
         zkKeyVersion: hasZk ? keyDeliveryVersion : undefined,
+        requireOrganizationSelection: consumedPendingRequest.requireOrganizationSelection,
       });
 
-      if (sessionId) {
+      if (sessionId && resolvedOrganization) {
         await updateSession(context, sessionId, {
           ...sessionData,
           organizationId: resolvedOrganization.organizationId,
@@ -166,7 +169,7 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         });
       }
 
-      if (sessionOrganizationId !== resolvedOrganization.organizationId) {
+      if (resolvedOrganization && sessionOrganizationId !== resolvedOrganization.organizationId) {
         await logAuditEvent(context, {
           eventType: "ORGANIZATION_SWITCHED",
           method: request.method || "POST",

@@ -260,6 +260,13 @@
       "when": 1780693200000,
       "tag": "0038_federation_email_linking_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1781125200000,
+      "tag": "0039_client_organization_selection",
+      "breakpoints": true
     }
   ]
 }

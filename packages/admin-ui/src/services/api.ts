@@ -229,6 +229,7 @@ export interface Client {
   keyDeliveryVersion: "v1-drk" | "v2";
   deliveredKeyKind: "root_key" | "client_app_key";
   clientKeyScope: "account" | "organization";
+  requireOrganizationSelection: boolean;
   allowedJweAlgs: string[];
   allowedJweEncs: string[];
   redirectUris: string[];
@@ -269,6 +270,7 @@ export interface CreateClientRequest {
   keyDeliveryVersion?: "v1-drk" | "v2";
   deliveredKeyKind?: "root_key" | "client_app_key";
   clientKeyScope?: "account" | "organization";
+  requireOrganizationSelection?: boolean;
   allowedJweAlgs?: string[];
   allowedJweEncs?: string[];
   redirectUris: string[];

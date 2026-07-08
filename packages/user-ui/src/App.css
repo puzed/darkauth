@@ -1214,8 +1214,19 @@ button .loading-spinner {
 .authorize-organization-option {
   cursor: pointer;
   transition:
+    background-color 0.2s ease,
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+}
+
+.authorize-organization-option[data-selected="true"] {
+  background: color-mix(
+    in srgb,
+    var(--da-primary, var(--primary-500)) 12%,
+    var(--da-input-bg, #fff)
+  );
+  border-color: var(--da-primary, var(--primary-500));
+  box-shadow: 0 0 0 1px var(--da-primary, var(--primary-500));
 }
 
 .authorize-organization-option:hover,
@@ -1231,6 +1242,11 @@ button .loading-spinner {
   flex-shrink: 0;
 }
 
+.authorize-organization-option input:checked {
+  outline: 2px solid color-mix(in srgb, var(--da-primary, var(--primary-500)) 35%, transparent);
+  outline-offset: 2px;
+}
+
 .authorize-organization-option-text {
   display: flex;
   flex-direction: column;
@@ -1242,4 +1258,13 @@ button .loading-spinner {
 [data-da-theme="dark"] .authorize-organization-option {
   background: var(--da-input-bg, var(--gray-100));
   border-color: var(--da-border, var(--gray-300));
+}
+
+[data-da-theme="dark"] .authorize-organization-option[data-selected="true"] {
+  background: color-mix(
+    in srgb,
+    var(--da-primary, var(--primary-500)) 18%,
+    var(--da-input-bg, var(--gray-100))
+  );
+  border-color: var(--da-primary, var(--primary-500));
 }

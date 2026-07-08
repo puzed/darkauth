@@ -144,13 +144,15 @@ test("Authorize stores unlocked ARK in memory only for ZK finalization", () => {
 });
 
 test("multi-organization authorize keeps the organization picker visible", () => {
-  const summaryExpression = source.match(/const showOrganizationSummary = ([^;]+);/);
+  const summaryIndex = source.indexOf("const showOrganizationSummary =");
+  const summaryEnd = source.indexOf(";", summaryIndex);
+  const summaryExpression = source.slice(summaryIndex, summaryEnd);
 
-  assert.ok(summaryExpression);
-  assert.equal(
-    summaryExpression[1],
-    "activeOrganizations.length === 1 || selectedOrganizationLocked"
-  );
+  assert.notEqual(summaryIndex, -1);
+  assert.notEqual(summaryExpression.indexOf("requireOrganizationSelection"), -1);
+  assert.notEqual(summaryExpression.indexOf("activeOrganizations.length === 1"), -1);
+  assert.notEqual(summaryExpression.indexOf("selectedOrganizationLocked"), -1);
+  assert.notEqual(source.indexOf("{requireOrganizationSelection && ("), -1);
 });
 
 test("Authorize filters unlock choices through enterprise policy", () => {

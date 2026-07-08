@@ -331,6 +331,54 @@ test("token redeems public authorization code clients with none auth", async () 
   }
 });
 
+test("token redeems orgless authorization code clients for multi-organization users", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createUserOrganization(context, "first-org");
+    await createUserOrganization(context, "second-org");
+    await context.db.insert(clients).values({
+      clientId: "orgless-client",
+      name: "Orgless",
+      type: "public",
+      tokenEndpointAuthMethod: "none",
+      redirectUris: ["https://app.example.com/callback"],
+      postLogoutRedirectUris: [],
+      requireOrganizationSelection: false,
+    });
+    const codeVerifier = await createAuthorizationCode(context, "orgless-client", "orgless-code");
+    const request = createRequest({
+      method: "POST",
+      url: "/token",
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        code: "orgless-code",
+        redirect_uri: "https://app.example.com/callback",
+        client_id: "orgless-client",
+        code_verifier: codeVerifier,
+      }).toString(),
+    });
+    const response = createResponse();
+
+    await postToken(context, request, response);
+
+    const json = response.json as Record<string, unknown>;
+    assert.equal(response.statusCode, 200);
+    assert.equal(typeof json.id_token, "string");
+    assert.equal(typeof json.access_token, "string");
+    const idTokenClaims = await verifyJWT(context, json.id_token as string, "orgless-client");
+    const accessTokenClaims = await verifyJWT(
+      context,
+      json.access_token as string,
+      "orgless-client"
+    );
+    assert.equal(idTokenClaims.org_id, undefined);
+    assert.equal(accessTokenClaims.org_id, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
 test("token rejects explicit unbound refresh tokens for public clients", async () => {
   const { context, cleanup } = await createContext();
   try {

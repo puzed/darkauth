@@ -56,6 +56,7 @@ interface AuthRequest {
   keyDeliveryVersion?: "v1-drk" | "v2";
   deliveredKeyKind?: "root_key" | "client_app_key";
   clientKeyScope?: "account" | "organization";
+  requireOrganizationSelection?: boolean;
   clientId?: string;
   redirectUri?: string;
   state?: string;
@@ -163,6 +164,7 @@ function AppContent() {
       params.get("delivered_key_kind") === "root_key" ? "root_key" : "client_app_key";
     const clientKeyScope =
       params.get("client_key_scope") === "account" ? "account" : "organization";
+    const requireOrganizationSelection = params.get("require_organization_selection") !== "0";
     const clientId = params.get("client_id") || undefined;
     const redirectUri = params.get("redirect_uri") || undefined;
     const state = params.get("state") || undefined;
@@ -180,6 +182,7 @@ function AppContent() {
         current.keyDeliveryVersion === keyDeliveryVersion &&
         current.deliveredKeyKind === deliveredKeyKind &&
         current.clientKeyScope === clientKeyScope &&
+        current.requireOrganizationSelection === requireOrganizationSelection &&
         current.clientId === clientId &&
         current.redirectUri === redirectUri &&
         current.state === state &&
@@ -199,6 +202,7 @@ function AppContent() {
         keyDeliveryVersion,
         deliveredKeyKind,
         clientKeyScope,
+        requireOrganizationSelection,
         clientId,
         redirectUri,
         state,
