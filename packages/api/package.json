@@ -23,6 +23,7 @@
 		"tidy": "biome check --write . && biome lint --write ."
 	},
 	"dependencies": {
+		"@DarkAuth/branding": "workspace:*",
 		"@cloudflare/voprf-ts": "1.0.0",
 		"@electric-sql/pglite": "^0.5.2",
 		"@peculiar/webcrypto": "^1.7.1",

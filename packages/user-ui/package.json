@@ -17,6 +17,7 @@
     "tidy": "biome check --write . && biome lint --write ."
   },
   "dependencies": {
+    "@DarkAuth/branding": "workspace:*",
     "@types/react-router-dom": "^5.3.3",
     "jose": "^6.2.3",
     "lucide-react": "^1.18.0",
