@@ -346,6 +346,25 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
+  packages/darkauth-mock:
+    dependencies:
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@types/node':
+        specifier: ^25.9.3
+        version: 25.9.3
+      tsx:
+        specifier: ^4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+
   packages/demo-app:
     dependencies:
       '@DarkAuth/client':
