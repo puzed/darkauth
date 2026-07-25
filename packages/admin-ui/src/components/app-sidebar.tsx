@@ -15,7 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router";
 import SidebarNavGroup, { type SidebarNavItem } from "@/components/navigation/sidebar-nav-group";
 import { getBrandLogoUrl, getBrandTitle } from "@/lib/branding";
 import { getTheme, setTheme } from "@/lib/theme";

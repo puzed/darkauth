@@ -1,5 +1,5 @@
 import type { ComponentType } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink } from "react-router";
 import styles from "@/components/app-sidebar.module.css";
 
 export interface SidebarNavItem {

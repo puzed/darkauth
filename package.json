@@ -45,7 +45,7 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "concurrently": "^10.0.3",
+    "concurrently": "^10.0.4",
     "upload-to-bunny": "^2.1.1"
   },
   "devDependencies": {

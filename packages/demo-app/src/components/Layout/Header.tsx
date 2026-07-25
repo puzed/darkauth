@@ -1,7 +1,7 @@
 import { logout } from "@DarkAuth/client";
 import { LogOut, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { api } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
 import styles from "./Header.module.css";

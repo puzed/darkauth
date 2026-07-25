@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import { sha256Base64Url } from "../services/crypto";

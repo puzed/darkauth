@@ -1,7 +1,7 @@
 import { getStoredSession, initiateLogin, refreshSession } from "@DarkAuth/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import React from "react";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router";
 import { LoginCallback } from "./components/Auth/LoginCallback";
 import { Dashboard } from "./components/Dashboard/Dashboard";
 import { NoteEditor } from "./components/Editor/NoteEditor";

@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router";
 import { AdminLayout } from "@/components/AdminLayout";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import AdminLogin from "@/components/Login";

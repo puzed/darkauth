@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import apiService from "../services/api";
 import { logger } from "../services/logger";
 import AuthViewFrame from "./AuthViewFrame";

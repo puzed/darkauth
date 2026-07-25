@@ -185,6 +185,33 @@ jobs:
             "${IMAGE}@${AMD64_DIGEST}" \
             "${IMAGE}@${ARM64_DIGEST}"
 
+  release-mock-image:
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.no_release != 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and publish DarkAuth Mock
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/darkauth-mock/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/puzed/darkauth-mock:${{ needs.release.outputs.tag }}
+            ghcr.io/puzed/darkauth-mock:latest
+          cache-from: type=gha,scope=darkauth-mock
+          cache-to: type=gha,mode=max,scope=darkauth-mock
+
   publish-darkauth-client:
     runs-on: ubuntu-latest
     needs: release

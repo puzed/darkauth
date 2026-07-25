@@ -1,6 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { FormGrid, FormField as GridField } from "@/components/layout/form-grid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

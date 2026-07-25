@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import ChangePassword from "./ChangePassword";
 import styles from "./ChangePasswordView.module.css";
 import UserLayout from "./UserLayout";

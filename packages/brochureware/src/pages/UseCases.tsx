@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import Layout from "../components/Layout";
 import PageHero from "../components/PageHero";
 import CTABlock from "../components/CTABlock";

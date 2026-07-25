@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { Clock, MoreVertical, Share2, Star, Trash2, User } from "lucide-react";
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import styles from "./NoteCard.module.css";
 
 interface NoteCardProps {
