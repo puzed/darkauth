@@ -283,9 +283,10 @@ async function verifyBearer(config: MockConfig, signingKey: SigningKey, request:
 
 async function optionalBearer(config: MockConfig, signingKey: SigningKey, request: IncomingMessage) {
   const header = request.headers.authorization;
-  const match = typeof header === "string" ? header.match(/^Bearer\s+(.+)$/i) : null;
-  if (!match?.[1]) return null;
-  const result = await jwtVerify(match[1], signingKey.publicKey, {
+  if (typeof header !== "string" || header.slice(0, 7).toLowerCase() !== "bearer ") return null;
+  const token = header.slice(7).trim();
+  if (!token || token.includes(" ")) return null;
+  const result = await jwtVerify(token, signingKey.publicKey, {
     issuer: config.issuer,
     audience: config.clients,
     algorithms: ["EdDSA"],

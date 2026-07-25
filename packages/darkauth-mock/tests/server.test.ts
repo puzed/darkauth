@@ -126,6 +126,14 @@ test("rejects unknown clients", async () => {
   assert.equal(response.status, 400);
 });
 
+test("rejects malformed bearer headers without expensive matching", async () => {
+  const response = await fetch(`${baseUrl}/api/user/session`, {
+    headers: { authorization: `Bearer ${" ".repeat(100_000)}` },
+  });
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { authenticated: false });
+});
+
 test("multi-org user keeps organizations and can switch active org", async () => {
   const tokenSet = await login({ user: "cara", organization_id: "acme" });
 
