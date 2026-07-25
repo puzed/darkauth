@@ -6,6 +6,9 @@ A zero-knowledge authentication system with OIDC compatibility. DarkAuth impleme
 
 DarkAuth is open source and self-hosted. There is no paid plan, subscription, or cloud service. A ready-to-run Docker image is available at `ghcr.io/puzed/darkauth:latest`.
 
+For local OIDC development without a real identity database, use the app-agnostic
+`ghcr.io/puzed/darkauth-mock:latest` image with a mounted YAML identity configuration.
+
 ## Features
 
 - **Zero-Knowledge Password Auth**: OPAQUE protocol ensures passwords never reach the server

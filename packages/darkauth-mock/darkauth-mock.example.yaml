@@ -1,0 +1,48 @@
+# Example DarkAuth Mock configuration.
+# Copy this file, point DARKAUTH_MOCK_CONFIG at it, and edit for your app.
+# DarkAuth Mock itself contains no app-specific data; everything lives here.
+
+server:
+  host: 0.0.0.0
+  port: 3020
+  issuer: http://localhost:3020
+  keyPath: /data/darkauth-mock-ed25519.jwk
+  allowedOrigins:
+    - http://localhost:3000
+    - http://localhost:5173
+
+app:
+  name: Example App
+
+# OAuth client_ids allowed to obtain tokens (also used as the token audience).
+clients:
+  - example
+
+# Permission catalog surfaced as checkboxes on the custom-identity form.
+permissions:
+  - example:login
+  - example:admin
+
+# Named permission bundles. Membership roles resolve to the union of their permissions.
+roles:
+  admin:
+    - example:login
+    - example:admin
+  member:
+    - example:login
+
+organizations:
+  - { id: demo, slug: demo, name: Demo Org }
+
+users:
+  - sub: admin
+    email: admin@example.test
+    name: Demo Admin
+    memberships:
+      - { org: demo, roles: [admin] }
+
+  - sub: member
+    email: member@example.test
+    name: Demo Member
+    memberships:
+      - { org: demo, roles: [member] }

@@ -1,0 +1,26 @@
+{
+  "name": "@DarkAuth/mock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/main.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "dev": "node --watch src/main.ts",
+    "start": "node src/main.ts",
+    "test": "node --test --test-concurrency=1 --import tsx tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "jose": "^6.2.3",
+    "yaml": "^2.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

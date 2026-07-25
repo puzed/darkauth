@@ -42,4 +42,4 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @DarkAuth/api --filter @darkauth/client --filter opaque-ts --filter @DarkAuth/user-ui test
+      - run: pnpm --filter @DarkAuth/api --filter @DarkAuth/mock --filter @darkauth/client --filter opaque-ts --filter @DarkAuth/user-ui test
