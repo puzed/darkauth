@@ -1,0 +1,157 @@
+---
+title: DarkAuth Mock
+description: Run a lightweight OIDC provider for local development and isolated preview environments.
+---
+
+DarkAuth Mock lets you develop an OIDC application without installing, configuring, and running a full DarkAuth instance. It presents a simple identity picker instead of password authentication, then issues realistic signed tokens using users, organizations, roles, and permissions that you define in YAML.
+
+Your application continues to use its normal OIDC integration. Moving between DarkAuth Mock and a real DarkAuth instance should only change environment configuration, not application code.
+
+:::caution
+DarkAuth Mock is a development tool, not a security product. Do not use it as a production identity provider or expose it as authentication for real users.
+:::
+
+## Supported flows
+
+DarkAuth Mock implements the parts of DarkAuth most applications need during day-to-day development:
+
+- OAuth 2.0 Authorization Code flow with S256 PKCE.
+- OpenID Connect discovery and EdDSA-signed ID tokens.
+- Access tokens, rotating refresh tokens, and JWKS.
+- Configured or one-off custom identities.
+- Organization membership, switching, roles, and permissions.
+- RP-initiated logout.
+- CORS for configured application origins.
+
+It supports public clients without a client secret. It deliberately does not reproduce confidential-client authentication, password authentication, OPAQUE, MFA, registration, password reset, federation, SCIM, administration, email, or production security controls. Use a real DarkAuth instance when you need to test those behaviors.
+
+## Create an app configuration
+
+Create `darkauth-mock.yaml` in your application repository:
+
+```yaml
+server:
+  host: 0.0.0.0
+  port: 3020
+  issuer: http://localhost:3020
+  keyPath: /data/darkauth-mock-ed25519.jwk
+  allowedOrigins:
+    - http://localhost:3000
+    - http://localhost:5173
+
+app:
+  name: Example App
+
+clients:
+  - example
+
+permissions:
+  - example:login
+  - example:admin
+
+roles:
+  admin:
+    - example:login
+    - example:admin
+  member:
+    - example:login
+
+organizations:
+  - { id: acme, slug: acme, name: Acme Corp }
+  - { id: globex, slug: globex, name: Globex }
+
+users:
+  - sub: ava
+    email: ava@example.test
+    name: Ava Admin
+    memberships:
+      - { org: acme, roles: [admin] }
+
+  - sub: ben
+    email: ben@example.test
+    name: Ben Builder
+    memberships:
+      - { org: acme, roles: [member] }
+      - { org: globex, roles: [member] }
+```
+
+The client ID becomes the token audience. Role permissions and any permissions assigned directly to a membership are combined in the token. A user with multiple memberships can switch organization context without signing in again.
+
+The repository also contains a complete [example configuration](https://github.com/puzed/darkauth/blob/main/packages/darkauth-mock/darkauth-mock.example.yaml).
+
+## Run the container
+
+Mount the configuration read-only and keep the generated signing key in a Docker volume:
+
+```bash
+docker run --rm \
+  -p 3020:3020 \
+  -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \
+  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \
+  -v darkauth-mock-data:/data \
+  ghcr.io/puzed/darkauth-mock:latest
+```
+
+Open `http://localhost:3020` to inspect the configured issuer. If `DARKAUTH_MOCK_CONFIG` is omitted or points to a missing file, the server starts with a generic built-in identity.
+
+Persisting `/data` keeps the Ed25519 signing key stable across container restarts. Your application can therefore continue verifying tokens without the JWKS changing every time the mock starts.
+
+## Point your application at the mock
+
+Configure your existing OIDC client with:
+
+| Setting | Local value |
+| --- | --- |
+| Issuer | `http://localhost:3020` |
+| Client ID / audience | `example` |
+| Discovery | `http://localhost:3020/.well-known/openid-configuration` |
+| JWKS | `http://localhost:3020/.well-known/jwks.json` |
+
+Start your normal login flow. The browser opens the mock's authorization screen, where you can select a configured user and organization or expand the custom identity form. After selection, the mock redirects to your existing callback with an authorization code for the normal PKCE exchange.
+
+Tokens contain the selected identity and organization context:
+
+- `sub`, `email`, `name`, and `picture`.
+- `org_id` and `org_slug`.
+- `organizations` with all configured memberships.
+- `roles` and `permissions` for the active organization.
+
+Your backend should verify issuer, audience, expiry, and signature exactly as it does with real DarkAuth tokens.
+
+## Add it to Docker Compose
+
+A typical application stack can own the YAML file and run the published, app-agnostic image:
+
+```yaml
+services:
+  app:
+    environment:
+      OIDC_ISSUER: http://localhost:3020
+      OIDC_AUDIENCE: example
+      OIDC_JWKS_URL: http://darkauth-mock:3020/.well-known/jwks.json
+    depends_on:
+      - darkauth-mock
+
+  darkauth-mock:
+    image: ghcr.io/puzed/darkauth-mock:latest
+    environment:
+      DARKAUTH_MOCK_CONFIG: /config/darkauth-mock.yaml
+    ports:
+      - "3020:3020"
+    volumes:
+      - darkauth-mock-data:/data
+      - ./darkauth-mock.yaml:/config/darkauth-mock.yaml:ro
+
+volumes:
+  darkauth-mock-data:
+```
+
+This mirrors the integration used by Atlas. The issuer remains `http://localhost:3020` because that is the URL seen by the browser and written into tokens. Its API container uses `http://darkauth-mock:3020/.well-known/jwks.json` to fetch the same signing keys over the Compose network.
+
+If your OIDC library always obtains the JWKS URL from discovery, make the configured issuer reachable from both the browser and your application container instead of overriding the JWKS URL.
+
+## Use it in preview environments
+
+For an isolated preview, set `server.issuer` to the preview's externally reachable HTTPS URL, configure the preview application's origin in `allowedOrigins`, and keep the signing-key volume private to that environment. Use only fictional identities and non-sensitive permissions.
+
+The mock intentionally accepts redirect URIs without a production client registry or consent policy. Restrict access to the preview and never treat it as a hardened identity boundary.
