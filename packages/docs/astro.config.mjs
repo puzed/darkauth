@@ -52,6 +52,7 @@ export default defineConfig({
             { label: "Key Management", slug: "developers/key-management" },
             { label: "OPAQUE", slug: "developers/opaque" },
             { label: "TypeScript SDK", slug: "developers/sdk/typescript" },
+            { label: "DarkAuth Mock", slug: "developers/darkauth-mock" },
             { label: "Example Todos App", slug: "developers/examples/todos" },
             { label: "Users Directory", slug: "developers/users-directory" },
             { label: "Organizations and RBAC", slug: "developers/organizations-rbac" },

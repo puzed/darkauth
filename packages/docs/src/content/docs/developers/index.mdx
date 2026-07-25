@@ -16,6 +16,7 @@ If your app just needs login, use standard OIDC. If your browser app needs user-
 - Account-key integration: [Key Management](/developers/key-management/).
 - SDK-based app: [TypeScript SDK](/developers/sdk/typescript/).
 - Org-aware app: [Organizations and RBAC](/developers/organizations-rbac/).
+- Local or preview integration: [DarkAuth Mock](/developers/darkauth-mock/).
 
 ## What DarkAuth expects from applications
 
@@ -25,4 +26,6 @@ For zero-knowledge apps, your frontend must also verify key-delivery bindings, d
 
 ## Local development
 
-Use the default public client for local browser integration, or create a new client for your app. Keep redirect URIs exact. If you need separate local, staging, and production environments, create separate client records so a mistake in one environment does not weaken another.
+Use [DarkAuth Mock](/developers/darkauth-mock/) when you want to exercise your app's real OIDC flow without installing and operating a full DarkAuth instance. Use a real instance when you need to test OPAQUE, MFA, federation, provisioning, administration, or other behavior beyond the mock's focused protocol surface.
+
+When integrating against a real instance, use the default public client for local browser integration or create a new client for your app. Keep redirect URIs exact. If you need separate local, staging, and production environments, create separate client records so a mistake in one environment does not weaken another.

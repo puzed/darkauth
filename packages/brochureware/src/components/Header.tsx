@@ -6,9 +6,7 @@ import styles from "./Header.module.css";
 const NAV_LINKS = [
   { label: "Features", to: "/features" },
   { label: "How it works", to: "/how-it-works" },
-  { label: "Security", to: "/security" },
   { label: "Developers", to: "/developers" },
-  { label: "Open Source", to: "/open-source" },
   { label: "Screenshots", to: "/screenshots" },
 ];
 
@@ -50,6 +48,9 @@ export default function Header() {
               {link.label}
             </Link>
           ))}
+          <a href="https://docs.darkauth.com" className={styles.navLink}>
+            Docs
+          </a>
         </nav>
 
         <div className={styles.actions}>
@@ -96,6 +97,9 @@ export default function Header() {
             {link.label}
           </Link>
         ))}
+        <a href="https://docs.darkauth.com" className={styles.drawerLink} onClick={() => setMenuOpen(false)}>
+          Docs
+        </a>
         <div className={styles.drawerActions}>
           <ThemeToggle />
           <a
