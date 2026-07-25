@@ -5,6 +5,11 @@ import CodeBlock from "../components/CodeBlock";
 import styles from "./Developers.module.css";
 
 const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const MOCK_DOCKER_CMD = `docker run --rm -p 3020:3020 \\
+  -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \\
+  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \\
+  -v darkauth-mock-data:/data \\
+  ghcr.io/puzed/darkauth-mock:latest`;
 
 const DEV_SECTIONS = [
   {
@@ -53,6 +58,18 @@ export default function Developers() {
             <p>Run DarkAuth locally in seconds. Visit <code>:9081</code> for the installer.</p>
             <CodeBlock code={DOCKER_CMD} lang="bash" />
             <p>Port 9080: users + OIDC endpoints. Port 9081: admin console + installer.</p>
+          </section>
+
+          <section className={styles.section}>
+            <h2>Develop against DarkAuth without running DarkAuth</h2>
+            <p>
+              DarkAuth Mock is a lightweight, app-agnostic OIDC provider for local development and isolated preview environments. Define test users, organizations, roles, and permissions in YAML, then select an identity from its login screen. Your app still exercises Authorization Code with PKCE, refresh tokens, discovery, JWKS, organization switching, and logout.
+            </p>
+            <CodeBlock code={MOCK_DOCKER_CMD} lang="bash" />
+            <p>
+              Point your normal OIDC configuration at <code>http://localhost:3020</code>. Moving between the mock and a real DarkAuth instance should only require environment changes, not application code.
+            </p>
+            <a href="https://docs.darkauth.com/developers/darkauth-mock/" className={styles.btnPrimary}>Set up DarkAuth Mock</a>
           </section>
 
           <section className={styles.section}>

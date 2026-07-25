@@ -354,6 +354,16 @@
   margin-bottom: 1rem;
 }
 
+.devEyebrow {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  color: var(--primary-light);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .inlineActions {
   display: flex;
   gap: 0.75rem;

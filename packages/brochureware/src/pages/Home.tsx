@@ -15,6 +15,11 @@ import {
 import styles from "./Home.module.css";
 
 const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const MOCK_DOCKER_CMD = `docker run --rm -p 3020:3020 \\
+  -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \\
+  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \\
+  -v darkauth-mock-data:/data \\
+  ghcr.io/puzed/darkauth-mock:latest`;
 
 const PILLARS = [
   {
@@ -228,6 +233,33 @@ export default function Home() {
           </div>
           <div className={styles.stepsCta}>
             <Link to="/how-it-works" className={styles.btnSecondary}>Full walkthrough →</Link>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.section}>
+        <div className="container">
+          <div className={styles.devStrip}>
+            <div>
+              <span className={styles.devEyebrow}>New · DarkAuth Mock</span>
+              <h2>Real OIDC flows. No full auth stack.</h2>
+              <p className={styles.devCopy}>
+                Give local and preview builds realistic users, organizations, roles, and permissions from one YAML file. Your app still runs Authorization Code with PKCE, refresh tokens, discovery, JWKS, organization switching, and logout — developers just choose a test identity instead of entering a password.
+              </p>
+              <p className={styles.devCopy}>
+                Swap the issuer and client configuration between environments without adding a mock-only path to your application.
+              </p>
+              <div className={styles.inlineActions}>
+                <a href="https://docs.darkauth.com/developers/darkauth-mock/" className={styles.btnPrimary}>Explore DarkAuth Mock</a>
+                <a href="https://github.com/puzed/darkauth/tree/main/packages/darkauth-mock" className={styles.btnSecondary} target="_blank" rel="noopener noreferrer">View the source →</a>
+              </div>
+            </div>
+            <div>
+              <CodeBlock code={MOCK_DOCKER_CMD} lang="bash" />
+              <p className={styles.portNote}>
+                Built for development and isolated previews. It is not a production identity provider.
+              </p>
+            </div>
           </div>
         </div>
       </section>
