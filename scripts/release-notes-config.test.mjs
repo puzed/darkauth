@@ -17,6 +17,8 @@ test("release notes prompt requires the exact release diff range", async () => {
     prompt,
     /Only claim a feature was introduced when the provided commits or diff show that introduction happened in this range/,
   );
+  assert.match(prompt, /Do not reproduce commit hashes, conventional commit prefixes, or raw commit subjects/);
+  assert.match(prompt, /Keep small releases small/);
 });
 
 test("release notes generator passes bounded git context to the model", async () => {

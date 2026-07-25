@@ -8,6 +8,9 @@ Rules:
 - Project files show the final state, not proof that a feature was introduced in this release. Only claim a feature was introduced when the provided commits or diff show that introduction happened in this range.
 - Do not include features, fixes, dependency updates, or workflows that were already present in earlier releases.
 - Avoid words like "introduced", "added", or "new" for existing features that were only fixed, tuned, documented, or touched in this release.
+- Translate the bounded commits and diff into concise, user-facing release notes. Do not reproduce commit hashes, conventional commit prefixes, or raw commit subjects as bullets.
+- Explain what changed and why it matters without inventing behavior that is not demonstrated by the bounded range.
+- Keep small releases small. Do not add sections or bullets merely to make the release appear larger.
 - Do not include any front matter or metadata lines (date/title/commits/reviewed) or a leading `---`
 - Do not attempt to publish a release.
 - You may use read-only commands to inspect files and git history if available.
@@ -15,7 +18,7 @@ Rules:
 - Do not output any extra text.
 - Format the body with a short intro sentence followed by sections that match the established release style.
 - Use markdown headings with hashes: `##` for top-level sections and `###` for subheadings.
-- Use 2-5 top-level sections with emoji headings (e.g. `## ✨ Features`, `## 🛠 Improvements`, `## 🐛 Fixes`, `## 🧪 Tests`, `## 📦 Dependencies`, `## 📝 Documentation`).
+- Use 1-5 top-level sections with emoji headings (e.g. `## ✨ Features`, `## 🛠 Improvements`, `## 🐛 Fixes`, `## 🧪 Tests`, `## 📦 Dependencies`, `## 📝 Documentation`) and omit empty sections.
 - Under each section, use 1-3 emoji subheadings and 1-4 bullet points each (e.g. `### 🔐 Session Management`).
 - Leave a blank line between headings and lists, and between sections.
 - Bullets should be specific and written in past tense, avoiding generic phrasing like "updated stuff".
