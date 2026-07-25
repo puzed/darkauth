@@ -294,6 +294,7 @@ export default function Install() {
                         value={formData.adminName}
                         onChange={onChange}
                         placeholder="Your full name"
+                        autoComplete="section-admin name"
                         disabled={loading}
                         required
                       />
@@ -306,6 +307,7 @@ export default function Install() {
                         value={formData.adminEmail}
                         onChange={onChange}
                         placeholder="admin@yourcompany.com"
+                        autoComplete="section-admin username"
                         disabled={loading}
                         required
                       />
@@ -318,6 +320,7 @@ export default function Install() {
                         value={formData.adminPassword}
                         onChange={onChange}
                         placeholder="Choose a strong password"
+                        autoComplete="section-admin new-password"
                         minLength={8}
                         disabled={loading}
                         required
@@ -412,6 +415,7 @@ export default function Install() {
                         value={emailData.from}
                         onChange={onEmailChange}
                         placeholder="no-reply@example.com"
+                        autoComplete="section-smtp email"
                         disabled={loading}
                       />
                     </GridField>
@@ -422,6 +426,7 @@ export default function Install() {
                         value={emailData.smtpHost}
                         onChange={onEmailChange}
                         placeholder="smtp.example.com"
+                        autoComplete="off"
                         disabled={loading}
                       />
                     </GridField>
@@ -432,6 +437,7 @@ export default function Install() {
                         value={emailData.smtpPort}
                         onChange={onEmailChange}
                         placeholder="587"
+                        autoComplete="off"
                         disabled={loading}
                       />
                     </GridField>
@@ -442,6 +448,7 @@ export default function Install() {
                         value={emailData.smtpUser}
                         onChange={onEmailChange}
                         placeholder="smtp-user"
+                        autoComplete="section-smtp username"
                         disabled={loading}
                       />
                     </GridField>
@@ -453,6 +460,7 @@ export default function Install() {
                         value={emailData.smtpPassword}
                         onChange={onEmailChange}
                         placeholder="SMTP password"
+                        autoComplete="section-smtp current-password"
                         disabled={loading}
                       />
                     </GridField>
