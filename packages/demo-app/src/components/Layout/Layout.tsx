@@ -1,5 +1,5 @@
 import React from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet } from "react-router";
 import { useAuthStore } from "../../stores/authStore";
 import { Header } from "./Header";
 import styles from "./Layout.module.css";

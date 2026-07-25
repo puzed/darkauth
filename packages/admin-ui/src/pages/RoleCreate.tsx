@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import ErrorBanner from "@/components/feedback/error-banner";
 import CheckboxRow from "@/components/form/checkbox-row";
 import PermissionGrid from "@/components/group/permission-grid";

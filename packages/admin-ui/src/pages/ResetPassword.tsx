@@ -1,6 +1,6 @@
 import { Loader2, Lock, Shield } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import styles from "@/components/Login.module.css";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";

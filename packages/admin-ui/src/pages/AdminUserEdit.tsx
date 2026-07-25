@@ -1,6 +1,6 @@
 import { AlertTriangle } from "lucide-react";
 import { useEffect, useId, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import FormActions from "@/components/layout/form-actions";
 import { FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";

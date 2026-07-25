@@ -11,7 +11,7 @@ import {
 import type { UserOrganization } from "@DarkAuth/user-ui/src/services/api";
 import { defaultUnlockPolicy } from "@DarkAuth/user-ui/src/services/unlockPolicy";
 import { createRoot } from "react-dom/client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter } from "react-router";
 import "@DarkAuth/user-ui/src/index.css";
 import "@DarkAuth/user-ui/src/App.css";
 

@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import FormActions from "@/components/layout/form-actions";
 import { FormGrid } from "@/components/layout/form-grid";
 import PageHeader from "@/components/layout/page-header";

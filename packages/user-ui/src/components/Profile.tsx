@@ -1,6 +1,6 @@
 import { Plus } from "lucide-react";
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import apiService, { type UserProfile } from "../services/api";
 import Button from "./Button";
 import { cx, PortalHeader, PortalPage, PortalSection, StatusPill } from "./Portal";

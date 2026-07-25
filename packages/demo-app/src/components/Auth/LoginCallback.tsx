@@ -1,6 +1,6 @@
 import { handleCallback } from "@DarkAuth/client";
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { useAuthStore } from "../../stores/authStore";
 
 export function LoginCallback() {

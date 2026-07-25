@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import styles from "./LoginView.module.css";
 import ThemeToggle from "./ThemeToggle";

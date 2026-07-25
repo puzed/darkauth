@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import { loadUnlockedArk } from "../services/unlockedArk";
 import KeyUnlockPanel from "./KeyUnlockPanel";
 import { PortalHeader, PortalPage, PortalSection } from "./Portal";

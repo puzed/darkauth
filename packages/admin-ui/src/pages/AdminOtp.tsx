@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "react-router";
 import AuthFrame from "@/components/auth/AuthFrame";
 import styles from "@/components/Login.module.css";
 import { Button } from "@/components/ui/button";

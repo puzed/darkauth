@@ -8,7 +8,7 @@ import {
 import { format } from "date-fns";
 import { ArrowLeft, Clock, Save, Share2 } from "lucide-react";
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { api } from "../../services/api";
 import { useAuthStore } from "../../stores/authStore";
 import { useNotesStore } from "../../stores/notesStore";

@@ -1,7 +1,7 @@
 import { decryptNote, decryptNoteWithDek, resolveDek } from "@DarkAuth/client";
 import { Plus } from "lucide-react";
 import React from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router";
 import { api } from "../../services/api";
 import { logger } from "../../services/logger";
 import { useAuthStore } from "../../stores/authStore";

@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import styles from "./ChangePasswordView.module.css";
 import btnStyles from "./Login.module.css";

@@ -1,6 +1,6 @@
 import { AppWindow, Check, ChevronDown, ShieldCheck, UserRound } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import ThemeToggle from "./ThemeToggle";
 import styles from "./UserLayout.module.css";

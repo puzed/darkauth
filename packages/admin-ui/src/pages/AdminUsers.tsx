@@ -1,6 +1,6 @@
 import { Edit, KeyRound, RotateCcw, Trash2, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router";
 import EmptyState from "@/components/empty-state";
 import ErrorBanner from "@/components/feedback/error-banner";
 import PageHeader from "@/components/layout/page-header";

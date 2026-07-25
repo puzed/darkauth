@@ -6,7 +6,7 @@ import {
   Routes,
   useLocation,
   useNavigate,
-} from "react-router-dom";
+} from "react-router";
 import Authorize from "./components/Authorize";
 import AuthorizePageFrame from "./components/AuthorizePageFrame";
 import ChangePasswordView from "./components/ChangePasswordView";

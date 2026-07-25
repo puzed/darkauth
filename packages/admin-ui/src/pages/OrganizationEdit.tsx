@@ -1,6 +1,6 @@
 import { Check, ChevronDown, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import ErrorBanner from "@/components/feedback/error-banner";
 import CheckboxRow from "@/components/form/checkbox-row";
 import FormActions from "@/components/layout/form-actions";

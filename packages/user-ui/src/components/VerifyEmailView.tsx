@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
 import Button from "./Button";
