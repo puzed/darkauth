@@ -27,6 +27,8 @@ export const getScreenshotUrl = (theme: ScreenshotTheme, file: string) => `${SCR
 
 export const cleanShotTitle = (title: string) => title.replace(/\s#\d+$/, "").replace(/\sChrome$/i, "").trim();
 
+export const isVisualScreenshot = (shot: Shot) => shot.group1?.toLowerCase() !== "api";
+
 export const findAdminDashboardShot = (shots: Shot[]) =>
   shots.find((shot) => shot.group1 === "Admin" && shot.group2 === "Dashboard")
   ?? shots.find((shot) => shot.scenario.includes("admin-dashboard"))

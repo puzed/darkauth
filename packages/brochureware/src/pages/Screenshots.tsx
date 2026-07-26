@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
-import { cleanShotTitle, getScreenshotUrl, SCREENSHOT_MANIFEST_URL, type ScreenshotManifest, type Shot } from "../lib/screenshots";
+import { cleanShotTitle, getScreenshotUrl, isVisualScreenshot, SCREENSHOT_MANIFEST_URL, type ScreenshotManifest, type Shot } from "../lib/screenshots";
 import { useBrochureTheme } from "../hooks/useBrochureTheme";
 import styles from "./Screenshots.module.css";
 
@@ -18,7 +18,7 @@ const Screenshots = () => {
       const payload: ScreenshotManifest = response.ok ? await response.json() : {};
       const themeShots = payload.themes?.[effective];
       if (!cancelled) {
-        setShots(Array.isArray(themeShots) ? (themeShots as Shot[]) : []);
+        setShots(Array.isArray(themeShots) ? (themeShots as Shot[]).filter(isVisualScreenshot) : []);
         setLoaded(true);
       }
     };

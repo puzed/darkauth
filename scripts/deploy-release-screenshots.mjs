@@ -59,6 +59,8 @@ async function collectDir(testResultsDir, outDir) {
       return an - bn;
     });
     for (const file of pngs) {
+      const parsed = parseScenario(entry.name);
+      if (parsed.group1 === "Api") continue;
       const num = stepFromName(file) || 0;
       const src = path.join(scenarioDir, file);
       const buf = await fs.readFile(src);
@@ -66,7 +68,6 @@ async function collectDir(testResultsDir, outDir) {
       const base = `${entry.name}-${num}-${hash}.png`;
       const dst = path.join(outDir, base);
       await fs.writeFile(dst, buf);
-      const parsed = parseScenario(entry.name);
       const testSlug = (entry.name.replace(/-(chromium|firefox|webkit)$/i, "").split("--")[1] || "");
       const slugOrHints = testSlug || parsed.hints?.join(" ") || "";
       const pretty = await titleFromSpec(parsed.group1, parsed.group2, parsed.feature, slugOrHints);
