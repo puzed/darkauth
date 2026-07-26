@@ -108,10 +108,10 @@ export default function Home() {
       <section className={styles.hero}>
         <div className="container">
           <div className={styles.heroContent}>
-            <span className={styles.heroEyebrow}>Open source · Self-hosted · AGPL-3.0</span>
-            <h1 className={styles.heroTitle}>Authentication that can't leak what it never had.</h1>
+            <span className={styles.heroEyebrow}>Open source · Self-hosted · Zero Knowledge</span>
+            <h1 className={styles.heroTitle}>Can't leak what you don't have</h1>
             <p className={styles.heroSub}>
-              Drop-in OpenID Connect for your apps, with a zero-knowledge core. Passwords are verified using OPAQUE, so they never reach the server. And with optional zero-knowledge key delivery, your app can offer true end-to-end encryption — keys are derived on the user's device and never touch the database.
+              Drop-in OpenID Connect for your apps, with a zero-knowledge core.
             </p>
             <div className={styles.heroCtas}>
               <Link to="/developers/quickstart" className={styles.btnPrimary}>Run it with Docker</Link>
