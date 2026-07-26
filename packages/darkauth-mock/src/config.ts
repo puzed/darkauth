@@ -27,7 +27,6 @@ export type MockConfig = {
   host: string;
   port: number;
   issuer: string;
-  keyPath: string;
   allowedOrigins: string[];
   appName: string;
   clients: string[];
@@ -48,7 +47,6 @@ const DEFAULT_CONFIG: MockConfig = {
   host: "0.0.0.0",
   port: 3020,
   issuer: "http://localhost:3020",
-  keyPath: "/data/darkauth-mock-ed25519.jwk",
   allowedOrigins: ["http://localhost:3000", "http://localhost:5173"],
   appName: "the app",
   clients: ["local"],
@@ -102,7 +100,6 @@ export function normalizeConfig(input: unknown, base: MockConfig = DEFAULT_CONFI
     host: asString(server.host) || base.host,
     port,
     issuer,
-    keyPath: asString(server.keyPath) || base.keyPath,
     allowedOrigins: allowedOrigins.length ? allowedOrigins : base.allowedOrigins,
     appName: asString(app.name) || base.appName,
     clients: dedupe(toStringArray(root.clients)) || base.clients,
@@ -128,26 +125,51 @@ export function resolveMembership(config: MockConfig, membership: MockMembership
   };
 }
 
-export async function loadSigningKey(keyPath: string): Promise<SigningKey> {
+export async function loadSigningKey(configPath?: string): Promise<SigningKey> {
   const kid = "darkauth-mock-dev-ed25519";
-  let privateJwk: JWK;
-  try {
-    privateJwk = JSON.parse(await readFile(keyPath, "utf8")) as JWK;
-  } catch (error) {
-    if (!isMissingFile(error)) throw error;
-    const { privateKey } = await generateKeyPair("EdDSA", { extractable: true });
-    privateJwk = await exportJWK(privateKey);
-    privateJwk.kid = kid;
-    privateJwk.alg = "EdDSA";
-    privateJwk.use = "sig";
-    await mkdir(dirname(keyPath), { recursive: true });
-    await writeFile(keyPath, `${JSON.stringify(privateJwk, null, 2)}\n`, { mode: 0o600 });
+  let privateJwk = configPath ? await readSigningKey(configPath) : undefined;
+  if (!privateJwk) {
+    privateJwk = await generateSigningJwk(kid);
+    if (configPath) await writeSigningKey(configPath, privateJwk);
   }
 
   const privateKey = requireCryptoKey(await importJWK(privateJwk, "EdDSA"));
   const publicJwk = publicJwkFromPrivate(privateJwk, kid);
   const publicKey = requireCryptoKey(await importJWK(publicJwk, "EdDSA"));
   return { kid, privateKey, publicKey, publicJwk };
+}
+
+async function readSigningKey(configPath: string): Promise<JWK | undefined> {
+  try {
+    const root = asRecord(YAML.parse(await readFile(configPath, "utf8")));
+    const signingKey = asRecord(root.signingKey);
+    return Object.keys(signingKey).length ? (signingKey as JWK) : undefined;
+  } catch (error) {
+    if (isMissingFile(error)) return undefined;
+    throw error;
+  }
+}
+
+async function generateSigningJwk(kid: string): Promise<JWK> {
+  const { privateKey } = await generateKeyPair("EdDSA", { extractable: true });
+  const privateJwk = await exportJWK(privateKey);
+  privateJwk.kid = kid;
+  privateJwk.alg = "EdDSA";
+  privateJwk.use = "sig";
+  return privateJwk;
+}
+
+async function writeSigningKey(configPath: string, privateJwk: JWK) {
+  let raw = "";
+  try {
+    raw = await readFile(configPath, "utf8");
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
+  const document = YAML.parseDocument(raw);
+  document.set("signingKey", privateJwk);
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, document.toString(), { mode: 0o600 });
 }
 
 function toOrganization(value: unknown): MockOrganization | null {

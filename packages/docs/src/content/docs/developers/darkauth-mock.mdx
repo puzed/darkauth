@@ -34,7 +34,6 @@ server:
   host: 0.0.0.0
   port: 3020
   issuer: http://localhost:3020
-  keyPath: /data/darkauth-mock-ed25519.jwk
   allowedOrigins:
     - http://localhost:3000
     - http://localhost:5173
@@ -81,20 +80,18 @@ The repository also contains a complete [example configuration](https://github.c
 
 ## Run the container
 
-Mount the configuration read-only and keep the generated signing key in a Docker volume:
+Mount the configuration file:
 
 ```bash
 docker run --rm \
   -p 3020:3020 \
-  -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \
-  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \
-  -v darkauth-mock-data:/data \
+  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml" \
   ghcr.io/puzed/darkauth-mock:latest
 ```
 
-Open `http://localhost:3020` to inspect the configured issuer. If `DARKAUTH_MOCK_CONFIG` is omitted or points to a missing file, the server starts with a generic built-in identity.
+Open `http://localhost:3020` to inspect the configured issuer. The container reads `/config/darkauth-mock.yaml` by default. When running outside the container, set `DARKAUTH_MOCK_CONFIG` to the configuration path; if it is omitted, the server starts with a generic built-in identity.
 
-Persisting `/data` keeps the Ed25519 signing key stable across container restarts. Your application can therefore continue verifying tokens without the JWKS changing every time the mock starts.
+On first launch, the mock generates an Ed25519 signing key and adds it to the YAML as `signingKey`. Later launches reuse that key, keeping the JWKS stable across container restarts. The mounted configuration must therefore be writable. It contains a private development signing key, so never reuse it for a real identity provider.
 
 ## Point your application at the mock
 
@@ -134,16 +131,10 @@ services:
 
   darkauth-mock:
     image: ghcr.io/puzed/darkauth-mock:latest
-    environment:
-      DARKAUTH_MOCK_CONFIG: /config/darkauth-mock.yaml
     ports:
       - "3020:3020"
     volumes:
-      - darkauth-mock-data:/data
-      - ./darkauth-mock.yaml:/config/darkauth-mock.yaml:ro
-
-volumes:
-  darkauth-mock-data:
+      - ./darkauth-mock.yaml:/config/darkauth-mock.yaml
 ```
 
 This mirrors the integration used by Atlas. The issuer remains `http://localhost:3020` because that is the URL seen by the browser and written into tokens. Its API container uses `http://darkauth-mock:3020/.well-known/jwks.json` to fetch the same signing keys over the Compose network.
@@ -152,6 +143,6 @@ If your OIDC library always obtains the JWKS URL from discovery, make the config
 
 ## Use it in preview environments
 
-For an isolated preview, set `server.issuer` to the preview's externally reachable HTTPS URL, configure the preview application's origin in `allowedOrigins`, and keep the signing-key volume private to that environment. Use only fictional identities and non-sensitive permissions.
+For an isolated preview, set `server.issuer` to the preview's externally reachable HTTPS URL, configure the preview application's origin in `allowedOrigins`, and keep the configuration file private to that environment. Use only fictional identities and non-sensitive permissions.
 
 The mock intentionally accepts redirect URIs without a production client registry or consent policy. Restrict access to the preview and never treat it as a hardened identity boundary.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
@@ -13,7 +13,6 @@ const config = normalizeConfig({
   server: {
     port: 3020,
     issuer: "http://127.0.0.1:3020",
-    keyPath: join(tmp, "key.jwk"),
     allowedOrigins: ["http://localhost:3000"],
   },
   app: { name: "Atlas" },
@@ -37,7 +36,7 @@ const config = normalizeConfig({
     },
   ],
 });
-const signingKey = await loadSigningKey(config.keyPath);
+const signingKey = await loadSigningKey();
 const server = createDarkAuthMockServer(config, signingKey);
 let baseUrl = "";
 
@@ -61,6 +60,20 @@ test("uses a generic built-in config when no file is supplied", async () => {
   assert.equal(fallback.appName, "the app");
   assert.deepEqual(fallback.clients, ["local"]);
   assert.doesNotMatch(JSON.stringify(fallback), /atlas/i);
+});
+
+test("adds and reuses the signing key in the YAML config", async () => {
+  const configPath = join(tmp, "persistent.yaml");
+  await writeFile(configPath, "app:\n  name: Persistent App\n");
+
+  const first = await loadSigningKey(configPath);
+  const saved = await readFile(configPath, "utf8");
+  const second = await loadSigningKey(configPath);
+
+  assert.match(saved, /name: Persistent App/);
+  assert.match(saved, /signingKey:/);
+  assert.match(saved, /d:/);
+  assert.deepEqual(second.publicJwk, first.publicJwk);
 });
 
 test("serves discovery and JWKS for OIDC verification", async () => {
