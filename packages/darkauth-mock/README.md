@@ -9,11 +9,11 @@ It is not a security product and must not be deployed as a production identity p
 ```bash
 docker run --rm \
   -p 3020:3020 \
-  -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \
-  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \
-  -v darkauth-mock-data:/data \
+  -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml" \
   ghcr.io/puzed/darkauth-mock:latest
 ```
 
-See `darkauth-mock.example.yaml` for the configuration shape. Without
-`DARKAUTH_MOCK_CONFIG`, the server starts with a generic built-in demo identity.
+See `darkauth-mock.example.yaml` for the configuration shape. On first launch, the mock adds its
+generated `signingKey` to the YAML file and reuses it on later launches. The container reads
+`/config/darkauth-mock.yaml` by default. Outside the container, set `DARKAUTH_MOCK_CONFIG` to use a
+configuration file; without it, the server starts with a generic built-in demo identity.

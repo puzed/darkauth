@@ -6,7 +6,6 @@ server:
   host: 0.0.0.0
   port: 3020
   issuer: http://localhost:3020
-  keyPath: /data/darkauth-mock-ed25519.jwk
   allowedOrigins:
     - http://localhost:3000
     - http://localhost:5173
