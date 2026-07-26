@@ -16,7 +16,7 @@
 > **DarkAuth is a self-hosted, open-source authentication server with OpenID Connect — built so the server never sees your users' passwords, and (optionally) never sees the keys that encrypt their data.**
 
 ### 1.2 The elevator pitch (≈40 words, for the hero subhead)
-> Drop-in OpenID Connect for your apps, with a zero-knowledge core. Passwords are verified using OPAQUE, so they never reach the server. And with optional zero-knowledge key delivery, your app can offer true end-to-end encryption — keys are derived on the user's device and never touch the database.
+> Drop-in OpenID Connect for your apps, with a zero-knowledge core.
 
 ### 1.3 The 3 pillars (the "why DarkAuth")
 These are the three ideas every page should reinforce. Use them as the homepage's primary feature triad.
@@ -136,7 +136,7 @@ Visitors should never be forced through a wall of text; they pick a thread and p
 - Bottom line: "DarkAuth is open source under AGPL-3.0. Self-host it forever, free." + Docker pull command.
 
 ### 4.3 Recurring CTAs (use across pages)
-- Primary: **"Run it with Docker"** → shows `docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest`.
+- Primary: **"Run it with Docker"** → shows `docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest`.
 - Secondary: **"Read the whitepaper"** / **"Browse the source"**.
 - Avoid a "Sign up" / "Start free trial" CTA — there is no SaaS. The conversion is *self-host* or *star/read*.
 
@@ -151,7 +151,7 @@ Visitors should never be forced through a wall of text; they pick a thread and p
 **Purpose:** Answer "what is this?" in 10 seconds; tease the depth; route people to their thread.
 
 **Hero**
-- H1: *Authentication that can't leak what it never had.*
+- H1: *Can't leak what you don't have*
 - Sub: the elevator pitch (§1.2).
 - CTAs: "Run it with Docker" (primary) · "How it works" (secondary).
 - Visual: `logos/hero.png` (admin dashboard + login), framed on the dark canvas with the purple glow / logo motif.

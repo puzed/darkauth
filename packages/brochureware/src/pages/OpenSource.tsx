@@ -5,7 +5,7 @@ import CodeBlock from "../components/CodeBlock";
 import RelatedLinks from "../components/RelatedLinks";
 import styles from "./OpenSource.module.css";
 
-const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_CMD = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
 
 const LICENSES = [
   {

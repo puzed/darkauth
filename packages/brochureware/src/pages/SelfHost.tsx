@@ -5,8 +5,8 @@ import CTABlock from "../components/CTABlock";
 import RelatedLinks from "../components/RelatedLinks";
 import styles from "./SelfHost.module.css";
 
-const DOCKER_RUN = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
-const DOCKER_POSTGRES = `docker run -d \\
+const DOCKER_RUN = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_POSTGRES = `docker run \\
   -p 9080:9080 \\
   -p 9081:9081 \\
   -v /path/to/config.yaml:/app/config.yaml:ro \\

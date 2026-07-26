@@ -14,7 +14,7 @@ import {
 } from "../lib/screenshots";
 import styles from "./Home.module.css";
 
-const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_CMD = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
 const MOCK_DOCKER_CMD = `docker run --rm -p 3020:3020 \\
   -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \\
   -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \\
@@ -108,10 +108,10 @@ export default function Home() {
       <section className={styles.hero}>
         <div className="container">
           <div className={styles.heroContent}>
-            <span className={styles.heroEyebrow}>Open source · Self-hosted · AGPL-3.0</span>
-            <h1 className={styles.heroTitle}>Authentication that can't leak what it never had.</h1>
+            <span className={styles.heroEyebrow}>Open source · Self-hosted · Zero Knowledge</span>
+            <h1 className={styles.heroTitle}>Can't leak what you don't have</h1>
             <p className={styles.heroSub}>
-              Drop-in OpenID Connect for your apps, with a zero-knowledge core. Passwords are verified using OPAQUE, so they never reach the server. And with optional zero-knowledge key delivery, your app can offer true end-to-end encryption — keys are derived on the user's device and never touch the database.
+              Drop-in OpenID Connect for your apps, with a zero-knowledge core.
             </p>
             <div className={styles.heroCtas}>
               <Link to="/developers/quickstart" className={styles.btnPrimary}>Run it with Docker</Link>

@@ -13,7 +13,7 @@ interface CTABlockProps {
   secondaryHref?: string;
 }
 
-const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_CMD = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
 
 export default function CTABlock({
   title = "Run it with Docker",

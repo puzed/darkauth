@@ -21,7 +21,7 @@ const Documentation = () => {
     {
       step: "1",
       title: "Run with Docker",
-      code: `docker run -d \
+      code: `docker run \
   -p 9080:9080 \
   -p 9081:9081 \
   ghcr.io/puzed/darkauth:latest`,
