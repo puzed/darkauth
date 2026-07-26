@@ -14,7 +14,7 @@ import {
 } from "../lib/screenshots";
 import styles from "./Home.module.css";
 
-const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_CMD = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
 const MOCK_DOCKER_CMD = `docker run --rm -p 3020:3020 \\
   -e DARKAUTH_MOCK_CONFIG=/config/darkauth-mock.yaml \\
   -v "$PWD/darkauth-mock.yaml:/config/darkauth-mock.yaml:ro" \\

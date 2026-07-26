@@ -10,7 +10,7 @@ This quickstart gets a DarkAuth instance running so you can see the admin portal
 The published image starts DarkAuth with the default user and admin ports exposed:
 
 ```bash
-docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
+docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
 ```
 
 Open `http://localhost:9081` to complete the first-run installer. During installation, the admin port serves the installer instead of the normal admin portal. After setup is complete, the same port serves the admin UI.

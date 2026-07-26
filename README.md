@@ -27,7 +27,7 @@ For local OIDC development without a real identity database, use the app-agnosti
 ### Run with Docker
 
 ```bash
-docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
+docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest
 ```
 
 Then visit `http://localhost:9081` to complete installation.

@@ -136,7 +136,7 @@ Visitors should never be forced through a wall of text; they pick a thread and p
 - Bottom line: "DarkAuth is open source under AGPL-3.0. Self-host it forever, free." + Docker pull command.
 
 ### 4.3 Recurring CTAs (use across pages)
-- Primary: **"Run it with Docker"** → shows `docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest`.
+- Primary: **"Run it with Docker"** → shows `docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest`.
 - Secondary: **"Read the whitepaper"** / **"Browse the source"**.
 - Avoid a "Sign up" / "Start free trial" CTA — there is no SaaS. The conversion is *self-host* or *star/read*.
 

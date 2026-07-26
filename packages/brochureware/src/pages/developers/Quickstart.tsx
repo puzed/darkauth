@@ -4,8 +4,8 @@ import CodeBlock from "../../components/CodeBlock";
 import RelatedLinks from "../../components/RelatedLinks";
 import styles from "./Quickstart.module.css";
 
-const DOCKER_CMD = "docker run -d -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
-const DOCKER_POSTGRES = `docker run -d -p 9080:9080 -p 9081:9081 \\
+const DOCKER_CMD = "docker run -p 9080:9080 -p 9081:9081 ghcr.io/puzed/darkauth:latest";
+const DOCKER_POSTGRES = `docker run -p 9080:9080 -p 9081:9081 \\
   -e DATABASE_URL=postgresql://user:pass@host:5432/darkauth \\
   ghcr.io/puzed/darkauth:latest`;
 
