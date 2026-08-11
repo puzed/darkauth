@@ -1,0 +1,34 @@
+# OIDC and clients
+
+## Provider Contract
+
+- DarkAuth is an OpenID Provider implementing the authorization-code flow. Discovery and JWKS are available from the public user origin.
+- Supported protocol endpoints include authorization, authorization finalization, token exchange, UserInfo, introspection, revocation, JWKS, and RP-initiated logout.
+- Authorization requests are stored as short-lived pending records bound to the browser session and client. Authorization codes are single-use, expire after at most 60 seconds, and are bound to the client, redirect URI, organization context, PKCE data, nonce, and any ZK delivery request.
+- Public clients authenticate with `token_endpoint_auth_method: none`; confidential clients use `client_secret_basic`. Confidential secrets are returned only when created or rotated and are encrypted at rest.
+- PKCE uses `S256`. A client can require PKCE; public clients are configured to use it by default.
+- Token exchange rejects client, redirect-URI, code, or verifier mismatches. Refresh credentials are client-bound, rotated on use, and reject replay.
+- ID tokens can include organization, role, permission, `amr`, and `acr` context derived from the completed authentication and selected organization.
+
+## Client Contract
+
+- Each client defines a unique ID, display name, `public` or `confidential` type, token endpoint authentication method, redirect URI allowlist, post-logout redirect URI allowlist, grant types, response types, scopes, and optional token lifetimes.
+- Redirect and post-logout redirect matching is exact. A URI that was not registered for that client is rejected.
+- Clients can require organization selection and can be displayed as applications in the user dashboard.
+- Standard clients set `zkDelivery: "none"` and consume ordinary OIDC tokens with any conforming OIDC library.
+- ZK clients use `zkDelivery: "fragment-jwe"`, declare allowed JWE algorithms, encryption methods, and origins, and choose the implemented key-delivery version and key scope. `zkRequired` prevents completion without an unlocked user key.
+- ZK delivery is an extension to the authorization-code flow; it does not change client authentication, redirect validation, code binding, or token validation rules.
+
+## Upstream Federation
+
+- Upstream federation is OIDC-only. Connection creation and routing accept `type: "oidc"`; SAML is not an implemented federation type.
+- Enabled connections define issuer, client credentials, scopes, claim mapping, optional organization/domain routing, account-link policy, and unlock policy.
+- Federation start creates state and nonce bound to a short-lived `__Host-DarkAuth-Federation` cookie. Callback handling validates state, issuer, signature, audience, nonce, and subject before linking or signing in.
+- A successful upstream login creates a DarkAuth user session. It does not turn the upstream provider's tokens into a DarkAuth client session.
+- Federated authentication can leave the user's encryption key locked. Non-ZK access can be permitted by connection policy; ZK authorization still requires an allowed key setup or unlock method.
+- SCIM is provisioning, not federation or authentication. A SCIM-provisioned user must still sign in with a configured DarkAuth authentication method.
+
+## Revocation and Logout
+
+- Refresh-token revocation deletes the matching active client-bound session. Revoking stateless access or ID tokens is a successful no-op; their configured short lifetime limits use.
+- RP-initiated logout follows the behavior in `specs/features/authentication-and-sessions.md` and validates redirects against the resolved client's post-logout allowlist.
