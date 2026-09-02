@@ -22,7 +22,7 @@
     "@automerge/automerge": "^3.2.6",
     "@DarkAuth/client": "file:../darkauth-client",
     "@tanstack/react-query": "^5.101.0",
-    "@tiptap/core": "^3.26.1",
+    "@tiptap/core": "^3.30.4",
     "@tiptap/extension-blockquote": "^3.26.1",
     "@tiptap/extension-bold": "^3.26.1",
     "@tiptap/extension-bullet-list": "^3.26.1",
