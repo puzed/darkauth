@@ -63,6 +63,7 @@ interface AuthRequest {
   zkPub?: string;
   organizationId?: string;
   autoFinalize?: boolean;
+  prompt?: string;
 }
 
 function decodeBase64Url(value: string): string {
@@ -76,6 +77,7 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [reauthenticatedRequestId, setReauthenticatedRequestId] = useState<string | null>(null);
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
   const [activeOrganizationLabel, setActiveOrganizationLabel] = useState<string | null>(null);
@@ -173,6 +175,7 @@ function AppContent() {
     const zkPub = params.get("zk_pub") || undefined;
     const organizationId = params.get("organization_id") || undefined;
     const autoFinalize = params.get("auto_finalize") === "1";
+    const prompt = params.get("prompt") || undefined;
     setAuthRequest((current) => {
       if (
         current &&
@@ -191,6 +194,7 @@ function AppContent() {
         current.zkPub === zkPub &&
         current.organizationId === organizationId &&
         current.autoFinalize === autoFinalize &&
+        current.prompt === prompt &&
         current.scopes.join(" ") === scopes.join(" ")
       ) {
         return current;
@@ -211,6 +215,7 @@ function AppContent() {
         zkPub,
         organizationId,
         autoFinalize,
+        prompt,
       };
     });
     setAuthRequestSearch(search);
@@ -232,6 +237,11 @@ function AppContent() {
   }, []);
 
   const sessionSub = sessionData?.sub || "";
+  const promptValues = new Set((authRequest?.prompt || "").split(/\s+/).filter(Boolean));
+  const reauthenticationRequired =
+    !!authRequest &&
+    (promptValues.has("login") || promptValues.has("select_account")) &&
+    reauthenticatedRequestId !== authRequest.requestId;
   const activeOrganizationId = sessionData?.organizationId || "";
   const isOtpRoute = location.pathname === "/otp/setup" || location.pathname === "/otp/verify";
 
@@ -438,6 +448,7 @@ function AppContent() {
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
+    if (authRequest?.requestId) setReauthenticatedRequestId(authRequest.requestId);
     if (hasPendingRequest || authRequest) {
       navigate(appendSearch("/authorize"));
     } else {
@@ -496,7 +507,7 @@ function AppContent() {
         <Route
           path="/login"
           element={
-            sessionData ? (
+            sessionData && !reauthenticationRequired ? (
               <Navigate
                 to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/apps"}
                 replace
@@ -575,6 +586,8 @@ function AppContent() {
               <Navigate to="/apps" replace />
             ) : sessionData.passwordResetRequired ? (
               <Navigate to="/security/password" replace />
+            ) : reauthenticationRequired ? (
+              <Navigate to={appendSearch("/login")} replace />
             ) : (
               <AuthorizePageFrame>
                 <Authorize authRequest={authRequest} sessionData={sessionData} />

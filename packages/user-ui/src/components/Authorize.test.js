@@ -296,3 +296,15 @@ test("Authorize unlock flows unwrap locally before finalizing ZK authorization",
     assert.notEqual(passkeyBlock.indexOf(expected), -1);
   }
 });
+
+test("silent authorization requests return an OIDC error instead of showing an unlock step", () => {
+  const unlockStep = source.slice(
+    source.indexOf("const showUnlockStep = async"),
+    source.indexOf("const handleAuthorize = async")
+  );
+  assert.notEqual(
+    unlockStep.indexOf('if (silentRequest && (await returnRequestToApp("interaction_required")))'),
+    -1
+  );
+  assert.notEqual(source.indexOf('.has(\n    "none"\n  )'), -1);
+});

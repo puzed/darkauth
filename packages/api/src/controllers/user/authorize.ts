@@ -35,12 +35,10 @@ async function resolveRememberedConsent(
   const activeOrganizationIds = (await getUserOrganizations(context, userSub))
     .filter((membership) => membership.status === "active")
     .map((membership) => membership.organizationId);
-  if (requestedOrganizationId) {
-    return activeOrganizationIds.includes(requestedOrganizationId)
-      ? { organizationId: requestedOrganizationId }
-      : null;
-  }
-  return activeOrganizationIds.length === 1 ? { organizationId: activeOrganizationIds[0] } : null;
+  if (activeOrganizationIds.length !== 1) return null;
+  const organizationId = activeOrganizationIds[0];
+  if (requestedOrganizationId && requestedOrganizationId !== organizationId) return null;
+  return { organizationId };
 }
 
 const PromptSchema = z
@@ -227,6 +225,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (authRequest.state) qs.set("state", authRequest.state);
   if (organizationId) qs.set("organization_id", organizationId);
   if (consented) qs.set("auto_finalize", "1");
+  if (prompts.size > 0) qs.set("prompt", [...prompts].join(" "));
   const redirectTo = `/${qs.toString() ? `?${qs.toString()}` : ""}`;
   response.statusCode = 302;
   response.setHeader("Location", redirectTo);

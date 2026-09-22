@@ -24,9 +24,10 @@
 - Approving an authorization records a consent in `user_client_consents` keyed by user and client: granted scopes, selected organization, and timestamps.
 - A later authorization for the same client whose scopes are covered by the consent skips the approval screen and finalizes automatically, unless:
     - the client sets `rememberConsent: false` (default `true`);
-    - the client requires organization selection and the user has more than one eligible organization;
+    - the client requires organization selection and the user has other than exactly one eligible organization, or names an organization that is not that one;
     - the request carries `prompt=consent`, `prompt=login`, or `prompt=select_account`.
-- With `prompt=none`, a request that cannot finalize silently returns `consent_required` or `login_required` to the redirect URI.
+- `prompt=login` and `prompt=select_account` require a fresh authentication for that request; an existing session cannot approve it.
+- With `prompt=none`, a request that cannot finalize silently returns `consent_required` or `login_required` to the redirect URI. If the browser then cannot restore the key without asking the user, it returns `interaction_required` rather than showing an unlock step.
 - Silent finalization is still bound to the registered redirect URI, PKCE, and a fresh `zk_pub`. ZK requests are included: the user UI restores ARK from the session unlock envelope and delivers CAK without a prompt.
 - New scopes, a lost organization membership, or a locked key that cannot be restored show the normal authorization screen. Approving it updates the consent.
 - Denying does not record or clear consent.

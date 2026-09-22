@@ -369,6 +369,9 @@ test("remembered consent auto-finalizes covered requests and can be revoked", as
       (await authorize(context, { prompt: "consent" })).searchParams.get("auto_finalize"),
       null
     );
+    const forcedLogin = await authorize(context, { prompt: "login" });
+    assert.equal(forcedLogin.searchParams.get("auto_finalize"), null);
+    assert.equal(forcedLogin.searchParams.get("prompt"), "login");
 
     await context.db.insert(organizationMembers).values({
       organizationId: "22222222-2222-4222-8222-222222222222",
@@ -376,6 +379,27 @@ test("remembered consent auto-finalizes covered requests and can be revoked", as
       status: "active",
     });
     assert.equal((await authorize(context, {})).searchParams.get("auto_finalize"), null);
+    assert.equal(
+      (
+        await authorize(context, {
+          organization_id: "11111111-1111-4111-8111-111111111111",
+        })
+      ).searchParams.get("auto_finalize"),
+      null
+    );
+    assert.equal(
+      (
+        await authorize(context, {
+          organization_id: "22222222-2222-4222-8222-222222222222",
+        })
+      ).searchParams.get("auto_finalize"),
+      null
+    );
+    const silentWithChoice = await authorize(context, { prompt: "none" });
+    assert.equal(silentWithChoice.searchParams.get("error"), "consent_required");
+    await context.db
+      .delete(organizationMembers)
+      .where(eq(organizationMembers.organizationId, "22222222-2222-4222-8222-222222222222"));
 
     const consents = await call(getUserConsents, context, {
       method: "GET",
@@ -477,6 +501,32 @@ test("expired authorization requests are returned to the client's registered red
     assert.equal(target.origin + target.pathname, "https://atlas.example/callback");
     assert.equal(target.searchParams.get("error"), "invalid_request");
     assert.equal(target.searchParams.get("state"), "state-1");
+
+    const silent = await call(postAuthorizeRestart, context, {
+      method: "POST",
+      url: "/authorize/restart",
+      body: new URLSearchParams({
+        client_id: "atlas",
+        redirect_uri: "https://atlas.example/callback",
+        error: "interaction_required",
+      }),
+    });
+    assert.equal(
+      new URL((silent.json as { redirect_url: string }).redirect_url).searchParams.get("error"),
+      "interaction_required"
+    );
+
+    await assert.rejects(
+      call(postAuthorizeRestart, context, {
+        method: "POST",
+        url: "/authorize/restart",
+        body: new URLSearchParams({
+          client_id: "atlas",
+          redirect_uri: "https://atlas.example/callback",
+          error: "access_denied",
+        }),
+      })
+    );
 
     await assert.rejects(
       call(postAuthorizeRestart, context, {

@@ -1375,11 +1375,13 @@ class ApiService {
     clientId: string;
     redirectUri: string;
     state?: string;
+    error?: "invalid_request" | "interaction_required";
   }): Promise<string> {
     const body = new URLSearchParams();
     body.set("client_id", params.clientId);
     body.set("redirect_uri", params.redirectUri);
     if (params.state) body.set("state", params.state);
+    if (params.error) body.set("error", params.error);
     const data = await this.request<{ redirect_url: string }>("/authorize/restart", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
