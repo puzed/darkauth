@@ -124,6 +124,23 @@ test("buildUserAccessTokenClaims separates API authorization from ID token claim
   assert.equal(claims.aud, "client-id");
   assert.equal(claims.azp, "client-id");
   assert.deepEqual(claims.permissions, ["darkauth.users:read"]);
+  assert.equal((claims as { sid?: string }).sid, undefined);
+});
+
+test("buildUserAccessTokenClaims carries the sign-in id so app sessions stay revocable", () => {
+  const claims = buildUserAccessTokenClaims({
+    issuer: "https://issuer.example",
+    subject: "user-sub",
+    audience: "client-id",
+    authorizedParty: "client-id",
+    expiresAtSeconds: 200,
+    issuedAtSeconds: 100,
+    scope: "openid",
+    grantType: "authorization_code",
+    signInId: "sign-in-a",
+  });
+
+  assert.equal((claims as { sid?: string }).sid, "sign-in-a");
 });
 
 test("resolveSessionClientId returns client id for valid session data", () => {

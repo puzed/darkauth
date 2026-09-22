@@ -15,6 +15,7 @@ import type { Context, SessionData } from "../../types.ts";
 import { sha256Base64Url } from "../../utils/crypto.ts";
 import { getAuthorize } from "./authorize.ts";
 import { postAuthorizeFinalize } from "./authorizeFinalize.ts";
+import { postAuthorizeRestart } from "./authorizeRestart.ts";
 import { deleteUserConsent, getUserConsents } from "./consents.ts";
 import { deleteSessionUnlockKeyController, postSessionUnlockKey } from "./sessionUnlockKey.ts";
 import { getUserSessions, postUserSessionsRevokeOthers } from "./userSessions.ts";
@@ -444,6 +445,60 @@ test("clients with rememberConsent disabled never auto-finalize", async () => {
     });
     assert.ok(await context.db.query.userClientConsents.findFirst());
     assert.equal((await authorize(context, {})).searchParams.get("auto_finalize"), null);
+  } finally {
+    await cleanup();
+  }
+});
+
+test("expired authorization requests are returned to the client's registered redirect", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createClient(context, {
+      clientId: "atlas",
+      name: "Atlas",
+      type: "confidential",
+      requirePkce: false,
+      redirectUris: ["https://atlas.example/callback"],
+      scopes: ["openid"],
+    });
+
+    const restarted = await call(postAuthorizeRestart, context, {
+      method: "POST",
+      url: "/authorize/restart",
+      body: new URLSearchParams({
+        client_id: "atlas",
+        redirect_uri: "https://atlas.example/callback",
+        state: "state-1",
+      }),
+    });
+    assert.equal(restarted.statusCode, 200);
+    const target = new URL((restarted.json as { redirect_url: string }).redirect_url);
+    assert.equal(target.origin + target.pathname, "https://atlas.example/callback");
+    assert.equal(target.searchParams.get("error"), "invalid_request");
+    assert.equal(target.searchParams.get("state"), "state-1");
+
+    await assert.rejects(
+      call(postAuthorizeRestart, context, {
+        method: "POST",
+        url: "/authorize/restart",
+        body: new URLSearchParams({
+          client_id: "atlas",
+          redirect_uri: "https://attacker.example/callback",
+        }),
+      })
+    );
+
+    await assert.rejects(
+      call(postAuthorizeRestart, context, {
+        method: "POST",
+        url: "/authorize/restart",
+        body: new URLSearchParams({
+          client_id: "unknown",
+          redirect_uri: "https://atlas.example/callback",
+        }),
+      })
+    );
   } finally {
     await cleanup();
   }

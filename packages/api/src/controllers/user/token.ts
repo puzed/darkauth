@@ -138,6 +138,7 @@ export function buildUserAccessTokenClaims(data: {
   orgSlug?: string | null;
   roles?: string[];
   permissions?: string[];
+  signInId?: string;
 }): IdTokenClaims {
   return {
     iss: data.issuer,
@@ -153,6 +154,7 @@ export function buildUserAccessTokenClaims(data: {
     permissions: data.permissions && data.permissions.length > 0 ? data.permissions : undefined,
     grant_type: data.grantType,
     token_use: "access",
+    sid: data.signInId || undefined,
   } as IdTokenClaims;
 }
 
@@ -317,6 +319,7 @@ export const postTokenOrganization = withRateLimit("token")(
       const user = await getUserBySub(context, payload.sub);
       if (!user) throw new InvalidGrantError("User not found");
 
+      const organizationSignInId = typeof payload.sid === "string" ? payload.sid : undefined;
       const { getUserOrgAccess, resolveOrganizationContext } = await import("../../models/rbac.ts");
       const { organizationId, organizationSlug } = await resolveOrganizationContext(
         context,
@@ -384,6 +387,7 @@ export const postTokenOrganization = withRateLimit("token")(
         orgSlug: organizationSlug,
         roles: roleKeys,
         permissions: delegatedPermissions,
+        signInId: organizationSignInId,
       });
       const accessToken = await signJWT(
         context,
@@ -408,6 +412,7 @@ export const postTokenOrganization = withRateLimit("token")(
           clientId,
           scope: grantedScope,
           keyState: "locked",
+          parentSignInId: organizationSignInId,
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;
@@ -617,6 +622,8 @@ export const postToken = withRateLimit("token")(
           orgSlug: organizationSlug,
           roles: roleKeys,
           permissions: delegatedPermissions,
+          signInId:
+            (sessionData as SessionData).parentSignInId ?? (sessionData as SessionData).signInId,
         });
         const accessToken = await signJWT(
           context,
@@ -922,6 +929,7 @@ export const postToken = withRateLimit("token")(
         orgSlug: organizationSlug,
         roles: roleKeys,
         permissions: delegatedPermissions,
+        signInId: authCode.signInId ?? undefined,
       });
       const accessToken = await signJWT(
         context,

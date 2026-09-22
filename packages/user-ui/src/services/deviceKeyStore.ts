@@ -81,15 +81,19 @@ class DeviceKeyStore {
 
   private open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(databaseName, 1);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(storeName)) {
-          db.createObjectStore(storeName, { keyPath: "handle" });
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
+      try {
+        const request = indexedDB.open(databaseName, 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains(storeName)) {
+            db.createObjectStore(storeName, { keyPath: "handle" });
+          }
+        };
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      } catch (error) {
+        reject(storageError(error));
+      }
     });
   }
 }

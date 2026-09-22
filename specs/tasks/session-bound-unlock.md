@@ -76,10 +76,10 @@ Unlock ARK once per sign-in instead of once per tab, and stop re-asking for appr
 
 - [x] Stop device-approval polling and clear its state when switching method.
 - [x] Report password verification failures separately from finalization failures.
-- [ ] An expired authorization request restarts authorization automatically. Today it shows "This sign-in request expired. Return to {app} and try again."
+- [x] An expired authorization request returns to the client through `POST /authorize/restart` with `error=invalid_request`, so the app restarts the flow. The message is shown only when that redirect cannot be validated.
 - [x] Stack the action buttons full-width, primary first.
 - [x] Guard every browser storage access in the user UI; blocked or full storage shows an actionable message.
-- [ ] Trace the reported local-storage error after switching from trusted-device approval to password. The unguarded `clearLegacyTokens` in `api.ts` is the leading suspect; not reproduced.
+- [x] Trace the reported local-storage error after switching from trusted-device approval to password. Cause: `clearLegacyTokens` in `api.ts` touched `localStorage` unguarded in the constructor and on every 401/403, so a storage failure replaced the real error mid-flow; device-approval polling produces those responses. Guarded, with a regression test that blocks storage.
 
 ### Admin UI
 
@@ -94,8 +94,8 @@ Unlock ARK once per sign-in instead of once per tab, and stop re-asking for appr
 ### Remaining
 
 - [x] OTP sign-ins: keep the password-derived key in memory across the OTP step and save the envelope after verification (`services/pendingUnlock.ts`).
-- [ ] `/token/organization` creates a relying-party refresh session from a bearer token with no `parentSignInId`, so revoking a sign-in does not end it. Carry the sign-in id in the access token or the session lookup.
-- [ ] Run the acceptance checks below in a browser and add a Playwright flow for the new-tab authorize scenario. The demo test harness serves DarkAuth and the demo on `localhost`, so the demo reuses DarkAuth's refresh cookie and never reaches `/authorize`; the flow needs distinct sites (for example two hostnames) to reproduce it.
+- [x] `/token/organization` sessions inherit the sign-in: access tokens carry `sid` and the created session records it as `parentSignInId`.
+- [x] Acceptance checks run against a local instance with the demo notes app. The Playwright flow addresses DarkAuth on `localhost` and the app on `127.0.0.1` so cookies are cross-site; on one host the app reuses DarkAuth's refresh cookie and never reaches `/authorize`.
 
 ## Acceptance checks
 

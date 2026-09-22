@@ -30,6 +30,8 @@
 - Silent finalization is still bound to the registered redirect URI, PKCE, and a fresh `zk_pub`. ZK requests are included: the user UI restores ARK from the session unlock envelope and delivers CAK without a prompt.
 - New scopes, a lost organization membership, or a locked key that cannot be restored show the normal authorization screen. Approving it updates the consent.
 - Denying does not record or clear consent.
+- Access tokens carry `sid`, the sign-in that authorized them. Sessions created later from that token, such as organization switching, inherit it and are revoked with that sign-in.
+- `POST /authorize/restart` returns an expired authorization request to the client: it validates `client_id` and the exact registered `redirect_uri`, then returns that URI with `error=invalid_request` and the original `state`. The user UI sends the browser there rather than stranding it on an error page.
 - Users review and revoke consents in the portal. Revoking deletes the consent and revokes that client's refresh sessions for the user; the next authorization shows the approval screen.
 
 ## Upstream Federation

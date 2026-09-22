@@ -4,6 +4,7 @@ import { isSafeDashboardIcon } from "../../controllers/admin/clientCreate.ts";
 import { handleScimRateLimited } from "../../controllers/scim.ts";
 import { getAuthorize } from "../../controllers/user/authorize.ts";
 import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.ts";
+import { postAuthorizeRestart } from "../../controllers/user/authorizeRestart.ts";
 import { deleteUserConsent, getUserConsents } from "../../controllers/user/consents.ts";
 import { postEmailVerificationResend } from "../../controllers/user/emailVerificationResend.ts";
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
@@ -563,6 +564,9 @@ export function createUserRouter(context: Context) {
         return await getAuthorize(context, request, response);
       }
 
+      if (method === "POST" && pathname === "/authorize/restart") {
+        return await postAuthorizeRestart(context, request, response);
+      }
       if (method === "POST" && pathname === "/authorize/finalize") {
         return await postAuthorizeFinalize(context, request, response);
       }

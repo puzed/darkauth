@@ -390,6 +390,25 @@ export default function Authorize({
 
   const expiredRequestMessage = `This sign-in request expired. Return to ${appName} and try again.`;
 
+  const returnExpiredRequestToApp = async () => {
+    const url = new URL(window.location.href);
+    const clientId = url.searchParams.get("client_id") || authRequest.clientId || "";
+    const redirectUri = url.searchParams.get("redirect_uri") || "";
+    if (!clientId || !redirectUri) return false;
+    try {
+      const redirectUrl = await apiService.restartExpiredAuthorization({
+        clientId,
+        redirectUri,
+        state: url.searchParams.get("state") || undefined,
+      });
+      window.location.href = redirectUrl;
+      return true;
+    } catch (error) {
+      logger.warn(error, "Could not return the expired authorization request to the app");
+      return false;
+    }
+  };
+
   const submitAuthorization = async (request: {
     approve: boolean;
     drkHash?: string;
@@ -712,6 +731,7 @@ export default function Authorize({
       let errorMessage = "Authorization failed. Please try again.";
       if (error instanceof Error) {
         if (error.message === expiredRequestMessage) {
+          if (await returnExpiredRequestToApp()) return true;
           errorMessage = expiredRequestMessage;
         } else if (explicitOrganizationId && error.message.toLowerCase().includes("organization")) {
           errorMessage = "Your account cannot sign in with the selected organization.";

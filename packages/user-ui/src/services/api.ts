@@ -1371,6 +1371,23 @@ class ApiService {
     return normalizeUnlockPolicy(data);
   }
 
+  async restartExpiredAuthorization(params: {
+    clientId: string;
+    redirectUri: string;
+    state?: string;
+  }): Promise<string> {
+    const body = new URLSearchParams();
+    body.set("client_id", params.clientId);
+    body.set("redirect_uri", params.redirectUri);
+    if (params.state) body.set("state", params.state);
+    const data = await this.request<{ redirect_url: string }>("/authorize/restart", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    return data.redirect_url;
+  }
+
   async getSessionUnlockKey(): Promise<string> {
     const data = await this.request<{ key: string }>("/crypto/session-unlock-key", {
       method: "POST",

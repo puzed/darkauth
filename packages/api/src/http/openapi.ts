@@ -87,6 +87,7 @@ import { schema as adminUsersSchema } from "../controllers/admin/users.ts";
 import { schema as adminUserUpdateSchema } from "../controllers/admin/userUpdate.ts";
 import { schema as userAuthorizeSchema } from "../controllers/user/authorize.ts";
 import { schema as userAuthorizeFinalizeSchema } from "../controllers/user/authorizeFinalize.ts";
+import { schema as userAuthorizeRestartSchema } from "../controllers/user/authorizeRestart.ts";
 import {
   deleteUserConsentSchema as userConsentRevokeSchema,
   getUserConsentsSchema as userConsentsSchema,
@@ -278,6 +279,7 @@ const documentedSchemas: ControllerSchema[] = [
   adminJwksRotateSchema,
   userAuthorizeSchema,
   userAuthorizeFinalizeSchema,
+  userAuthorizeRestartSchema,
   userSessionSchema,
   userSessionOrganizationSchema,
   userLogoutSchema,
