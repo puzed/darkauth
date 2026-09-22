@@ -28,7 +28,10 @@ export const bytea = customType<{
     return value;
   },
   fromDriver(value: unknown) {
-    return value as Buffer | null;
+    if (value == null) return null;
+    if (Buffer.isBuffer(value)) return value;
+    if (value instanceof Uint8Array) return Buffer.from(value);
+    return value as Buffer;
   },
 });
 
