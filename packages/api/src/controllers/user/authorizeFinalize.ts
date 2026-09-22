@@ -77,6 +77,16 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         throw new InvalidRequestError("Authorization request has expired");
       }
 
+      const prompts = new Set((pendingRequest.prompt ?? "").split(/\s+/).filter(Boolean));
+      if (prompts.has("login") || prompts.has("select_account")) {
+        const signedInAt = sessionData.signInCreatedAt
+          ? new Date(sessionData.signInCreatedAt)
+          : null;
+        if (!signedInAt || signedInAt <= pendingRequest.createdAt) {
+          throw new InvalidRequestError("This request requires signing in again");
+        }
+      }
+
       if (!isApproved) {
         await consumePendingAuth(context, requestId, sessionData.sub);
         sendJson(response, 200, {

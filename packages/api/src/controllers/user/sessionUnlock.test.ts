@@ -372,6 +372,35 @@ test("remembered consent auto-finalizes covered requests and can be revoked", as
     const forcedLogin = await authorize(context, { prompt: "login" });
     assert.equal(forcedLogin.searchParams.get("auto_finalize"), null);
     assert.equal(forcedLogin.searchParams.get("prompt"), "login");
+    await assert.rejects(
+      call(postAuthorizeFinalize, context, {
+        method: "POST",
+        url: "/authorize/finalize",
+        sessionId: "current",
+        body: new URLSearchParams({
+          request_id: forcedLogin.searchParams.get("request_id") as string,
+          approve: "true",
+        }),
+      }),
+      /requires signing in again/
+    );
+    await updateSession(context, "current", {
+      ...signIn("sign-in-a"),
+      signInCreatedAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const afterFreshLogin = await call(postAuthorizeFinalize, context, {
+      method: "POST",
+      url: "/authorize/finalize",
+      sessionId: "current",
+      body: new URLSearchParams({
+        request_id: (await authorize(context, { prompt: "login" })).searchParams.get(
+          "request_id"
+        ) as string,
+        approve: "true",
+      }),
+    });
+    assert.equal(afterFreshLogin.statusCode, 200);
+    await updateSession(context, "current", signIn("sign-in-a"));
 
     await context.db.insert(organizationMembers).values({
       organizationId: "22222222-2222-4222-8222-222222222222",
@@ -397,6 +426,15 @@ test("remembered consent auto-finalizes covered requests and can be revoked", as
     );
     const silentWithChoice = await authorize(context, { prompt: "none" });
     assert.equal(silentWithChoice.searchParams.get("error"), "consent_required");
+    await context.db
+      .delete(organizationMembers)
+      .where(eq(organizationMembers.organizationId, "11111111-1111-4111-8111-111111111111"));
+    assert.equal((await authorize(context, {})).searchParams.get("auto_finalize"), null);
+    await context.db.insert(organizationMembers).values({
+      organizationId: "11111111-1111-4111-8111-111111111111",
+      userSub: "user-sub",
+      status: "active",
+    });
     await context.db
       .delete(organizationMembers)
       .where(eq(organizationMembers.organizationId, "22222222-2222-4222-8222-222222222222"));

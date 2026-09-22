@@ -627,6 +627,7 @@ export const pendingAuth = pgTable("pending_auth", {
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   clientKeyScope: text("client_key_scope").default("organization").notNull(),
   requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
+  prompt: text("prompt"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   userSub: text("user_sub").references(() => users.sub, {

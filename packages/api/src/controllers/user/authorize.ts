@@ -37,6 +37,7 @@ async function resolveRememberedConsent(
     .map((membership) => membership.organizationId);
   if (activeOrganizationIds.length !== 1) return null;
   const organizationId = activeOrganizationIds[0];
+  if (!consent.organizationId || consent.organizationId !== organizationId) return null;
   if (requestedOrganizationId && requestedOrganizationId !== organizationId) return null;
   return { organizationId };
 }
@@ -193,6 +194,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     deliveredKeyKind: zkPubKid ? client.deliveredKeyKind : undefined,
     clientKeyScope: zkPubKid ? client.clientKeyScope : undefined,
     requireOrganizationSelection: client.requireOrganizationSelection,
+    prompt: prompts.size > 0 ? [...prompts].join(" ") : undefined,
     userSub,
     organizationId,
     origin: `http://${request.headers.host}`,

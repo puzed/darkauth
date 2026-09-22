@@ -20,6 +20,8 @@ ALTER TABLE "clients" ADD COLUMN "remember_consent" boolean DEFAULT true NOT NUL
 --> statement-breakpoint
 ALTER TABLE "auth_codes" ADD COLUMN "sign_in_id" text;
 --> statement-breakpoint
+ALTER TABLE "pending_auth" ADD COLUMN "prompt" text;
+--> statement-breakpoint
 INSERT INTO "settings" ("key", "name", "type", "category", "description", "tags", "default_value", "value", "secure", "updated_at") VALUES
 ('users.scim.allow_session_unlock', 'Allow session unlock', 'boolean', 'Users / SCIM Policy', 'Let SCIM-managed users keep their encryption key unlocked across tabs for the length of a sign-in.', ARRAY['users','scim','key-management']::text[], 'true'::jsonb, 'true'::jsonb, false, now())
 ON CONFLICT ("key") DO UPDATE SET

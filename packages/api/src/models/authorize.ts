@@ -19,6 +19,7 @@ export async function createPendingAuth(
     deliveredKeyKind?: string;
     clientKeyScope?: string;
     requireOrganizationSelection?: boolean;
+    prompt?: string;
     userSub?: string;
     organizationId?: string;
     origin: string;
@@ -40,6 +41,7 @@ export async function createPendingAuth(
       deliveredKeyKind: data.deliveredKeyKind ?? "client_app_key",
       clientKeyScope: data.clientKeyScope ?? "organization",
       requireOrganizationSelection: data.requireOrganizationSelection ?? true,
+      prompt: data.prompt,
       userSub: data.userSub,
       organizationId: data.organizationId,
       origin: data.origin,
