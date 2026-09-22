@@ -12,6 +12,6 @@
     }
   },
   "scripts": {
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test \"src/**/*.test.js\""
   }
 }

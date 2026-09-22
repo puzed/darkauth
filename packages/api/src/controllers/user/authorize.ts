@@ -145,6 +145,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   const sessionData = sessionId ? await getSession(context, sessionId) : null;
   const userSub = sessionData?.sub;
   const prompts = new Set((authRequest.prompt ?? "").split(/\s+/).filter(Boolean));
+  const accountChoiceAllowed = prompts.has("select_account");
   const consentAllowed =
     client.rememberConsent &&
     !prompts.has("login") &&
@@ -195,7 +196,7 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     clientKeyScope: zkPubKid ? client.clientKeyScope : undefined,
     requireOrganizationSelection: client.requireOrganizationSelection,
     prompt: prompts.size > 0 ? [...prompts].join(" ") : undefined,
-    userSub,
+    userSub: accountChoiceAllowed ? undefined : userSub,
     organizationId,
     origin: `http://${request.headers.host}`,
     expiresAt,

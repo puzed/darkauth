@@ -7,10 +7,14 @@ import { postAdminOpaqueLoginFinish } from "./opaqueLoginFinish.ts";
 
 function createMockResponse() {
   let payload = "";
+  const headers: Record<string, unknown> = {};
 
   return {
     statusCode: 0,
-    setHeader: mock.fn(),
+    setHeader: mock.fn((name: string, value: unknown) => {
+      headers[String(name).toLowerCase()] = value;
+    }),
+    getHeader: mock.fn((name: string) => headers[String(name).toLowerCase()]),
     write: mock.fn((chunk: unknown) => {
       if (chunk !== undefined) {
         payload += String(chunk);

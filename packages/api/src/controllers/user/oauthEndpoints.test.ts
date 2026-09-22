@@ -182,7 +182,12 @@ async function createConfidentialClient(context: Context, clientId = "confidenti
   });
 }
 
-async function createAuthorizationCode(context: Context, clientId: string, code: string) {
+async function createAuthorizationCode(
+  context: Context,
+  clientId: string,
+  code: string,
+  requireOrganizationSelection = true
+) {
   const codeVerifier = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopq";
   await context.db.insert(authCodes).values({
     code,
@@ -193,6 +198,7 @@ async function createAuthorizationCode(context: Context, clientId: string, code:
     codeChallenge: sha256Base64Url(codeVerifier),
     codeChallengeMethod: "S256",
     expiresAt: new Date(Date.now() + 60_000),
+    requireOrganizationSelection,
   });
   return codeVerifier;
 }
@@ -346,7 +352,12 @@ test("token redeems orgless authorization code clients for multi-organization us
       postLogoutRedirectUris: [],
       requireOrganizationSelection: false,
     });
-    const codeVerifier = await createAuthorizationCode(context, "orgless-client", "orgless-code");
+    const codeVerifier = await createAuthorizationCode(
+      context,
+      "orgless-client",
+      "orgless-code",
+      false
+    );
     const request = createRequest({
       method: "POST",
       url: "/token",

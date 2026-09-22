@@ -7,7 +7,14 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import { eq } from "drizzle-orm";
 import { createPglite } from "../../db/pglite.ts";
-import { organizationMembers, organizations, scimUsers, sessions, users } from "../../db/schema.ts";
+import {
+  organizationMembers,
+  organizations,
+  pendingAuth,
+  scimUsers,
+  sessions,
+  users,
+} from "../../db/schema.ts";
 import { createClient } from "../../models/clients.ts";
 import { refreshSessionWithToken, updateSession } from "../../services/sessions.ts";
 import { setSetting } from "../../services/settings.ts";
@@ -118,7 +125,7 @@ async function insertSession(
   await context.db.insert(sessions).values({
     id,
     cohort: "user",
-    userSub: "user-sub",
+    userSub: data.sub ?? "user-sub",
     expiresAt: new Date(Date.now() + 60_000),
     refreshToken: sha256Base64Url(refreshToken),
     refreshTokenExpiresAt: new Date(Date.now() + 3_600_000),
@@ -587,6 +594,71 @@ test("expired authorization requests are returned to the client's registered red
         }),
       })
     );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("prompt=select_account lets the user finish as a different account", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await context.db.insert(users).values({ sub: "other-sub", email: "other@example.com" });
+    await context.db
+      .insert(organizations)
+      .values({ id: "33333333-3333-4333-8333-333333333333", slug: "three", name: "Three" });
+    await context.db.insert(organizationMembers).values([
+      {
+        organizationId: "33333333-3333-4333-8333-333333333333",
+        userSub: "user-sub",
+        status: "active",
+      },
+      {
+        organizationId: "33333333-3333-4333-8333-333333333333",
+        userSub: "other-sub",
+        status: "active",
+      },
+    ]);
+    await insertSession(context, "current", signIn("sign-in-a"));
+    await createClient(context, {
+      clientId: "atlas",
+      name: "Atlas",
+      type: "confidential",
+      requirePkce: false,
+      redirectUris: ["https://atlas.example/callback"],
+      scopes: ["openid"],
+    });
+
+    const started = await authorize(context, { prompt: "select_account", scope: "openid" });
+    const requestId = started.searchParams.get("request_id") as string;
+    assert.equal(started.searchParams.get("prompt"), "select_account");
+    assert.equal(
+      (
+        await context.db.query.pendingAuth.findFirst({
+          where: eq(pendingAuth.requestId, requestId),
+        })
+      )?.userSub,
+      null
+    );
+
+    await insertSession(context, "other", {
+      sub: "other-sub",
+      otpVerified: true,
+      keyState: "unlocked",
+      signInId: "sign-in-b",
+      signInCreatedAt: new Date(Date.now() + 60_000).toISOString(),
+      userAgent: "node-test",
+    });
+
+    const finalized = await call(postAuthorizeFinalize, context, {
+      method: "POST",
+      url: "/authorize/finalize",
+      sessionId: "other",
+      body: new URLSearchParams({ request_id: requestId, approve: "true" }),
+    });
+    assert.equal(finalized.statusCode, 200);
+    const authCode = await context.db.query.authCodes.findFirst();
+    assert.equal(authCode?.userSub, "other-sub");
   } finally {
     await cleanup();
   }

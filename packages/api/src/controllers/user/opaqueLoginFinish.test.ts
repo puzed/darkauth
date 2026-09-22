@@ -153,6 +153,7 @@ describe("User OPAQUE Login Finish", () => {
           },
           scimUsers: {
             findFirst: mock.fn(() => Promise.resolve(null)),
+            findMany: mock.fn(() => Promise.resolve([])),
           },
           jwks: {
             findFirst: mock.fn(() =>
