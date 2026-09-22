@@ -967,6 +967,7 @@ export const postToken = withRateLimit("token")(
           clientId: authenticatedClientId,
           scope: grantedScope,
           keyState: "locked",
+          parentSignInId: authCode.signInId ?? undefined,
         } satisfies SessionData;
         const s = await createSession(context, "user", sessionData);
         tokenResponse.refresh_token = s.refreshToken;

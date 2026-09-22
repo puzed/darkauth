@@ -87,6 +87,10 @@ import { schema as adminUsersSchema } from "../controllers/admin/users.ts";
 import { schema as adminUserUpdateSchema } from "../controllers/admin/userUpdate.ts";
 import { schema as userAuthorizeSchema } from "../controllers/user/authorize.ts";
 import { schema as userAuthorizeFinalizeSchema } from "../controllers/user/authorizeFinalize.ts";
+import {
+  deleteUserConsentSchema as userConsentRevokeSchema,
+  getUserConsentsSchema as userConsentsSchema,
+} from "../controllers/user/consents.ts";
 import { schema as userEmailVerificationResendSchema } from "../controllers/user/emailVerificationResend.ts";
 import { schema as userEmailVerificationVerifySchema } from "../controllers/user/emailVerificationVerify.ts";
 import { schema as userEncPublicGetSchema } from "../controllers/user/encPublicGet.ts";
@@ -148,6 +152,10 @@ import {
   organizationSchema as userSessionOrganizationSchema,
   schema as userSessionSchema,
 } from "../controllers/user/session.ts";
+import {
+  deleteSessionUnlockKeySchema as userDeleteSessionUnlockKeySchema,
+  postSessionUnlockKeySchema as userSessionUnlockKeySchema,
+} from "../controllers/user/sessionUnlockKey.ts";
 import { schema as userTokenSchema } from "../controllers/user/token.ts";
 import {
   postDeviceApprovalApproveSchema as userDeviceApprovalApproveSchema,
@@ -164,6 +172,11 @@ import {
   postSchema as userUserinfoPostSchema,
   schema as userUserinfoSchema,
 } from "../controllers/user/userinfo.ts";
+import {
+  postUserSessionRevokeSchema as userSessionRevokeSchema,
+  postUserSessionsRevokeOthersSchema as userSessionsRevokeOthersSchema,
+  getUserSessionsSchema as userSessionsSchema,
+} from "../controllers/user/userSessions.ts";
 import {
   getUserSchema as userDirectoryGetSchema,
   schema as userDirectorySearchSchema,
@@ -295,6 +308,13 @@ const documentedSchemas: ControllerSchema[] = [
   userRecoveryKeyRevokeSchema,
   userRecoveryKeyUseSchema,
   userUnlockPolicySchema,
+  userSessionUnlockKeySchema,
+  userDeleteSessionUnlockKeySchema,
+  userSessionsSchema,
+  userSessionRevokeSchema,
+  userSessionsRevokeOthersSchema,
+  userConsentsSchema,
+  userConsentRevokeSchema,
   userTrustedDevicesSchema,
   userTrustedDeviceSchema,
   userTrustedDeviceRevokeSchema,

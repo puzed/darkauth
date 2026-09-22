@@ -98,6 +98,23 @@ export interface SessionResponse {
   organizationSlug?: string;
 }
 
+export interface SignInResponse {
+  id: string;
+  created_at: string | null;
+  last_active_at: string | null;
+  expires_at: string | null;
+  user_agent: string | null;
+  current: boolean;
+}
+
+export interface ClientConsentResponse {
+  client_id: string;
+  client_name: string | null;
+  scopes: string[];
+  organization_id: string | null;
+  updated_at: string | null;
+}
+
 export interface UserProfile {
   sub: string;
   email?: string | null;
@@ -446,8 +463,12 @@ class ApiService {
   }
 
   clearLegacyTokens(): void {
-    localStorage.removeItem("userAccessToken");
-    localStorage.removeItem("userRefreshToken");
+    try {
+      localStorage.removeItem("userAccessToken");
+      localStorage.removeItem("userRefreshToken");
+    } catch (error) {
+      logger.warn(error, "Failed to clear legacy tokens");
+    }
   }
 
   private getClientId(): string {
@@ -551,12 +572,14 @@ class ApiService {
           data.error || `HTTP ${response.status}: ${response.statusText}`
         ) as Error & {
           code?: string;
+          description?: string;
           details?: unknown;
           unverified?: boolean;
           resendAllowed?: boolean;
           email?: string;
         };
         if (typeof data.code === "string") err.code = data.code;
+        if (typeof data.error_description === "string") err.description = data.error_description;
         if (data.details !== undefined) err.details = data.details;
         if (data.unverified === true) err.unverified = true;
         if (data.resendAllowed === true) err.resendAllowed = true;
@@ -1346,6 +1369,35 @@ class ApiService {
   async getUnlockPolicy(): Promise<UnlockPolicy> {
     const data = await this.request<unknown>("/crypto/unlock-policy");
     return normalizeUnlockPolicy(data);
+  }
+
+  async getSessionUnlockKey(): Promise<string> {
+    const data = await this.request<{ key: string }>("/crypto/session-unlock-key", {
+      method: "POST",
+    });
+    return data.key;
+  }
+
+  async getSignIns(): Promise<SignInResponse[]> {
+    const data = await this.request<{ sessions?: SignInResponse[] }>("/sessions");
+    return data.sessions || [];
+  }
+
+  async revokeSignIn(signInId: string): Promise<void> {
+    await this.request(`/sessions/${encodeURIComponent(signInId)}/revoke`, { method: "POST" });
+  }
+
+  async revokeOtherSignIns(): Promise<void> {
+    await this.request("/sessions/revoke-others", { method: "POST" });
+  }
+
+  async getConsents(): Promise<ClientConsentResponse[]> {
+    const data = await this.request<{ consents?: ClientConsentResponse[] }>("/consents");
+    return data.consents || [];
+  }
+
+  async revokeConsent(clientId: string): Promise<void> {
+    await this.request(`/consents/${encodeURIComponent(clientId)}`, { method: "DELETE" });
   }
 
   async getConnectedIdentities(): Promise<ConnectedIdentityResponse[]> {

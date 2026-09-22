@@ -2,10 +2,10 @@ import { useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useBranding } from "../hooks/useBranding";
 import apiService from "../services/api";
-import cryptoService, { fromBase64Url, toBase64Url } from "../services/crypto";
+import cryptoService, { fromBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueLoginState } from "../services/opaque";
-import { saveExportKey } from "../services/sessionKey";
+import { holdPendingUnlock, unlockOrCreatePasswordArk } from "../services/pendingUnlock";
 import { saveUnlockedArk } from "../services/unlockedArk";
 import {
   browserSupportsWebAuthn,
@@ -222,6 +222,12 @@ export default function Login({
         response: serializeAuthenticationResponse(credential),
         prfResultConfirmed: !!prfResult,
       });
+      const session = await apiService.getSession();
+      if (session.otpRequired && !session.otpVerified) {
+        if (prfResult) cryptoService.clearSensitiveData(prfResult);
+        window.location.replace("/otp/verify");
+        return;
+      }
       if (prfResult && finish.unlock?.envelope) {
         const wrapKey = await derivePasskeyPrfWrapKey({
           prfResult,
@@ -233,13 +239,8 @@ export default function Login({
           wrapKey,
           fromBase64Url(finish.unlock.envelope.aad)
         );
-        saveUnlockedArk(finish.sub, ark);
+        await saveUnlockedArk(finish.sub, ark);
         cryptoService.clearSensitiveData(prfResult, wrapKey, ark);
-      }
-      const session = await apiService.getSession();
-      if (session.otpRequired && !session.otpVerified) {
-        window.location.replace("/otp/verify");
-        return;
       }
       onLogin({
         sub: finish.sub,
@@ -309,23 +310,38 @@ export default function Login({
       );
 
       if (loginFinishResponse.otpRequired) {
+        holdPendingUnlock(loginFinishResponse.sub, loginFinish.exportKey);
         opaqueService.clearState(loginStart.state);
-        await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
         cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
-        try {
-          const s = await apiService.getOtpStatus();
-          if (s.enabled) {
-            window.location.replace("/otp/verify");
-          } else {
-            window.location.replace("/otp/setup?forced=1");
-          }
-        } catch {
-          window.location.replace("/otp/setup?forced=1");
-        }
+        onLogin({
+          sub: loginFinishResponse.sub,
+          name: loginFinishResponse.user?.name || undefined,
+          email: loginFinishResponse.user?.email || formData.email,
+          keyState: "locked",
+        });
         return;
       }
 
-      await saveExportKey(loginFinishResponse.sub, loginFinish.exportKey);
+      let ark: Uint8Array | null = null;
+      try {
+        ark = await unlockOrCreatePasswordArk(loginFinishResponse.sub, loginFinish.exportKey);
+        await saveUnlockedArk(loginFinishResponse.sub, ark);
+      } catch (e) {
+        logger.warn(
+          e instanceof Error
+            ? { name: e.name, message: e.message, stack: e.stack }
+            : { detail: String(e) },
+          "Post-login key setup failed"
+        );
+      } finally {
+        opaqueService.clearState(loginStart.state);
+        cryptoService.clearSensitiveData(
+          loginFinish.sessionKey,
+          loginFinish.exportKey,
+          ...(ark ? [ark] : [])
+        );
+      }
+
       const session = await apiService.getSession().catch(() => null);
 
       onLogin({
@@ -337,65 +353,6 @@ export default function Login({
         organizationId: session?.organizationId,
         organizationSlug: session?.organizationSlug,
       });
-
-      try {
-        const keys = await cryptoService.deriveKeysFromExportKey(
-          loginFinish.exportKey,
-          loginFinishResponse.sub
-        );
-        try {
-          await apiService.getWrappedDrk();
-        } catch (_err) {
-          try {
-            const drk = await cryptoService.generateDRK();
-            const wrappedDrk = await cryptoService.wrapDRK(
-              drk,
-              keys.wrapKey,
-              loginFinishResponse.sub
-            );
-            await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
-            const accountKey = await apiService.createAccountKey({ version: "v2" });
-            const wrappingAlg = "OPAQUE-HKDF-SHA256+A256GCM/v2";
-            const envelopeId = `env_${crypto.randomUUID()}`;
-            const aad = cryptoService.envelopeAad({
-              sub: loginFinishResponse.sub,
-              keyId: accountKey.key_id,
-              envelopeId,
-              type: "password",
-              wrappingAlg,
-            });
-            const wrappedEnvelopeDrk = await cryptoService.wrapKeyMaterial(drk, keys.wrapKey, aad);
-            await apiService.createKeyEnvelope({
-              envelopeId,
-              keyId: accountKey.key_id,
-              type: "password",
-              label: "Password",
-              wrappingAlg,
-              wrappedKey: toBase64Url(wrappedEnvelopeDrk),
-              aad: toBase64Url(aad),
-              metadata: { version: "v2" },
-            });
-            cryptoService.clearSensitiveData(loginFinish.sessionKey, drk);
-          } catch (e) {
-            logger.warn(
-              e instanceof Error
-                ? { name: e.name, message: e.message, stack: e.stack }
-                : { detail: String(e) },
-              "Failed to initialize DRK"
-            );
-          }
-        }
-      } catch (e) {
-        logger.warn(
-          e instanceof Error
-            ? { name: e.name, message: e.message, stack: e.stack }
-            : { detail: String(e) },
-          "Post-login key setup failed"
-        );
-      } finally {
-        opaqueService.clearState(loginStart.state);
-        cryptoService.clearSensitiveData(loginFinish.sessionKey, loginFinish.exportKey);
-      }
     } catch (error) {
       logger.error(error, "Login failed");
 

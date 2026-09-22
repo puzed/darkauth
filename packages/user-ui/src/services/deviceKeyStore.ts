@@ -1,6 +1,18 @@
 const databaseName = "darkauth-device-keys";
 const storeName = "device_keys";
 
+function storageError(error: unknown): Error {
+  const name = error && typeof error === "object" && "name" in error ? String(error.name) : "";
+  if (name === "QuotaExceededError") {
+    return new Error(
+      "This browser is out of storage for trusted-browser keys. Free up site storage and try again."
+    );
+  }
+  return new Error(
+    "This browser blocks the storage trusted-browser keys need, for example in private browsing. Allow site data for DarkAuth or use another unlock method."
+  );
+}
+
 class DeviceKeyStore {
   async createKeyHandle(sub: string): Promise<{
     handle: string;
@@ -14,59 +26,60 @@ class DeviceKeyStore {
       crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]),
     ]);
     const approvalPublicJwk = await crypto.subtle.exportKey("jwk", approvalKeyPair.publicKey);
-    const db = await this.open();
-    await this.put(db, {
-      handle,
-      sub,
-      key,
-      approvalPrivateKey: approvalKeyPair.privateKey,
-      approvalPublicJwk,
-      created_at: new Date().toISOString(),
-    });
-    db.close();
+    await this.run("readwrite", (store) =>
+      store.put({
+        handle,
+        sub,
+        key,
+        approvalPrivateKey: approvalKeyPair.privateKey,
+        approvalPublicJwk,
+        created_at: new Date().toISOString(),
+      })
+    );
     return { handle, key, approvalPrivateKey: approvalKeyPair.privateKey, approvalPublicJwk };
   }
 
   async getKey(handle: string): Promise<CryptoKey | null> {
-    const db = await this.open();
-    const value = await new Promise<{ key?: CryptoKey } | undefined>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readonly");
-      const request = tx.objectStore(storeName).get(handle);
-      request.onsuccess = () => resolve(request.result as { key?: CryptoKey } | undefined);
-      request.onerror = () => reject(request.error ?? new Error("Failed to load device key"));
-    });
-    db.close();
+    const value = await this.run<{ key?: CryptoKey } | undefined>("readonly", (store) =>
+      store.get(handle)
+    );
     return value?.key ?? null;
   }
 
   async getApprovalPrivateKey(handle: string): Promise<CryptoKey | null> {
-    const db = await this.open();
-    const value = await new Promise<{ approvalPrivateKey?: CryptoKey } | undefined>(
-      (resolve, reject) => {
-        const tx = db.transaction(storeName, "readonly");
-        const request = tx.objectStore(storeName).get(handle);
-        request.onsuccess = () =>
-          resolve(request.result as { approvalPrivateKey?: CryptoKey } | undefined);
-        request.onerror = () =>
-          reject(request.error ?? new Error("Failed to load device approval key"));
-      }
+    const value = await this.run<{ approvalPrivateKey?: CryptoKey } | undefined>(
+      "readonly",
+      (store) => store.get(handle)
     );
-    db.close();
     return value?.approvalPrivateKey ?? null;
   }
 
   async deleteKey(handle: string): Promise<void> {
-    const db = await this.open();
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
-      tx.objectStore(storeName).delete(handle);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("Failed to delete device key"));
-    });
-    db.close();
+    await this.run("readwrite", (store) => store.delete(handle));
   }
 
-  private async open(): Promise<IDBDatabase> {
+  private async run<T>(
+    mode: IDBTransactionMode,
+    action: (store: IDBObjectStore) => IDBRequest
+  ): Promise<T> {
+    let db: IDBDatabase | null = null;
+    try {
+      db = await this.open();
+      const tx = db.transaction(storeName, mode);
+      const request = action(tx.objectStore(storeName));
+      return await new Promise<T>((resolve, reject) => {
+        tx.oncomplete = () => resolve(request.result as T);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } catch (error) {
+      throw storageError(error);
+    } finally {
+      db?.close();
+    }
+  }
+
+  private open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(databaseName, 1);
       request.onupgradeneeded = () => {
@@ -76,16 +89,7 @@ class DeviceKeyStore {
         }
       };
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("Failed to open device key store"));
-    });
-  }
-
-  private async put(db: IDBDatabase, value: unknown): Promise<void> {
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(storeName, "readwrite");
-      tx.objectStore(storeName).put(value);
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error ?? new Error("Failed to store device key"));
+      request.onerror = () => reject(request.error);
     });
   }
 }

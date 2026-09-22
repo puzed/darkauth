@@ -5,8 +5,8 @@ import cryptoService, { fromBase64Url, sha256Base64Url, toBase64Url } from "../s
 import deviceKeyStore from "../services/deviceKeyStore";
 import { logger } from "../services/logger";
 import opaqueService from "../services/opaque";
-import { loadExportKey, saveExportKey } from "../services/sessionKey";
-import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
+import { resolveAccountKeyId } from "../services/sessionUnlock";
+import { getUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
 import {
   defaultUnlockPolicy,
   isUnlockMethodAllowed,
@@ -21,6 +21,7 @@ import {
   serializeAuthenticationResponse,
 } from "../services/webauthn";
 import Button from "./Button";
+import { unlockArkWithExportKey } from "./KeyUnlockPanel";
 
 interface ScopeInfo {
   scope: string;
@@ -125,7 +126,9 @@ export default function Authorize({
   const [deviceApprovalLoading, setDeviceApprovalLoading] = useState(false);
   const [deviceApprovalStatus, setDeviceApprovalStatus] = useState<string | null>(null);
   const deviceApprovalPollRef = useRef<number | null>(null);
+  const activeApprovalIdRef = useRef<string | null>(null);
   const autoFinalizeStartedRef = useRef(false);
+  const [autoFinalizing, setAutoFinalizing] = useState(!!authRequest.autoFinalize && !previewData);
   const [selectedOrganizationId, setSelectedOrganizationId] = useState(
     authRequest.organizationId || sessionData.organizationId || ""
   );
@@ -305,11 +308,24 @@ export default function Authorize({
 
   useEffect(() => {
     return () => {
+      activeApprovalIdRef.current = null;
       if (deviceApprovalPollRef.current) {
         window.clearInterval(deviceApprovalPollRef.current);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (previewData || !authRequest.hasZk || authRequest.autoFinalize) return;
+    let cancelled = false;
+    getUnlockedArk(sessionData.sub).then((ark) => {
+      if (ark) cryptoService.clearSensitiveData(ark);
+      if (!cancelled) setKeyUnlocked(!!ark);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [authRequest.autoFinalize, authRequest.hasZk, previewData, sessionData.sub]);
 
   useEffect(() => {
     if (previewData) {
@@ -372,15 +388,29 @@ export default function Authorize({
   );
   const signedInAs = branding.getText("signedInAs", "Signed in as");
 
-  const resolveAccountKeyId = async () => {
+  const expiredRequestMessage = `This sign-in request expired. Return to ${appName} and try again.`;
+
+  const submitAuthorization = async (request: {
+    approve: boolean;
+    drkHash?: string;
+    zkKeyHash?: string;
+  }) => {
     try {
-      const keybag = await apiService.getKeybag();
-      const activeKey = keybag.account_keys.find((key) => key.status === "active");
-      if (activeKey) return activeKey.key_id;
+      return await apiService.authorize({
+        requestId: authRequest.requestId,
+        ...request,
+        organizationId: requireOrganizationSelection
+          ? selectedOrganizationId || undefined
+          : undefined,
+      });
     } catch (error) {
-      logger.warn(error, "Failed to load keybag metadata");
+      const detail =
+        error instanceof Error
+          ? `${error.message} ${(error as Error & { description?: string }).description || ""}`
+          : "";
+      if (/expired|not found/i.test(detail)) throw new Error(expiredRequestMessage);
+      throw error;
     }
-    return `legacy-drk:${sessionData.sub}`;
   };
 
   const createZkDelivery = async (ark: Uint8Array) => {
@@ -402,7 +432,7 @@ export default function Authorize({
       } as const;
     }
 
-    const keyId = await resolveAccountKeyId();
+    const keyId = await resolveAccountKeyId(sessionData.sub);
     const scopedOrganizationId =
       authRequest.clientKeyScope === "account" || !requireOrganizationSelection
         ? undefined
@@ -445,14 +475,10 @@ export default function Authorize({
 
   const finalizeWithZk = async (ark: Uint8Array) => {
     const delivery = await createZkDelivery(ark);
-    const authResponse = await apiService.authorize({
-      requestId: authRequest.requestId,
+    const authResponse = await submitAuthorization({
       approve: true,
       drkHash: "drkHash" in delivery ? delivery.drkHash : undefined,
       zkKeyHash: "zkKeyHash" in delivery ? delivery.zkKeyHash : undefined,
-      organizationId: requireOrganizationSelection
-        ? selectedOrganizationId || undefined
-        : undefined,
     });
     const redirectUrl = new URL(authResponse.redirectUrl);
     redirectUrl.hash = `${delivery.fragmentName}=${encodeURIComponent(delivery.jwe)}`;
@@ -492,6 +518,7 @@ export default function Authorize({
   };
 
   const stopDeviceApprovalPolling = () => {
+    activeApprovalIdRef.current = null;
     if (deviceApprovalPollRef.current) {
       window.clearInterval(deviceApprovalPollRef.current);
       deviceApprovalPollRef.current = null;
@@ -509,14 +536,17 @@ export default function Authorize({
       });
       stopDeviceApprovalPolling();
       setDeviceApprovalStatus("Approved. Finalizing authorization...");
-      setKeyUnlocked(true);
-      await finalizeWithZk(ark);
-      return true;
+      await finishUnlockWithArk(ark);
+    } catch (error) {
+      stopDeviceApprovalPolling();
+      setDeviceApprovalStatus(null);
+      setError(error instanceof Error ? error.message : "Device approval failed");
     } finally {
       if (ark) {
         cryptoService.clearSensitiveData(ark);
       }
     }
+    return true;
   };
 
   const startDeviceApprovalPolling = (
@@ -525,6 +555,7 @@ export default function Authorize({
     publicJwk: JsonWebKey
   ) => {
     stopDeviceApprovalPolling();
+    activeApprovalIdRef.current = approval.request_id;
     let attempts = 0;
     const tick = async () => {
       attempts += 1;
@@ -532,6 +563,7 @@ export default function Authorize({
         const consumed = await apiService.consumeDeviceApproval(approval.request_id, {
           newDeviceProof: await sha256Base64Url(JSON.stringify(publicJwk)),
         });
+        if (activeApprovalIdRef.current !== approval.request_id) return;
         const status = consumed.status || "pending";
         if (consumed.encrypted_approval) {
           await consumeDeviceApproval(consumed, privateKey);
@@ -549,6 +581,7 @@ export default function Authorize({
           setDeviceApprovalStatus("Waiting for approval on another trusted device...");
         }
       } catch {
+        if (activeApprovalIdRef.current !== approval.request_id) return;
         if (attempts > 40) {
           stopDeviceApprovalPolling();
           setDeviceApprovalStatus("Approval timed out. You can try again or enter your password.");
@@ -559,6 +592,13 @@ export default function Authorize({
     };
     void tick();
     deviceApprovalPollRef.current = window.setInterval(tick, 3000);
+  };
+
+  const cancelDeviceApproval = () => {
+    stopDeviceApprovalPolling();
+    setDeviceApproval(null);
+    setDeviceApprovalCode(null);
+    setDeviceApprovalStatus(null);
   };
 
   const requestDeviceApproval = async () => {
@@ -613,10 +653,21 @@ export default function Authorize({
     }
   };
 
-  const handleAuthorize = async (approve: boolean) => {
+  const showUnlockStep = async (auto: boolean) => {
+    setKeyUnlocked(false);
+    if (!auto && hasTrustedDevices) {
+      await requestDeviceApproval();
+      return;
+    }
+    setRecoveryVisible(true);
+    setUnlockMethod(firstUnlockMethod);
+    if (!auto) setError("Unlock your encryption keys to continue.");
+  };
+
+  const handleAuthorize = async (approve: boolean, auto = false): Promise<boolean> => {
     if (approve && noActiveOrganizations) {
       setError("Your account is not a member of any active organization.");
-      return;
+      return false;
     }
     if (
       approve &&
@@ -625,89 +676,45 @@ export default function Authorize({
       !selectedOrganizationId
     ) {
       setError("Choose which organization to use for this sign-in.");
-      return;
+      return false;
     }
     if (previewData) {
-      return;
+      return false;
     }
 
     setLoading(true);
     setError(null);
 
     try {
-      if (approve && keyLockedForZk) {
-        setLoading(false);
-        if (hasTrustedDevices) {
-          await requestDeviceApproval();
-        } else {
-          setRecoveryVisible(true);
-          setUnlockMethod(firstUnlockMethod);
-          setError("Unlock your encryption keys to continue.");
-        }
-        return;
-      }
       if (approve && authRequest.hasZk) {
-        const url = new URL(window.location.href);
-        const zkPubParam = url.searchParams.get("zk_pub");
-        const clientId = url.searchParams.get("client_id") || "";
-
-        if (zkPubParam && clientId) {
-          let exportKey: Uint8Array | null = null;
-          let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
-          let drk: Uint8Array | null = null;
-          try {
-            const unlockedArk = loadUnlockedArk(sessionData.sub);
-            if (unlockedArk) {
-              drk = unlockedArk;
-              await finalizeWithZk(drk);
-              return;
-            }
-            const wrappedDrkB64 = await apiService.getWrappedDrk();
-            const wrappedDrk = fromBase64Url(wrappedDrkB64);
-            exportKey = await loadExportKey(sessionData.sub);
-            if (!exportKey) {
-              throw new Error("Missing export key");
-            }
-            keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-            drk = await cryptoService.unwrapDRK(wrappedDrk, keys.wrapKey, sessionData.sub);
-            await finalizeWithZk(drk);
-            return;
-          } catch (e) {
-            setError(
-              e instanceof Error ? e.message : "Zero-knowledge delivery failed. Please retry."
-            );
-            setRecoveryVisible(true);
-            return;
-          } finally {
-            cryptoService.clearSensitiveData(
-              ...(exportKey ? [exportKey] : []),
-              ...(keys ? [keys.masterKey, keys.wrapKey, keys.deriveKey] : []),
-              ...(drk ? [drk] : [])
-            );
-          }
+        const ark = await getUnlockedArk(sessionData.sub);
+        if (!ark) {
+          setLoading(false);
+          await showUnlockStep(auto);
+          return false;
+        }
+        try {
+          setKeyUnlocked(true);
+          await finalizeWithZk(ark);
+          return true;
+        } finally {
+          cryptoService.clearSensitiveData(ark);
         }
       }
 
-      const authResponse = await apiService.authorize({
-        requestId: authRequest.requestId,
-        approve,
-        organizationId: requireOrganizationSelection
-          ? selectedOrganizationId || undefined
-          : undefined,
-      });
+      const authResponse = await submitAuthorization({ approve });
       logger.info({ requestId: authRequest.requestId, approve }, "[Authorize] finalize without ZK");
       window.location.href = authResponse.redirectUrl;
+      return true;
     } catch (error) {
       logger.error(error, "Authorization failed");
 
       let errorMessage = "Authorization failed. Please try again.";
       if (error instanceof Error) {
-        if (error.message.includes("expired")) {
-          errorMessage = "Authorization request has expired. Please restart the login process.";
+        if (error.message === expiredRequestMessage) {
+          errorMessage = expiredRequestMessage;
         } else if (explicitOrganizationId && error.message.toLowerCase().includes("organization")) {
           errorMessage = "Your account cannot sign in with the selected organization.";
-        } else if (error.message.includes("invalid")) {
-          errorMessage = "Invalid authorization request. Please restart the login process.";
         } else if (
           "code" in error &&
           (error as Error & { code?: string }).code === "ORG_CONTEXT_REQUIRED"
@@ -717,12 +724,17 @@ export default function Authorize({
           errorMessage = "Choose which organization to use for this sign-in.";
         } else if (error.message.includes("network") || error.message.includes("fetch")) {
           errorMessage = "Network error. Please check your connection and try again.";
+        } else if ((error as Error & { description?: string }).description) {
+          errorMessage = (error as Error & { description?: string }).description as string;
+        } else if (error.message.includes("invalid")) {
+          errorMessage = "Invalid authorization request. Please restart the login process.";
         } else {
           errorMessage = error.message;
         }
       }
 
       setError(errorMessage);
+      return false;
     } finally {
       setLoading(false);
       logger.debug(
@@ -735,7 +747,7 @@ export default function Authorize({
   useEffect(() => {
     if (
       !authRequest.autoFinalize ||
-      authRequest.hasZk ||
+      previewData ||
       organizationsLoading ||
       loading ||
       autoFinalizeStartedRef.current
@@ -743,47 +755,69 @@ export default function Authorize({
       return;
     }
     autoFinalizeStartedRef.current = true;
-    handleAuthorize(true);
+    handleAuthorize(true, true).then((redirected) => {
+      if (!redirected) setAutoFinalizing(false);
+    });
   });
 
+  const verifyCurrentPassword = async (email: string): Promise<Uint8Array | null> => {
+    const started = await opaqueService.startLogin(email, currentPassword);
+    try {
+      const verifyStart = await apiService.passwordVerifyStart(started.request);
+      const finish = await opaqueService
+        .finishLogin(verifyStart.message, started.state)
+        .catch(() => null);
+      if (!finish) return null;
+      cryptoService.clearSensitiveData(finish.sessionKey);
+      return finish.exportKey;
+    } finally {
+      opaqueService.clearState(started.state);
+    }
+  };
+
+  const finishUnlockWithArk = async (ark: Uint8Array) => {
+    await saveUnlockedArk(sessionData.sub, ark);
+    setKeyUnlocked(true);
+    setRecoveryVisible(false);
+    await finalizeWithZk(ark);
+  };
+
   const generateNewKeys = async () => {
-    logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys start");
     if (!isUnlockMethodAllowed(unlockPolicy, "new_key")) {
       setError("Creating password-based encryption keys is disabled by your organization policy.");
       return;
     }
-    if (!sessionData.email) {
+    const passwordSignInEmail = sessionData.signInEmail || sessionData.email;
+    if (!passwordSignInEmail) {
       setError("Email is required to initialize keys");
+      return;
+    }
+    if (!currentPassword) {
+      setError("Enter your current password");
       return;
     }
     setRecoveryLoading(true);
     setError(null);
+    let exportKey: Uint8Array | null = null;
+    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
+    let drk: Uint8Array | null = null;
     try {
-      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys deriving keys");
-      const exportKey = await loadExportKey(sessionData.sub);
+      exportKey = await verifyCurrentPassword(passwordSignInEmail);
       if (!exportKey) {
-        throw new Error("Missing export key. Please sign out and sign back in to initialize keys.");
+        setError("Current password is incorrect");
+        return;
       }
-      const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-
-      cryptoService.clearSensitiveData(exportKey);
-      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys keys derived");
-      const drk = await cryptoService.generateDRK();
+      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
+      drk = await cryptoService.generateDRK();
       const wrappedDrk = await cryptoService.wrapDRK(drk, keys.wrapKey, sessionData.sub);
-      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys storing wrapped DRK");
       await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
       await storePasswordEnvelope(drk, keys.wrapKey);
       try {
         const kp = await cryptoService.generateECDHKeyPair();
         const pub = await cryptoService.exportPublicKeyJWK(kp.publicKey);
-        logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys publish enc pub");
         await apiService.putEncPublicJwk(pub);
         const privJwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
         const wrappedPriv = await cryptoService.wrapEncPrivateJwkWithDrk(privJwk, drk);
-        logger.debug(
-          { sub: sessionData.sub },
-          "[Authorize] generateNewKeys store wrapped enc priv"
-        );
         await apiService.putWrappedEncPrivateJwk(wrappedPriv);
       } catch (err) {
         logger.warn(
@@ -793,53 +827,27 @@ export default function Authorize({
           "Failed to refresh encryption keys"
         );
       }
-      logger.debug({ sub: sessionData.sub }, "[Authorize] generateNewKeys success");
-      setKeyUnlocked(true);
-      setRecoveryVisible(false);
+      setCurrentPassword("");
       const drkForHandoff = drk.slice();
-      saveUnlockedArk(sessionData.sub, drkForHandoff);
       cryptoService.clearSensitiveData(drk);
       try {
-        const url = new URL(window.location.href);
-        const zkPubParam = url.searchParams.get("zk_pub");
-        const clientId = url.searchParams.get("client_id") || "";
-        if (authRequest.hasZk && zkPubParam && clientId) {
-          logger.debug(
-            { requestId: authRequest.requestId },
-            "[Authorize] finalize immediately after generateNewKeys"
-          );
-          await finalizeWithZk(drkForHandoff);
-          cryptoService.clearSensitiveData(drkForHandoff);
-          return;
-        }
-      } catch (e) {
-        logger.warn(
-          e instanceof Error
-            ? { name: e.name, message: e.message, stack: e.stack }
-            : { detail: String(e) },
-          "[Authorize] immediate finalize after generateNewKeys failed"
-        );
+        await finishUnlockWithArk(drkForHandoff);
+      } finally {
+        cryptoService.clearSensitiveData(drkForHandoff);
       }
-      cryptoService.clearSensitiveData(drkForHandoff);
-      queueMicrotask(() => {
-        logger.debug(
-          { requestId: authRequest.requestId },
-          "[Authorize] microtask finalize after generateNewKeys"
-        );
-        handleAuthorize(true);
-      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to initialize new keys");
     } finally {
+      const arraysToClear = [
+        exportKey,
+        keys?.masterKey,
+        keys?.wrapKey,
+        keys?.deriveKey,
+        drk,
+      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      if (arraysToClear.length > 0) cryptoService.clearSensitiveData(...arraysToClear);
       setRecoveryLoading(false);
     }
-  };
-
-  const finishUnlockWithArk = async (ark: Uint8Array) => {
-    saveUnlockedArk(sessionData.sub, ark);
-    setKeyUnlocked(true);
-    setRecoveryVisible(false);
-    await finalizeWithZk(ark);
   };
 
   const unlockWithRecoveryKey = async () => {
@@ -996,47 +1004,45 @@ export default function Authorize({
     setRecoveryLoading(true);
     setError(null);
     let exportKey: Uint8Array | null = null;
-    let keys: Awaited<ReturnType<typeof cryptoService.deriveKeysFromExportKey>> | null = null;
     let ark: Uint8Array | null = null;
     try {
-      const currentStart = await opaqueService.startLogin(passwordSignInEmail, currentPassword);
-      const currentStartResp = await apiService.passwordVerifyStart(currentStart.request);
-      const currentFinish = await opaqueService.finishLogin(
-        currentStartResp.message,
-        currentStart.state
-      );
-      opaqueService.clearState(currentStart.state);
-      await saveExportKey(sessionData.sub, currentFinish.exportKey);
-      exportKey = currentFinish.exportKey;
-      keys = await cryptoService.deriveKeysFromExportKey(exportKey, sessionData.sub);
-      ark = await cryptoService.unwrapDRK(
-        fromBase64Url(await apiService.getWrappedDrk()),
-        keys.wrapKey,
-        sessionData.sub
-      );
-      saveUnlockedArk(sessionData.sub, ark);
-      cryptoService.clearSensitiveData(currentFinish.sessionKey);
+      exportKey = await verifyCurrentPassword(passwordSignInEmail);
+      if (!exportKey) {
+        setError("Current password is incorrect");
+        return;
+      }
+      ark = await unlockArkWithExportKey(sessionData.sub, exportKey).catch(() => {
+        throw new Error(
+          "Your password is correct, but it did not unlock your encryption keys. Choose another unlock method."
+        );
+      });
       setCurrentPassword("");
       await finishUnlockWithArk(ark);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Unlock failed";
-      setError(
-        msg.includes("auth") || msg.includes("OPAQUE") ? "Current password is incorrect" : msg
-      );
+      setError(e instanceof Error ? e.message : "Unlock failed");
     } finally {
-      const arraysToClear = [
-        exportKey,
-        keys?.masterKey,
-        keys?.wrapKey,
-        keys?.deriveKey,
-        ark,
-      ].filter((value): value is Uint8Array => value instanceof Uint8Array);
+      const arraysToClear = [exportKey, ark].filter(
+        (value): value is Uint8Array => value instanceof Uint8Array
+      );
       if (arraysToClear.length > 0) {
         cryptoService.clearSensitiveData(...arraysToClear);
       }
       setRecoveryLoading(false);
     }
   };
+
+  if (autoFinalizing) {
+    return (
+      <div className="authorize-container da-authorize-container">
+        <div className="authorize-card da-container">
+          <div className="loading-container">
+            <div className="loading-spinner" />
+            <p>Returning to {appName}...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="authorize-container da-authorize-container">
@@ -1201,19 +1207,20 @@ export default function Authorize({
             {unlockOptions.length === 0 && (
               <p className="help-text">No encryption unlock methods are currently available.</p>
             )}
-            {unlockMethod === "password" && isUnlockMethodAllowed(unlockPolicy, "password") && (
-              <div className="form-group">
-                <label htmlFor={currentPasswordId}>Password</label>
-                <input
-                  id={currentPasswordId}
-                  type="password"
-                  placeholder="Enter your password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  autoComplete="current-password"
-                />
-              </div>
-            )}
+            {(unlockMethod === "password" || unlockMethod === "new_key") &&
+              isUnlockMethodAllowed(unlockPolicy, unlockMethod) && (
+                <div className="form-group">
+                  <label htmlFor={currentPasswordId}>Password</label>
+                  <input
+                    id={currentPasswordId}
+                    type="password"
+                    placeholder="Enter your password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    autoComplete="current-password"
+                  />
+                </div>
+              )}
             {unlockMethod === "recovery" && isUnlockMethodAllowed(unlockPolicy, "recovery") && (
               <div className="form-group">
                 <label htmlFor={recoverySecretId}>Recovery key</label>
@@ -1241,7 +1248,7 @@ export default function Authorize({
             {unlockMethod === "new_key" && isUnlockMethodAllowed(unlockPolicy, "new_key") && (
               <p className="help-text">
                 This creates a new account root key. Existing encrypted app data that depends on the
-                old key may no longer be readable.
+                old key may no longer be readable. Enter your password to protect the new key.
               </p>
             )}
             <div className="actions da-authorize-actions">
@@ -1277,31 +1284,6 @@ export default function Authorize({
         <div className="actions da-authorize-actions">
           <Button
             type="button"
-            variant="secondary"
-            onClick={() => handleAuthorize(false)}
-            disabled={loading}
-          >
-            {loading
-              ? branding.getText("processing", "Processing...")
-              : branding.getText("deny", "Deny")}
-          </Button>
-
-          {keyLockedForZk && hasTrustedDevices && (
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => {
-                setRecoveryVisible(true);
-                setError(null);
-              }}
-              disabled={loading || deviceApprovalLoading}
-            >
-              Choose another method
-            </Button>
-          )}
-
-          <Button
-            type="button"
             variant="success"
             onClick={() =>
               keyLockedForZk && hasTrustedDevices ? requestDeviceApproval() : handleAuthorize(true)
@@ -1321,13 +1303,37 @@ export default function Authorize({
                   ? "Requesting approval..."
                   : branding.getText("authorizing", "Authorizing...")}
               </>
-            ) : keyLockedForZk && hasTrustedDevices ? (
-              "Accept on another trusted browser"
             ) : keyLockedForZk ? (
               primaryLockedAction
             ) : (
               branding.getText("authorize", "Continue")
             )}
+          </Button>
+
+          {keyLockedForZk && hasTrustedDevices && (
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                cancelDeviceApproval();
+                setRecoveryVisible(true);
+                setError(null);
+              }}
+              disabled={loading || deviceApprovalLoading}
+            >
+              Choose another method
+            </Button>
+          )}
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => handleAuthorize(false)}
+            disabled={loading}
+          >
+            {loading
+              ? branding.getText("processing", "Processing...")
+              : branding.getText("deny", "Deny")}
           </Button>
         </div>
 

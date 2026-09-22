@@ -8,6 +8,7 @@ export interface UnlockPolicy {
   allowRecoveryKey: boolean;
   allowNewKeySetup: boolean;
   requireKeyUnlockForZk: boolean;
+  allowSessionUnlock: boolean;
   reason?: string | null;
 }
 
@@ -19,6 +20,7 @@ export const defaultUnlockPolicy: UnlockPolicy = {
   allowRecoveryKey: true,
   allowNewKeySetup: true,
   requireKeyUnlockForZk: true,
+  allowSessionUnlock: true,
   reason: null,
 };
 
@@ -72,6 +74,10 @@ export function normalizeUnlockPolicy(input: unknown): UnlockPolicy {
     requireKeyUnlockForZk: readBoolean(
       readPolicyValue(data, "requireKeyUnlockForZk", "require_key_unlock_for_zk"),
       defaultUnlockPolicy.requireKeyUnlockForZk
+    ),
+    allowSessionUnlock: readBoolean(
+      readPolicyValue(data, "allowSessionUnlock", "allow_session_unlock"),
+      defaultUnlockPolicy.allowSessionUnlock
     ),
     reason:
       typeof data.reason === "string"

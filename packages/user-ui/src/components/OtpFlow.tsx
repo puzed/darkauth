@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
 import api from "../services/api";
+import { completePendingUnlock } from "../services/pendingUnlock";
 import Button from "./Button";
 
 export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) {
@@ -64,6 +65,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
     try {
       setError(null);
       const res = await api.otpSetupVerify(code);
+      await completePendingUnlock();
       setBackupCodes(res.backup_codes || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");
@@ -74,6 +76,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
     try {
       setError(null);
       await api.otpVerify(code);
+      await completePendingUnlock();
       window.location.replace("/apps");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Verification failed");

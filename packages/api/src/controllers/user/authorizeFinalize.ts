@@ -5,6 +5,7 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createAuthCode } from "../../models/authCodes.ts";
 import { consumePendingAuth, getPendingAuth } from "../../models/authorize.ts";
+import { recordUserClientConsent } from "../../models/consents.ts";
 import { resolveAuthorizationOrganizationContext } from "../../models/rbac.ts";
 import { isZkKeyUnlockRequired } from "../../models/scimPolicy.ts";
 import { getClientIp, logAuditEvent } from "../../services/audit.ts";
@@ -159,6 +160,14 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         zkKeyKind: hasZk ? deliveredKeyKind : undefined,
         zkKeyVersion: hasZk ? keyDeliveryVersion : undefined,
         requireOrganizationSelection: consumedPendingRequest.requireOrganizationSelection,
+        signInId: sessionData.signInId ?? null,
+      });
+
+      await recordUserClientConsent(context, {
+        userSub: sessionData.sub,
+        clientId: consumedPendingRequest.clientId,
+        scope: consumedPendingRequest.scope,
+        organizationId: resolvedOrganization?.organizationId ?? null,
       });
 
       if (sessionId && resolvedOrganization) {

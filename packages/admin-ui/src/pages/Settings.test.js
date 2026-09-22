@@ -13,6 +13,7 @@ test("Settings includes SCIM provisioning policy controls", () => {
   assert.notEqual(source.indexOf("users.scim.allow_password_envelopes"), -1);
   assert.notEqual(source.indexOf("users.scim.allow_passkey_prf_envelopes"), -1);
   assert.notEqual(source.indexOf("users.scim.allow_trusted_device_approval"), -1);
+  assert.notEqual(source.indexOf("users.scim.allow_session_unlock"), -1);
 });
 
 test("Settings includes SCIM mapping controls", () => {

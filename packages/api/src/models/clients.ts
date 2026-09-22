@@ -74,6 +74,7 @@ export async function listClients(
           deliveredKeyKind: clients.deliveredKeyKind,
           clientKeyScope: clients.clientKeyScope,
           requireOrganizationSelection: clients.requireOrganizationSelection,
+          rememberConsent: clients.rememberConsent,
           allowedJweAlgs: clients.allowedJweAlgs,
           allowedJweEncs: clients.allowedJweEncs,
           redirectUris: clients.redirectUris,
@@ -110,6 +111,7 @@ export async function listClients(
           deliveredKeyKind: clients.deliveredKeyKind,
           clientKeyScope: clients.clientKeyScope,
           requireOrganizationSelection: clients.requireOrganizationSelection,
+          rememberConsent: clients.rememberConsent,
           allowedJweAlgs: clients.allowedJweAlgs,
           allowedJweEncs: clients.allowedJweEncs,
           redirectUris: clients.redirectUris,
@@ -167,6 +169,7 @@ export async function createClient(
     deliveredKeyKind?: "root_key" | "client_app_key";
     clientKeyScope?: "account" | "organization";
     requireOrganizationSelection?: boolean;
+    rememberConsent?: boolean;
     allowedJweAlgs?: string[];
     allowedJweEncs?: string[];
     redirectUris?: string[];
@@ -218,6 +221,7 @@ export async function createClient(
     deliveredKeyKind,
     clientKeyScope,
     requireOrganizationSelection: data.requireOrganizationSelection ?? true,
+    rememberConsent: data.rememberConsent ?? true,
     allowedJweAlgs: data.allowedJweAlgs ?? [],
     allowedJweEncs: data.allowedJweEncs ?? [],
     redirectUris: data.redirectUris ?? [],

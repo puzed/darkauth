@@ -1,22 +1,26 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  AppWindow,
   Fingerprint,
   KeyRound,
   Laptop,
   LifeBuoy,
   ListChecks,
   LockKeyhole,
+  MonitorSmartphone,
   ShieldCheck,
   SlidersHorizontal,
 } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, {
+  type ClientConsentResponse,
   type ConnectedIdentityResponse,
   type DeviceApprovalResponse,
   type FederationConnectionRoute,
   type KeybagResponse,
   type RecoveryKeyResponse,
+  type SignInResponse,
   type TrustedDeviceResponse,
   type WebAuthnCredentialResponse,
 } from "../services/api";
@@ -34,10 +38,13 @@ import Button from "./Button";
 import { loadArkFromAvailableLocalUnlocks } from "./KeyUnlockPanel";
 import { cx, StatusPill } from "./Portal";
 import styles from "./SettingsSecurity.module.css";
+import { useUserPortal } from "./UserPortalContext";
 
 type SecuritySection =
   | "overview"
   | "signin"
+  | "sessions"
+  | "apps"
   | "passkeys"
   | "unlock"
   | "devices"
@@ -62,7 +69,38 @@ export type SettingsSecurityPreviewData = {
   unlockPolicy: UnlockPolicy;
   connectedIdentities: ConnectedIdentityResponse[];
   enterpriseSsoRoute: FederationConnectionRoute | null;
+  signIns?: SignInResponse[];
+  consents?: ClientConsentResponse[];
 };
+
+function describeUserAgent(userAgent: string | null) {
+  if (!userAgent) return "Unknown browser";
+  const browser = /Edg\//.test(userAgent)
+    ? "Edge"
+    : /OPR\//.test(userAgent)
+      ? "Opera"
+      : /Firefox\//.test(userAgent)
+        ? "Firefox"
+        : /Chrome\//.test(userAgent)
+          ? "Chrome"
+          : /Safari\//.test(userAgent)
+            ? "Safari"
+            : "Browser";
+  const os = /iPhone|iPad/.test(userAgent)
+    ? "iOS"
+    : /Android/.test(userAgent)
+      ? "Android"
+      : /Mac OS X/.test(userAgent)
+        ? "macOS"
+        : /Windows/.test(userAgent)
+          ? "Windows"
+          : /CrOS/.test(userAgent)
+            ? "ChromeOS"
+            : /Linux/.test(userAgent)
+              ? "Linux"
+              : null;
+  return os ? `${browser} on ${os}` : browser;
+}
 
 export default function SettingsSecurity({
   sessionData,
@@ -128,6 +166,10 @@ export default function SettingsSecurity({
   const qrCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [activeSection, setActiveSection] = useState<SecuritySection>("overview");
+  const [signIns, setSignIns] = useState<SignInResponse[]>(previewData?.signIns || []);
+  const [consents, setConsents] = useState<ClientConsentResponse[]>(previewData?.consents || []);
+  const [accessActionLoading, setAccessActionLoading] = useState<string | null>(null);
+  const portal = useUserPortal();
 
   const reload = useCallback(async () => {
     if (previewData) {
@@ -143,6 +185,8 @@ export default function SettingsSecurity({
       setUnlockPolicy(previewData.unlockPolicy);
       setConnectedIdentities(previewData.connectedIdentities);
       setEnterpriseSsoRoute(previewData.enterpriseSsoRoute);
+      setSignIns(previewData.signIns || []);
+      setConsents(previewData.consents || []);
       setProvisioningUri(null);
       setSecret(null);
       return;
@@ -151,18 +195,31 @@ export default function SettingsSecurity({
       setLoading(true);
       setError(null);
       setBackupCodes(null);
-      const [s, keys, devices, approvals, recovery, credentials, policy, identities, ssoRoute] =
-        await Promise.all([
-          api.getOtpStatus(),
-          api.getKeybag().catch(() => null),
-          api.getTrustedDevices(),
-          api.getDeviceApprovals(),
-          api.getRecoveryKeys().catch(() => []),
-          api.getWebAuthnCredentials().catch(() => []),
-          api.getUnlockPolicy().catch(() => defaultUnlockPolicy),
-          api.getConnectedIdentities().catch(() => []),
-          sessionData.email ? api.getFederationRoute(sessionData.email).catch(() => null) : null,
-        ]);
+      const [
+        s,
+        keys,
+        devices,
+        approvals,
+        recovery,
+        credentials,
+        policy,
+        identities,
+        ssoRoute,
+        activeSignIns,
+        activeConsents,
+      ] = await Promise.all([
+        api.getOtpStatus(),
+        api.getKeybag().catch(() => null),
+        api.getTrustedDevices(),
+        api.getDeviceApprovals(),
+        api.getRecoveryKeys().catch(() => []),
+        api.getWebAuthnCredentials().catch(() => []),
+        api.getUnlockPolicy().catch(() => defaultUnlockPolicy),
+        api.getConnectedIdentities().catch(() => []),
+        sessionData.email ? api.getFederationRoute(sessionData.email).catch(() => null) : null,
+        api.getSignIns().catch(() => []),
+        api.getConsents().catch(() => []),
+      ]);
       setStatus(s);
       setKeybag(keys);
       setTrustedDevices(devices);
@@ -172,6 +229,8 @@ export default function SettingsSecurity({
       setUnlockPolicy(policy);
       setConnectedIdentities(identities);
       setEnterpriseSsoRoute(ssoRoute);
+      setSignIns(activeSignIns);
+      setConsents(activeConsents);
       setProvisioningUri(null);
       setSecret(null);
     } catch (e) {
@@ -276,6 +335,36 @@ export default function SettingsSecurity({
       setKeybag(await api.getKeybag());
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to revoke key");
+    }
+  };
+
+  const revokeSignIn = async (signInId: string | null) => {
+    try {
+      setAccessActionLoading(signInId || "others");
+      setError(null);
+      if (signInId) {
+        await api.revokeSignIn(signInId);
+      } else {
+        await api.revokeOtherSignIns();
+      }
+      setSignIns(await api.getSignIns());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to sign out");
+    } finally {
+      setAccessActionLoading(null);
+    }
+  };
+
+  const revokeConsent = async (clientId: string) => {
+    try {
+      setAccessActionLoading(clientId);
+      setError(null);
+      await api.revokeConsent(clientId);
+      setConsents(await api.getConsents());
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke app approval");
+    } finally {
+      setAccessActionLoading(null);
     }
   };
 
@@ -693,6 +782,24 @@ export default function SettingsSecurity({
       Icon: LockKeyhole,
     },
     {
+      id: "sessions",
+      label: "Where you're signed in",
+      detail: "Browsers signed in to this account",
+      state: `${signIns.length} active`,
+      tone: "neutral",
+      count: signIns.length,
+      Icon: MonitorSmartphone,
+    },
+    {
+      id: "apps",
+      label: "App approvals",
+      detail: "Apps you approved that skip the approval screen",
+      state: consents.length ? `${consents.length} approved` : "None",
+      tone: "neutral",
+      count: consents.length,
+      Icon: AppWindow,
+    },
+    {
       id: "passkeys",
       label: "Passkeys",
       detail: "Sign in faster and optionally unlock encrypted apps",
@@ -953,6 +1060,102 @@ export default function SettingsSecurity({
                   </div>
                 </article>
               </div>
+            </section>
+          )}
+          {activeSection === "sessions" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>Where you're signed in</h3>
+                  <p>Signing out a browser ends its session and locks its encrypted app access.</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className={styles.actionButton}
+                  onClick={() => revokeSignIn(null)}
+                  disabled={!!accessActionLoading || !signIns.some((signIn) => !signIn.current)}
+                >
+                  {accessActionLoading === "others" ? "Signing out..." : "Sign out all others"}
+                </Button>
+              </div>
+              {signIns.length > 0 ? (
+                <div className={styles.itemList}>
+                  {signIns.map((signIn) => (
+                    <article className={styles.item} key={signIn.id}>
+                      <div>
+                        <h4>{describeUserAgent(signIn.user_agent)}</h4>
+                        <p>
+                          Signed in {formatDate(signIn.created_at)} · Last active{" "}
+                          {formatDate(signIn.last_active_at)}
+                        </p>
+                      </div>
+                      {signIn.current ? (
+                        <StatusPill tone="ready">This browser</StatusPill>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => revokeSignIn(signIn.id)}
+                          disabled={!!accessActionLoading}
+                        >
+                          {accessActionLoading === signIn.id ? "Signing out..." : "Sign out"}
+                        </Button>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              ) : (
+                <div className={styles.empty}>No active sign-ins were found.</div>
+              )}
+            </section>
+          )}
+          {activeSection === "apps" && (
+            <section className={styles.section}>
+              <div className={styles.sectionHeader}>
+                <div>
+                  <h3>App approvals</h3>
+                  <p>
+                    Approved apps sign you in without asking again. Revoking an approval signs the
+                    app out and shows the approval screen next time.
+                  </p>
+                </div>
+              </div>
+              {consents.length > 0 ? (
+                <div className={styles.itemList}>
+                  {consents.map((consent) => {
+                    const organization = consent.organization_id
+                      ? portal?.organizations.find(
+                          (item) => item.organizationId === consent.organization_id
+                        )
+                      : null;
+                    return (
+                      <article className={styles.item} key={consent.client_id}>
+                        <div>
+                          <h4>{consent.client_name || consent.client_id}</h4>
+                          <p>
+                            {consent.scopes.length > 0
+                              ? consent.scopes.join(", ")
+                              : "No additional permissions"}
+                            {organization ? ` · ${organization.name}` : ""} · Approved{" "}
+                            {formatDate(consent.updated_at)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() => revokeConsent(consent.client_id)}
+                          disabled={!!accessActionLoading}
+                        >
+                          {accessActionLoading === consent.client_id ? "Revoking..." : "Revoke"}
+                        </Button>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className={styles.empty}>You have not approved any apps yet.</div>
+              )}
             </section>
           )}
           {activeSection === "passkeys" && (

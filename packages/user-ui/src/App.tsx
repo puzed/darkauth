@@ -26,7 +26,6 @@ import { UserPortalProvider } from "./components/UserPortalContext";
 import VerifyEmailView from "./components/VerifyEmailView";
 import apiService, { type UserOrganization } from "./services/api";
 import { clearAllDrk } from "./services/drkStorage";
-import { clearAllExportKeys } from "./services/sessionKey";
 import { clearAllUnlockedArks } from "./services/unlockedArk";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
@@ -119,6 +118,8 @@ function AppContent() {
         try {
           await apiService.getOtpStatus();
         } catch {}
+      } else {
+        clearAllUnlockedArks();
       }
     } catch (_error) {
     } finally {
@@ -260,9 +261,12 @@ function AppContent() {
   }, [isOtpRoute, sessionSub]);
 
   useEffect(() => {
+    if (sessionSub) clearAllUnlockedArks(sessionSub);
+  }, [sessionSub]);
+
+  useEffect(() => {
     const handleSessionExpired = () => {
       setSessionData(null);
-      clearAllExportKeys();
       clearAllDrk();
       clearAllUnlockedArks();
     };
@@ -451,11 +455,10 @@ function AppContent() {
   };
 
   const handleLogout = async () => {
+    clearAllDrk();
+    clearAllUnlockedArks();
     try {
       await apiService.logout();
-      clearAllExportKeys();
-      clearAllDrk();
-      clearAllUnlockedArks();
       setSessionData(null);
       setAuthRequest(null);
       setAuthRequestSearch(null);

@@ -91,6 +91,7 @@ const sensitiveFieldNames = new Set([
   "sessionid",
   "sessionkey",
   "sessiontoken",
+  "sessionunlockkey",
   "token",
   "wrappeddrk",
   "wrappedencprivatejwk",
@@ -98,10 +99,10 @@ const sensitiveFieldNames = new Set([
 ]);
 
 const sensitiveFieldPattern =
-  /^(?:(?:.*)(?:password|passphrase|secret|token|privatekey|privatejwk|sessionkey|sessiontoken)|accesskey|adminsession|authorization|authorizationcode|bearer|clientsecret|code|codeverifier|credential|drk|drkhash|drkjwe|envelope|exportkey|exportkeyhash|finish|kek|message|opaquepayload|opaquerecord|pkce|record|request|rootkey|session|sessionid|wrappeddrk|wrappedencprivatejwk|zkpub)$/;
+  /^(?:(?:.*)(?:password|passphrase|secret|token|privatekey|privatejwk|sessionkey|sessionunlockkey|sessiontoken)|accesskey|adminsession|authorization|authorizationcode|bearer|clientsecret|code|codeverifier|credential|drk|drkhash|drkjwe|envelope|exportkey|exportkeyhash|finish|kek|message|opaquepayload|opaquerecord|pkce|record|request|rootkey|session|sessionid|wrappeddrk|wrappedencprivatejwk|zkpub)$/;
 
 const stringSensitiveFieldPattern =
-  "(?:access[_-]?key|access[_-]?token|admin[_-]?session|api[_-]?key|authorization|authorization[_-]?code|bearer|client[_-]?secret|code|code[_-]?verifier|credential|drk|drk[_-]?hash|drk[_-]?jwe|envelope|export[_-]?key|export[_-]?key[_-]?hash|finish|id[_-]?token|kek|kek[_-]?passphrase|message|new[_-]?password|old[_-]?password|opaque[_-]?payload|opaque[_-]?record|password|passphrase|pkce|private[_-]?jwk|private[_-]?key|record|refresh[_-]?token|request|root[_-]?key|secret|session|session[_-]?id|session[_-]?key|session[_-]?token|token|wrapped[_-]?drk|wrapped[_-]?enc[_-]?private[_-]?jwk|zk[_-]?pub)";
+  "(?:access[_-]?key|access[_-]?token|admin[_-]?session|api[_-]?key|authorization|authorization[_-]?code|bearer|client[_-]?secret|code|code[_-]?verifier|credential|drk|drk[_-]?hash|drk[_-]?jwe|envelope|export[_-]?key|export[_-]?key[_-]?hash|finish|id[_-]?token|kek|kek[_-]?passphrase|message|new[_-]?password|old[_-]?password|opaque[_-]?payload|opaque[_-]?record|password|passphrase|pkce|private[_-]?jwk|private[_-]?key|record|refresh[_-]?token|request|root[_-]?key|secret|session|session[_-]?id|session[_-]?key|session[_-]?unlock[_-]?key|session[_-]?token|token|wrapped[_-]?drk|wrapped[_-]?enc[_-]?private[_-]?jwk|zk[_-]?pub)";
 
 function normalizeAuditFieldName(field: string): string {
   return field.toLowerCase().replace(/[^a-z0-9]/g, "");

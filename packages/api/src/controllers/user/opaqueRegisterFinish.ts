@@ -11,6 +11,7 @@ import {
   getSessionTtlSeconds,
   issueRefreshTokenCookie,
   issueSessionCookies,
+  newSignInData,
 } from "../../services/sessions.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -82,6 +83,7 @@ export const postOpaqueRegisterFinish = withRateLimit("auth", (body) =>
           record: recordBuffer,
           email,
           name,
+          signIn: newSignInData(request),
         });
         if (!result.requiresEmailVerification && result.sessionId && result.refreshToken) {
           const ttlSeconds = await getSessionTtlSeconds(context, "user");

@@ -4,6 +4,7 @@ import { isSafeDashboardIcon } from "../../controllers/admin/clientCreate.ts";
 import { handleScimRateLimited } from "../../controllers/scim.ts";
 import { getAuthorize } from "../../controllers/user/authorize.ts";
 import { postAuthorizeFinalize } from "../../controllers/user/authorizeFinalize.ts";
+import { deleteUserConsent, getUserConsents } from "../../controllers/user/consents.ts";
 import { postEmailVerificationResend } from "../../controllers/user/emailVerificationResend.ts";
 import { postEmailVerificationVerify } from "../../controllers/user/emailVerificationVerify.ts";
 import { getEncPublicJwk } from "../../controllers/user/encPublicGet.ts";
@@ -92,6 +93,10 @@ import {
 import { postRevoke } from "../../controllers/user/revoke.ts";
 import { getScopeDescriptions } from "../../controllers/user/scopeDescriptions.ts";
 import { getSession, postSessionOrganization } from "../../controllers/user/session.ts";
+import {
+  deleteSessionUnlockKeyController,
+  postSessionUnlockKey,
+} from "../../controllers/user/sessionUnlockKey.ts";
 import { postToken, postTokenOrganization } from "../../controllers/user/token.ts";
 import {
   getDeviceApprovalRequests,
@@ -105,6 +110,11 @@ import {
 } from "../../controllers/user/trustedDevices.ts";
 import { getUnlockPolicy } from "../../controllers/user/unlockPolicy.ts";
 import { handleUserinfo } from "../../controllers/user/userinfo.ts";
+import {
+  getUserSessions,
+  postUserSessionRevoke,
+  postUserSessionsRevokeOthers,
+} from "../../controllers/user/userSessions.ts";
 import {
   getUserDirectoryEntry,
   searchUserDirectory,
@@ -704,6 +714,46 @@ export function createUserRouter(context: Context) {
 
       if (method === "GET" && pathname === "/crypto/unlock-policy") {
         return await getUnlockPolicy(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/crypto/session-unlock-key") {
+        return await postSessionUnlockKey(context, request, response);
+      }
+
+      if (method === "DELETE" && pathname === "/crypto/session-unlock-key") {
+        return await deleteSessionUnlockKeyController(context, request, response);
+      }
+
+      if (method === "GET" && pathname === "/sessions") {
+        return await getUserSessions(context, request, response);
+      }
+
+      if (method === "POST" && pathname === "/sessions/revoke-others") {
+        return await postUserSessionsRevokeOthers(context, request, response);
+      }
+
+      const signInRevokeMatch = pathname.match(/^\/sessions\/([^/]+)\/revoke$/);
+      if (method === "POST" && signInRevokeMatch) {
+        return await postUserSessionRevoke(
+          context,
+          request,
+          response,
+          decodeURIComponent(signInRevokeMatch[1] as string)
+        );
+      }
+
+      if (method === "GET" && pathname === "/consents") {
+        return await getUserConsents(context, request, response);
+      }
+
+      const consentMatch = pathname.match(/^\/consents\/([^/]+)$/);
+      if (method === "DELETE" && consentMatch) {
+        return await deleteUserConsent(
+          context,
+          request,
+          response,
+          decodeURIComponent(consentMatch[1] as string)
+        );
       }
 
       if (method === "POST" && pathname === "/crypto/keybag/account-key") {

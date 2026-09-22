@@ -19,6 +19,19 @@
 - ZK clients use `zkDelivery: "fragment-jwe"`, declare allowed JWE algorithms, encryption methods, and origins, and choose the implemented key-delivery version and key scope. `zkRequired` prevents completion without an unlocked user key.
 - ZK delivery is an extension to the authorization-code flow; it does not change client authentication, redirect validation, code binding, or token validation rules.
 
+## Remembered Consent
+
+- Approving an authorization records a consent in `user_client_consents` keyed by user and client: granted scopes, selected organization, and timestamps.
+- A later authorization for the same client whose scopes are covered by the consent skips the approval screen and finalizes automatically, unless:
+    - the client sets `rememberConsent: false` (default `true`);
+    - the client requires organization selection and the user has more than one eligible organization;
+    - the request carries `prompt=consent`, `prompt=login`, or `prompt=select_account`.
+- With `prompt=none`, a request that cannot finalize silently returns `consent_required` or `login_required` to the redirect URI.
+- Silent finalization is still bound to the registered redirect URI, PKCE, and a fresh `zk_pub`. ZK requests are included: the user UI restores ARK from the session unlock envelope and delivers CAK without a prompt.
+- New scopes, a lost organization membership, or a locked key that cannot be restored show the normal authorization screen. Approving it updates the consent.
+- Denying does not record or clear consent.
+- Users review and revoke consents in the portal. Revoking deletes the consent and revokes that client's refresh sessions for the user; the next authorization shows the approval screen.
+
 ## Upstream Federation
 
 - Upstream federation is OIDC-only. Connection creation and routing accept `type: "oidc"`; SAML is not an implemented federation type.

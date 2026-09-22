@@ -19,6 +19,15 @@
 - The normal session lifetime is 15 minutes. Refresh credentials last seven days and are stored only as hashes server-side.
 - Refresh tokens are single-use, cohort- and session-bound, and rotated on use. Successful refresh reissues the short-lived authentication and CSRF cookies.
 - First-party UIs use cookies for API authentication. They do not persist bearer access tokens as their normal session transport.
+- A user session may hold one session unlock key (see [`user-key-management.md`](user-key-management.md#session-unlock)). Refresh rotation copies it to the new session; logout, expiry, password reset, SCIM deactivation, and any other session deletion destroy it.
+
+## Sign-ins
+
+- A sign-in is one authentication and every session refresh rotation descends from it. Its `signInId` is random, stored in session data, and carried across rotation.
+- Session data records the sign-in's creation time, user agent, and last activity, written at refresh rotation only.
+- Relying-party refresh sessions created by `/token` inherit the `signInId` of the browser session that authorized them.
+- `GET /api/user/sessions` lists the user's active browser sign-ins (id, created, last active, expiry, user agent, `current`), excluding relying-party sessions. It never returns session ids, refresh tokens, or session unlock keys.
+- `POST /api/user/sessions/{signInId}/revoke` deletes every session of that sign-in, including relying-party refresh sessions it authorized, which destroys its session unlock key. `POST /api/user/sessions/revoke-others` does the same for every sign-in except the current one. Both require user session and CSRF.
 
 ## Session Policy
 

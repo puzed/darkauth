@@ -3,9 +3,23 @@ import { useEffect, useState } from "react";
 
 type Theme = "light" | "dark";
 
+function readStoredTheme(): string | null {
+  try {
+    return readStoredTheme();
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredTheme(theme: Theme) {
+  try {
+    localStorage.setItem("daTheme", theme);
+  } catch {}
+}
+
 function getPreferredTheme(): Theme {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem("daTheme");
+  const stored = readStoredTheme();
   if (stored === "light" || stored === "dark") return stored;
   const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
   return prefersDark ? "dark" : "light";
@@ -13,7 +27,7 @@ function getPreferredTheme(): Theme {
 
 function getEffectiveTheme(): Theme {
   if (typeof window === "undefined") return "light";
-  const stored = localStorage.getItem("daTheme");
+  const stored = readStoredTheme();
   if (stored === "light" || stored === "dark") return stored;
   const attr = document.documentElement.getAttribute("data-da-theme");
   if (attr === "light" || attr === "dark") return attr;
@@ -35,7 +49,7 @@ export default function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>(() => getEffectiveTheme());
 
   useEffect(() => {
-    const stored = localStorage.getItem("daTheme");
+    const stored = readStoredTheme();
     if (stored === "light" || stored === "dark") {
       applyTheme(stored as Theme);
       setTheme(stored as Theme);
@@ -54,7 +68,7 @@ export default function ThemeToggle() {
     };
     window.addEventListener("storage", onStorage);
     const mo = new MutationObserver(() => {
-      const storedNow = localStorage.getItem("daTheme");
+      const storedNow = readStoredTheme();
       if (storedNow === "light" || storedNow === "dark") return;
       const attr = document.documentElement.getAttribute("data-da-theme");
       if (attr === "light" || attr === "dark") setTheme(attr);
@@ -73,7 +87,7 @@ export default function ThemeToggle() {
     if (w && typeof w.__setDaTheme === "function") {
       w.__setDaTheme(next);
     } else {
-      localStorage.setItem("daTheme", next);
+      writeStoredTheme(next);
       applyTheme(next);
     }
   };

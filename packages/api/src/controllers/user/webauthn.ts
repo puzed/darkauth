@@ -30,6 +30,7 @@ import {
   getSessionTtlSeconds,
   issueRefreshTokenCookie,
   issueSessionCookies,
+  newSignInData,
   requireSession,
 } from "../../services/sessions.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -278,6 +279,7 @@ export const postWebAuthnLoginFinish = withRateLimit("webauthn")(
       keyState: unlock ? "unlocked" : "locked",
       otpRequired: activeMemberships.some((membership) => membership.forceOtp),
       otpVerified: false,
+      ...newSignInData(request),
     });
     const ttlSeconds = await getSessionTtlSeconds(context, "user");
     const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");

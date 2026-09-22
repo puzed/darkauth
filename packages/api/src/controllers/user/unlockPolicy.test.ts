@@ -95,6 +95,7 @@ test("unlock policy exposes SCIM managed method restrictions", async () => {
     await setSetting(context, "users.scim.allow_password_envelopes", false);
     await setSetting(context, "users.scim.allow_passkey_prf_envelopes", false);
     await setSetting(context, "users.scim.allow_trusted_device_approval", false);
+    await setSetting(context, "users.scim.allow_session_unlock", false);
     const response = createResponse();
 
     await getUnlockPolicy(context, createRequest(), response);
@@ -108,6 +109,7 @@ test("unlock policy exposes SCIM managed method restrictions", async () => {
         allow_trusted_device_approval: false,
         allow_recovery_key: true,
         allow_new_key_setup: false,
+        allow_session_unlock: false,
         require_key_unlock_for_zk: true,
         reason: "scim",
       },

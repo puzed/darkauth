@@ -14,6 +14,7 @@ const UnlockPolicySchema = z.object({
   allow_trusted_device_approval: z.boolean(),
   allow_recovery_key: z.boolean(),
   allow_new_key_setup: z.boolean(),
+  allow_session_unlock: z.boolean(),
   require_key_unlock_for_zk: z.boolean(),
   reason: z.string().nullable(),
 });
@@ -38,6 +39,9 @@ export async function getUnlockPolicy(
   const allowTrustedDevice = managed
     ? await getBooleanSetting(context, "users.scim.allow_trusted_device_approval", true)
     : true;
+  const allowSessionUnlock = managed
+    ? await getBooleanSetting(context, "users.scim.allow_session_unlock", true)
+    : true;
   const requireKeyUnlock = managed
     ? await getBooleanSetting(context, "users.scim.require_key_unlock_for_zk", true)
     : true;
@@ -52,6 +56,7 @@ export async function getUnlockPolicy(
         allow_trusted_device_approval: allowTrustedDevice,
         allow_recovery_key: true,
         allow_new_key_setup: allowPassword,
+        allow_session_unlock: allowSessionUnlock,
         require_key_unlock_for_zk: requireKeyUnlock,
         reason: managed ? "scim" : null,
       },

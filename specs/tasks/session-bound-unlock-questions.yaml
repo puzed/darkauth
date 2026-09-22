@@ -1,0 +1,75 @@
+title: Session-bound unlock - remaining decisions
+intro: |
+  The core design is settled (Proton-style session unlock, ARK in the locked box).
+  These are the things I can't infer from what you've said so far.
+
+status: submitted
+submitted_at: "2026-09-21T22:25:31+01:00"
+
+questions:
+  - id: second_problem
+    type: textarea
+    prompt: You said there were two problems with the new-tab authorize. What was the second one?
+    help: You only got to the first (the missing export key). My guess is the fallback screen itself - red error plus a five-option radio list - but I'd rather hear it from you.
+    required: true
+    answer: I wasn't able to recreate the second one. But basically, it got into a state where I was entering the correct password (I know this for a fact) but it kept on giving an error that it couldn't get or set somethign in localstorage. i tried to recreate it but it worked. i think it got into a weird state. i did originally click "approve from another device" but then went back and tried password instead. anyway i wasn't able to recreate the second one but i know it's happened before.
+
+  - id: unlock_lifetime
+    type: select
+    prompt: How long should a sign-in (and therefore the unlock) last?
+    help: Today it is a 15-minute session renewed by a 7-day idle refresh token, with no absolute cap. Proton keeps you signed in until you sign out. I'd keep 7 days idle and add no cap.
+    options:
+      - Keep 7 days idle, no absolute cap
+      - 7 days idle, plus an absolute cap (e.g. 30 days)
+      - Longer idle window, Proton-like (e.g. 30 days)
+    answer: Keep 7 days idle, no absolute cap
+
+  - id: keep_signed_in
+    type: select
+    prompt: Offer a "keep me signed in on this device" choice at sign-in?
+    help: Unticked would mean memory-only (Option 1) for shared computers. I left it out to keep sign-in simple; the SCIM admin setting is the only off switch.
+    options:
+      - No checkbox (my current spec)
+      - Checkbox, ticked by default
+      - Checkbox, unticked by default
+    answer: No checkbox (my current spec)
+
+  - id: session_management
+    type: boolean
+    prompt: Add an "active sessions" list to the portal where you can see and sign out other browsers?
+    help: Proton has this. It is what makes "revoke a stolen laptop's unlock from elsewhere" real. Today there is no such page, so I marked it a non-goal. I'd include it - it closes the main downside of Option 3.
+    answer: true
+
+  - id: remember_consent
+    type: boolean
+    prompt: Skip the authorize screen for an app you've already approved (same scopes), bouncing straight back?
+    help: With session unlock, returning to Keyman after a reload becomes a silent redirect round-trip - unless the consent screen shows every time. Standard OIDC providers remember consent; first-party-feel UX needs it. I'd say yes, re-prompting only when scopes change.
+    answer: true
+
+  - id: rp_persistence
+    type: select
+    prompt: Should apps like Keyman get the same "survive reload" treatment for their CAK?
+    help: Today the SDK keeps CAK in memory, so every Keyman reload redirects to DarkAuth and back. With consent remembered that's a quick flash. Alternatively the SDK could offer the same session-bound envelope on the app's own origin.
+    options:
+      - Redirect round-trip is fine (no SDK change)
+      - Add opt-in session-bound CAK storage to the SDK
+      - Decide later, separate task
+    answer: Add opt-in session-bound CAK storage to the SDK
+    comment: 'Let''s talk more about this. I don''t think a reload to keyman should constantly require a redirect back to darkauth. I also don''t think we can simply call out to darkauth from keyman because they are on different subdomains, and actually could be on different op level domains. browsers really hate cross site and even if we hacked something to work today, it wouldnt work lognterm. cant the client (keyman in our example) keep a copy of it''s own key? '
+
+  - id: button_fix
+    type: select
+    prompt: The stacked Authorize buttons fix (saved as a patch) - where should it go?
+    options:
+      - Its own small PR now
+      - Fold into the session-unlock branch
+      - Drop it, the unlock redesign will replace that screen
+    answer: Fold into the session-unlock branch
+
+  - id: next_step
+    type: select
+    prompt: Once the spec reflects these answers, what next?
+    options:
+      - Show me the updated spec, then implement
+      - Implement straight away
+    answer: Implement straight away

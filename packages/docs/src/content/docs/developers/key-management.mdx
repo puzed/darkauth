@@ -26,6 +26,16 @@ Zero-knowledge authorization requests require an unlocked session before the fro
 
 The available unlock paths come from the user's effective unlock policy. The policy combines account state, SCIM policy, envelope availability, and client requirements so the UI can offer only valid choices. A user can be signed in by federation or an auth-only passkey and still need a separate password, recovery-key, PRF passkey, trusted-device approval, or setup flow before a ZK client can receive key material.
 
+## Session unlock
+
+The DarkAuth user UI unlocks the ARK once per sign-in. After any unlock it stores an AES-GCM encrypted copy of the ARK in `localStorage` under `DarkAuth_session_ark:<sub>`. The key for that copy comes from `POST /crypto/session-unlock-key`, lives only in the server-side session for that sign-in, and is deleted with `DELETE /crypto/session-unlock-key` or when the sign-in ends. New tabs and reloads restore the ARK without a prompt.
+
+Sign-out, expiry, revoking the sign-in, password reset, and SCIM deactivation destroy the server key. A new sign-in gets a new key. Any restore failure deletes the stored copy and falls back to the normal unlock methods.
+
+The trade-off: a copied browser profile or same-origin script can restore the ARK while the sign-in is live. The unlock policy reports this as `allow_session_unlock`, and SCIM-managed users follow `users.scim.allow_session_unlock` (default `true`).
+
+Relying-party custody is unchanged. Apps still receive only a CAK per authorization and should keep it in memory.
+
 ## Passkeys
 
 Passkeys can be registered and used for sign-in. When a credential supports PRF, the client can create a passkey envelope so the account key can be recovered from the authenticator without exposing the passkey secret to the server.
@@ -56,4 +66,4 @@ For federated users, the external OIDC provider can satisfy authentication while
 
 The backend can store encrypted envelopes, metadata, hashes, and audit events. It must not receive OPAQUE export keys, passkey PRF outputs, recovery keys, plaintext account root keys, plaintext client app keys, or decrypted application data in the designed flow.
 
-Frontend code that handles unlocked keys is inside the trust boundary. Keep key material in memory unless the product deliberately accepts persistent local custody, clear it on logout, and never log envelopes, plaintext keys, recovery secrets, or fragment JWE payloads.
+Frontend code that handles unlocked keys is inside the trust boundary. Keep key material in memory unless the product deliberately accepts persistent local custody, as the DarkAuth user UI does with session unlock. Clear it on logout, and never log envelopes, plaintext keys, recovery secrets, or fragment JWE payloads.

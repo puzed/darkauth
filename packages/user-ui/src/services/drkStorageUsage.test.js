@@ -40,15 +40,40 @@ test("Auth UI does not persist DRK through drkStorage outside legacy clearing", 
   assert.deepEqual(offenders, []);
 });
 
-test("session export keys stay memory-only", () => {
-  const source = readFileSync(join(root, "services", "sessionKey.ts"), "utf8");
-  assert.match(source, /memoryExportKeys/);
-  assert.doesNotMatch(source, /setItem\(LEGACY_PREFIX/);
-  assert.doesNotMatch(source, /saveExportKey[\s\S]*sessionStorage\.setItem/);
-  assert.doesNotMatch(source, /saveExportKey[\s\S]*localStorage\.setItem/);
+test("OPAQUE export keys are never held after login", () => {
+  const offenders = [];
+  for (const file of sourceFiles(root)) {
+    const source = readFileSync(file, "utf8");
+    if (/\b(saveExportKey|loadExportKey|sessionKey")\b/.test(source)) offenders.push(file);
+  }
+  assert.deepEqual(offenders, []);
 });
 
-test("authorization recovery and trusted-device unlock keep ARK in memory storage", () => {
+test("browser storage writes are limited to the theme and the session ARK envelope", () => {
+  const writers = [];
+  for (const file of sourceFiles(root)) {
+    const source = readFileSync(file, "utf8");
+    if (/\b(localStorage|sessionStorage)\.setItem\(/.test(source)) writers.push(file);
+  }
+  assert.deepEqual(writers.sort(), [
+    join(root, "components", "ThemeToggle.tsx"),
+    join(root, "services", "sessionUnlock.ts"),
+  ]);
+  const themeSource = readFileSync(join(root, "components", "ThemeToggle.tsx"), "utf8");
+  assert.match(themeSource, /localStorage\.setItem\("daTheme", theme\)/);
+});
+
+test("session ARK storage holds only the AES-GCM envelope under DarkAuth_session_ark:", () => {
+  const source = readFileSync(join(root, "services", "sessionUnlock.ts"), "utf8");
+  const writes = source.match(/localStorage\.setItem\([^;]+;/g) || [];
+  assert.match(source, /const STORAGE_PREFIX = "DarkAuth_session_ark:";/);
+  assert.deepEqual(writes, ["localStorage.setItem(storageKey(sub), JSON.stringify(envelope));"]);
+  assert.match(source, /ct: toBase64Url\(ciphertext\)/);
+  assert.doesNotMatch(source, /(ark|plaintext): toBase64Url/);
+  assert.match(source, /name: "AES-GCM", iv, additionalData: envelopeAad\(sub, keyId\)/);
+});
+
+test("authorization unlocks keep plaintext ARK in memory and persist only through saveUnlockedArk", () => {
   const authorizeSource = readFileSync(join(root, "components", "Authorize.tsx"), "utf8");
   const unlockedArkSource = readFileSync(join(root, "services", "unlockedArk.ts"), "utf8");
   const recoveryUnlock = functionBody(authorizeSource, "unlockWithRecoveryKey");
@@ -59,7 +84,7 @@ test("authorization recovery and trusted-device unlock keep ARK in memory storag
   assert.notEqual(authorizeSource.indexOf("const finishUnlockWithArk"), -1);
   assert.notEqual(recoveryUnlock.indexOf("finishUnlockWithArk"), -1);
   assert.notEqual(trustedDeviceUnlock.indexOf("finishUnlockWithArk"), -1);
-  assert.notEqual(deviceApproval.indexOf("finalizeWithZk"), -1);
+  assert.notEqual(deviceApproval.indexOf("finishUnlockWithArk"), -1);
   assert.doesNotMatch(recoveryUnlock, storagePattern);
   assert.doesNotMatch(trustedDeviceUnlock, storagePattern);
   assert.doesNotMatch(deviceApproval, storagePattern);

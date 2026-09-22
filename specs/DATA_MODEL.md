@@ -37,7 +37,8 @@ Account root keys and private encryption keys are never stored as plaintext. Key
 
 - `pending_auth`: expiring authorization request state, selected organization, PKCE, redirect, and ZK binding metadata.
 - `auth_codes`: client/user/organization-bound, expiring, consumable authorization codes and key-delivery hashes.
-- `sessions`: cohort-bound server sessions and refresh-token rotation state.
+- `user_client_consents`: one remembered approval per user and client: scopes, organization, timestamps. Deleted with the user or client.
+- `sessions`: cohort-bound server sessions and refresh-token rotation state. User session data may hold the session unlock key, which refresh rotation carries forward and session deletion destroys.
 
 Authorization completion must copy only validated state from `pending_auth`. Authorization-code consumption and refresh rotation must be atomic. Organization context may be null only for flows whose client policy does not require selection.
 

@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import api from "../services/api";
+import { completePendingUnlock } from "../services/pendingUnlock";
 import AuthViewFrame from "./AuthViewFrame";
 import Button from "./Button";
 import btnStyles from "./Login.module.css";
@@ -54,6 +55,7 @@ export default function OtpVerifyView() {
     setError(null);
     try {
       await api.otpVerify(code);
+      await completePendingUnlock();
       window.location.replace("/apps");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");

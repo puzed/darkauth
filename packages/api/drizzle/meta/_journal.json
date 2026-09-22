@@ -267,6 +267,13 @@
       "when": 1781125200000,
       "tag": "0039_client_organization_selection",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1781211600000,
+      "tag": "0040_session_unlock_and_consents",
+      "breakpoints": true
     }
   ]
 }
