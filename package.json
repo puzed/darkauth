@@ -46,13 +46,13 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "concurrently": "^10.0.4",
-    "upload-to-bunny": "^2.1.1"
+    "concurrently": "^10.0.5",
+    "upload-to-bunny": "^3.0.0"
   },
   "devDependencies": {
     "@semantic-release/commit-analyzer": "^13.0.1",
-    "@semantic-release/github": "^12.0.9",
+    "@semantic-release/github": "^12.0.10",
     "@semantic-release/release-notes-generator": "^14.1.1",
-    "semantic-release": "^25.0.5"
+    "semantic-release": "^25.0.9"
   }
 }

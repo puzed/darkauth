@@ -7,7 +7,7 @@ import { assertClientSecretMatches } from "./token.ts";
 
 export async function authenticateConfidentialClient(context: Context, request: IncomingMessage) {
   const authHeader = parseAuthorizationHeader(request);
-  if (!authHeader || authHeader.type !== "Basic") {
+  if (authHeader?.type !== "Basic") {
     throw new UnauthorizedClientError("Basic authentication required");
   }
   const credentials = decodeBasicAuth(authHeader.credentials);

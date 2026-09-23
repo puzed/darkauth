@@ -68,9 +68,10 @@ export class AKE3DHServer {
         return this.expected.serialize()
     }
 
-    importState(bytes: number[]): Error | void {
+    importState(bytes: number[]): Error | undefined {
         const expected = ExpectedAuthResult.deserialize(this.config, bytes)
         this.expected = expected
+        return undefined
     }
 
     finish(auth_finish: AuthFinish): { session_key: number[] } | Error {

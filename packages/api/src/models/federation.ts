@@ -1394,7 +1394,7 @@ async function isEmailAllowedForConnection(context: Context, connectionId: strin
 }
 
 function validateText(value: string | undefined | null, name: string) {
-  if (!value || !value.trim()) throw new ValidationError(`${name} is required`);
+  if (!value?.trim()) throw new ValidationError(`${name} is required`);
 }
 
 function validateId(value: string, name: string) {

@@ -22,7 +22,7 @@ export async function getUserApps(
 
     const sessionData = await getSessionData(context, sessionId);
 
-    if (!sessionData || !sessionData.sub) {
+    if (!sessionData?.sub) {
       throw new UnauthorizedError("Invalid or expired session");
     }
 

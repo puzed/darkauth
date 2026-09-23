@@ -114,7 +114,7 @@ export class OpaqueServer implements RegistrationServer, AuthServer {
         return this.ake.exportState()
     }
 
-    importAuthState(bytes: number[]): Error | void {
+    importAuthState(bytes: number[]): Error | undefined {
         return this.ake.importState(bytes)
     }
 

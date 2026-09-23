@@ -17,13 +17,13 @@
   },
   "devDependencies": {
     "@DarkAuth/demo-app": "workspace:*",
-    "@electric-sql/pglite": "^0.5.2",
-    "@playwright/test": "^1.60.0",
-    "@types/node": "^25.9.3",
-    "drizzle-orm": "^0.45.2",
-    "esbuild": "^0.28.1",
-    "jose": "^6.2.3",
-    "pg": "^8.21.0",
-    "typescript": "^6.0.3"
+    "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.2",
+    "drizzle-orm": "^0.45.3",
+    "esbuild": "^0.28.2",
+    "jose": "^6.2.12",
+    "pg": "^8.23.0",
+    "typescript": "^7.0.2"
   }
 }

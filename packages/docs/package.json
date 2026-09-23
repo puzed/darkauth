@@ -14,13 +14,13 @@
     "tidy": "astro check"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.41.4",
-    "astro": "^7.1.3",
-    "sharp": "^0.35.3",
-    "upload-to-bunny": "^2.1.1"
+    "@astrojs/starlight": "^0.42.3",
+    "astro": "^7.3.4",
+    "sharp": "^0.35.4",
+    "upload-to-bunny": "^3.0.0"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.9",
+    "@astrojs/check": "^0.9.10",
     "typescript": "^6.0.3"
   }
 }

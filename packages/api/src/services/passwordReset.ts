@@ -150,7 +150,7 @@ export async function requestPasswordResetEmail(
     }
 
     const user = await context.db.query.users.findFirst({ where: eq(users.email, email) });
-    if (!user || !user.email) {
+    if (!user?.email) {
       return { success: true, message: PASSWORD_RESET_GENERIC_MESSAGE };
     }
 
@@ -397,7 +397,7 @@ export async function finishPasswordResetRegistration(
 
     userSub = token.userSub;
     const user = await tx.query.users.findFirst({ where: eq(users.sub, token.userSub) });
-    if (!user || !user.email || user.email !== token.email) {
+    if (!user?.email || user.email !== token.email) {
       throw new ValidationError("This password reset link is invalid or expired.");
     }
 

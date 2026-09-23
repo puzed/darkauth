@@ -179,7 +179,7 @@ test("logAuditEvent stores sanitized request bodies, details, changes, errors an
 
   assert.ok(inserted);
   assertNoSecrets(inserted);
-  assert.equal((inserted?.requestBody as Record<string, unknown>).safe, "value");
+  assert.equal((inserted?.requestBody as Record<string, unknown> | undefined)?.safe, "value");
   assert.equal(inserted?.path, "/token?code=%5BREDACTED%5D&safe=value");
 });
 
@@ -281,6 +281,9 @@ test("withAudit sanitizes captured form request bodies and details before insert
 
   assert.ok(inserted);
   assertNoSecrets(inserted);
-  assert.equal((inserted?.requestBody as Record<string, unknown>).client_id, "client-1");
-  assert.equal((inserted?.requestBody as Record<string, unknown>).safe, "value");
+  assert.equal(
+    (inserted?.requestBody as Record<string, unknown> | undefined)?.client_id,
+    "client-1"
+  );
+  assert.equal((inserted?.requestBody as Record<string, unknown> | undefined)?.safe, "value");
 });

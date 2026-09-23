@@ -27,7 +27,7 @@ export async function getEncPrivateWrapped(context: Context, sub: string) {
   const row = await context.db.query.userEncryptionKeys.findFirst({
     where: eq(userEncryptionKeys.sub, sub),
   });
-  if (!row || !row.encPrivateJwkWrapped) throw new NotFoundError("Not found");
+  if (!row?.encPrivateJwkWrapped) throw new NotFoundError("Not found");
   return row.encPrivateJwkWrapped;
 }
 

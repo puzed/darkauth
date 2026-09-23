@@ -563,8 +563,7 @@ export function createAdminRouter(context: Context) {
           decodeURIComponent(clientIconMatch[1] as string)
         );
         if (
-          !icon ||
-          icon.dashboardIconMode !== "upload" ||
+          icon?.dashboardIconMode !== "upload" ||
           !icon.dashboardIconData ||
           !icon.dashboardIconMimeType ||
           !isSafeDashboardIcon(icon.dashboardIconData, icon.dashboardIconMimeType)

@@ -65,7 +65,7 @@ function getBearerToken(request: IncomingMessage): string | null {
   const auth = request.headers.authorization;
   if (typeof auth !== "string") return null;
   const [scheme, token] = auth.split(" ");
-  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
+  if (scheme?.toLowerCase() !== "bearer" || !token) {
     throw new UnauthorizedError("Bearer token required");
   }
   return token;

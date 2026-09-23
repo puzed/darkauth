@@ -319,10 +319,16 @@ test("postSessionOrganization updates session organization and returns validated
       redirectUrl: "https://app.example.com/account",
     });
     const session = await context.db.query.sessions.findFirst();
-    assert.equal((session?.data as { organizationId?: string }).organizationId, organization.id);
-    assert.equal((session?.data as { organizationSlug?: string }).organizationSlug, "switch-org");
-    assert.equal((session?.data as { otpRequired?: boolean }).otpRequired, false);
-    assert.equal((session?.data as { otpVerified?: boolean }).otpVerified, false);
+    assert.equal(
+      (session?.data as { organizationId?: string } | undefined)?.organizationId,
+      organization.id
+    );
+    assert.equal(
+      (session?.data as { organizationSlug?: string } | undefined)?.organizationSlug,
+      "switch-org"
+    );
+    assert.equal((session?.data as { otpRequired?: boolean } | undefined)?.otpRequired, false);
+    assert.equal((session?.data as { otpVerified?: boolean } | undefined)?.otpVerified, false);
   } finally {
     await cleanup();
   }
@@ -360,8 +366,8 @@ test("postSessionOrganization marks forced OTP organization in session", async (
 
     assert.equal(response.statusCode, 200);
     const session = await context.db.query.sessions.findFirst();
-    assert.equal((session?.data as { otpRequired?: boolean }).otpRequired, true);
-    assert.equal((session?.data as { otpVerified?: boolean }).otpVerified, false);
+    assert.equal((session?.data as { otpRequired?: boolean } | undefined)?.otpRequired, true);
+    assert.equal((session?.data as { otpVerified?: boolean } | undefined)?.otpVerified, false);
   } finally {
     await cleanup();
   }
