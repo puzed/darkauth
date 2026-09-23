@@ -11,14 +11,22 @@ test("prompt=login and prompt=select_account require signing in again before aut
   assert.match(source, /promptValues\.has\("login"\) \|\| promptValues\.has\("select_account"\)/);
   assert.match(source, /reauthenticatedRequestId !== authRequest\.requestId/);
   assert.match(source, /sessionData && !reauthenticationRequired \? \(/);
-  assert.notEqual(
-    source.indexOf(
-      "if (authRequest?.requestId) setReauthenticatedRequestId(authRequest.requestId);"
-    ),
-    -1
-  );
+  assert.match(source, /setReauthenticatedRequestId\(authRequest\.requestId\);/);
+  assert.match(source, /writeReauthenticatedRequestId\(authRequest\.requestId\);/);
+  assert.match(source, /useState<string \| null>\(\s*readReauthenticatedRequestId\(\)\s*\)/);
   const authorizeRoute = source.slice(source.indexOf('path="/authorize"'));
   const gate = authorizeRoute.indexOf("reauthenticationRequired ? (");
+  const render = authorizeRoute.indexOf("<Authorize authRequest={authRequest}");
+  assert.notEqual(gate, -1);
+  assert.ok(gate < render);
+});
+
+test("the authorize route is gated on OTP like every other protected route", () => {
+  const authorizeRoute = source.slice(
+    source.indexOf('path="/authorize"'),
+    source.indexOf('path="/switch-org"')
+  );
+  const gate = authorizeRoute.indexOf("<OtpGate>");
   const render = authorizeRoute.indexOf("<Authorize authRequest={authRequest}");
   assert.notEqual(gate, -1);
   assert.ok(gate < render);

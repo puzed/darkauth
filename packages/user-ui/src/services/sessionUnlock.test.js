@@ -34,7 +34,7 @@ function createServer() {
   };
 }
 
-function loadModule({ server, storage = createStorage() }) {
+function loadModule({ server, storage = createStorage(), breakKeybag = false }) {
   const module = { exports: {} };
   const compiled = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
@@ -46,7 +46,10 @@ function loadModule({ server, storage = createStorage() }) {
       if (!server.key) throw new Error("Session unlock key missing");
       return server.key;
     },
-    getKeybag: async () => ({ account_keys: [{ key_id: server.keyId, status: "active" }] }),
+    getKeybag: async () => {
+      if (breakKeybag) throw new Error("Keybag unavailable");
+      return { account_keys: [{ key_id: server.keyId, status: "active" }] };
+    },
   };
   const sandbox = {
     module,
@@ -198,4 +201,32 @@ test("blocked storage never throws out of the session unlock service", async () 
 test("session key import is non-extractable AES-GCM with bound AAD", () => {
   assert.match(source, /importKey\("raw", raw as BufferSource, "AES-GCM", false,/);
   assert.match(source, /DarkAuth\|session-ark\|v\$\{VERSION\}\|sub=\$\{sub\}\|key_id=\$\{keyId\}/);
+});
+
+test("a failed server call keeps the envelope so a blip does not force a password", async () => {
+  const server = createServer();
+  const storage = createStorage();
+  const stored = loadModule({ server, storage });
+  await stored.storeSessionArk(sub, ark());
+  const key = server.key;
+
+  server.key = null;
+  const offline = loadModule({ server, storage });
+  assert.equal(await offline.restoreSessionArk(sub), null);
+  assert.equal(storage.values.size, 1);
+
+  server.key = key;
+  const online = loadModule({ server, storage });
+  assert.deepEqual(await online.restoreSessionArk(sub), ark());
+});
+
+test("a keybag failure keeps the envelope", async () => {
+  const server = createServer();
+  const storage = createStorage();
+  const stored = loadModule({ server, storage });
+  await stored.storeSessionArk(sub, ark());
+
+  const broken = loadModule({ server, storage, breakKeybag: true });
+  assert.equal(await broken.restoreSessionArk(sub), null);
+  assert.equal(storage.values.size, 1);
 });

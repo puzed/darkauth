@@ -5,7 +5,7 @@ type Theme = "light" | "dark";
 
 function readStoredTheme(): string | null {
   try {
-    return readStoredTheme();
+    return localStorage.getItem("daTheme");
   } catch {
     return null;
   }

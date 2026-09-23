@@ -487,7 +487,7 @@ test("remembered consent auto-finalizes covered requests and can be revoked", as
   }
 });
 
-test("clients with rememberConsent disabled never auto-finalize", async () => {
+test("clients with rememberConsent disabled record no consent and never auto-finalize", async () => {
   const { context, cleanup } = await createContext();
   try {
     await createUser(context);
@@ -512,7 +512,7 @@ test("clients with rememberConsent disabled never auto-finalize", async () => {
         approve: "true",
       }),
     });
-    assert.ok(await context.db.query.userClientConsents.findFirst());
+    assert.equal(await context.db.query.userClientConsents.findFirst(), undefined);
     assert.equal((await authorize(context, {})).searchParams.get("auto_finalize"), null);
   } finally {
     await cleanup();

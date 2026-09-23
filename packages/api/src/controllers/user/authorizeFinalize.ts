@@ -5,6 +5,7 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createAuthCode } from "../../models/authCodes.ts";
 import { consumePendingAuth, getPendingAuth } from "../../models/authorize.ts";
+import { getClient } from "../../models/clients.ts";
 import { recordUserClientConsent } from "../../models/consents.ts";
 import { resolveAuthorizationOrganizationContext } from "../../models/rbac.ts";
 import { isZkKeyUnlockRequired } from "../../models/scimPolicy.ts";
@@ -173,12 +174,15 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         signInId: sessionData.signInId ?? null,
       });
 
-      await recordUserClientConsent(context, {
-        userSub: sessionData.sub,
-        clientId: consumedPendingRequest.clientId,
-        scope: consumedPendingRequest.scope,
-        organizationId: resolvedOrganization?.organizationId ?? null,
-      });
+      const client = await getClient(context, consumedPendingRequest.clientId);
+      if (client?.rememberConsent) {
+        await recordUserClientConsent(context, {
+          userSub: sessionData.sub,
+          clientId: consumedPendingRequest.clientId,
+          scope: consumedPendingRequest.scope,
+          organizationId: resolvedOrganization?.organizationId ?? null,
+        });
+      }
 
       if (sessionId && resolvedOrganization) {
         await updateSession(context, sessionId, {

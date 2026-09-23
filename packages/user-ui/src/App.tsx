@@ -77,7 +77,9 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
-  const [reauthenticatedRequestId, setReauthenticatedRequestId] = useState<string | null>(null);
+  const [reauthenticatedRequestId, setReauthenticatedRequestId] = useState<string | null>(
+    readReauthenticatedRequestId()
+  );
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
   const [activeOrganizationLabel, setActiveOrganizationLabel] = useState<string | null>(null);
@@ -448,7 +450,10 @@ function AppContent() {
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
-    if (authRequest?.requestId) setReauthenticatedRequestId(authRequest.requestId);
+    if (authRequest?.requestId) {
+      setReauthenticatedRequestId(authRequest.requestId);
+      writeReauthenticatedRequestId(authRequest.requestId);
+    }
     if (hasPendingRequest || authRequest) {
       navigate(appendSearch("/authorize"));
     } else {
@@ -589,9 +594,11 @@ function AppContent() {
             ) : reauthenticationRequired ? (
               <Navigate to={appendSearch("/login")} replace />
             ) : (
-              <AuthorizePageFrame>
-                <Authorize authRequest={authRequest} sessionData={sessionData} />
-              </AuthorizePageFrame>
+              <OtpGate>
+                <AuthorizePageFrame>
+                  <Authorize authRequest={authRequest} sessionData={sessionData} />
+                </AuthorizePageFrame>
+              </OtpGate>
             )
           }
         />
@@ -797,6 +804,22 @@ function OtpGate({ children }: { children: React.ReactNode }) {
     );
   if (redirect) return <Navigate to={redirect} replace />;
   return <>{children}</>;
+}
+
+const REAUTHENTICATED_REQUEST_KEY = "DarkAuth_reauthenticated_request";
+
+function readReauthenticatedRequestId(): string | null {
+  try {
+    return sessionStorage.getItem(REAUTHENTICATED_REQUEST_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeReauthenticatedRequestId(requestId: string): void {
+  try {
+    sessionStorage.setItem(REAUTHENTICATED_REQUEST_KEY, requestId);
+  } catch {}
 }
 
 function App() {

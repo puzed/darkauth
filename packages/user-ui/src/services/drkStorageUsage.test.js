@@ -49,16 +49,20 @@ test("OPAQUE export keys are never held after login", () => {
   assert.deepEqual(offenders, []);
 });
 
-test("browser storage writes are limited to the theme and the session ARK envelope", () => {
+test("browser storage writes are limited to the theme, the re-authentication marker and the session ARK envelope", () => {
   const writers = [];
   for (const file of sourceFiles(root)) {
     const source = readFileSync(file, "utf8");
     if (/\b(localStorage|sessionStorage)\.setItem\(/.test(source)) writers.push(file);
   }
   assert.deepEqual(writers.sort(), [
+    join(root, "App.tsx"),
     join(root, "components", "ThemeToggle.tsx"),
     join(root, "services", "sessionUnlock.ts"),
   ]);
+  const appSource = readFileSync(join(root, "App.tsx"), "utf8");
+  const appWrites = appSource.match(/(localStorage|sessionStorage)\.setItem\([^;]+;/g) || [];
+  assert.deepEqual(appWrites, ["sessionStorage.setItem(REAUTHENTICATED_REQUEST_KEY, requestId);"]);
   const themeSource = readFileSync(join(root, "components", "ThemeToggle.tsx"), "utf8");
   assert.match(themeSource, /localStorage\.setItem\("daTheme", theme\)/);
 });
