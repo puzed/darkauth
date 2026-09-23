@@ -47,7 +47,7 @@ The client rejects missing, expired, malformed, or mismatched fields and never e
 
 ## Custody and cleanup
 
-- ARK and CAK remain memory-only by default.
+- Plaintext ARK and CAK exist only in memory. The user UI may restore ARK from its session unlock envelope; relying parties never receive it.
 - The ephemeral private key and PKCE verifier may survive the redirect in `sessionStorage` and are deleted after success or failure.
 - The client removes the fragment with history replacement before application code continues.
 - Reload without in-memory CAK starts a fresh authorization and fresh `zk_pub`.

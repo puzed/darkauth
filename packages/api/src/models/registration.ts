@@ -8,12 +8,12 @@ import {
 } from "../services/emailVerification.ts";
 import { createSession } from "../services/sessions.ts";
 import { getSetting } from "../services/settings.ts";
-import type { Context } from "../types.ts";
+import type { Context, SessionData } from "../types.ts";
 import { createPersonalOrganizationForUser } from "./organizations.ts";
 
 export async function userOpaqueRegisterFinish(
   context: Context,
-  data: { record: Uint8Array; email: string; name: string }
+  data: { record: Uint8Array; email: string; name: string; signIn?: SessionData }
 ) {
   if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -88,6 +88,7 @@ export async function userOpaqueRegisterFinish(
     keyState: "unlocked",
     organizationId: createdOrganization?.organizationId,
     organizationSlug: createdOrganization?.slug,
+    ...data.signIn,
   });
   return {
     sub,

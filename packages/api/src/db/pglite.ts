@@ -16,6 +16,7 @@ export async function createPglite(dir: string) {
   });
   const close = async () => {
     try {
+      await new Promise((resolve) => setTimeout(resolve, 50));
       await client.close();
     } catch {}
   };

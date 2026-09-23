@@ -847,6 +847,10 @@ body {
   text-align: center;
 }
 
+.authorize-card .actions {
+  flex-direction: column;
+}
+
 .authorize-recovery .actions {
   margin-top: 0.5rem;
 }

@@ -28,7 +28,10 @@ export const bytea = customType<{
     return value;
   },
   fromDriver(value: unknown) {
-    return value as Buffer | null;
+    if (value == null) return null;
+    if (Buffer.isBuffer(value)) return value;
+    if (value instanceof Uint8Array) return Buffer.from(value);
+    return value as Buffer;
   },
 });
 
@@ -103,6 +106,7 @@ export const clients = pgTable("clients", {
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   clientKeyScope: text("client_key_scope").default("organization").notNull(),
   requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
+  rememberConsent: boolean("remember_consent").default(true).notNull(),
   allowedJweAlgs: text("allowed_jwe_algs").array().default([]).notNull(),
   allowedJweEncs: text("allowed_jwe_encs").array().default([]).notNull(),
   redirectUris: text("redirect_uris").array().default([]).notNull(),
@@ -555,6 +559,7 @@ export const authCodes = pgTable("auth_codes", {
   zkKeyKind: text("zk_key_kind"),
   zkKeyVersion: text("zk_key_version"),
   requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
+  signInId: text("sign_in_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -574,6 +579,28 @@ export const sessions = pgTable("sessions", {
   refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
   refreshTokenConsumedAt: timestamp("refresh_token_consumed_at"),
 });
+
+export const userClientConsents = pgTable(
+  "user_client_consents",
+  {
+    userSub: text("user_sub")
+      .notNull()
+      .references(() => users.sub, { onDelete: "cascade" }),
+    clientId: text("client_id")
+      .notNull()
+      .references(() => clients.clientId, { onDelete: "cascade" }),
+    scopes: text("scopes").default("").notNull(),
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.userSub, table.clientId] }),
+    clientIdIdx: index("user_client_consents_client_id_idx").on(table.clientId),
+  })
+);
 
 export const opaqueLoginSessions = pgTable("opaque_login_sessions", {
   id: text("id").primaryKey(),
@@ -600,6 +627,7 @@ export const pendingAuth = pgTable("pending_auth", {
   deliveredKeyKind: text("delivered_key_kind").default("client_app_key").notNull(),
   clientKeyScope: text("client_key_scope").default("organization").notNull(),
   requireOrganizationSelection: boolean("require_organization_selection").default(true).notNull(),
+  prompt: text("prompt"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   userSub: text("user_sub").references(() => users.sub, {

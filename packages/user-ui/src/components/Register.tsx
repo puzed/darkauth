@@ -4,7 +4,7 @@ import apiService from "../services/api";
 import cryptoService, { toBase64Url } from "../services/crypto";
 import { logger } from "../services/logger";
 import opaqueService, { type OpaqueRegistrationState } from "../services/opaque";
-import { saveExportKey } from "../services/sessionKey";
+import { saveUnlockedArk } from "../services/unlockedArk";
 import Button from "./Button";
 import viewStyles from "./LoginView.module.css";
 import styles from "./Register.module.css";
@@ -150,6 +150,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
         registrationFinishResponse.sub
       );
 
+      let keysStored = false;
       try {
         await apiService.putWrappedDrk(toBase64Url(wrappedDrk));
         const accountKey = await apiService.createAccountKey({ version: "v2" });
@@ -173,6 +174,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
           aad: toBase64Url(aad),
           metadata: { version: "v2" },
         });
+        keysStored = true;
       } catch (error) {
         logger.warn(error, "Failed to store wrapped DRK");
         // Continue with registration even if DRK storage fails
@@ -208,8 +210,7 @@ export default function Register({ onRegister, onSwitchToLogin }: RegisterProps)
       // Clear sensitive data
       opaqueService.clearState(registrationStart.state);
 
-      // Store export key securely and clear immediately from memory
-      await saveExportKey(registrationFinishResponse.sub, registrationFinish.passwordKey);
+      if (keysStored) await saveUnlockedArk(registrationFinishResponse.sub, drk);
       cryptoService.clearSensitiveData(registrationFinish.passwordKey, drk);
 
       onRegister({

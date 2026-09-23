@@ -332,6 +332,7 @@ export interface AuthorizationRequest {
   code_challenge?: string;
   code_challenge_method?: string;
   zk_pub?: string;
+  prompt?: string;
 }
 
 export interface TokenRequest {
@@ -359,6 +360,12 @@ export interface SessionData {
   pendingAuthId?: string;
   otpRequired?: boolean;
   otpVerified?: boolean;
+  signInId?: string;
+  parentSignInId?: string;
+  signInCreatedAt?: string;
+  lastActiveAt?: string;
+  userAgent?: string;
+  sessionUnlockKey?: string;
 }
 
 export interface InstallRequest {

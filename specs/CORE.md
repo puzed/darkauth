@@ -52,7 +52,7 @@ DarkAuth does not provide a hosted control plane. Standard OIDC clients must wor
 
 ## Security invariants
 
-- Never log passwords, OPAQUE payloads, session or OAuth credentials, KEK values, private keys, wrapped account keys, ephemeral ZK keys, or key-delivery ciphertext.
+- Never log passwords, OPAQUE payloads, session or OAuth credentials, KEK values, private keys, wrapped account keys, session unlock keys, ephemeral ZK keys, or key-delivery ciphertext.
 - Validate redirect URIs by exact registered value and constrain post-logout redirects to client registration.
 - Consume one-time credentials atomically where concurrency could otherwise permit replay.
 - Bind authentication, authorization, organization, redirect, and key-delivery state across every multi-step flow.

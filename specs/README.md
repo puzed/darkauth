@@ -35,6 +35,8 @@ Feature specifications describe durable capabilities.
 Task specifications are temporary implementation plans. Active tasks belong in `tasks/`; delivered summaries belong in `tasks_completed/`.
 
 - [`tasks/token-authentication-claims.md`](tasks/token-authentication-claims.md): correct `email_verified`, `amr`, and `acr` claim derivation.
+- [`tasks/session-bound-unlock.md`](tasks/session-bound-unlock.md): restore ARK across tabs from a session-bound envelope instead of prompting per tab.
+- [`tasks/sdk-session-bound-cak.md`](tasks/sdk-session-bound-cak.md): let relying parties keep CAK across reloads with an app-held wrapping key.
 - [`tasks/test-coverage-gaps.md`](tasks/test-coverage-gaps.md): add verified RP logout and semantic-branding browser coverage.
 - [`tasks_completed/01-core-oidc-opaque-foundation.md`](tasks_completed/01-core-oidc-opaque-foundation.md)
 - [`tasks_completed/02-embedded-pglite.md`](tasks_completed/02-embedded-pglite.md)

@@ -21,6 +21,10 @@ If the user already has a valid session and no additional policy is required, th
 
 Apps can request scopes such as `openid`, `profile`, `email`, or custom scopes. The consent screen should explain what the app is asking for in plain language. Admins and developers can improve this experience by providing useful scope descriptions.
 
+## Remembered approvals
+
+DarkAuth remembers apps you have approved. If an app asks again for the same access, you skip the approval screen. Revoke an approval in account security to see the screen again next time.
+
 ## Zero-knowledge apps
 
-Some apps are configured to receive a client app key through the zero-knowledge fragment JWE flow. Users do not need to manage the protocol details, but they should understand that these apps may behave differently on reloads or new devices because key custody is memory-only by default.
+Some apps are configured to receive a client app key through the zero-knowledge fragment JWE flow. Users do not need to manage the protocol details, but they should understand that these apps keep their key in memory. A reload starts a new authorization, which usually completes without a prompt while you are signed in to DarkAuth.

@@ -151,6 +151,18 @@ const SCIM_SETTINGS: AdminSetting[] = [
     updatedAt: "",
   },
   {
+    key: "users.scim.allow_session_unlock",
+    name: "Allow session unlock",
+    type: "boolean",
+    category: "Users / SCIM Policy",
+    description: "Browsers restore encryption keys across tabs until the sign-in ends.",
+    tags: ["users", "scim", "key-management", "sessions"],
+    defaultValue: true,
+    value: true,
+    secure: false,
+    updatedAt: "",
+  },
+  {
     key: "users.scim.deprovision_action",
     name: "Deprovision action",
     type: "string",

@@ -67,6 +67,12 @@ export async function isScimPasswordUnlockAllowed(context: Context, sub: string)
   return await getBooleanSetting(context, "users.scim.allow_password_envelopes", true);
 }
 
+export async function isScimSessionUnlockAllowed(context: Context, sub: string) {
+  const state = await getScimUserPolicyState(context, sub);
+  if (!state.provisioned) return true;
+  return await getBooleanSetting(context, "users.scim.allow_session_unlock", true);
+}
+
 export async function isZkKeyUnlockRequired(context: Context, sub: string) {
   const state = await getScimUserPolicyState(context, sub);
   if (!state.provisioned) return true;

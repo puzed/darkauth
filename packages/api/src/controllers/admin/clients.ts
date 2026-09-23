@@ -33,6 +33,7 @@ const ClientResponseSchema = z.object({
   deliveredKeyKind: z.string(),
   clientKeyScope: z.string(),
   requireOrganizationSelection: z.boolean(),
+  rememberConsent: z.boolean(),
   allowedJweAlgs: z.array(z.string()),
   allowedJweEncs: z.array(z.string()),
   redirectUris: z.array(z.string()),

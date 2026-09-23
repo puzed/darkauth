@@ -98,6 +98,23 @@ export interface SessionResponse {
   organizationSlug?: string;
 }
 
+export interface SignInResponse {
+  id: string;
+  created_at: string | null;
+  last_active_at: string | null;
+  expires_at: string | null;
+  user_agent: string | null;
+  current: boolean;
+}
+
+export interface ClientConsentResponse {
+  client_id: string;
+  client_name: string | null;
+  scopes: string[];
+  organization_id: string | null;
+  updated_at: string | null;
+}
+
 export interface UserProfile {
   sub: string;
   email?: string | null;
@@ -446,8 +463,12 @@ class ApiService {
   }
 
   clearLegacyTokens(): void {
-    localStorage.removeItem("userAccessToken");
-    localStorage.removeItem("userRefreshToken");
+    try {
+      localStorage.removeItem("userAccessToken");
+      localStorage.removeItem("userRefreshToken");
+    } catch (error) {
+      logger.warn(error, "Failed to clear legacy tokens");
+    }
   }
 
   private getClientId(): string {
@@ -550,13 +571,17 @@ class ApiService {
         const err = new Error(
           data.error || `HTTP ${response.status}: ${response.statusText}`
         ) as Error & {
+          status?: number;
           code?: string;
+          description?: string;
           details?: unknown;
           unverified?: boolean;
           resendAllowed?: boolean;
           email?: string;
         };
+        err.status = response.status;
         if (typeof data.code === "string") err.code = data.code;
+        if (typeof data.error_description === "string") err.description = data.error_description;
         if (data.details !== undefined) err.details = data.details;
         if (data.unverified === true) err.unverified = true;
         if (data.resendAllowed === true) err.resendAllowed = true;
@@ -1346,6 +1371,54 @@ class ApiService {
   async getUnlockPolicy(): Promise<UnlockPolicy> {
     const data = await this.request<unknown>("/crypto/unlock-policy");
     return normalizeUnlockPolicy(data);
+  }
+
+  async restartExpiredAuthorization(params: {
+    clientId: string;
+    redirectUri: string;
+    state?: string;
+    error?: "invalid_request" | "interaction_required";
+  }): Promise<string> {
+    const body = new URLSearchParams();
+    body.set("client_id", params.clientId);
+    body.set("redirect_uri", params.redirectUri);
+    if (params.state) body.set("state", params.state);
+    if (params.error) body.set("error", params.error);
+    const data = await this.request<{ redirect_url: string }>("/authorize/restart", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+    return data.redirect_url;
+  }
+
+  async getSessionUnlockKey(): Promise<string> {
+    const data = await this.request<{ key: string }>("/crypto/session-unlock-key", {
+      method: "POST",
+    });
+    return data.key;
+  }
+
+  async getSignIns(): Promise<SignInResponse[]> {
+    const data = await this.request<{ sessions?: SignInResponse[] }>("/sessions");
+    return data.sessions || [];
+  }
+
+  async revokeSignIn(signInId: string): Promise<void> {
+    await this.request(`/sessions/${encodeURIComponent(signInId)}/revoke`, { method: "POST" });
+  }
+
+  async revokeOtherSignIns(): Promise<void> {
+    await this.request("/sessions/revoke-others", { method: "POST" });
+  }
+
+  async getConsents(): Promise<ClientConsentResponse[]> {
+    const data = await this.request<{ consents?: ClientConsentResponse[] }>("/consents");
+    return data.consents || [];
+  }
+
+  async revokeConsent(clientId: string): Promise<void> {
+    await this.request(`/consents/${encodeURIComponent(clientId)}`, { method: "DELETE" });
   }
 
   async getConnectedIdentities(): Promise<ConnectedIdentityResponse[]> {

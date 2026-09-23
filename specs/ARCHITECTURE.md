@@ -66,7 +66,7 @@ Database-backed settings override shared runtime behavior after initialization. 
 - OPAQUE state is split between browser/client operations, server services, persisted records, and expiring login sessions.
 - KEK services encrypt server-held secrets at rest.
 - Signing services publish public JWKS while retaining encrypted private JWK material.
-- Account keys remain wrapped in database storage and are unlocked in browser memory.
+- Account keys remain wrapped in database storage and are unlocked in browser memory. Between tabs on the user origin, ARK persists only as a session unlock envelope whose key stays server-side.
 - ZK delivery ciphertext is created by browser code and transferred in a URL fragment, outside the server-visible query string.
 
 ## Change rules

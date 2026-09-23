@@ -1,5 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { and, eq, gt, isNull, lt } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, sql } from "drizzle-orm";
 import { sessions, users } from "../db/schema.ts";
 import { UnauthorizedError } from "../errors.ts";
 import { assertScimSignInPolicy } from "../models/scimPolicy.ts";
@@ -204,6 +204,17 @@ export async function getRefreshTokenTtlSeconds(
   return Math.floor(refreshMs / 1000);
 }
 
+export function newSignInData(
+  request: IncomingMessage
+): Pick<SessionData, "signInId" | "signInCreatedAt" | "userAgent"> {
+  const userAgent = request.headers["user-agent"];
+  return {
+    signInId: generateRandomString(24),
+    signInCreatedAt: new Date().toISOString(),
+    userAgent: typeof userAgent === "string" ? userAgent.slice(0, 512) : undefined,
+  };
+}
+
 export async function createSession(
   context: Context,
   cohort: "user" | "admin",
@@ -289,7 +300,12 @@ export async function updateSession(
   sessionId: string,
   data: SessionData
 ): Promise<void> {
-  await context.db.update(sessions).set({ data }).where(eq(sessions.id, sessionId));
+  await context.db
+    .update(sessions)
+    .set({
+      data: sql`${JSON.stringify(data)}::jsonb || jsonb_strip_nulls(jsonb_build_object('sessionUnlockKey', ${sessions.data}->'sessionUnlockKey'))`,
+    })
+    .where(eq(sessions.id, sessionId));
 }
 
 export async function updateUserSessionsProfile(
@@ -407,6 +423,10 @@ async function assertUserMayHoldSession(context: Context, sub: string): Promise<
   await assertScimSignInPolicy(context, sub);
 }
 
+function refreshedSessionData(data: SessionData, now: Date): SessionData {
+  return data.signInId ? { ...data, lastActiveAt: now.toISOString() } : data;
+}
+
 export async function refreshSessionWithToken(
   context: Context,
   refreshToken: string
@@ -454,7 +474,7 @@ export async function refreshSessionWithToken(
       expiresAt,
       refreshToken: newRefreshTokenHash,
       refreshTokenExpiresAt,
-      data: session.data,
+      data: refreshedSessionData(session.data as SessionData, now),
     });
 
     if (session.cohort === "user" && session.userSub) {
@@ -468,6 +488,106 @@ export async function refreshSessionWithToken(
 
     return { sessionId: newSessionId, refreshToken: newRefreshToken };
   });
+}
+
+export async function ensureSessionUnlockKey(
+  context: Context,
+  sessionId: string
+): Promise<string | null> {
+  const [row] = await context.db
+    .update(sessions)
+    .set({
+      data: sql`jsonb_set(${sessions.data}, '{sessionUnlockKey}', coalesce(${sessions.data}->'sessionUnlockKey', to_jsonb(${generateRandomString(32)}::text)))`,
+    })
+    .where(and(eq(sessions.id, sessionId), gt(sessions.expiresAt, new Date())))
+    .returning();
+  return (row?.data as SessionData | undefined)?.sessionUnlockKey ?? null;
+}
+
+export async function deleteSessionUnlockKey(context: Context, sessionId: string): Promise<void> {
+  await context.db
+    .update(sessions)
+    .set({ data: sql`${sessions.data} - 'sessionUnlockKey'` })
+    .where(eq(sessions.id, sessionId));
+}
+
+function activeUserSessionsWhere(sub: string) {
+  return and(
+    eq(sessions.userSub, sub),
+    eq(sessions.cohort, "user"),
+    isNull(sessions.refreshTokenConsumedAt),
+    gt(sessions.refreshTokenExpiresAt, new Date())
+  );
+}
+
+export async function listUserSignIns(context: Context, sub: string, currentSignInId?: string) {
+  const rows = await context.db.query.sessions.findMany({ where: activeUserSessionsWhere(sub) });
+  const signIns = new Map<string, { data: SessionData; expiresAt: Date }>();
+  for (const row of rows) {
+    const data = row.data as SessionData;
+    if (!data.signInId || !row.refreshTokenExpiresAt) continue;
+    const existing = signIns.get(data.signInId);
+    if (existing && existing.expiresAt >= row.refreshTokenExpiresAt) continue;
+    signIns.set(data.signInId, { data, expiresAt: row.refreshTokenExpiresAt });
+  }
+  return [...signIns.entries()]
+    .map(([id, { data, expiresAt }]) => ({
+      id,
+      created_at: data.signInCreatedAt ?? null,
+      last_active_at: data.lastActiveAt ?? data.signInCreatedAt ?? null,
+      expires_at: expiresAt.toISOString(),
+      user_agent: data.userAgent ?? null,
+      current: id === currentSignInId,
+    }))
+    .sort((a, b) => (b.last_active_at ?? "").localeCompare(a.last_active_at ?? ""));
+}
+
+const signInIdOf = sql`coalesce(${sessions.data}->>'signInId', ${sessions.data}->>'parentSignInId')`;
+
+export async function deleteUserSignIn(
+  context: Context,
+  sub: string,
+  signInId: string
+): Promise<void> {
+  await context.db
+    .delete(sessions)
+    .where(
+      and(eq(sessions.userSub, sub), eq(sessions.cohort, "user"), sql`${signInIdOf} = ${signInId}`)
+    );
+}
+
+export async function deleteOtherUserSignIns(
+  context: Context,
+  sub: string,
+  currentSignInId?: string
+): Promise<void> {
+  await context.db
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.userSub, sub),
+        eq(sessions.cohort, "user"),
+        sql`${signInIdOf} is not null`,
+        currentSignInId ? sql`${signInIdOf} <> ${currentSignInId}` : undefined
+      )
+    );
+}
+
+export async function deleteUserClientSessions(
+  context: Context,
+  sub: string,
+  clientId: string
+): Promise<void> {
+  await context.db
+    .delete(sessions)
+    .where(
+      and(
+        eq(sessions.userSub, sub),
+        eq(sessions.cohort, "user"),
+        sql`${sessions.data}->>'clientId' = ${clientId}`,
+        sql`${sessions.data}->>'signInId' is null`
+      )
+    );
 }
 
 export async function cleanupExpiredSessions(context: Context): Promise<void> {

@@ -15,7 +15,9 @@ Status: implemented behavior and constraints
 - ARK is a browser-generated random 32-byte account root.
 - The API stores ARK only inside authenticated key envelopes. Password envelopes are wrapped with a key derived client-side from the OPAQUE `export_key`.
 - A v2 zero-knowledge client receives a CAK derived from ARK with subject, account-key, client, audience, and organization context. It never receives ARK.
-- Plaintext ARK and CAK are memory-only by default. `localStorage`, `sessionStorage`, JavaScript-readable cookies, and IndexedDB plaintext are not supported security boundaries.
+- Plaintext ARK and CAK exist only in browser memory. `localStorage`, `sessionStorage`, JavaScript-readable cookies, and IndexedDB plaintext are not supported security boundaries.
+- The user origin may persist ARK only as a session unlock envelope: ciphertext in `localStorage` whose key is held server-side on the sign-in's session record. Neither half alone reveals ARK, and ending the sign-in destroys the server half. See [`features/user-key-management.md`](features/user-key-management.md#session-unlock).
+- Database backups retain session unlock keys that were live when taken. Backup custody therefore matters for sign-ins that were live at backup time; a backup alone still lacks the browser-held envelope.
 - Temporary PKCE and ephemeral delivery-key state may use `sessionStorage` for redirect continuity and must be removed after callback handling.
 - Non-extractable browser keys can reduce at-rest exposure, but same-origin code can still invoke them while available.
 

@@ -7,8 +7,7 @@ import api, {
 import cryptoService, { fromBase64Url, sha256Base64Url } from "../services/crypto";
 import deviceKeyStore from "../services/deviceKeyStore";
 import opaqueService from "../services/opaque";
-import { loadExportKey, saveExportKey } from "../services/sessionKey";
-import { loadUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
+import { getUnlockedArk, saveUnlockedArk } from "../services/unlockedArk";
 import {
   defaultUnlockPolicy,
   isUnlockMethodAllowed,
@@ -180,22 +179,11 @@ export async function unlockArkWithLocalTrustedDevice(sub: string): Promise<Uint
 }
 
 export async function loadArkFromAvailableLocalUnlocks(sub: string): Promise<Uint8Array | null> {
-  const existing = loadUnlockedArk(sub);
+  const existing = await getUnlockedArk(sub);
   if (existing) return existing;
   const trustedArk = await unlockArkWithLocalTrustedDevice(sub);
-  if (trustedArk) {
-    saveUnlockedArk(sub, trustedArk);
-    return trustedArk;
-  }
-  const exportKey = await loadExportKey(sub);
-  if (!exportKey) return null;
-  try {
-    const ark = await unlockArkWithExportKey(sub, exportKey);
-    saveUnlockedArk(sub, ark);
-    return ark;
-  } finally {
-    cryptoService.clearSensitiveData(exportKey);
-  }
+  if (trustedArk) await saveUnlockedArk(sub, trustedArk);
+  return trustedArk;
 }
 
 export default function KeyUnlockPanel({
@@ -215,9 +203,30 @@ export default function KeyUnlockPanel({
   const [deviceApprovalStatus, setDeviceApprovalStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState(true);
   const deviceApprovalPollRef = useRef<number | null>(null);
+  const activeApprovalIdRef = useRef<string | null>(null);
+  const onUnlockedRef = useRef(onUnlocked);
+  onUnlockedRef.current = onUnlocked;
+
+  useEffect(() => {
+    let cancelled = false;
+    setRestoring(true);
+    getUnlockedArk(sub).then((ark) => {
+      if (cancelled) return;
+      if (ark) {
+        cryptoService.clearSensitiveData(ark);
+        onUnlockedRef.current?.({ authenticated: true, sub, keyState: "unlocked" });
+      }
+      setRestoring(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [sub]);
 
   const stopDeviceApprovalPolling = useCallback(() => {
+    activeApprovalIdRef.current = null;
     if (deviceApprovalPollRef.current) {
       window.clearInterval(deviceApprovalPollRef.current);
       deviceApprovalPollRef.current = null;
@@ -258,7 +267,7 @@ export default function KeyUnlockPanel({
           sub,
           requestId: approval.request_id,
         });
-        saveUnlockedArk(sub, ark);
+        await saveUnlockedArk(sub, ark);
         stopDeviceApprovalPolling();
         setDeviceApprovalStatus("Approved. Encryption keys unlocked for this browser.");
         setDeviceApproval(null);
@@ -278,6 +287,7 @@ export default function KeyUnlockPanel({
   const startDeviceApprovalPolling = useCallback(
     (approval: DeviceApprovalResponse, privateKey: CryptoKey, publicJwk: JsonWebKey) => {
       stopDeviceApprovalPolling();
+      activeApprovalIdRef.current = approval.request_id;
       let attempts = 0;
       const tick = async () => {
         attempts += 1;
@@ -285,6 +295,7 @@ export default function KeyUnlockPanel({
           const consumed = await api.consumeDeviceApproval(approval.request_id, {
             newDeviceProof: await sha256Base64Url(JSON.stringify(publicJwk)),
           });
+          if (activeApprovalIdRef.current !== approval.request_id) return;
           const status = consumed.status || "pending";
           if (consumed.encrypted_approval) {
             await consumeDeviceApproval(consumed, privateKey);
@@ -377,13 +388,18 @@ export default function KeyUnlockPanel({
     try {
       started = await opaqueService.startLogin(email, password);
       const verifyStart = await api.passwordVerifyStart(started.request);
-      const finish = await opaqueService.finishLogin(verifyStart.message, started.state);
+      const finish = await opaqueService
+        .finishLogin(verifyStart.message, started.state)
+        .catch(() => null);
+      if (!finish) {
+        setError("DarkAuth password is incorrect.");
+        return;
+      }
       exportKey = finish.exportKey;
       sessionKey = finish.sessionKey;
       ark = await unlockArkWithExportKey(sub, exportKey);
       await api.passwordVerifyFinish(finish.request, verifyStart.sessionId);
-      await saveExportKey(sub, exportKey);
-      saveUnlockedArk(sub, ark);
+      await saveUnlockedArk(sub, ark);
       stopDeviceApprovalPolling();
       setDeviceApproval(null);
       setDeviceApprovalCode(null);
@@ -394,12 +410,7 @@ export default function KeyUnlockPanel({
       const session = await api.getSession().catch(() => null);
       onUnlocked?.(session);
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Password unlock failed";
-      setError(
-        message.toLowerCase().includes("auth") || message.toLowerCase().includes("opaque")
-          ? "DarkAuth password is incorrect."
-          : message
-      );
+      setError(caught instanceof Error ? caught.message : "Password unlock failed");
     } finally {
       if (started) opaqueService.clearState(started.state);
       const arraysToClear = [exportKey, sessionKey, ark].filter(
@@ -412,6 +423,8 @@ export default function KeyUnlockPanel({
 
   const passwordAllowed = isUnlockMethodAllowed(unlockPolicy, "password");
   const trustedDeviceAllowed = isUnlockMethodAllowed(unlockPolicy, "trusted_device");
+
+  if (restoring) return null;
 
   return (
     <div className={inline ? styles.inlinePanel : styles.panel}>

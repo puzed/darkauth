@@ -45,6 +45,7 @@ export async function createAuthCode(
     zkKeyKind?: string | undefined;
     zkKeyVersion?: string | undefined;
     requireOrganizationSelection?: boolean;
+    signInId?: string | null;
   }
 ) {
   try {
@@ -67,6 +68,7 @@ export async function createAuthCode(
       zkKeyKind: data.zkKeyKind,
       zkKeyVersion: data.zkKeyVersion,
       requireOrganizationSelection: data.requireOrganizationSelection ?? true,
+      signInId: data.signInId ?? null,
       createdAt: new Date(),
     });
   } catch (error) {

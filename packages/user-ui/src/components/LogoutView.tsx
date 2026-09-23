@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import apiService from "../services/api";
 import { logger } from "../services/logger";
+import { clearAllUnlockedArks } from "../services/unlockedArk";
 import AuthViewFrame from "./AuthViewFrame";
 import viewStyles from "./LoginView.module.css";
 import styles from "./Register.module.css";
@@ -26,6 +27,7 @@ export default function LogoutView() {
     try {
       setLoading(true);
       setError(null);
+      clearAllUnlockedArks();
       const response = await apiService.endSession(params);
       if (response.redirect_uri) {
         window.location.assign(response.redirect_uri);

@@ -117,3 +117,18 @@ test("Settings security applies enterprise unlock policy controls", () => {
   assert.notEqual(unlockSource.indexOf("Password encryption unlock is disabled"), -1);
   assert.notEqual(unlockSource.indexOf("Trusted-browser approval is disabled"), -1);
 });
+
+test("Security lists sign-ins and app approvals with revoke actions", () => {
+  assert.notEqual(source.indexOf("Where you're signed in"), -1);
+  assert.notEqual(source.indexOf("Sign out all others"), -1);
+  assert.notEqual(source.indexOf("This browser"), -1);
+  assert.notEqual(source.indexOf("describeUserAgent(signIn.user_agent)"), -1);
+  assert.notEqual(source.indexOf("App approvals"), -1);
+  assert.notEqual(source.indexOf("api.revokeSignIn(signInId)"), -1);
+  assert.notEqual(source.indexOf("api.revokeOtherSignIns()"), -1);
+  assert.notEqual(source.indexOf("api.revokeConsent(clientId)"), -1);
+  assert.notEqual(apiSource.indexOf('"/sessions/revoke-others"'), -1);
+  const consentPath = "`/consents/" + "$" + "{encodeURIComponent(clientId)}`";
+  assert.notEqual(apiSource.indexOf(consentPath), -1);
+  assert.notEqual(apiSource.indexOf('"/crypto/session-unlock-key"'), -1);
+});

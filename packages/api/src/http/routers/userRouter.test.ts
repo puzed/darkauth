@@ -172,11 +172,11 @@ test("user router exposes page background CSS variables for branded user pages",
   assert.match(response.body, /:root\[data-da-theme='dark'\]\{[^}]*--da-color-page:#0a0b0c/);
   assert.match(
     response.body,
-    /:root\[data-da-theme='dark'\]\{[^}]*--da-card-bg:rgba\(255,255,255,0\.05\)/
+    /:root\[data-da-theme='dark'\]\{[^}]*--da-color-surface:#111827[^}]*--da-card-bg:#111827/
   );
   assert.match(
     response.body,
-    /:root\[data-da-theme='dark'\]\{[^}]*--da-input-bg:rgba\(0,0,0,0\.2\)/
+    /:root\[data-da-theme='dark'\]\{[^}]*--da-color-input-bg:#0f172a[^}]*--da-input-bg:#0f172a/
   );
   assert.match(
     response.body,

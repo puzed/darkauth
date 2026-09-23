@@ -230,6 +230,7 @@ export interface Client {
   deliveredKeyKind: "root_key" | "client_app_key";
   clientKeyScope: "account" | "organization";
   requireOrganizationSelection: boolean;
+  rememberConsent: boolean;
   allowedJweAlgs: string[];
   allowedJweEncs: string[];
   redirectUris: string[];
@@ -271,6 +272,7 @@ export interface CreateClientRequest {
   deliveredKeyKind?: "root_key" | "client_app_key";
   clientKeyScope?: "account" | "organization";
   requireOrganizationSelection?: boolean;
+  rememberConsent?: boolean;
   allowedJweAlgs?: string[];
   allowedJweEncs?: string[];
   redirectUris: string[];

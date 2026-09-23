@@ -44,6 +44,11 @@ export function sendJson(response: ServerResponse, statusCode: number, data: unk
   response.end(JSON.stringify(data));
 }
 
+export function sendNoContent(response: ServerResponse): void {
+  response.statusCode = 204;
+  response.end();
+}
+
 export function sendJsonValidated<T>(
   response: ServerResponse,
   statusCode: number,

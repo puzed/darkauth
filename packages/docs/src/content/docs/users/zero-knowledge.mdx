@@ -34,11 +34,27 @@ If any of those are compromised, a key may be exposed while it is in use.
 
 Admins and the DarkAuth backend can see account metadata, client configuration, encrypted envelopes, key-delivery version, and audit events. They cannot see the user's password, OPAQUE export key, plaintext account root key, plaintext client app key, plaintext recovery key, passkey PRF output, or decrypted application data during the designed flow.
 
-## Why reloads can matter
+## Unlock once per sign-in
 
-The default hosted-web profile keeps delivered key material in memory. Memory-only custody reduces persistent browser storage risk, but a page reload loses the key. A well-designed app should start a fresh authorization request and get a new encrypted handoff when it needs the key again.
+You unlock your keys once each time you sign in, not once per tab. DarkAuth keeps an encrypted copy of your account key in the browser. The key that opens it stays on the server and belongs to that one sign-in. New tabs and reloads open it without asking you again.
 
-If the DarkAuth session is still valid and the necessary client-side material is available, this may not require a full password prompt. If not, the user may need to sign in or complete a step-up flow again.
+Signing out, the sign-in expiring, or signing it out from **Where you're signed in** deletes the server key. The copy in the browser can then never be opened.
+
+The trade-off: while you are signed in, someone with a copy of your browser profile, or a malicious script on the DarkAuth site, could open your keys. Sign out on shared computers, and sign out any browser you do not recognize. Your organization may turn this feature off.
+
+## Where you're signed in
+
+Account security lists each browser where you are signed in, with when it started and was last used. You can sign out any one of them, or sign out all others.
+
+## Remembered app approvals
+
+Once you approve an app, DarkAuth remembers it. Next time that app asks for the same access, you go straight back to it without the approval screen, including zero-knowledge apps. If the app asks for more, you see the screen again.
+
+You can review and revoke approvals in account security. Revoking signs that app out and shows the approval screen next time.
+
+## Why app reloads can matter
+
+Apps keep their client app key in memory, so reloading an app loses it. The app starts a new authorization to get the key again. While your DarkAuth sign-in is live this usually happens without a prompt. If not, you may need to sign in or unlock again.
 
 ## Password reset tradeoff
 

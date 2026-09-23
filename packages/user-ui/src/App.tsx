@@ -26,7 +26,6 @@ import { UserPortalProvider } from "./components/UserPortalContext";
 import VerifyEmailView from "./components/VerifyEmailView";
 import apiService, { type UserOrganization } from "./services/api";
 import { clearAllDrk } from "./services/drkStorage";
-import { clearAllExportKeys } from "./services/sessionKey";
 import { clearAllUnlockedArks } from "./services/unlockedArk";
 import "./App.css";
 import ThemeToggle from "./components/ThemeToggle";
@@ -64,6 +63,7 @@ interface AuthRequest {
   zkPub?: string;
   organizationId?: string;
   autoFinalize?: boolean;
+  prompt?: string;
 }
 
 function decodeBase64Url(value: string): string {
@@ -77,6 +77,9 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [reauthenticatedRequestId, setReauthenticatedRequestId] = useState<string | null>(
+    readReauthenticatedRequestId()
+  );
   const [organizations, setOrganizations] = useState<UserOrganization[]>([]);
   const [organizationsLoading, setOrganizationsLoading] = useState(false);
   const [activeOrganizationLabel, setActiveOrganizationLabel] = useState<string | null>(null);
@@ -119,6 +122,8 @@ function AppContent() {
         try {
           await apiService.getOtpStatus();
         } catch {}
+      } else {
+        clearAllUnlockedArks();
       }
     } catch (_error) {
     } finally {
@@ -172,6 +177,7 @@ function AppContent() {
     const zkPub = params.get("zk_pub") || undefined;
     const organizationId = params.get("organization_id") || undefined;
     const autoFinalize = params.get("auto_finalize") === "1";
+    const prompt = params.get("prompt") || undefined;
     setAuthRequest((current) => {
       if (
         current &&
@@ -190,6 +196,7 @@ function AppContent() {
         current.zkPub === zkPub &&
         current.organizationId === organizationId &&
         current.autoFinalize === autoFinalize &&
+        current.prompt === prompt &&
         current.scopes.join(" ") === scopes.join(" ")
       ) {
         return current;
@@ -210,6 +217,7 @@ function AppContent() {
         zkPub,
         organizationId,
         autoFinalize,
+        prompt,
       };
     });
     setAuthRequestSearch(search);
@@ -231,6 +239,11 @@ function AppContent() {
   }, []);
 
   const sessionSub = sessionData?.sub || "";
+  const promptValues = new Set((authRequest?.prompt || "").split(/\s+/).filter(Boolean));
+  const reauthenticationRequired =
+    !!authRequest &&
+    (promptValues.has("login") || promptValues.has("select_account")) &&
+    reauthenticatedRequestId !== authRequest.requestId;
   const activeOrganizationId = sessionData?.organizationId || "";
   const isOtpRoute = location.pathname === "/otp/setup" || location.pathname === "/otp/verify";
 
@@ -260,9 +273,12 @@ function AppContent() {
   }, [isOtpRoute, sessionSub]);
 
   useEffect(() => {
+    if (sessionSub) clearAllUnlockedArks(sessionSub);
+  }, [sessionSub]);
+
+  useEffect(() => {
     const handleSessionExpired = () => {
       setSessionData(null);
-      clearAllExportKeys();
       clearAllDrk();
       clearAllUnlockedArks();
     };
@@ -434,6 +450,10 @@ function AppContent() {
 
   const handleLogin = (userData: SessionData) => {
     setSessionData(userData);
+    if (authRequest?.requestId) {
+      setReauthenticatedRequestId(authRequest.requestId);
+      writeReauthenticatedRequestId(authRequest.requestId);
+    }
     if (hasPendingRequest || authRequest) {
       navigate(appendSearch("/authorize"));
     } else {
@@ -451,11 +471,10 @@ function AppContent() {
   };
 
   const handleLogout = async () => {
+    clearAllDrk();
+    clearAllUnlockedArks();
     try {
       await apiService.logout();
-      clearAllExportKeys();
-      clearAllDrk();
-      clearAllUnlockedArks();
       setSessionData(null);
       setAuthRequest(null);
       setAuthRequestSearch(null);
@@ -493,7 +512,7 @@ function AppContent() {
         <Route
           path="/login"
           element={
-            sessionData ? (
+            sessionData && !reauthenticationRequired ? (
               <Navigate
                 to={hasPendingRequest || authRequest ? appendSearch("/authorize") : "/apps"}
                 replace
@@ -572,10 +591,14 @@ function AppContent() {
               <Navigate to="/apps" replace />
             ) : sessionData.passwordResetRequired ? (
               <Navigate to="/security/password" replace />
+            ) : reauthenticationRequired ? (
+              <Navigate to={appendSearch("/login")} replace />
             ) : (
-              <AuthorizePageFrame>
-                <Authorize authRequest={authRequest} sessionData={sessionData} />
-              </AuthorizePageFrame>
+              <OtpGate>
+                <AuthorizePageFrame>
+                  <Authorize authRequest={authRequest} sessionData={sessionData} />
+                </AuthorizePageFrame>
+              </OtpGate>
             )
           }
         />
@@ -781,6 +804,22 @@ function OtpGate({ children }: { children: React.ReactNode }) {
     );
   if (redirect) return <Navigate to={redirect} replace />;
   return <>{children}</>;
+}
+
+const REAUTHENTICATED_REQUEST_KEY = "DarkAuth_reauthenticated_request";
+
+function readReauthenticatedRequestId(): string | null {
+  try {
+    return sessionStorage.getItem(REAUTHENTICATED_REQUEST_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeReauthenticatedRequestId(requestId: string): void {
+  try {
+    sessionStorage.setItem(REAUTHENTICATED_REQUEST_KEY, requestId);
+  } catch {}
 }
 
 function App() {

@@ -15,6 +15,7 @@ import {
   getSessionTtlSeconds,
   issueRefreshTokenCookie,
   issueSessionCookies,
+  newSignInData,
 } from "../../services/sessions.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema, OpaqueLoginResult } from "../../types.ts";
@@ -156,6 +157,7 @@ export const postOpaqueLoginFinish = withRateLimit("opaque", (body) => {
         keyState: passwordUnlockAllowed ? "unlocked" : "locked",
         otpRequired: otpRequired,
         otpVerified: false,
+        ...newSignInData(request),
       });
       const ttlSeconds = await getSessionTtlSeconds(context, "user");
       const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");

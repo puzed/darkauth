@@ -9,7 +9,7 @@
 		"dev": "node --env-file-if-exists=../../.env --watch src/main.ts",
 		"build": "tsc --noEmit",
 		"start": "node --env-file-if-exists=../../.env src/main.ts",
-		"test": "node --env-file-if-exists=../../.env --test src/**/*.test.ts",
+		"test": "node --env-file-if-exists=../../.env --test \"src/**/*.test.ts\"",
 		"db:push": "drizzle-kit push",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "node --env-file-if-exists=../../.env src/db/migrate.ts",

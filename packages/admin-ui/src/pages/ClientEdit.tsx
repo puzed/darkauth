@@ -141,6 +141,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
     keyDeliveryVersion: "v2" as Client["keyDeliveryVersion"],
     clientKeyScope: "organization" as Client["clientKeyScope"],
     requireOrganizationSelection: true,
+    rememberConsent: true,
     showOnUserDashboard: false,
     dashboardAutoLogin: false,
     dashboardPosition: "0",
@@ -226,6 +227,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         keyDeliveryVersion: c.keyDeliveryVersion || "v2",
         clientKeyScope: c.clientKeyScope || "organization",
         requireOrganizationSelection: c.requireOrganizationSelection ?? true,
+        rememberConsent: c.rememberConsent ?? true,
         redirectUris: joinList(c.redirectUris),
         postLogoutRedirectUris: joinList(c.postLogoutRedirectUris),
         grantTypes: joinList(c.grantTypes),
@@ -269,6 +271,7 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
         deliveredKeyKind: deliveredKeyKindFor(form.keyDeliveryVersion),
         clientKeyScope: form.clientKeyScope,
         requireOrganizationSelection: form.requireOrganizationSelection,
+        rememberConsent: form.rememberConsent,
         showOnUserDashboard: form.showOnUserDashboard,
         dashboardAutoLogin: form.dashboardAutoLogin,
         dashboardPosition: Number(form.dashboardPosition || "0"),
@@ -1025,6 +1028,37 @@ export default function ClientEdit({ mode = "edit" }: ClientEditProps) {
                     <FieldHint>
                       Disable this for generic OIDC clients that do not understand organization
                       context.
+                    </FieldHint>
+                  </FormField>
+
+                  <FormField
+                    label={
+                      <FieldLabel
+                        title="Remember Approval"
+                        tooltip="Controls whether a user's approval is remembered so later sign-ins skip the approval screen."
+                      />
+                    }
+                  >
+                    <Select
+                      value={form.rememberConsent ? "yes" : "no"}
+                      onValueChange={(v) =>
+                        setForm((f) => ({
+                          ...f,
+                          rememberConsent: v === "yes",
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="yes">Yes</SelectItem>
+                        <SelectItem value="no">No</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FieldHint>
+                      When enabled, returning users go straight back to the app, including silent
+                      key delivery for ZK clients.
                     </FieldHint>
                   </FormField>
                 </FormGrid>

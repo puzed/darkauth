@@ -10,7 +10,7 @@ const source = readFileSync(resolve(here, "Authorize.tsx"), "utf8");
 test("generateNewKeys copies DRK before clearing it for ZK handoff", () => {
   const copyIndex = source.indexOf("const drkForHandoff = drk.slice();");
   const clearIndex = source.indexOf("cryptoService.clearSensitiveData(drk);", copyIndex);
-  const finalizeIndex = source.indexOf("await finalizeWithZk(drkForHandoff);", clearIndex);
+  const finalizeIndex = source.indexOf("await finishUnlockWithArk(drkForHandoff);", clearIndex);
 
   assert.notEqual(copyIndex, -1);
   assert.notEqual(clearIndex, -1);
@@ -44,21 +44,61 @@ test("Authorize models key-locked ZK sessions before delivery", () => {
 
 test("Authorize only prompts for key unlock when the pending client requested ZK", () => {
   const keyLockedExpression = source.match(/const keyLockedForZk = ([^;]+);/);
-  const promptGuard = source.match(/if \(approve && keyLockedForZk\) \{[\s\S]*?return;\n\s*\}/);
+  const zkBranch = source.match(/if \(approve && authRequest\.hasZk\) \{[\s\S]*?return true;/);
+  const unlockStep = source.match(/const showUnlockStep = async[\s\S]*?\n {2}\};/);
 
   assert.ok(keyLockedExpression);
   assert.equal(keyLockedExpression[1], "authRequest.hasZk && !keyUnlocked");
-  assert.ok(promptGuard);
+  assert.ok(zkBranch);
+  assert.notEqual(zkBranch[0].indexOf("await getUnlockedArk(sessionData.sub)"), -1);
+  assert.notEqual(zkBranch[0].indexOf("await showUnlockStep(auto)"), -1);
+  assert.ok(unlockStep);
   assert.notEqual(
-    promptGuard[0].indexOf('setError("Unlock your encryption keys to continue.")'),
+    unlockStep[0].indexOf('if (!auto) setError("Unlock your encryption keys to continue.")'),
     -1
   );
+});
+
+test("Authorize auto-finalizes ZK requests by restoring the session ARK", () => {
+  const autoEffect = source.match(/handleAuthorize\(true, true\)[\s\S]*?\}\);/);
+
+  assert.ok(autoEffect);
+  assert.notEqual(autoEffect[0].indexOf("setAutoFinalizing(false)"), -1);
+  assert.equal(source.indexOf("authRequest.hasZk ||\n      organizationsLoading"), -1);
+  assert.equal(source.includes("Missing export key"), false);
+  assert.equal(source.includes('sessionKey"'), false);
+});
+
+test("Authorize stops device approval polling when switching unlock method", () => {
+  const cancel = source.match(/const cancelDeviceApproval = \(\) => \{[\s\S]*?\n {2}\};/);
+  const chooseAnother = source.indexOf("Choose another method");
+  const cancelCall = source.lastIndexOf("cancelDeviceApproval();", chooseAnother);
+
+  assert.ok(cancel);
+  assert.notEqual(cancel[0].indexOf("stopDeviceApprovalPolling()"), -1);
+  assert.notEqual(cancel[0].indexOf("setDeviceApproval(null)"), -1);
+  assert.notEqual(cancelCall, -1);
+  assert.notEqual(
+    source.indexOf("if (activeApprovalIdRef.current !== approval.request_id) return;"),
+    -1
+  );
+});
+
+test("Authorize separates password verification from finalization errors", () => {
+  const start = source.indexOf("const unlockWithCurrentPassword = async () => {");
+  const block = source.slice(start, source.indexOf("if (autoFinalizing)", start));
+
+  assert.notEqual(start, -1);
+  assert.notEqual(block.indexOf("await verifyCurrentPassword(passwordSignInEmail)"), -1);
+  assert.equal(block.includes('msg.includes("auth")'), false);
+  assert.notEqual(source.indexOf("This sign-in request expired. Return to"), -1);
+  assert.notEqual(source.indexOf(".finishLogin(verifyStart.message, started.state)"), -1);
 });
 
 test("Authorize finalizes non-ZK requests without local key unwrap", () => {
   const zkBranch = source.indexOf("if (approve && authRequest.hasZk) {");
   const nonZkFinalize = source.indexOf(
-    "const authResponse = await apiService.authorize(",
+    "const authResponse = await submitAuthorization({ approve });",
     zkBranch
   );
   const redirect = source.indexOf(
@@ -136,9 +176,9 @@ test("Authorize uses distinct unlock methods instead of old-password recovery", 
   assert.equal(source.indexOf("Recover with old password"), -1);
 });
 
-test("Authorize stores unlocked ARK in memory only for ZK finalization", () => {
+test("Authorize stores unlocked ARK through the session unlock service", () => {
   assert.notEqual(source.indexOf("saveUnlockedArk"), -1);
-  assert.notEqual(source.indexOf("loadUnlockedArk"), -1);
+  assert.notEqual(source.indexOf("getUnlockedArk"), -1);
   assert.notEqual(source.indexOf("apiService.recordRecoveryKeyUse"), -1);
   assert.notEqual(source.indexOf("deviceKeyStore.getKey"), -1);
 });
@@ -255,4 +295,16 @@ test("Authorize unlock flows unwrap locally before finalizing ZK authorization",
   ]) {
     assert.notEqual(passkeyBlock.indexOf(expected), -1);
   }
+});
+
+test("silent authorization requests return an OIDC error instead of showing an unlock step", () => {
+  const unlockStep = source.slice(
+    source.indexOf("const showUnlockStep = async"),
+    source.indexOf("const handleAuthorize = async")
+  );
+  assert.notEqual(
+    unlockStep.indexOf('if (silentRequest && (await returnRequestToApp("interaction_required")))'),
+    -1
+  );
+  assert.notEqual(source.indexOf('.has(\n    "none"\n  )'), -1);
 });

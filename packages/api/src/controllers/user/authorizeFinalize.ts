@@ -5,6 +5,8 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createAuthCode } from "../../models/authCodes.ts";
 import { consumePendingAuth, getPendingAuth } from "../../models/authorize.ts";
+import { getClient } from "../../models/clients.ts";
+import { recordUserClientConsent } from "../../models/consents.ts";
 import { resolveAuthorizationOrganizationContext } from "../../models/rbac.ts";
 import { isZkKeyUnlockRequired } from "../../models/scimPolicy.ts";
 import { getClientIp, logAuditEvent } from "../../services/audit.ts";
@@ -74,6 +76,16 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
       // Check if request has expired
       if (new Date() > pendingRequest.expiresAt) {
         throw new InvalidRequestError("Authorization request has expired");
+      }
+
+      const prompts = new Set((pendingRequest.prompt ?? "").split(/\s+/).filter(Boolean));
+      if (prompts.has("login") || prompts.has("select_account")) {
+        const signedInAt = sessionData.signInCreatedAt
+          ? new Date(sessionData.signInCreatedAt)
+          : null;
+        if (!signedInAt || signedInAt <= pendingRequest.createdAt) {
+          throw new InvalidRequestError("This request requires signing in again");
+        }
       }
 
       if (!isApproved) {
@@ -159,7 +171,18 @@ export const postAuthorizeFinalize = withRateLimit("opaque")(
         zkKeyKind: hasZk ? deliveredKeyKind : undefined,
         zkKeyVersion: hasZk ? keyDeliveryVersion : undefined,
         requireOrganizationSelection: consumedPendingRequest.requireOrganizationSelection,
+        signInId: sessionData.signInId ?? null,
       });
+
+      const client = await getClient(context, consumedPendingRequest.clientId);
+      if (client?.rememberConsent) {
+        await recordUserClientConsent(context, {
+          userSub: sessionData.sub,
+          clientId: consumedPendingRequest.clientId,
+          scope: consumedPendingRequest.scope,
+          organizationId: resolvedOrganization?.organizationId ?? null,
+        });
+      }
 
       if (sessionId && resolvedOrganization) {
         await updateSession(context, sessionId, {

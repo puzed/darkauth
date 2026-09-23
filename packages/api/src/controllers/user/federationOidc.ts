@@ -20,6 +20,7 @@ import {
   getSessionTtlSeconds,
   issueRefreshTokenCookie,
   issueSessionCookies,
+  newSignInData,
 } from "../../services/sessions.ts";
 import { getSetting } from "../../services/settings.ts";
 import type { Context, ControllerSchema } from "../../types.ts";
@@ -173,6 +174,7 @@ export async function getFederationCallback(
       keyState: "locked",
       otpRequired: sessionMembership.forceOtp,
       otpVerified: false,
+      ...newSignInData(request),
     });
     const ttlSeconds = await getSessionTtlSeconds(context, "user");
     const refreshTtlSeconds = await getRefreshTokenTtlSeconds(context, "user");

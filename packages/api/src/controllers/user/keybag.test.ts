@@ -194,10 +194,12 @@ test("keybag endpoints create, list, and revoke account key envelopes for the se
     );
     const keybag = keybagResponse.json as {
       account_keys: unknown[];
-      envelopes: { envelope_id: string }[];
+      envelopes: { envelope_id: string; wrapped_key: string; aad: string }[];
     };
     assert.equal(keybag.account_keys.length, 1);
     assert.equal(keybag.envelopes.length, 1);
+    assert.equal(keybag.envelopes[0]?.wrapped_key, wrappedKey);
+    assert.equal(keybag.envelopes[0]?.aad, aad);
     assert.equal(keybag.envelopes[0]?.envelope_id, "env_user-a_password_1");
 
     const deleteResponse = createResponse();

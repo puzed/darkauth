@@ -21,6 +21,10 @@ Applications should never cache or reuse authorization codes.
 
 Refresh credentials rotate. When a refresh token is used successfully, the previous token should be consumed. Reuse of a consumed token indicates possible replay and must fail.
 
+## Sign-ins
+
+A sign-in is one authentication plus every refresh rotation that follows it. Users see their active sign-ins under **Where you're signed in** and can sign out one or all others. Signing out a sign-in deletes its sessions and its session unlock key, so that browser can no longer restore its ARK.
+
 ## Logout
 
 Logout should clear the DarkAuth session and the application's local state. ZK applications should also clear ARK, CAK, legacy DRK material, derived keys, callback state, and ephemeral private keys.

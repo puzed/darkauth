@@ -5,6 +5,8 @@ import { genericErrors } from "../../http/openapi-helpers.ts";
 import { withRateLimit } from "../../middleware/rateLimit.ts";
 import { createPendingAuth } from "../../models/authorize.ts";
 import { getClient } from "../../models/clients.ts";
+import { getUserClientConsent, parseScopes } from "../../models/consents.ts";
+import { getUserOrganizations, isUserOtpRequired } from "../../models/rbac.ts";
 import { getSession, getSessionId } from "../../services/sessions.ts";
 import { createZkPubKid, parseZkPub } from "../../services/zkDelivery.ts";
 import type { AuthorizationRequest, Context, ControllerSchema } from "../../types.ts";
@@ -17,26 +19,40 @@ import { parseQueryParams } from "../../utils/http.ts";
 import { validateCodeChallenge } from "../../utils/pkce.ts";
 import { resolveGrantedScopes } from "./token.ts";
 
-function parseScopeSet(scope: unknown): Set<string> {
-  if (typeof scope !== "string") return new Set();
-  return new Set(
-    scope
-      .split(/\s+/)
-      .map((item) => item.trim())
-      .filter(Boolean)
-  );
+async function resolveRememberedConsent(
+  context: Context,
+  userSub: string,
+  clientId: string,
+  grantedScopes: string[],
+  requireOrganizationSelection: boolean,
+  requestedOrganizationId: string | undefined
+): Promise<{ organizationId: string | undefined } | null> {
+  const consent = await getUserClientConsent(context, userSub, clientId);
+  if (!consent) return null;
+  const consentedScopes = new Set(parseScopes(consent.scopes));
+  if (!grantedScopes.every((scope) => consentedScopes.has(scope))) return null;
+  if (!requireOrganizationSelection) return { organizationId: requestedOrganizationId };
+  const activeOrganizationIds = (await getUserOrganizations(context, userSub))
+    .filter((membership) => membership.status === "active")
+    .map((membership) => membership.organizationId);
+  if (activeOrganizationIds.length !== 1) return null;
+  const organizationId = activeOrganizationIds[0];
+  if (!consent.organizationId || consent.organizationId !== organizationId) return null;
+  if (requestedOrganizationId && requestedOrganizationId !== organizationId) return null;
+  return { organizationId };
 }
 
-function sessionCoversAuthorization(
-  sessionData: Record<string, unknown> | null | undefined,
-  clientId: string,
-  grantedScopes: string[]
-): boolean {
-  if (!sessionData || sessionData.clientId !== clientId) return false;
-  const sessionScopes = parseScopeSet(sessionData.scope);
-  if (sessionScopes.size === 0) return false;
-  return grantedScopes.every((scope) => sessionScopes.has(scope));
-}
+const PromptSchema = z
+  .string()
+  .trim()
+  .refine((value) => {
+    const values = value.split(/\s+/).filter(Boolean);
+    if (!values.every((item) => ["none", "login", "consent", "select_account"].includes(item))) {
+      return false;
+    }
+    return !values.includes("none") || values.length === 1;
+  }, "Invalid prompt")
+  .optional();
 
 export const AuthorizationRequestSchema = z.object({
   client_id: z.string().min(1, { message: "client_id is required" }),
@@ -49,6 +65,7 @@ export const AuthorizationRequestSchema = z.object({
   code_challenge: z.string().optional(),
   code_challenge_method: z.string().optional(),
   zk_pub: z.string().optional(),
+  prompt: PromptSchema,
 });
 
 export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
@@ -125,15 +142,44 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
   const sessionId = getSessionId(request);
-  let userSub: string | undefined;
-  let sessionData: Record<string, unknown> | null = null;
+  const sessionData = sessionId ? await getSession(context, sessionId) : null;
+  const userSub = sessionData?.sub;
+  const prompts = new Set((authRequest.prompt ?? "").split(/\s+/).filter(Boolean));
+  const accountChoiceAllowed = prompts.has("select_account");
+  const consentAllowed =
+    client.rememberConsent &&
+    !prompts.has("login") &&
+    !prompts.has("consent") &&
+    !prompts.has("select_account");
+  const consented =
+    userSub && consentAllowed
+      ? await resolveRememberedConsent(
+          context,
+          userSub,
+          authRequest.client_id,
+          grantedScopes,
+          client.requireOrganizationSelection,
+          authRequest.organization_id
+        )
+      : null;
 
-  if (sessionId) {
-    sessionData = (await getSession(context, sessionId)) as Record<string, unknown> | null;
-    userSub = typeof sessionData?.sub === "string" ? sessionData.sub : undefined;
+  if (prompts.has("none")) {
+    const signedIn =
+      !!userSub &&
+      (sessionData?.otpVerified === true || !(await isUserOtpRequired(context, userSub)));
+    const error = !signedIn ? "login_required" : consented ? null : "consent_required";
+    if (error) {
+      const target = new URL(authRequest.redirect_uri);
+      target.searchParams.set("error", error);
+      if (authRequest.state) target.searchParams.set("state", authRequest.state);
+      response.statusCode = 302;
+      response.setHeader("Location", target.toString());
+      response.end();
+      return;
+    }
   }
-  const autoFinalize =
-    !zkPubKid && sessionCoversAuthorization(sessionData, authRequest.client_id, grantedScopes);
+
+  const organizationId = consented?.organizationId ?? authRequest.organization_id;
 
   await createPendingAuth(context, {
     requestId,
@@ -149,8 +195,9 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
     deliveredKeyKind: zkPubKid ? client.deliveredKeyKind : undefined,
     clientKeyScope: zkPubKid ? client.clientKeyScope : undefined,
     requireOrganizationSelection: client.requireOrganizationSelection,
-    userSub,
-    organizationId: authRequest.organization_id,
+    prompt: prompts.size > 0 ? [...prompts].join(" ") : undefined,
+    userSub: accountChoiceAllowed ? undefined : userSub,
+    organizationId,
     origin: `http://${request.headers.host}`,
     expiresAt,
   });
@@ -179,8 +226,9 @@ export const getAuthorize = withRateLimit("opaque")(async function getAuthorize(
   if (authRequest.client_id) qs.set("client_id", authRequest.client_id);
   if (authRequest.redirect_uri) qs.set("redirect_uri", authRequest.redirect_uri);
   if (authRequest.state) qs.set("state", authRequest.state);
-  if (authRequest.organization_id) qs.set("organization_id", authRequest.organization_id);
-  if (autoFinalize) qs.set("auto_finalize", "1");
+  if (organizationId) qs.set("organization_id", organizationId);
+  if (consented) qs.set("auto_finalize", "1");
+  if (prompts.size > 0) qs.set("prompt", [...prompts].join(" "));
   const redirectTo = `/${qs.toString() ? `?${qs.toString()}` : ""}`;
   response.statusCode = 302;
   response.setHeader("Location", redirectTo);
