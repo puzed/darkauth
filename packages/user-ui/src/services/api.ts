@@ -571,6 +571,7 @@ class ApiService {
         const err = new Error(
           data.error || `HTTP ${response.status}: ${response.statusText}`
         ) as Error & {
+          status?: number;
           code?: string;
           description?: string;
           details?: unknown;
@@ -578,6 +579,7 @@ class ApiService {
           resendAllowed?: boolean;
           email?: string;
         };
+        err.status = response.status;
         if (typeof data.code === "string") err.code = data.code;
         if (typeof data.error_description === "string") err.description = data.error_description;
         if (data.details !== undefined) err.details = data.details;

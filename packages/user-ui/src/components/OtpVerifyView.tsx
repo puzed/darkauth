@@ -25,7 +25,7 @@ export default function OtpVerifyView() {
         statusChecked = true;
         statusRequired = !!s.required;
         if (!s.enabled) {
-          window.location.replace("/otp/setup?forced=1");
+          navigate("/otp/setup?forced=1", { replace: true });
           return;
         }
       } catch {}

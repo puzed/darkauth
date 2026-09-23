@@ -1,10 +1,12 @@
 import QRCode from "qrcode";
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import api from "../services/api";
 import { completePendingUnlock } from "../services/pendingUnlock";
 import Button from "./Button";
 
 export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [provisioningUri, setProvisioningUri] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
         setLoading(true);
         const s = await api.getOtpStatus();
         if (s.enabled && !s.verified) {
-          window.location.replace("/otp/verify");
+          navigate("/otp/verify", { replace: true });
           return;
         }
         if (!s.enabled) {
@@ -40,7 +42,7 @@ export default function OtpFlow({ fullWidth = false }: { fullWidth?: boolean }) 
         setLoading(false);
       }
     })();
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     (async () => {

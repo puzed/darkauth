@@ -23,7 +23,10 @@ export async function recordUserClientConsent(
   data: { userSub: string; clientId: string; scope: string; organizationId: string | null }
 ) {
   const existing = await getUserClientConsent(context, data.userSub, data.clientId);
-  const scopes = parseScopes(`${existing?.scopes ?? ""} ${data.scope}`).join(" ");
+  const sameOrganization = (existing?.organizationId ?? null) === data.organizationId;
+  const scopes = parseScopes(
+    sameOrganization ? `${existing?.scopes ?? ""} ${data.scope}` : data.scope
+  ).join(" ");
   const now = new Date();
   await context.db
     .insert(userClientConsents)

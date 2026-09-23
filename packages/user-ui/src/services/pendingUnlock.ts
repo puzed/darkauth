@@ -25,12 +25,19 @@ export async function completePendingUnlock(): Promise<void> {
   }
 }
 
+async function accountHasNoKeyYet(): Promise<boolean> {
+  try {
+    await apiService.getWrappedDrk();
+    return false;
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status;
+    if (status === 404) return true;
+    throw error;
+  }
+}
+
 export async function unlockOrCreatePasswordArk(sub: string, exportKey: Uint8Array) {
-  const hasWrappedDrk = await apiService
-    .getWrappedDrk()
-    .then(() => true)
-    .catch(() => false);
-  if (hasWrappedDrk) return unlockArkWithExportKey(sub, exportKey);
+  if (!(await accountHasNoKeyYet())) return unlockArkWithExportKey(sub, exportKey);
   const keys = await cryptoService.deriveKeysFromExportKey(exportKey, sub);
   const drk = await cryptoService.generateDRK();
   try {

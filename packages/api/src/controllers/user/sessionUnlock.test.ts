@@ -16,6 +16,7 @@ import {
   users,
 } from "../../db/schema.ts";
 import { createClient } from "../../models/clients.ts";
+import { getUserClientConsent, recordUserClientConsent } from "../../models/consents.ts";
 import { refreshSessionWithToken, updateSession } from "../../services/sessions.ts";
 import { setSetting } from "../../services/settings.ts";
 import type { Context, SessionData } from "../../types.ts";
@@ -659,6 +660,53 @@ test("prompt=select_account lets the user finish as a different account", async 
     assert.equal(finalized.statusCode, 200);
     const authCode = await context.db.query.authCodes.findFirst();
     assert.equal(authCode?.userSub, "other-sub");
+  } finally {
+    await cleanup();
+  }
+});
+
+test("approving in a new organization does not carry scopes from the previous one", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await context.db.insert(organizations).values([
+      { id: "11111111-1111-4111-8111-111111111111", slug: "one", name: "One" },
+      { id: "22222222-2222-4222-8222-222222222222", slug: "two", name: "Two" },
+    ]);
+    await createClient(context, {
+      clientId: "atlas",
+      name: "Atlas",
+      type: "confidential",
+      requirePkce: false,
+      redirectUris: ["https://atlas.example/callback"],
+      scopes: ["openid", "profile", "email"],
+    });
+    await recordUserClientConsent(context, {
+      userSub: "user-sub",
+      clientId: "atlas",
+      scope: "openid profile",
+      organizationId: "11111111-1111-4111-8111-111111111111",
+    });
+    await recordUserClientConsent(context, {
+      userSub: "user-sub",
+      clientId: "atlas",
+      scope: "openid",
+      organizationId: "22222222-2222-4222-8222-222222222222",
+    });
+    const consent = await getUserClientConsent(context, "user-sub", "atlas");
+    assert.equal(consent?.scopes, "openid");
+    assert.equal(consent?.organizationId, "22222222-2222-4222-8222-222222222222");
+
+    await recordUserClientConsent(context, {
+      userSub: "user-sub",
+      clientId: "atlas",
+      scope: "email",
+      organizationId: "22222222-2222-4222-8222-222222222222",
+    });
+    assert.equal(
+      (await getUserClientConsent(context, "user-sub", "atlas"))?.scopes,
+      "openid email"
+    );
   } finally {
     await cleanup();
   }
