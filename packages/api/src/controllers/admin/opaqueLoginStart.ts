@@ -60,11 +60,11 @@ async function postAdminOpaqueLoginStartHandler(
       const opaqueRecordRow = await getAdminOpaqueRecordByAdminId(context, adminUser.id);
       const envelopeBuffer =
         typeof opaqueRecordRow?.envelope === "string"
-          ? Buffer.from((opaqueRecordRow?.envelope as unknown as string).slice(2), "hex")
+          ? Buffer.from((opaqueRecordRow.envelope as unknown as string).slice(2), "hex")
           : (opaqueRecordRow?.envelope ?? Buffer.alloc(0));
       const serverPubkeyBuffer =
         typeof opaqueRecordRow?.serverPubkey === "string"
-          ? Buffer.from((opaqueRecordRow?.serverPubkey as unknown as string).slice(2), "hex")
+          ? Buffer.from((opaqueRecordRow.serverPubkey as unknown as string).slice(2), "hex")
           : (opaqueRecordRow?.serverPubkey ?? Buffer.alloc(0));
 
       if (!opaqueRecordRow || envelopeBuffer.length === 0 || serverPubkeyBuffer.length === 0) {

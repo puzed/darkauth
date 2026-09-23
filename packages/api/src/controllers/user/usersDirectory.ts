@@ -120,7 +120,7 @@ async function requireUsersReadPermission(
           throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
         }
         const client = await getClient(context, clientId);
-        if (!client || !client.grantTypes.includes("client_credentials")) {
+        if (!client?.grantTypes.includes("client_credentials")) {
           throw new ForbiddenError("Missing required permission/scope: darkauth.users:read");
         }
         return { mode };

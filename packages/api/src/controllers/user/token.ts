@@ -180,7 +180,7 @@ function getBearerToken(request: IncomingMessage): string {
   const auth = request.headers.authorization;
   if (typeof auth !== "string") throw new UnauthorizedError("Bearer token required");
   const [scheme, token] = auth.split(" ");
-  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
+  if (scheme?.toLowerCase() !== "bearer" || !token) {
     throw new UnauthorizedError("Bearer token required");
   }
   return token;
@@ -652,7 +652,7 @@ export const postToken = withRateLimit("token")(
 
       if (tokenRequest.grant_type === "client_credentials") {
         const authHeader = parseAuthorizationHeader(request);
-        if (!authHeader || authHeader.type !== "Basic") {
+        if (authHeader?.type !== "Basic") {
           throw new UnauthorizedClientError("Basic authentication required");
         }
 
@@ -794,7 +794,7 @@ export const postToken = withRateLimit("token")(
       } else if (client.tokenEndpointAuthMethod === "client_secret_basic") {
         // Confidential client - require Basic auth
         const authHeader = parseAuthorizationHeader(request);
-        if (!authHeader || authHeader.type !== "Basic") {
+        if (authHeader?.type !== "Basic") {
           throw new UnauthorizedClientError("Basic authentication required");
         }
 

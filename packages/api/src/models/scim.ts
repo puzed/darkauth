@@ -534,7 +534,7 @@ export async function requireScimBearerToken(context: Context, token: string | n
       )
     );
   const match = candidates.find((candidate) => constantTimeCompare(candidate.tokenHash, tokenHash));
-  if (!match || !match.connectionId || !match.organizationId)
+  if (!match?.connectionId || !match.organizationId)
     throw new UnauthorizedError("Invalid SCIM bearer token");
   await context.db
     .update(scimBearerTokens)

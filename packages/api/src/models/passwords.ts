@@ -105,7 +105,7 @@ export async function startUserPasswordSetForAdmin(
 ) {
   if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
   const user = await context.db.query.users.findFirst({ where: eq(users.sub, userSub) });
-  if (!user || !user.email) throw new NotFoundError("User not found");
+  if (!user?.email) throw new NotFoundError("User not found");
   const registrationResponse = await context.services.opaque.startRegistration(
     requestBuffer,
     user.email
@@ -119,7 +119,7 @@ export async function finishUserPasswordSetForAdmin(
 ) {
   if (!context.services.opaque) throw new ValidationError("OPAQUE service not available");
   const user = await context.db.query.users.findFirst({ where: eq(users.sub, params.userSub) });
-  if (!user || !user.email) throw new NotFoundError("User not found");
+  if (!user?.email) throw new NotFoundError("User not found");
   const anyMatch = await context.db.query.userPasswordHistory.findFirst({
     where: (_fields, operators) =>
       operators.and(

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import {
   type AuthenticationResponseJSON,
-  type AuthenticatorTransportFuture,
+  type AuthenticatorTransport,
   type RegistrationResponseJSON,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
@@ -238,7 +238,7 @@ export const postWebAuthnLoginFinish = withRateLimit("webauthn")(
         id: credential.credentialId,
         publicKey: new Uint8Array(credential.publicKey || Buffer.alloc(0)),
         counter: credential.signCount,
-        transports: credential.transports as AuthenticatorTransportFuture[],
+        transports: credential.transports as AuthenticatorTransport[],
       },
       requireUserVerification: false,
     });

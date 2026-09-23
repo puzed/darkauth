@@ -304,12 +304,10 @@ export class CredentialFile extends Serializable {
         record: RegistrationRecord,
         client_identity?: string
     ) {
-        if (
-            !(
-                Serializable.check_string(credential_identifier) &&
-                (client_identity ? Serializable.check_string(client_identity) : true)
-            )
-        ) {
+        if (!(
+            Serializable.check_string(credential_identifier) &&
+            (client_identity ? Serializable.check_string(client_identity) : true)
+        )) {
             throw new Error('expected string inputs')
         }
         super()
@@ -343,10 +341,9 @@ export class CredentialFile extends Serializable {
         const td = new TextDecoder()
         const res = decode_vector_16(u8array)
         const credential_identifier = td.decode(res.payload)
-        let start = 0
         let end = res.consumed
 
-        start = end
+        let start = end
         end += RegistrationRecord.sizeSerialized(cfg)
         const record = RegistrationRecord.deserialize(cfg, Array.from(u8array.slice(start, end)))
 

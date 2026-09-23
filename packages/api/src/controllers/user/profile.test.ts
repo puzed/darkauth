@@ -144,7 +144,7 @@ test("putUserProfile updates name and live session data", async () => {
     const session = await context.db.query.sessions.findFirst({
       where: eq(sessions.id, "profile-session"),
     });
-    assert.equal((session?.data as { name?: string }).name, "Updated Name");
+    assert.equal((session?.data as { name?: string } | undefined)?.name, "Updated Name");
     const audit = await context.db.query.auditLogs.findFirst({
       where: eq(auditLogs.eventType, "USER_PROFILE_NAME_UPDATED"),
     });

@@ -215,7 +215,7 @@ test("authorize finalization allows switching away from the session organization
     assert.equal(authCode?.organizationId, defaultOrganizationId);
     const session = await context.db.query.sessions.findFirst();
     assert.equal(
-      (session?.data as { organizationId?: string }).organizationId,
+      (session?.data as { organizationId?: string } | undefined)?.organizationId,
       defaultOrganizationId
     );
   } finally {

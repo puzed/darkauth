@@ -122,7 +122,7 @@ test("consumeVerificationTokenAndApply changes contact email while preserving OP
     const session = await db.query.sessions.findFirst({
       where: eq(sessions.id, "email-change-session"),
     });
-    assert.equal((session?.data as { email?: string }).email, "new@example.com");
+    assert.equal((session?.data as { email?: string } | undefined)?.email, "new@example.com");
   } finally {
     await close();
     fs.rmSync(directory, { recursive: true, force: true });
