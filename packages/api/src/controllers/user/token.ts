@@ -78,6 +78,24 @@ export async function assertClientSecretMatches(
   }
 }
 
+export function readClientSecretCredentials(
+  request: IncomingMessage,
+  tokenRequest: { client_id?: string; client_secret?: string }
+): { clientId: string; clientSecret: string } | undefined {
+  const authHeader = parseAuthorizationHeader(request);
+  if (authHeader?.type === "Basic") {
+    if (tokenRequest.client_secret) {
+      throw new InvalidRequestError("Only one client authentication method is allowed");
+    }
+    const credentials = decodeBasicAuth(authHeader.credentials);
+    if (!credentials) throw new UnauthorizedClientError("Invalid Basic authentication format");
+    return { clientId: credentials.username, clientSecret: credentials.password };
+  }
+  if (!tokenRequest.client_secret) return undefined;
+  if (!tokenRequest.client_id) throw new InvalidRequestError("client_id is required");
+  return { clientId: tokenRequest.client_id, clientSecret: tokenRequest.client_secret };
+}
+
 export function resolveGrantedScopes(allowedScopes: string[], requestedScope?: string): string[] {
   const requestedScopes = (requestedScope || "")
     .trim()
@@ -454,21 +472,22 @@ export const postToken = withRateLimit("token")(
         if (!refreshToken) throw new InvalidRequestError("refresh_token is required");
         let providedClientId: string | undefined;
         let clientAuthOk = false;
-        const basic = parseAuthorizationHeader(request);
-        if (basic && basic.type === "Basic") {
-          const credentials = decodeBasicAuth(basic.credentials);
-          if (!credentials)
-            throw new UnauthorizedClientError("Invalid Basic authentication format");
+        const credentials = readClientSecretCredentials(request, tokenRequest);
+        if (credentials) {
           const client = await (await import("../../models/clients.ts")).getClient(
             context,
-            credentials.username
+            credentials.clientId
           );
           if (!client) throw new UnauthorizedClientError("Unknown client");
           if (client.tokenEndpointAuthMethod !== "client_secret_basic")
             throw new UnauthorizedClientError("Invalid client auth method");
           if (!client.grantTypes.includes("refresh_token"))
             throw new UnauthorizedClientError("refresh_token grant not allowed for this client");
-          await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
+          await assertClientSecretMatches(
+            context,
+            client.clientSecretEnc,
+            credentials.clientSecret
+          );
           providedClientId = client.clientId;
           clientAuthOk = true;
         } else {
@@ -651,19 +670,14 @@ export const postToken = withRateLimit("token")(
       }
 
       if (tokenRequest.grant_type === "client_credentials") {
-        const authHeader = parseAuthorizationHeader(request);
-        if (authHeader?.type !== "Basic") {
-          throw new UnauthorizedClientError("Basic authentication required");
-        }
-
-        const credentials = decodeBasicAuth(authHeader.credentials);
+        const credentials = readClientSecretCredentials(request, tokenRequest);
         if (!credentials) {
-          throw new UnauthorizedClientError("Invalid Basic authentication format");
+          throw new UnauthorizedClientError("Client authentication required");
         }
 
         const client = await (await import("../../models/clients.ts")).getClient(
           context,
-          credentials.username
+          credentials.clientId
         );
         if (!client) {
           throw new UnauthorizedClientError("Unknown client");
@@ -677,7 +691,7 @@ export const postToken = withRateLimit("token")(
         if (!client.grantTypes.includes("client_credentials")) {
           throw new UnauthorizedClientError("client_credentials grant not allowed for this client");
         }
-        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.clientSecret);
 
         const allowedScopes = resolveClientScopeKeys(client.scopes);
         const grantedScopes = resolveGrantedScopes(allowedScopes, tokenRequest.scope);
@@ -792,25 +806,19 @@ export const postToken = withRateLimit("token")(
         }
         authenticatedClientId = tokenRequest.client_id;
       } else if (client.tokenEndpointAuthMethod === "client_secret_basic") {
-        // Confidential client - require Basic auth
-        const authHeader = parseAuthorizationHeader(request);
-        if (authHeader?.type !== "Basic") {
-          throw new UnauthorizedClientError("Basic authentication required");
-        }
-
-        const credentials = decodeBasicAuth(authHeader.credentials);
+        const credentials = readClientSecretCredentials(request, tokenRequest);
         if (!credentials) {
-          throw new UnauthorizedClientError("Invalid Basic authentication format");
+          throw new UnauthorizedClientError("Client authentication required");
         }
 
-        if (credentials.username !== authCode.clientId) {
+        if (credentials.clientId !== authCode.clientId) {
           throw new UnauthorizedClientError("Client ID does not match authorization code");
         }
 
         // Decrypt and verify client secret
-        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.password);
+        await assertClientSecretMatches(context, client.clientSecretEnc, credentials.clientSecret);
 
-        authenticatedClientId = credentials.username;
+        authenticatedClientId = credentials.clientId;
       } else {
         throw new InvalidRequestError("Unsupported client authentication method");
       }

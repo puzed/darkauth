@@ -35,7 +35,7 @@ export default function Oidc() {
         "Discovery: GET /api/.well-known/openid-configuration",
         "JWKS: GET /api/.well-known/jwks.json",
         "Authorization Code + PKCE (S256 required for public clients)",
-        "Confidential clients: client_secret_basic authentication",
+        "Confidential clients: client_secret_basic or client_secret_post authentication",
         "ID tokens signed with EdDSA (Ed25519)",
         "Refresh tokens: hashed at rest, single-use rotation, client-bound",
         "Endpoints: userinfo, introspect, revoke",
