@@ -7,7 +7,12 @@ import { Readable } from "node:stream";
 import { test } from "node:test";
 import { createPglite } from "../../db/pglite.ts";
 import { authCodes, clients, organizationMembers, organizations, users } from "../../db/schema.ts";
-import { ForbiddenError, InvalidGrantError, UnauthorizedClientError } from "../../errors.ts";
+import {
+  ForbiddenError,
+  InvalidGrantError,
+  InvalidRequestError,
+  UnauthorizedClientError,
+} from "../../errors.ts";
 import { generateEdDSAKeyPair, signJWT, storeKeyPair, verifyJWT } from "../../services/jwks.ts";
 import {
   createSession,
@@ -256,6 +261,11 @@ test("openid discovery advertises oauth metadata endpoints", async () => {
     assert.equal(json.userinfo_endpoint, "http://localhost:9080/api/userinfo");
     assert.equal(json.introspection_endpoint, "http://localhost:9080/api/introspect");
     assert.equal(json.revocation_endpoint, "http://localhost:9080/api/revoke");
+    assert.deepEqual(json.token_endpoint_auth_methods_supported, [
+      "none",
+      "client_secret_basic",
+      "client_secret_post",
+    ]);
   } finally {
     await cleanup();
   }
@@ -332,6 +342,140 @@ test("token redeems public authorization code clients with none auth", async () 
     assert.equal(json.zk_key_hash, undefined);
     assert.equal(json.zk_key_kind, undefined);
     assert.equal(json.zk_key_version, undefined);
+  } finally {
+    await cleanup();
+  }
+});
+
+function confidentialCodeRequest(
+  code: string,
+  codeVerifier: string,
+  credentials: { authorization?: string; clientSecret?: string }
+) {
+  const body = new URLSearchParams({
+    grant_type: "authorization_code",
+    code,
+    redirect_uri: "https://app.example.com/callback",
+    client_id: "confidential-client",
+    code_verifier: codeVerifier,
+  });
+  if (credentials.clientSecret) body.set("client_secret", credentials.clientSecret);
+  return createRequest({
+    method: "POST",
+    url: "/token",
+    authorization: credentials.authorization,
+    body: body.toString(),
+  });
+}
+
+for (const [method, credentials] of [
+  ["client_secret_basic", { authorization: basic("confidential-client", "secret") }],
+  ["client_secret_post", { clientSecret: "secret" }],
+] as const) {
+  test(`token redeems confidential authorization codes with ${method}`, async () => {
+    const { context, cleanup } = await createContext();
+    try {
+      await createUser(context);
+      await createUserOrganization(context);
+      await createConfidentialClient(context);
+      const codeVerifier = await createAuthorizationCode(
+        context,
+        "confidential-client",
+        "confidential-code"
+      );
+      const response = createResponse();
+
+      await postToken(
+        context,
+        confidentialCodeRequest("confidential-code", codeVerifier, credentials),
+        response
+      );
+
+      const json = response.json as Record<string, unknown>;
+      assert.equal(response.statusCode, 200);
+      assert.equal(typeof json.access_token, "string");
+      assert.equal(typeof json.id_token, "string");
+    } finally {
+      await cleanup();
+    }
+  });
+}
+
+test("token rejects a wrong client_secret_post secret", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createConfidentialClient(context);
+    const codeVerifier = await createAuthorizationCode(
+      context,
+      "confidential-client",
+      "confidential-code"
+    );
+
+    await assert.rejects(
+      () =>
+        postToken(
+          context,
+          confidentialCodeRequest("confidential-code", codeVerifier, { clientSecret: "wrong" }),
+          createResponse()
+        ),
+      UnauthorizedClientError
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("token rejects confidential clients without client credentials", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createConfidentialClient(context);
+    const codeVerifier = await createAuthorizationCode(
+      context,
+      "confidential-client",
+      "confidential-code"
+    );
+
+    await assert.rejects(
+      () =>
+        postToken(
+          context,
+          confidentialCodeRequest("confidential-code", codeVerifier, {}),
+          createResponse()
+        ),
+      (error: unknown) =>
+        error instanceof UnauthorizedClientError &&
+        error.message === "Client authentication required"
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test("token rejects client_secret_basic combined with client_secret_post", async () => {
+  const { context, cleanup } = await createContext();
+  try {
+    await createUser(context);
+    await createConfidentialClient(context);
+    const codeVerifier = await createAuthorizationCode(
+      context,
+      "confidential-client",
+      "confidential-code"
+    );
+
+    await assert.rejects(
+      () =>
+        postToken(
+          context,
+          confidentialCodeRequest("confidential-code", codeVerifier, {
+            authorization: basic("confidential-client", "secret"),
+            clientSecret: "secret",
+          }),
+          createResponse()
+        ),
+      InvalidRequestError
+    );
   } finally {
     await cleanup();
   }

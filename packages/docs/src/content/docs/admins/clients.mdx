@@ -13,7 +13,7 @@ Require PKCE for public clients. PKCE protects against authorization code interc
 
 ## Confidential clients
 
-Confidential clients can protect a client secret server-side. They use `client_secret_basic` at the token endpoint and can support server-side web apps, support tools, or backend services.
+Confidential clients can protect a client secret server-side. They use `client_secret_basic` or `client_secret_post` at the token endpoint and can support server-side web apps, support tools, or backend services.
 
 Generated client secrets are shown only when a confidential client is created or when a write admin rotates the secret. Later reads never reveal the same plaintext secret. Store generated client secrets in a secret manager immediately.
 

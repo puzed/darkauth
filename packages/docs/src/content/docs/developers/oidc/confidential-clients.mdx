@@ -7,7 +7,7 @@ Confidential clients are applications that can keep a secret away from the brows
 
 ## Client authentication
 
-DarkAuth supports confidential clients using `client_secret_basic`. The application sends the client ID and secret to the token endpoint using HTTP Basic authentication. This proves the token exchange is coming from a server that has the registered secret.
+DarkAuth supports confidential clients using `client_secret_basic` or `client_secret_post`. The application sends the client ID and secret to the token endpoint using HTTP Basic authentication, or as `client_id` and `client_secret` form fields. Use one method per request. This proves the token exchange is coming from a server that has the registered secret.
 
 Confidential clients must authenticate as confidential clients. They cannot redeem authorization codes or refresh tokens by sending only `client_id` like a public client.
 

@@ -27,7 +27,7 @@ export async function getWellKnownOpenidConfiguration(
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["EdDSA"],
     scopes_supported: ["openid", "profile", "email", "darkauth.users:read"],
-    token_endpoint_auth_methods_supported: ["none", "client_secret_basic"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_basic", "client_secret_post"],
     claims_supported: [
       "sub",
       "iss",
