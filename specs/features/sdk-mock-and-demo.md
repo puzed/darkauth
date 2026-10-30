@@ -19,10 +19,16 @@ See `packages/darkauth-client/README.md` for the public API and integration exam
 
 - discovery and EdDSA JWKS;
 - authorization code with S256 PKCE;
-- configurable users, organizations, roles, and permissions;
+- configurable users, organizations, roles, organization and user-level permissions;
+- per-client allowed scopes and organizationless clients (`requireOrganizationSelection: false`);
+- separate ID and access tokens shaped like DarkAuth's (`token_use`, `azp`, `scope`, scope-delegated `permissions`);
+- `/userinfo` for access tokens;
 - bearer-backed session and organization switching endpoints;
-- rotating refresh tokens;
-- RP-initiated logout navigation.
+- single-use rotating refresh tokens, usable cross-origin from allowed SPA origins in token refresh mode;
+- RP-initiated logout navigation that revokes the sign-in's refresh tokens;
+- zero-knowledge key delivery v2 for `keyDelivery: v2` clients: the CAK is derived with the real derivation from a per-user ARK (configured, or derived from `keySeed` and `sub`), delivered as `darkauth_key_jwe`, and bound to the code through `zk_key_hash`.
+
+Tests in `packages/darkauth-mock/tests` drive the real browser SDK (`initiateLogin`, `handleCallback`, `refreshSession`, `endSession`) against the mock.
 
 Configuration is YAML; see `packages/darkauth-mock/darkauth-mock.example.yaml`. With `DARKAUTH_MOCK_CONFIG`, the provider generates an Ed25519 private JWK on first launch, writes it to that file with restrictive permissions, and reuses it. The mock does not implement DarkAuth's OPAQUE or production security controls and must not be deployed as an identity provider.
 

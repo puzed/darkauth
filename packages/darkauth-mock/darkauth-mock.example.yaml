@@ -13,9 +13,25 @@ server:
 app:
   name: Example App
 
+# Seed for each user's deterministic account root key (ARK). Change it to rotate every CAK.
+keySeed: example-dev-seed
+
 # OAuth client_ids allowed to obtain tokens (also used as the token audience).
+# A plain string is an ordinary OIDC client that needs an organization.
 clients:
   - example
+
+  # A zero-knowledge (v2) client: the SDK's zk_pub receives a Client App Key (CAK)
+  # derived from the user's ARK, delivered as darkauth_key_jwe in the redirect fragment.
+  - id: example-zk
+    keyDelivery: v2
+    # organization (default) binds the CAK to the selected org when one is required; account never does.
+    clientKeyScope: organization
+    # false lets users sign in without picking an organization.
+    requireOrganizationSelection: false
+    # When set, requested scopes must be in this list and access-token
+    # permissions are limited to permissions that are also granted scopes.
+    scopes: [openid, profile, email, example:admin]
 
 # Permission catalog surfaced as checkboxes on the custom-identity form.
 permissions:
@@ -45,3 +61,10 @@ users:
     name: Demo Member
     memberships:
       - { org: demo, roles: [member] }
+
+  # User-level permissions apply with or without an organization.
+  # ark (base64url, 32 bytes) and keyId are optional; ark defaults to one derived from keySeed + sub.
+  - sub: zk-admin
+    email: zk-admin@example.test
+    name: ZK Admin
+    permissions: [example:admin]

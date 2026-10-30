@@ -58,7 +58,7 @@ after(async () => {
 test("uses a generic built-in config when no file is supplied", async () => {
   const fallback = await loadConfig({});
   assert.equal(fallback.appName, "the app");
-  assert.deepEqual(fallback.clients, ["local"]);
+  assert.deepEqual(fallback.clients.map((client) => client.id), ["local"]);
   assert.doesNotMatch(JSON.stringify(fallback), /atlas/i);
 });
 
