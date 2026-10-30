@@ -20,7 +20,18 @@ export type MockUser = {
   email: string;
   name: string;
   picture?: string;
+  permissions: string[];
+  ark?: string;
+  keyId?: string;
   memberships: MockMembership[];
+};
+
+export type MockClient = {
+  id: string;
+  keyDelivery: "none" | "v2";
+  clientKeyScope: "organization" | "account";
+  requireOrganizationSelection: boolean;
+  scopes?: string[];
 };
 
 export type MockConfig = {
@@ -29,7 +40,8 @@ export type MockConfig = {
   issuer: string;
   allowedOrigins: string[];
   appName: string;
-  clients: string[];
+  keySeed: string;
+  clients: MockClient[];
   permissions: string[];
   roles: Record<string, string[]>;
   organizations: MockOrganization[];
@@ -49,7 +61,8 @@ const DEFAULT_CONFIG: MockConfig = {
   issuer: "http://localhost:3020",
   allowedOrigins: ["http://localhost:3000", "http://localhost:5173"],
   appName: "the app",
-  clients: ["local"],
+  keySeed: "darkauth-mock",
+  clients: [{ id: "local", keyDelivery: "none", clientKeyScope: "organization", requireOrganizationSelection: true }],
   permissions: ["login", "admin"],
   roles: { admin: ["login", "admin"], member: ["login"] },
   organizations: [{ id: "local-org", slug: "local", name: "Local Development" }],
@@ -58,6 +71,7 @@ const DEFAULT_CONFIG: MockConfig = {
       sub: "local-developer",
       email: "developer@example.test",
       name: "Local Developer",
+      permissions: [],
       memberships: [{ org: "local-org", roles: ["admin"], permissions: [] }],
     },
   ],
@@ -96,13 +110,18 @@ export function normalizeConfig(input: unknown, base: MockConfig = DEFAULT_CONFI
     ? root.users.map((user) => toUser(user, organizations)).filter((user): user is MockUser => user !== null)
     : base.users;
 
+  const clients = Array.isArray(root.clients)
+    ? root.clients.map(toClient).filter((client): client is MockClient => client !== null)
+    : [];
+
   return {
     host: asString(server.host) || base.host,
     port,
     issuer,
     allowedOrigins: allowedOrigins.length ? allowedOrigins : base.allowedOrigins,
     appName: asString(app.name) || base.appName,
-    clients: dedupe(toStringArray(root.clients)) || base.clients,
+    keySeed: asString(root.keySeed) || base.keySeed,
+    clients: clients.length ? clients : base.clients,
     permissions,
     roles,
     organizations: organizations.length ? organizations : base.organizations,
@@ -200,12 +219,31 @@ function toUser(value: unknown, organizations: MockOrganization[]): MockUser | n
         .filter((membership): membership is MockMembership => membership !== null)
     : [];
   const picture = asString(record.picture);
+  const ark = asString(record.ark);
+  const keyId = asString(record.keyId);
   return {
     sub,
     email,
     name: asString(record.name) || email,
     ...(picture ? { picture } : {}),
+    permissions: toStringArray(record.permissions),
+    ...(ark ? { ark } : {}),
+    ...(keyId ? { keyId } : {}),
     memberships,
+  };
+}
+
+function toClient(value: unknown): MockClient | null {
+  const record = typeof value === "string" ? { id: value } : asRecord(value);
+  const id = asString(record.id);
+  if (!id) return null;
+  const scopes = toStringArray(record.scopes);
+  return {
+    id,
+    keyDelivery: asString(record.keyDelivery) === "v2" ? "v2" : "none",
+    clientKeyScope: asString(record.clientKeyScope) === "account" ? "account" : "organization",
+    requireOrganizationSelection: record.requireOrganizationSelection !== false,
+    ...(scopes.length ? { scopes } : {}),
   };
 }
 

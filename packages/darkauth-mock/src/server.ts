@@ -1,7 +1,8 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { SignJWT, jwtVerify } from "jose";
-import { type MockConfig, resolveMembership, type SigningKey } from "./config.ts";
+import { type MockClient, type MockConfig, type MockUser, resolveMembership, type SigningKey } from "./config.ts";
+import { createClientKeyJwe, deriveMockArk } from "./keyDelivery.ts";
 
 type LocalOrganization = {
   organizationId: string;
@@ -17,32 +18,57 @@ type LocalProfile = {
   email: string;
   name: string;
   picture?: string;
+  permissions: string[];
+  ark: Uint8Array;
+  keyId: string;
   organizations: LocalOrganization[];
 };
 
-type AuthCode = {
+type Grant = {
   profile: LocalProfile;
-  organizationId: string;
+  organizationId?: string;
   clientId: string;
+  scope: string;
+  sid: string;
+};
+
+type AuthCode = Grant & {
   redirectUri: string;
   codeChallenge: string;
+  nonce?: string;
+  keyHash?: string;
   expiresAt: number;
 };
 
-type RefreshSession = {
-  profile: LocalProfile;
-  organizationId: string;
-  clientId: string;
+type RefreshEntry = {
+  sid: string;
   expiresAt: number;
 };
+
+type State = {
+  codes: Map<string, AuthCode>;
+  sessions: Map<string, Grant>;
+  refreshTokens: Map<string, RefreshEntry>;
+};
+
+class HttpError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.status = status;
+    this.code = code;
+  }
+}
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 const REFRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const TOKEN_TTL_SECONDS = 60 * 60;
+const DEFAULT_KEY_ID = "mock-account-key";
 
 export function createDarkAuthMockServer(config: MockConfig, signingKey: SigningKey) {
-  const codes = new Map<string, AuthCode>();
-  const refreshSessions = new Map<string, RefreshSession>();
+  const state: State = { codes: new Map(), sessions: new Map(), refreshTokens: new Map() };
 
   return createServer(async (request, response) => {
     try {
@@ -59,48 +85,53 @@ export function createDarkAuthMockServer(config: MockConfig, signingKey: Signing
       if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") return sendJson(response, { keys: [signingKey.publicJwk] });
       if (request.method === "GET" && url.pathname === "/authorize") return sendHtml(response, authorizePage(config, url));
       if (request.method === "POST" && url.pathname === "/authorize/continue") {
-        const body = await readForm(request);
-        const authUrl = continueAuthorize(config, codes, body);
+        const authUrl = await continueAuthorize(config, state, await readForm(request));
         response.writeHead(303, { location: authUrl.toString() });
         response.end();
         return;
       }
       if (request.method === "POST" && url.pathname === "/token") {
-        const body = await readForm(request);
-        return sendJson(response, await tokenResponse(config, signingKey, codes, refreshSessions, body));
+        return sendJson(response, await tokenResponse(config, signingKey, state, await readForm(request)));
+      }
+      if ((request.method === "GET" || request.method === "POST") && url.pathname === "/userinfo") {
+        const { grant, payload } = await verifyBearer(config, signingKey, state, request);
+        if (payload.token_use !== "access") throw new HttpError(401, "invalid_token", "Access token required");
+        return sendJson(response, userInfo(grant, payload));
       }
       if (request.method === "GET" && url.pathname === "/api/user/organizations") {
-        const session = await verifyBearer(config, signingKey, request);
-        return sendJson(response, { organizations: session.profile.organizations });
+        const { grant } = await verifyBearer(config, signingKey, state, request);
+        return sendJson(response, { organizations: grant.profile.organizations });
       }
       if (request.method === "GET" && url.pathname === "/api/user/session") {
-        const session = await optionalBearer(config, signingKey, request);
+        const session = await optionalBearer(config, signingKey, state, request);
         if (!session) return sendJson(response, { authenticated: false });
-        const org = findOrganization(session.profile, session.organizationId);
+        const org = activeOrganization(session.grant);
         return sendJson(response, {
           authenticated: true,
-          sub: session.profile.sub,
-          email: session.profile.email,
-          name: session.profile.name,
-          organizationId: org.organizationId,
-          organizationSlug: org.slug,
+          sub: session.grant.profile.sub,
+          email: session.grant.profile.email,
+          name: session.grant.profile.name,
+          organizationId: org?.organizationId,
+          organizationSlug: org?.slug,
         });
       }
       if (request.method === "POST" && url.pathname === "/api/token/organization") {
-        const session = await verifyBearer(config, signingKey, request);
+        const { grant } = await verifyBearer(config, signingKey, state, request);
         const body = await readJson(request);
         const organizationId = stringValue(body.organization_id);
-        const clientId = stringValue(body.client_id) || config.clients[0] || "";
-        if (!organizationId) return sendJson(response, { error: "invalid_request", message: "organization_id is required" }, 400);
-        const tokenSet = await issueTokenSet(config, signingKey, refreshSessions, session.profile, organizationId, clientId);
-        return sendJson(response, tokenSet);
+        if (!organizationId) throw new Error("organization_id is required");
+        const clientId = stringValue(body.client_id) || grant.clientId;
+        const next = { ...grant, organizationId, clientId, sid: randomUUID() };
+        findOrganization(next.profile, organizationId);
+        return sendJson(response, await issueTokenSet(config, signingKey, state, next, "refresh_token"));
       }
       if (request.method === "GET" && url.pathname === "/api/logout") {
+        await endSession(config, signingKey, state, url.searchParams.get("id_token_hint"));
         const redirect = url.searchParams.get("post_logout_redirect_uri");
         if (redirect) {
           const next = new URL(redirect);
-          const state = url.searchParams.get("state");
-          if (state) next.searchParams.set("state", state);
+          const logoutState = url.searchParams.get("state");
+          if (logoutState) next.searchParams.set("state", logoutState);
           response.writeHead(303, { location: next.toString() });
           response.end();
           return;
@@ -111,6 +142,7 @@ export function createDarkAuthMockServer(config: MockConfig, signingKey: Signing
       sendJson(response, { error: "not_found", message: "Not found" }, 404);
     } catch (error) {
       const message = error instanceof Error ? error.message : "DarkAuth Mock request failed";
+      if (error instanceof HttpError) return sendJson(response, { error: error.code, message }, error.status);
       sendJson(response, { error: "invalid_request", message }, 400);
     }
   });
@@ -121,208 +153,255 @@ export function discovery(config: MockConfig) {
     issuer: config.issuer,
     authorization_endpoint: `${config.issuer}/authorize`,
     token_endpoint: `${config.issuer}/token`,
+    userinfo_endpoint: `${config.issuer}/userinfo`,
     jwks_uri: `${config.issuer}/.well-known/jwks.json`,
     end_session_endpoint: `${config.issuer}/api/logout`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "refresh_token"],
     subject_types_supported: ["public"],
     id_token_signing_alg_values_supported: ["EdDSA"],
+    scopes_supported: ["openid", "profile", "email"],
     token_endpoint_auth_methods_supported: ["none"],
+    claims_supported: ["sub", "iss", "aud", "exp", "iat", "email", "email_verified", "name", "permissions"],
     code_challenge_methods_supported: ["S256"],
   };
 }
 
-function continueAuthorize(config: MockConfig, codes: Map<string, AuthCode>, body: URLSearchParams) {
+async function continueAuthorize(config: MockConfig, state: State, body: URLSearchParams) {
   const redirectUri = required(body, "redirect_uri");
-  const state = required(body, "state");
-  const clientId = required(body, "client_id");
-  requireKnownClient(config, clientId);
+  const oauthState = required(body, "state");
+  const client = requireClient(config, required(body, "client_id"));
   const codeChallenge = required(body, "code_challenge");
+  const scope = grantedScope(client, body.get("scope") || "");
   const { profile, requestedOrg } = buildProfile(config, body);
-  if (!requestedOrg) throw new Error("At least one local organization is required");
-  const org = findOrganization(profile, requestedOrg);
+  const organizationId = requestedOrg
+    || (client.requireOrganizationSelection ? profile.organizations[0]?.organizationId : undefined);
+  if (client.requireOrganizationSelection && !organizationId) throw new Error("At least one local organization is required");
+  if (organizationId) findOrganization(profile, organizationId);
+
   const code = randomUUID();
-  codes.set(code, {
-    profile,
-    organizationId: org.organizationId,
-    clientId,
-    redirectUri,
-    codeChallenge,
-    expiresAt: Date.now() + CODE_TTL_MS,
-  });
   const callback = new URL(redirectUri);
   callback.searchParams.set("code", code);
-  callback.searchParams.set("state", state);
+  callback.searchParams.set("state", oauthState);
+  const zkPub = body.get("zk_pub");
+  let keyHash: string | undefined;
+  if (client.keyDelivery === "v2" && zkPub) {
+    const keyScoped = client.clientKeyScope === "organization" && client.requireOrganizationSelection;
+    const delivery = await createClientKeyJwe(zkPub, {
+      ark: profile.ark,
+      sub: profile.sub,
+      keyId: profile.keyId,
+      clientId: client.id,
+      organizationId: keyScoped ? organizationId : undefined,
+      state: oauthState,
+      redirectUri,
+    });
+    keyHash = delivery.keyHash;
+    callback.hash = `darkauth_key_jwe=${delivery.jwe}`;
+  }
+  const nonce = body.get("nonce");
+  state.codes.set(code, {
+    profile,
+    organizationId,
+    clientId: client.id,
+    scope,
+    sid: randomUUID(),
+    redirectUri,
+    codeChallenge,
+    ...(nonce ? { nonce } : {}),
+    ...(keyHash ? { keyHash } : {}),
+    expiresAt: Date.now() + CODE_TTL_MS,
+  });
   return callback;
 }
 
+function grantedScope(client: MockClient, requested: string) {
+  const requestedScopes = requested.split(/\s+/).filter(Boolean);
+  if (!client.scopes) return requestedScopes.join(" ") || "openid";
+  const allowed = client.scopes;
+  const rejected = requestedScopes.find((scope) => !allowed.includes(scope));
+  if (rejected) throw new Error(`Scope is not allowed for this client: ${rejected}`);
+  return (requestedScopes.length ? requestedScopes : allowed).join(" ");
+}
+
 function buildProfile(config: MockConfig, body: URLSearchParams): { profile: LocalProfile; requestedOrg: string | undefined } {
+  const requestedOrg = body.get("organization_id") || undefined;
   const userSub = body.get("user");
   if (userSub) {
     const user = config.users.find((candidate) => candidate.sub === userSub);
     if (!user) throw new Error(`Unknown demo user: ${userSub}`);
-    const organizations = user.memberships.map((membership) => resolveMembership(config, membership));
     const profile: LocalProfile = {
       sub: user.sub,
       email: user.email,
       name: user.name,
       ...(user.picture ? { picture: user.picture } : {}),
-      organizations,
+      permissions: user.permissions,
+      ark: user.ark ? Buffer.from(user.ark, "base64url") : deriveMockArk(config.keySeed, user.sub),
+      keyId: user.keyId || DEFAULT_KEY_ID,
+      organizations: user.memberships.map((membership) => resolveMembership(config, membership)),
     };
-    const requestedOrg = body.get("organization_id") || organizations[0]?.organizationId;
     return { profile, requestedOrg };
   }
 
-  const organizationId = required(body, "organization_id");
-  const catalogOrg = config.organizations.find((org) => org.id === organizationId);
-  const slug = body.get("organization_slug") || catalogOrg?.slug || organizationId;
-  const name = body.get("organization_name") || catalogOrg?.name || titleize(slug);
   const roles = body.getAll("roles").filter(Boolean);
   const fromRoles = roles.flatMap((role) => config.roles[role] ?? []);
   const permissions = dedupe([...fromRoles, ...body.getAll("permissions").filter(Boolean)]);
-  const organization: LocalOrganization = {
-    organizationId,
-    slug,
-    name,
-    status: "active",
-    roles,
-    permissions,
-  };
   const sub = cleanId(required(body, "sub"));
   const email = body.get("email") || `${sub}@example.test`;
+  const organizations: LocalOrganization[] = [];
+  if (requestedOrg) {
+    const catalogOrg = config.organizations.find((org) => org.id === requestedOrg);
+    const slug = body.get("organization_slug") || catalogOrg?.slug || requestedOrg;
+    const name = body.get("organization_name") || catalogOrg?.name || titleize(slug);
+    organizations.push({ organizationId: requestedOrg, slug, name, status: "active", roles, permissions });
+  }
   const profile: LocalProfile = {
     sub,
     email,
     name: body.get("name") || email,
-    organizations: [organization],
+    permissions: requestedOrg ? [] : permissions,
+    ark: deriveMockArk(config.keySeed, sub),
+    keyId: DEFAULT_KEY_ID,
+    organizations,
   };
-  return { profile, requestedOrg: organizationId };
+  return { profile, requestedOrg };
 }
 
-async function tokenResponse(
-  config: MockConfig,
-  signingKey: SigningKey,
-  codes: Map<string, AuthCode>,
-  refreshSessions: Map<string, RefreshSession>,
-  body: URLSearchParams,
-) {
+async function tokenResponse(config: MockConfig, signingKey: SigningKey, state: State, body: URLSearchParams) {
   const grantType = required(body, "grant_type");
   if (grantType === "authorization_code") {
     const code = required(body, "code");
-    const authCode = codes.get(code);
-    codes.delete(code);
-    if (!authCode || authCode.expiresAt < Date.now()) throw new Error("Invalid or expired authorization code");
-    if (required(body, "client_id") !== authCode.clientId) throw new Error("Invalid client_id");
-    if (required(body, "redirect_uri") !== authCode.redirectUri) throw new Error("Invalid redirect_uri");
-    const verifier = required(body, "code_verifier");
-    if (!await verifyPkce(verifier, authCode.codeChallenge)) throw new Error("Invalid code_verifier");
-    return issueTokenSet(config, signingKey, refreshSessions, authCode.profile, authCode.organizationId, authCode.clientId);
+    const authCode = state.codes.get(code);
+    state.codes.delete(code);
+    if (!authCode || authCode.expiresAt < Date.now()) throw invalidGrant("Invalid or expired authorization code");
+    if (required(body, "client_id") !== authCode.clientId) throw invalidGrant("Invalid client_id");
+    if (required(body, "redirect_uri") !== authCode.redirectUri) throw invalidGrant("Invalid redirect_uri");
+    if (!verifyPkce(required(body, "code_verifier"), authCode.codeChallenge)) throw invalidGrant("Invalid code_verifier");
+    const { redirectUri, codeChallenge, nonce, keyHash, expiresAt, ...grant } = authCode;
+    const keyDelivery = keyHash ? { zk_key_hash: keyHash, zk_key_kind: "client_app_key", zk_key_version: "v2" } : {};
+    return {
+      ...(await issueTokenSet(config, signingKey, state, grant, "authorization_code", nonce)),
+      ...keyDelivery,
+    };
   }
   if (grantType === "refresh_token") {
     const refreshToken = required(body, "refresh_token");
-    const session = refreshSessions.get(refreshToken);
-    refreshSessions.delete(refreshToken);
-    if (!session || session.expiresAt < Date.now()) throw new Error("Invalid or expired refresh token");
-    const clientId = required(body, "client_id");
-    if (clientId !== session.clientId) throw new Error("Invalid client_id");
-    return issueTokenSet(config, signingKey, refreshSessions, session.profile, session.organizationId, session.clientId);
+    const entry = state.refreshTokens.get(refreshToken);
+    state.refreshTokens.delete(refreshToken);
+    const grant = entry && entry.expiresAt >= Date.now() ? state.sessions.get(entry.sid) : undefined;
+    if (!grant) throw invalidGrant("Invalid or expired refresh token");
+    if (required(body, "client_id") !== grant.clientId) throw invalidGrant("Invalid client_id");
+    return issueTokenSet(config, signingKey, state, grant, "refresh_token");
   }
-  throw new Error("Unsupported grant_type");
+  throw new HttpError(400, "unsupported_grant_type", "Unsupported grant_type");
 }
 
 async function issueTokenSet(
   config: MockConfig,
   signingKey: SigningKey,
-  refreshSessions: Map<string, RefreshSession>,
-  profile: LocalProfile,
-  organizationId: string,
-  clientId: string,
+  state: State,
+  grant: Grant,
+  grantType: "authorization_code" | "refresh_token",
+  nonce?: string,
 ) {
-  requireKnownClient(config, clientId);
-  const org = findOrganization(profile, organizationId);
-  const claims = {
-    email: profile.email,
+  const client = requireClient(config, grant.clientId);
+  const org = activeOrganization(grant);
+  const permissions = dedupe([...(org?.permissions ?? []), ...grant.profile.permissions]);
+  const scopes = grant.scope.split(" ");
+  const profileClaims = {
+    email: grant.profile.email,
     email_verified: true,
-    name: profile.name,
-    picture: profile.picture || null,
-    org_id: org.organizationId,
-    org_slug: org.slug,
-    organizations: profile.organizations,
-    roles: org.roles,
-    permissions: org.permissions,
+    name: grant.profile.name,
+    picture: grant.profile.picture || null,
+    org_id: org?.organizationId,
+    org_slug: org?.slug,
+    organizations: grant.profile.organizations,
+    roles: org?.roles ?? [],
   };
-  const token = await new SignJWT(claims)
-    .setProtectedHeader({ alg: "EdDSA", kid: signingKey.kid })
-    .setIssuer(config.issuer)
-    .setAudience(clientId)
-    .setSubject(profile.sub)
-    .setIssuedAt()
-    .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
-    .sign(signingKey.privateKey);
-  const refreshToken = randomUUID();
-  refreshSessions.set(refreshToken, {
-    profile,
-    organizationId: org.organizationId,
-    clientId,
-    expiresAt: Date.now() + REFRESH_TTL_MS,
+  const sign = (claims: Record<string, unknown>) =>
+    new SignJWT(claims)
+      .setProtectedHeader({ alg: "EdDSA", kid: signingKey.kid })
+      .setIssuer(config.issuer)
+      .setAudience(client.id)
+      .setSubject(grant.profile.sub)
+      .setIssuedAt()
+      .setExpirationTime(`${TOKEN_TTL_SECONDS}s`)
+      .sign(signingKey.privateKey);
+  const idToken = await sign({ ...profileClaims, permissions, amr: ["pwd"], sid: grant.sid, ...(nonce ? { nonce } : {}) });
+  const accessToken = await sign({
+    ...profileClaims,
+    azp: client.id,
+    scope: grant.scope,
+    permissions: client.scopes ? permissions.filter((permission) => scopes.includes(permission)) : permissions,
+    grant_type: grantType,
+    token_use: "access",
+    sid: grant.sid,
   });
+  const refreshToken = randomUUID();
+  state.sessions.set(grant.sid, grant);
+  state.refreshTokens.set(refreshToken, { sid: grant.sid, expiresAt: Date.now() + REFRESH_TTL_MS });
   return {
     token_type: "Bearer",
     expires_in: TOKEN_TTL_SECONDS,
-    id_token: token,
-    access_token: token,
+    scope: grant.scope,
+    id_token: idToken,
+    access_token: accessToken,
     refresh_token: refreshToken,
   };
 }
 
-async function verifyBearer(config: MockConfig, signingKey: SigningKey, request: IncomingMessage) {
-  const session = await optionalBearer(config, signingKey, request);
-  if (!session) throw new Error("Bearer access token required");
+function userInfo(grant: Grant, payload: Record<string, unknown>) {
+  const scopes = grant.scope.split(" ");
+  return {
+    sub: grant.profile.sub,
+    ...(scopes.includes("profile") ? { name: grant.profile.name } : {}),
+    ...(scopes.includes("email") ? { email: grant.profile.email, email_verified: true } : {}),
+    ...(typeof payload.org_id === "string" ? { org_id: payload.org_id, org_slug: payload.org_slug } : {}),
+    roles: payload.roles,
+    permissions: payload.permissions,
+  };
+}
+
+async function endSession(config: MockConfig, signingKey: SigningKey, state: State, idTokenHint: string | null) {
+  if (!idTokenHint) return;
+  const sid = await jwtVerify(idTokenHint, signingKey.publicKey, { issuer: config.issuer, algorithms: ["EdDSA"] })
+    .then((result) => stringValue(result.payload.sid), () => undefined);
+  if (!sid) return;
+  state.sessions.delete(sid);
+  for (const [token, entry] of state.refreshTokens) if (entry.sid === sid) state.refreshTokens.delete(token);
+}
+
+async function verifyBearer(config: MockConfig, signingKey: SigningKey, state: State, request: IncomingMessage) {
+  const session = await optionalBearer(config, signingKey, state, request);
+  if (!session) throw new HttpError(401, "invalid_token", "Bearer access token required");
   return session;
 }
 
-async function optionalBearer(config: MockConfig, signingKey: SigningKey, request: IncomingMessage) {
+async function optionalBearer(config: MockConfig, signingKey: SigningKey, state: State, request: IncomingMessage) {
   const header = request.headers.authorization;
   if (typeof header !== "string" || header.slice(0, 7).toLowerCase() !== "bearer ") return null;
   const token = header.slice(7).trim();
   if (!token || token.includes(" ")) return null;
-  const result = await jwtVerify(token, signingKey.publicKey, {
+  const { payload } = await jwtVerify(token, signingKey.publicKey, {
     issuer: config.issuer,
-    audience: config.clients,
+    audience: config.clients.map((client) => client.id),
     algorithms: ["EdDSA"],
+  }).catch(() => {
+    throw new HttpError(401, "invalid_token", "Invalid bearer token");
   });
-  const payload = result.payload;
-  const orgId = stringValue(payload.org_id);
-  if (!orgId) throw new Error("Bearer token is missing organization context");
-  const orgSlug = stringValue(payload.org_slug) || orgId;
-  const permissions = stringArray(payload.permissions);
-  const roles = stringArray(payload.roles);
-  const picture = stringValue(payload.picture);
-  const tokenOrganizations = parseTokenOrganizations(payload.organizations);
-  const organizations = tokenOrganizations.some((candidate) => candidate.organizationId === orgId)
-    ? tokenOrganizations
-    : [{
-      organizationId: orgId,
-      slug: orgSlug,
-      name: titleize(orgSlug),
-      status: "active" as const,
-      roles,
-      permissions,
-    }];
-  const profile: LocalProfile = {
-    sub: String(payload.sub || ""),
-    email: stringValue(payload.email) || "",
-    name: stringValue(payload.name) || stringValue(payload.email) || "",
-    ...(picture ? { picture } : {}),
-    organizations,
-  };
-  return { profile, organizationId: orgId };
+  const grant = state.sessions.get(stringValue(payload.sid) || "");
+  if (!grant) throw new HttpError(401, "invalid_token", "Bearer token session has ended");
+  return { grant, payload: payload as Record<string, unknown> };
 }
 
-function requireKnownClient(config: MockConfig, clientId: string) {
-  if (config.clients.length && !config.clients.includes(clientId)) {
-    throw new Error(`Unknown client_id: ${clientId}`);
-  }
+function requireClient(config: MockConfig, clientId: string) {
+  const client = config.clients.find((candidate) => candidate.id === clientId);
+  if (!client) throw new Error(`Unknown client_id: ${clientId}`);
+  return client;
+}
+
+function activeOrganization(grant: Grant) {
+  return grant.organizationId ? findOrganization(grant.profile, grant.organizationId) : undefined;
 }
 
 function findOrganization(profile: LocalProfile, organizationId: string) {
@@ -331,10 +410,15 @@ function findOrganization(profile: LocalProfile, organizationId: string) {
   return org;
 }
 
+function invalidGrant(message: string) {
+  return new HttpError(400, "invalid_grant", message);
+}
+
 function applyCors(config: MockConfig, request: IncomingMessage, response: ServerResponse) {
   const origin = request.headers.origin;
   if (typeof origin === "string" && (config.allowedOrigins.includes(origin) || config.allowedOrigins.includes("*"))) {
     response.setHeader("access-control-allow-origin", origin);
+    response.setHeader("access-control-allow-credentials", "true");
     response.setHeader("vary", "origin");
   }
   response.setHeader("access-control-allow-methods", "GET,POST,OPTIONS");
@@ -382,46 +466,18 @@ function required(body: URLSearchParams, key: string) {
   return value;
 }
 
-async function verifyPkce(verifier: string, expectedChallenge: string) {
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  return timingSafeStringEqual(challenge, expectedChallenge);
-}
-
-function timingSafeStringEqual(left: string, right: string) {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
-  return leftBuffer.length === rightBuffer.length && timingSafeEqual(leftBuffer, rightBuffer);
+function verifyPkce(verifier: string, expectedChallenge: string) {
+  const challenge = Buffer.from(createHash("sha256").update(verifier).digest("base64url"));
+  const expected = Buffer.from(expectedChallenge);
+  return challenge.length === expected.length && timingSafeEqual(challenge, expected);
 }
 
 function stringValue(value: unknown) {
   return typeof value === "string" ? value : undefined;
 }
 
-function stringArray(value: unknown) {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
-}
-
 function dedupe(values: string[]) {
   return [...new Set(values.filter(Boolean))];
-}
-
-function parseTokenOrganizations(value: unknown): LocalOrganization[] {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const organization = item as Record<string, unknown>;
-    const organizationId = stringValue(organization.organizationId);
-    if (!organizationId) return [];
-    const slug = stringValue(organization.slug) || organizationId;
-    return [{
-      organizationId,
-      slug,
-      name: stringValue(organization.name) || titleize(slug),
-      status: "active" as const,
-      roles: stringArray(organization.roles),
-      permissions: stringArray(organization.permissions),
-    }];
-  });
 }
 
 function cleanId(value: string) {
@@ -533,41 +589,22 @@ function authorizePage(config: MockConfig, url: URL) {
     .map(([key, value]) => `<input type="hidden" name="${escapeHtml(key)}" value="${escapeHtml(value)}">`)
     .join("");
 
-  const orgSections = config.organizations
-    .map((org) => {
-      const members = config.users.filter((user) => user.memberships.some((membership) => membership.org === org.id));
-      if (!members.length) return "";
-      const cards = members
-        .map((user) => {
+  const client = config.clients.find((candidate) => candidate.id === url.searchParams.get("client_id"));
+  const organizationless = client?.requireOrganizationSelection === false;
+  const userSections = organizationless
+    ? section("Users", "", config.users.map((user) => userCard(user, hiddenInputs, user.permissions, "no permissions")))
+    : config.organizations
+      .map((org) => {
+        const cards = config.users.flatMap((user) => {
           const membership = user.memberships.find((candidate) => candidate.org === org.id);
-          const resolved = membership ? resolveMembership(config, membership) : null;
-          const pills = resolved?.roles.length
-            ? resolved.roles.map((role) => `<span class="pill">${escapeHtml(role)}</span>`).join("")
-            : `<span class="pill pill-muted">no roles</span>`;
-          return `<form method="post" action="/authorize/continue" class="card-form">
-        ${hiddenInputs}
-        <input type="hidden" name="user" value="${escapeHtml(user.sub)}">
-        <input type="hidden" name="organization_id" value="${escapeHtml(org.id)}">
-        <button type="submit" class="card">
-          <span class="avatar" style="--tint:${avatarTint(user.sub)}">${escapeHtml(initials(user.name))}</span>
-          <span class="card-body">
-            <span class="card-name">${escapeHtml(user.name)}</span>
-            <span class="card-email">${escapeHtml(user.email)}</span>
-            <span class="pill-row">${pills}</span>
-          </span>
-        </button>
-      </form>`;
-        })
-        .join("");
-      return `<section class="org">
-      <h2><span class="org-name">${escapeHtml(org.name)}</span><span class="slug">${escapeHtml(org.slug)}</span></h2>
-      <div class="cards">${cards}</div>
-    </section>`;
-    })
-    .filter(Boolean)
-    .join("");
+          if (!membership) return [];
+          return [userCard(user, hiddenInputs, resolveMembership(config, membership).roles, "no roles", org.id)];
+        });
+        return cards.length ? section(org.name, org.slug, cards) : "";
+      })
+      .join("");
 
-  const orgOptions = config.organizations
+  const orgOptions = (organizationless ? '<option value="">No organization</option>' : "") + config.organizations
     .map((org) => `<option value="${escapeHtml(org.id)}" data-slug="${escapeHtml(org.slug)}" data-name="${escapeHtml(org.name)}">${escapeHtml(org.name)}</option>`)
     .join("");
   const roleChips = Object.keys(config.roles)
@@ -579,7 +616,7 @@ function authorizePage(config: MockConfig, url: URL) {
 
   const inner = `<p class="eyebrow">Local development only</p>
     <h1>Choose a local ${escapeHtml(config.appName)} identity</h1>
-    ${orgSections || '<p class="lede">No demo users configured. Use the custom identity form below.</p>'}
+    ${userSections || '<p class="lede">No demo users configured. Use the custom identity form below.</p>'}
     <details class="custom">
       <summary>Custom identity</summary>
       <form method="post" action="/authorize/continue" class="custom-form">
@@ -590,7 +627,7 @@ function authorizePage(config: MockConfig, url: URL) {
         </div>
         <label class="field">Subject<input name="sub" value="local-developer" required></label>
         <label class="field">Organization
-          <select name="organization_id" id="org-select" required>${orgOptions}</select>
+          <select name="organization_id" id="org-select"${organizationless ? "" : " required"}>${orgOptions}</select>
         </label>
         <div class="grid-2">
           <label class="field">Organization slug<input name="organization_slug" id="org-slug"></label>
@@ -614,6 +651,34 @@ function authorizePage(config: MockConfig, url: URL) {
       })();
     </script>`;
   return documentShell("DarkAuth Mock Login", inner, 660);
+}
+
+function section(name: string, slug: string, cards: string[]) {
+  if (!cards.length) return "";
+  return `<section class="org">
+      <h2><span class="org-name">${escapeHtml(name)}</span>${slug ? `<span class="slug">${escapeHtml(slug)}</span>` : ""}</h2>
+      <div class="cards">${cards.join("")}</div>
+    </section>`;
+}
+
+function userCard(user: MockUser, hiddenInputs: string, labels: string[], emptyLabel: string, organizationId?: string) {
+  const pills = labels.length
+    ? labels.map((label) => `<span class="pill">${escapeHtml(label)}</span>`).join("")
+    : `<span class="pill pill-muted">${escapeHtml(emptyLabel)}</span>`;
+  const orgInput = organizationId ? `<input type="hidden" name="organization_id" value="${escapeHtml(organizationId)}">` : "";
+  return `<form method="post" action="/authorize/continue" class="card-form">
+        ${hiddenInputs}
+        <input type="hidden" name="user" value="${escapeHtml(user.sub)}">
+        ${orgInput}
+        <button type="submit" class="card">
+          <span class="avatar" style="--tint:${avatarTint(user.sub)}">${escapeHtml(initials(user.name))}</span>
+          <span class="card-body">
+            <span class="card-name">${escapeHtml(user.name)}</span>
+            <span class="card-email">${escapeHtml(user.email)}</span>
+            <span class="pill-row">${pills}</span>
+          </span>
+        </button>
+      </form>`;
 }
 
 function styles() {
